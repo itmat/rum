@@ -12,6 +12,7 @@ Outputs to standard out.
 
 =cut
 
-use RUM::Common qw(transform_input modify_fa_to_have_seq_on_one_line);
+use RUM::Common qw(transform_input
+                   modify_fa_to_have_seq_on_one_line);
 
 transform_input(\&modify_fa_to_have_seq_on_one_line);
