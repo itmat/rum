@@ -3,6 +3,8 @@
 # Written by Gregory R. Grant
 # Universiry of Pennsylvania, 2010
 
+use RUM::Common qw(run_bowtie);
+
 if(@ARGV < 1) {
     die "
 Usage: create_indexes_from_ucsc.pl <NAME_genome.txt> <NAME_refseq_ucsc>
@@ -95,12 +97,10 @@ unlink("master_list_of_exons.txt");
 
 # run bowtie on genes index
 print STDERR "\nRunning bowtie on the gene index, please wait...\n\n";
-$O = $organism . "_genes";
-`bowtie-build $N5 $O`;
+run_bowtie($N5, $organism . "_genes");
 
 # run bowtie on genome index
 print STDERR "running bowtie on the genome index, please wait this can take some time...\n\n";
-$O = $organism . "_genome";
-`bowtie-build $F3 $O`;
+run_bowtie($F3, $organism . "_genome");
 
 print STDERR "ok, all done...\n\n";
