@@ -3,9 +3,6 @@
 # Written by Gregory R. Grant
 # University of Pennsylvania, 2010
 
-use Pod::Usage;
-use RUM::Common qw(modify_fa_to_have_seq_on_one_line);
-
 =pod
 
 Usage: modify_fa_to_have_seq_on_one_line.pl <fasta file>
@@ -15,10 +12,6 @@ Outputs to standard out.
 
 =cut
 
-if(@ARGV < 1) {
-    pod2usage();
-}
+use RUM::Common qw(transform_input modify_fa_to_have_seq_on_one_line);
 
-open($infile, $ARGV[0]);
-RUM::Common::modify_fa_to_have_seq_on_one_line($infile, STDOUT);
-close(INFILE);
+transform_input(\&modify_fa_to_have_seq_on_one_line);

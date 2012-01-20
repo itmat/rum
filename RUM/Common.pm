@@ -1,8 +1,10 @@
 package RUM::Common;
+use strict;
+use warnings;
+use Pod::Usage;
 
-require Exporter;
-@ISA = qw(Exporter);
-@EXPORT_OK = qw(modify_fa_to_have_seq_on_one_line);
+use Exporter 'import';
+our @EXPORT_OK = qw(modify_fa_to_have_seq_on_one_line transform_input);
 
 =pod
 
@@ -26,8 +28,8 @@ sub modify_fa_to_have_seq_on_one_line {
   
   my ($infile, $outfile) = @_;
 
-  $flag = 0;
-  while($line = <$infile>) {
+  my $flag = 0;
+  while(defined(my $line = <$infile>)) {
     if($line =~ />/) {
       if($flag == 0) {
         print $outfile $line;
@@ -44,5 +46,28 @@ sub modify_fa_to_have_seq_on_one_line {
   print $outfile "\n";
 }
 
+=item transform_input($infile_name, $function)
 
+Opens the file identified by $ARGV[0] and applies $function to it
+and the *STDOUT filehandle. $function should be a function that takes
+two filehandles, reads from the first, and writes to the second.
+
+This is just a convenience method so that scripts that want to
+transform a file listed on the command line and write the transformed
+output don't have to deal with opening files.
+
+=cut
+sub transform_input {
+  my $function = shift;
+  my ($infile_name) = @ARGV;
+  pod2usage() unless @ARGV == 1;
+  open my ($infile), $infile_name;
+  $function->($infile, *STDOUT);
+}
+
+=pod
+
+=back
+
+=cut
 return 1;
