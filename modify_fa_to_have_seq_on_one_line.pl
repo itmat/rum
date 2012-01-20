@@ -3,9 +3,15 @@
 # Written by Gregory R. Grant
 # University of Pennsylvania, 2010
 
-=pod
+=head1 NAME
 
-Usage: modify_fa_to_have_seq_on_one_line.pl <fasta file>
+modify_fa_to_have_seq_on_one_line
+
+=head1 SYNOPSIS
+
+modify_fa_to_have_seq_on_one_line.pl F<fasta_file>
+
+=head1 DESCRIPTION
 
 This modifies a fasta file to have the sequence all on one line.  
 Outputs to standard out.
