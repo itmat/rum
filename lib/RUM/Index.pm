@@ -2,6 +2,11 @@ package RUM::Index;
 use strict;
 use warnings;
 use Pod::Usage;
+use Log::Log4perl qw(:easy);
+
+use RUM::ChrCmp qw(cmpChrs);
+
+Log::Log4perl->easy_init($INFO);
 
 use FindBin qw($Bin);
 use Exporter 'import';
@@ -62,7 +67,7 @@ sub modify_fa_to_have_seq_on_one_line {
 
   my $flag = 0;
   while(defined(my $line = <$infile>)) {
-    # TODO: Use ^ anchor?
+    # TODO: Using ^ anchor seems to save 15%; 61 to 53 seconds for cow
     if($line =~ />/) {
       if($flag == 0) {
         print $outfile $line;
@@ -107,6 +112,12 @@ sub modify_fasta_header_for_genome_seq_database {
   }
 }
 
+my %transforms = 
+  (
+   modify_fasta_header_for_genome_seq_database => \&modify_fasta_header_for_genome_seq_database,
+   modify_fa_to_have_seq_on_one_line => \&modify_fa_to_have_seq_on_one_line,
+   sort_genome_fa_by_chr => \&sort_genome_fa_by_chr
+);
 
 =item transform_input($infile_name, $function)
 
@@ -120,12 +131,19 @@ output don't have to deal with opening files.
 
 =cut
 sub transform_input {
-  my $function = shift;
+  my $function_name = shift;
+  my $function = $transforms{$function_name} 
+    or die "No transform called $function_name";
   my ($infile_name) = @ARGV;
 
   pod2usage() unless @ARGV == 1;
   open my ($infile), $infile_name;
+  INFO "Running $function_name on $infile_name";
+  my $start = time();
   $function->($infile, *STDOUT);
+  my $stop = time();
+  my $elapsed = $stop - $start;
+  INFO "Done in $elapsed seconds.";
 }
 
 sub run_bowtie {
@@ -138,8 +156,9 @@ sub run_bowtie {
 sub run_subscript {
   my ($subscript, @args) = @_;
   my $cmd = "perl $Bin/$subscript @args";
-  print "Running $cmd\n";
+  INFO "Running $cmd";
   system $cmd;
+  my $stop = time();
   $? == 0 or die "Subscript failed: $!";
 }
 
@@ -148,7 +167,7 @@ sub sort_genome_fa_by_chr {
   my ($infile, $outfile) = @_;
 
   my %hash;
-
+  INFO "Reading in genome";
   while (defined (my $line = <$infile>)) {
     chomp($line);
     $line =~ /^>(.*)$/;
@@ -158,9 +177,17 @@ sub sort_genome_fa_by_chr {
     $hash{$chr} = $line;
   }
 
-  foreach my $chr (sort {cmpChrs($a,$b)} keys %hash) {
+  INFO "Sorting chromosomes";
+  my @chromosomes = sort cmpChrs keys %hash;
+  
+  INFO "Printing output";
+  foreach my $chr (@chromosomes) {
     print $outfile ">$chr\n$hash{$chr}\n";
   }
+}
+
+sub make_master_file_of_genes {
+
 }
 
 =back

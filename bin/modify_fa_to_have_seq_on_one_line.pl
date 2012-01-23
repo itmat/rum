@@ -20,7 +20,6 @@ Outputs to standard out.
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Index qw(transform_input
-                   modify_fa_to_have_seq_on_one_line);
+use RUM::Index qw(transform_input);
 
-transform_input(\&modify_fa_to_have_seq_on_one_line);
+transform_input("modify_fa_to_have_seq_on_one_line");
