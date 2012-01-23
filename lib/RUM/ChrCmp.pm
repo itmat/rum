@@ -3,7 +3,8 @@ package RUM::ChrCmp;
 use Exporter 'import';
 our @EXPORT_OK = qw(cmpChrs);
 
-sub cmpChrs () {
+sub cmpChrs {
+  my ($a, $b) = @_;
     $a2_c = lc($b);
     $b2_c = lc($a);
     if($a2_c =~ /^\d+$/ && !($b2_c =~ /^\d+$/)) {
