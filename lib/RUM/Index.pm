@@ -15,7 +15,8 @@ our @EXPORT_OK = qw(modify_fa_to_have_seq_on_one_line
                     sort_genome_fa_by_chr
                     transform_input
                     %transforms
-                    run_bowtie run_subscript);
+                    run_bowtie run_subscript
+                    make_master_file_of_genes);
 
 =pod
 
@@ -188,8 +189,102 @@ sub sort_genome_fa_by_chr {
   }
 }
 
-sub make_master_file_of_genes {
+sub read_files_file {
+  my ($filesfilename) = @_;
+  open(my $filesfile, "<", $filesfilename);
+  my @files;
+  while(defined (my $file = <$filesfile>)) {
+    INFO "processing $file";
+    chomp($file);
+    push @files, $file;
+  }
+  close $filesfile;
+  return @files;
+}
 
+sub make_master_file_of_genes {
+  my ($filesfilename) = @_;
+  my $TOTAL = 0;
+
+  open(my $filesfile, "<", $filesfilename);
+
+  my %geneshash;
+
+  my @files = read_files_file($filesfilename);
+
+  for my $file (@files) {
+    INFO "processing $file";
+    my ($type) = $file =~ /(.*).txt$/g;
+    open(my $infile, "<", $file);
+    my $line = <$infile>;
+    chomp($line);
+    my @header = split(/\t/,$line);
+    my $n = @header;
+
+    my ($namecol, $chromcol, $strandcol, $exonStartscol, $exonEndscol);
+
+    for(my $i=0; $i<$n; $i++) {
+
+      if($header[$i] =~ /name/) {
+        $namecol = $i;
+      }
+      if($header[$i] =~ /chrom/) {
+        $chromcol = $i;
+      }
+      if($header[$i] =~ /strand/) {
+        $strandcol = $i;
+      }
+      if($header[$i] =~ /exonStarts/) {
+        $exonStartscol = $i;
+      }
+      if($header[$i] =~ /exonEnds/) {
+        $exonEndscol = $i;
+      }
+    }
+    # TODO: Make sure we got all the fields?
+
+    my $CNT=0;
+    while(defined (my $line = <$infile>)) {
+      chomp($line);
+      
+      # Skip comments
+      next if $line =~ /^#/;
+
+      my @a = split(/\t/,$line);
+      $a[$exonStartscol] =~ /^(\d+)/;
+      my $txStart = $1;
+      $a[$exonEndscol] =~ /(\d+),?$/;
+      my $txEnd = $1;
+      my @b = split(/,/,$a[$exonStartscol]);
+      my $exonCnt = @b;
+      my $info = join("\t",
+                   $a[$chromcol],
+                   $a[$strandcol],
+                   $txStart,
+                   $txEnd,
+                   $exonCnt,
+                   $a[$exonStartscol],
+                   $a[$exonEndscol]);
+      $geneshash{$info} ||= "";
+      if($geneshash{$info} =~ /\S/) {
+        $geneshash{$info} = $geneshash{$info} . "::::" . $a[$namecol] . "($type)";
+      }
+      else {
+        $geneshash{$info} = $geneshash{$info} . $a[$namecol].  "($type)";
+      }
+      $CNT++;
+    }
+    close($infile);
+    INFO "$CNT lines in file\n";
+    $TOTAL = $TOTAL + $CNT;
+  }
+  close($filesfile);
+  print STDERR "TOTAL: $TOTAL\n";
+  
+  foreach my $geneinfo (keys %geneshash) {
+    print "$geneinfo\t$geneshash{$geneinfo}\n";
+  }
+  
 }
 
 =back
