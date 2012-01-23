@@ -1,0 +1,5 @@
+* Check exit status of all system calls
+* Unit tests
+
+* Ability to run on files in another directory?
+* Add logging?
