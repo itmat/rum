@@ -62,6 +62,7 @@ sub modify_fa_to_have_seq_on_one_line {
 
   my $flag = 0;
   while(defined(my $line = <$infile>)) {
+    # TODO: Use ^ anchor?
     if($line =~ />/) {
       if($flag == 0) {
         print $outfile $line;

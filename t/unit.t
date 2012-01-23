@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 2;
+use Test::More tests => 3;
 use lib "lib";
 
 BEGIN { use_ok('RUM::Index', qw(modify_fa_to_have_seq_on_one_line
