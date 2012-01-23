@@ -3,7 +3,11 @@
 # Written by Gregory R. Grant
 # Universiry of Pennsylvania, 2010
 
-use RUM::Common qw(run_bowtie);
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+
+use RUM::Index qw(run_bowtie);
+
 
 if(@ARGV < 1) {
     die "
@@ -29,10 +33,10 @@ $F2 =~ s/.txt$/_one-line-seqs_temp.fa/;
 $F3 = $infile;
 $F3 =~ s/.txt$/_one-line-seqs.fa/;
 
-print STDERR "perl modify_fasta_header_for_genome_seq_database.pl $infile > $F1\n";
-`perl modify_fasta_header_for_genome_seq_database.pl $infile > $F1`;
-print STDERR "perl modify_fa_to_have_seq_on_one_line.pl $F1 > $F2\n";
-`perl modify_fa_to_have_seq_on_one_line.pl $F1 > $F2`;
+print STDERR "perl $Bin/modify_fasta_header_for_genome_seq_database.pl $infile > $F1\n";
+`perl $Bin/modify_fasta_header_for_genome_seq_database.pl $infile > $F1`;
+print STDERR "perl $Bin/modify_fa_to_have_seq_on_one_line.pl $F1 > $F2\n";
+`perl $Bin/modify_fa_to_have_seq_on_one_line.pl $F1 > $F2`;
 print STDERR "perl sort_genome_fa_by_chr.pl $F2 >  $F3\n";
 `perl sort_genome_fa_by_chr.pl $F2 >  $F3`;
 
