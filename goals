@@ -1,7 +1,9 @@
 * Check exit status of all system calls
-* Unit tests
+* Move most functionality from scripts into modules for reuse and testing
+* Add unit tests
 
-* Ability to run on files in another directory?
+* Use more conventional directory structure and packaging (CPAN?)
+* Be able to install in one place and run on files in another directory
 * Add logging?
 
 # Need to install Log::Log4perl
