@@ -6,8 +6,12 @@
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
+use Getopt::Long;
+
 use RUM::Index qw(run_bowtie run_subscript);
 
+my $debug = 0;
+$result == GetOptions("debug" => \$debug);
 
 if(@ARGV < 1) {
     die "
@@ -26,6 +30,10 @@ $infile = $ARGV[0];
 if(!($infile =~ /\.txt$/)) {
     die "ERROR: the <NAME_gnome.txt> file has to end in '.txt', yours doesn't...\n";
 }
+
+# Strip extra characters off the headers, join adjacent sequence lines
+# together, and sort the genome by chromosome.
+
 $F1 = $infile;
 $F1 =~ s/.txt$/.fa/;
 $F2 = $infile;
@@ -33,13 +41,14 @@ $F2 =~ s/.txt$/_one-line-seqs_temp.fa/;
 $F3 = $infile;
 $F3 =~ s/.txt$/_one-line-seqs.fa/;
 
-
 run_subscript "modify_fasta_header_for_genome_seq_database.pl", "$infile > $F1";
 run_subscript "modify_fa_to_have_seq_on_one_line.pl",  "$F1 > $F2";
 run_subscript "sort_genome_fa_by_chr.pl", "$F2 >  $F3";
 
-unlink($F1);
-unlink($F2);
+unless ($debug) {
+  unlink($F1);
+  unlink($F2);
+}
 
 $NAME = $ARGV[1];
 
