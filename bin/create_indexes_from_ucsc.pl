@@ -41,14 +41,14 @@ $F2 =~ s/.txt$/_one-line-seqs_temp.fa/;
 $F3 = $infile;
 $F3 =~ s/.txt$/_one-line-seqs.fa/;
 
-#run_subscript "modify_fasta_header_for_genome_seq_database.pl", "$infile > $F1";
-#run_subscript "modify_fa_to_have_seq_on_one_line.pl",  "$F1 > $F2";
-#run_subscript "sort_genome_fa_by_chr.pl", "$F2 >  $F3";
+run_subscript "modify_fasta_header_for_genome_seq_database.pl", "$infile > $F1";
+run_subscript "modify_fa_to_have_seq_on_one_line.pl",  "$F1 > $F2";
+run_subscript "sort_genome_fa_by_chr.pl", "$F2 >  $F3";
 
-#unless ($debug) {
-#  unlink($F1);
-#  unlink($F2);
-#}
+unless ($debug) {
+  unlink($F1);
+  unlink($F2);
+}
 
 $NAME = $ARGV[1];
 
@@ -59,10 +59,9 @@ $N4 = $NAME . "_gene_info_unsorted.txt";
 $N5 = $NAME . "_genes.fa";
 $N6 = $NAME . "_gene_info.txt";
 
-print STDERR "perl make_master_file_of_genes.pl gene_info_files > gene_info_merged_unsorted.txt\n";
-`perl make_master_file_of_genes.pl gene_info_files > gene_info_merged_unsorted.txt`;
-print STDERR "perl fix_geneinfofile_for_neg_introns.pl gene_info_merged_unsorted.txt 5 6 4 > gene_info_merged_unsorted_fixed.txt\n";
-`perl fix_geneinfofile_for_neg_introns.pl gene_info_merged_unsorted.txt 5 6 4 > gene_info_merged_unsorted_fixed.txt`;
+run_subscript "make_master_file_of_genes.pl",  "gene_info_files > gene_info_merged_unsorted.txt";
+run_subscript "fix_geneinfofile_for_neg_introns.pl",
+  "gene_info_merged_unsorted.txt 5 6 4 > gene_info_merged_unsorted_fixed.txt";
 print STDERR "perl sort_geneinfofile.pl gene_info_merged_unsorted_fixed.txt > gene_info_merged_sorted_fixed.txt\n";
 `perl sort_geneinfofile.pl gene_info_merged_unsorted_fixed.txt > gene_info_merged_sorted_fixed.txt`;
 print STDERR "perl make_ids_unique4geneinfofile.pl gene_info_merged_sorted_fixed.txt $N1\n";

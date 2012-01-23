@@ -14,6 +14,7 @@ Log::Log4perl->easy_init($INFO);
 our @EXPORT_OK = qw(modify_fa_to_have_seq_on_one_line
                     modify_fasta_header_for_genome_seq_database
                     sort_genome_fa_by_chr
+                    fix_geneinfofile_for_neg_introns
                     transform_input
                     run_bowtie run_subscript
                     make_master_file_of_genes);
@@ -145,7 +146,8 @@ output don't have to deal with opening files.
 
 =cut
 sub transform_input {
-  my ($function) = shift;
+  my ($function, @args) = @_;
+
   die "Argument to transform_input must be a CODE reference: $function" 
     unless ref($function) =~ /^CODE/;
     
@@ -153,11 +155,11 @@ sub transform_input {
 
   my ($infile_name) = @ARGV;
 
-  pod2usage() unless @ARGV == 1;
+  pod2usage() unless @ARGV >= 1;
   open my ($infile), $infile_name;
   INFO "Running $function_name on $infile_name";
   my $start = time();
-  $function->($infile, *STDOUT);
+  $function->($infile, *STDOUT, @args);
   my $stop = time();
   my $elapsed = $stop - $start;
   INFO "Done in $elapsed seconds.";
@@ -324,6 +326,76 @@ sub make_master_file_of_genes {
   
   foreach my $geneinfo (keys %geneshash) {
     print "$geneinfo\t$geneshash{$geneinfo}\n";
+  }
+  
+}
+
+=item fix_geneinfofile_for_neg_introns($infile, $outfile, $starts_col, $ends_col, $exon_count_col)
+
+Takes a UCSC gene annotation file ($infile) and outputs a file that removes
+introns of zero or negative length.  You'd think there shouldn't be
+such introns but for some annotation sets there are.
+
+<starts col> is the column with the exon starts, <ends col> is the
+column with the exon ends.  These are counted starting from zero.
+<num exons col> is the column that has the number of exons, also
+counted starting from zero.  If there is no such column, set this to
+-1.
+
+=cut
+sub fix_geneinfofile_for_neg_introns {
+  my ($infile, $outfile, $starts_col, $ends_col, $exon_count_col) = @_;
+  print "I am here\n";
+  while (defined (my $line = <$infile>)) {
+    chomp($line);
+    my @a = split(/\t/, $line);
+    my $starts = $a[$starts_col];
+    my $ends = $a[$ends_col];
+
+    # Make sure the starts, ends, and exon_counts columns are
+    # populated
+    if(!($starts =~ /\S/)) {
+	die "ERROR: the 'starts' column has empty entries\n";
+    }
+    if(!($ends =~ /\S/)) {
+	die "ERROR: the 'ends' column has empty entries\n";
+    }
+    if(!($a[$exon_count_col] =~ /\S/)) {
+	die "ERROR: the 'exon counts' column has empty entries\n";
+    }
+
+    $starts =~ s/,\s*$//;
+    $ends =~ s/,\s*$//;
+    my @S = split(/,/, $starts);
+    my @E = split(/,/, $ends);
+    my $start_string = $S[0] . ",";
+    my $end_string = "";
+    my $N = @S;
+    for(my $i=1; $i<$N; $i++) {
+      my $intronlength = $S[$i] - $E[$i-1];
+      my $realstart = $E[$i-1] + 1;
+      my $realend = $S[$i];
+      my $length = $realend - $realstart + 1;
+      DEBUG "length = $length";
+      if($length > 0) {
+        $start_string = $start_string . $S[$i] . ",";
+        $end_string = $end_string . $E[$i-1] . ",";
+      }
+      else {
+        #           print $outfile "$line\n";
+        if($exon_count_col >= 0) {
+          $a[$exon_count_col]--;
+        }
+      }
+    }
+    $end_string = $end_string . $E[$N-1] . ",";;
+    $a[$starts_col] = $start_string;
+    $a[$ends_col] = $end_string;
+    print $outfile "$a[0]";
+    for(my $i=1; $i<@a; $i++) {
+      print $outfile "\t$a[$i]";
+    }
+    print $outfile "\n";
   }
   
 }
