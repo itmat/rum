@@ -3,11 +3,13 @@ use strict;
 use warnings;
 use Pod::Usage;
 
+use FindBin qw($Bin);
 use Exporter 'import';
 our @EXPORT_OK = qw(modify_fa_to_have_seq_on_one_line
                     modify_fasta_header_for_genome_seq_database
+                    sort_genome_fa_by_chr
                     transform_input
-                    run_bowtie);
+                    run_bowtie run_subscript);
 
 =pod
 
@@ -119,6 +121,7 @@ output don't have to deal with opening files.
 sub transform_input {
   my $function = shift;
   my ($infile_name) = @ARGV;
+
   pod2usage() unless @ARGV == 1;
   open my ($infile), $infile_name;
   $function->($infile, *STDOUT);
@@ -131,6 +134,33 @@ sub run_bowtie {
   $? == 0 or die "Bowtie failed: $!";
 }
 
+sub run_subscript {
+  my ($subscript, @args) = @_;
+  my $cmd = "perl $Bin/$subscript @args";
+  print "Running $cmd\n";
+  system $cmd;
+  $? == 0 or die "Subscript failed: $!";
+}
+
+sub sort_genome_fa_by_chr {
+
+  my ($infile, $outfile) = @_;
+
+  my %hash;
+
+  while (defined (my $line = <INFILE>)) {
+    chomp($line);
+    $line =~ /^>(.*)$/;
+    my $chr = $1;
+    $line = <INFILE>;
+    chomp($line);
+    $hash{$chr} = $line;
+  }
+
+  foreach my $chr (sort {cmpChrs($a,$b)} keys %hash) {
+    print $outfile ">$chr\n$hash{$chr}\n";
+  }
+}
 
 =back
 

@@ -1,33 +1,7 @@
-#!/usr/bin/perl
+package RUM::ChrCmp;
 
-# Written by Gregory R. Grant
-# University of Pennsylvania, 2010
-
-if(@ARGV < 1) {
-    die "
-Usage: sort_genome_fa_by_chr.pl <genome fa file>
-
-This script is part of the pipeline of scripts used to create RUM indexes.
-You should probably not be running it alone.  See the library file:
-'how2setup_genome-indexes_forPipeline.txt'.
-
-";
-}
-
-open(INFILE, $ARGV[0]);
-while($line = <INFILE>) {
-    chomp($line);
-    $line =~ /^>(.*)$/;
-    $chr = $1;
-    $line = <INFILE>;
-    chomp($line);
-    $hash{$chr} = $line;
-}
-close(INFILE);
-
-foreach $chr (sort {cmpChrs($a,$b)} keys %hash) {
-    print ">$chr\n$hash{$chr}\n";
-}
+use Exporter 'import';
+our @EXPORT_OK = qw(cmpChrs);
 
 sub cmpChrs () {
     $a2_c = lc($b);
