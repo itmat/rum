@@ -1,4 +1,4 @@
-package RUM::Common;
+package RUM::Index;
 use strict;
 use warnings;
 use Pod::Usage;
@@ -14,6 +14,14 @@ our @EXPORT_OK = qw(modify_fa_to_have_seq_on_one_line
 =head1 NAME
 
 RUM::Common - Common utilities for RUM.
+
+=head1 VERSION
+
+Version 0.01
+
+=cut
+
+our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
