@@ -14,6 +14,7 @@ our @EXPORT_OK = qw(modify_fa_to_have_seq_on_one_line
                     modify_fasta_header_for_genome_seq_database
                     sort_genome_fa_by_chr
                     transform_input
+                    %transforms
                     run_bowtie run_subscript);
 
 =pod
@@ -118,6 +119,7 @@ my %transforms =
    modify_fa_to_have_seq_on_one_line => \&modify_fa_to_have_seq_on_one_line,
    sort_genome_fa_by_chr => \&sort_genome_fa_by_chr
 );
+
 
 =item transform_input($infile_name, $function)
 

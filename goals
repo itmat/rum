@@ -3,3 +3,5 @@
 
 * Ability to run on files in another directory?
 * Add logging?
+
+# Need to install Log::Log4perl
