@@ -148,11 +148,11 @@ sub sort_genome_fa_by_chr {
 
   my %hash;
 
-  while (defined (my $line = <INFILE>)) {
+  while (defined (my $line = <$infile>)) {
     chomp($line);
     $line =~ /^>(.*)$/;
     my $chr = $1;
-    $line = <INFILE>;
+    $line = <$infile>;
     chomp($line);
     $hash{$chr} = $line;
   }
