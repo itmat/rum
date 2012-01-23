@@ -16,6 +16,6 @@ You should probably not be running it alone.  See the library file:
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Index qw(transform_input);
+use RUM::Index qw(transform_input sort_genome_fa_by_chr);
 
-transform_input("sort_genome_fa_by_chr");
+transform_input(\&sort_genome_fa_by_chr);

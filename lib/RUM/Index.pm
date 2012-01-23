@@ -1,20 +1,20 @@
 package RUM::Index;
+
 use strict;
 use warnings;
+
+use FindBin qw($Bin);
+use Exporter 'import';
 use Pod::Usage;
 use Log::Log4perl qw(:easy);
-
 use RUM::ChrCmp qw(cmpChrs);
 
 Log::Log4perl->easy_init($INFO);
 
-use FindBin qw($Bin);
-use Exporter 'import';
 our @EXPORT_OK = qw(modify_fa_to_have_seq_on_one_line
                     modify_fasta_header_for_genome_seq_database
                     sort_genome_fa_by_chr
                     transform_input
-                    %transforms
                     run_bowtie run_subscript
                     make_master_file_of_genes);
 
@@ -50,6 +50,10 @@ our $VERSION = '0.01';
 =head1 DESCRIPTION
 
 Provides some common utilities for creating indexes for RUM.
+
+=cut
+
+our %TRANSFORM_NAMES;
 
 =head2 Subroutines
 
@@ -88,7 +92,8 @@ sub modify_fa_to_have_seq_on_one_line {
 
 =item modify_fasta_header_for_genome_seq_database($infile, $outfile
 
-Transform each line on $infile and write to $outfile, changing any fasta header lines that look like:
+Transform each line on $infile and write to $outfile, changing any
+fasta header lines that look like:
 
     >hg19_ct_UserTrack_3545_+ range=chrUn_gl000248:1-39786 ...
 
@@ -114,12 +119,18 @@ sub modify_fasta_header_for_genome_seq_database {
   }
 }
 
-my %transforms = 
-  (
-   modify_fasta_header_for_genome_seq_database => \&modify_fasta_header_for_genome_seq_database,
-   modify_fa_to_have_seq_on_one_line => \&modify_fa_to_have_seq_on_one_line,
-   sort_genome_fa_by_chr => \&sort_genome_fa_by_chr
-);
+# Populate %TRANSFORM_NAMES so that each key is a code ref and the
+# corresponding value is the name of that function. This way we can
+# print the name of a function given a reference to it.
+
+{ 
+  no strict "refs";
+  for my $name (@EXPORT_OK) {
+    my $long_name = "RUM::Index::$name";
+    my $code = \&$long_name;
+    $TRANSFORM_NAMES{$code} = $name;
+  }
+}
 
 
 =item transform_input($infile_name, $function)
@@ -134,9 +145,12 @@ output don't have to deal with opening files.
 
 =cut
 sub transform_input {
-  my $function_name = shift;
-  my $function = $transforms{$function_name} 
-    or die "No transform called $function_name";
+  my ($function) = shift;
+  die "Argument to transform_input must be a CODE reference: $function" 
+    unless ref($function) =~ /^CODE/;
+    
+  my $function_name = $TRANSFORM_NAMES{$function};
+
   my ($infile_name) = @ARGV;
 
   pod2usage() unless @ARGV == 1;
@@ -149,6 +163,12 @@ sub transform_input {
   INFO "Done in $elapsed seconds.";
 }
 
+=item run_bowtie(@args)
+
+Runs bowtie-build with the following arguments. Checks the return
+status and dies if it's non-zero.
+
+=cut
 sub run_bowtie {
   my @cmd = ("bowtie-build", @_);
   print "Running @cmd\n";
@@ -156,6 +176,12 @@ sub run_bowtie {
   $? == 0 or die "Bowtie failed: $!";
 }
 
+=item run_subscript($script, @args)
+
+Runs perl on the given script with the given args. Checks the return
+status and dies if it's non-zero.
+
+=cut
 sub run_subscript {
   my ($subscript, @args) = @_;
   my $cmd = "perl $Bin/$subscript @args";
@@ -165,6 +191,13 @@ sub run_subscript {
   $? == 0 or die "Subscript failed: $!";
 }
 
+=item sort_genome_fa_by_chr($infile, $outfile)
+
+Expects an input file containing FASTA data, where adjacent sequence
+lines are all concatenated together in a long line. Sorts the entries
+in the file by chromosome.
+
+=cut
 sub sort_genome_fa_by_chr {
 
   my ($infile, $outfile) = @_;
@@ -181,7 +214,7 @@ sub sort_genome_fa_by_chr {
   }
 
   INFO "Sorting chromosomes";
-  my @chromosomes = sort cmpChrs keys %hash;
+  my @chromosomes = sort { cmpChrs($a, $b) } keys %hash;
   
   INFO "Printing output";
   foreach my $chr (@chromosomes) {
@@ -189,7 +222,7 @@ sub sort_genome_fa_by_chr {
   }
 }
 
-sub read_files_file {
+sub _read_files_file {
   my ($filesfilename) = @_;
   open(my $filesfile, "<", $filesfilename);
   my @files;
@@ -202,15 +235,23 @@ sub read_files_file {
   return @files;
 }
 
+=item make_master_file_of_genes($filesfilename)
+
+Reads in one or more files containing gene info and merges them
+together. For records that exist in both files, we merge the records
+together and append the names used in both files.
+
+=cut
+
 sub make_master_file_of_genes {
   my ($filesfilename) = @_;
-  my $TOTAL = 0;
+  my $total = 0;
 
   open(my $filesfile, "<", $filesfilename);
 
   my %geneshash;
 
-  my @files = read_files_file($filesfilename);
+  my @files = _read_files_file($filesfilename);
 
   for my $file (@files) {
     INFO "processing $file";
@@ -243,12 +284,12 @@ sub make_master_file_of_genes {
     }
     # TODO: Make sure we got all the fields?
 
-    my $CNT=0;
+    my $cnt=0;
     while(defined (my $line = <$infile>)) {
       chomp($line);
       
       # Skip comments
-      next if $line =~ /^#/;
+      next if($line =~ /^#/);
 
       my @a = split(/\t/,$line);
       $a[$exonStartscol] =~ /^(\d+)/;
@@ -272,14 +313,14 @@ sub make_master_file_of_genes {
       else {
         $geneshash{$info} = $geneshash{$info} . $a[$namecol].  "($type)";
       }
-      $CNT++;
+      $cnt++;
     }
     close($infile);
-    INFO "$CNT lines in file\n";
-    $TOTAL = $TOTAL + $CNT;
+    INFO "$cnt lines in file\n";
+    $total += $cnt;
   }
   close($filesfile);
-  print STDERR "TOTAL: $TOTAL\n";
+  print STDERR "TOTAL: $total\n";
   
   foreach my $geneinfo (keys %geneshash) {
     print "$geneinfo\t$geneshash{$geneinfo}\n";
@@ -291,7 +332,7 @@ sub make_master_file_of_genes {
 
 =head1 AUTHORS
 
-=over
+=over 4
 
 =item Gregory R. Grant
 

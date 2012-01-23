@@ -29,6 +29,7 @@ You should probably not be running it alone.  See the library file:
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Index qw(transform_input);
+use RUM::Index qw(transform_input
+                  modify_fasta_header_for_genome_seq_database);
 
-transform_input("modify_fasta_header_for_genome_seq_database");
+transform_input(\&modify_fasta_header_for_genome_seq_database);
