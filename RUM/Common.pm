@@ -116,16 +116,6 @@ sub transform_input {
   $function->($infile, *STDOUT);
 }
 
-
-my %transforms = 
-  (
-   modify_fasta_header_for_genome_seq_database =>
-   \&modify_fasta_header_for_genome_seq_database,
-
-   modify_fa_to_have_seq_on_one_line =>
-   \&modify_fa_to_have_seq_on_one_line,
-);
-
 sub run_bowtie {
   my @cmd = ("bowtie-build", @_);
   print "Running @cmd\n";
@@ -133,32 +123,6 @@ sub run_bowtie {
   $? == 0 or die "Bowtie failed: $!";
 }
 
-sub chain_transforms {
-  my ($infile, $outfile, @transform_names) = @_;
-
-  # Verify that all the transform names are valid:
-  my @missing = grep { not exists $transforms{$_} } @transform_names;
-  die "These transforms are not defined: @missing" if @missing;
-}
-
-sub _chain_transforms {
-  my ($infile, $outfile, @transform_names) = @_;
-  my $tempfile;
-
-  my ($name, @rest) = @transform_names;
-  my $transform = $transforms{$name};
-
-  if (@rest) {
-    my ($tempfile, $filename) = tempfile();
-    $transform->($infile, $tempfile);
-    _chain_transforms($tempfile, $outfile, @rest);
-    unlink($tempfile);
-  }
-
-  else {
-    $transform->($infile, $outfile);
-  }
-}
 
 =back
 
