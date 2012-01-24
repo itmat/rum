@@ -90,8 +90,7 @@ with_timing "Making fasta files for master list of genes", sub {
   make_fasta_files_for_master_list_of_genes("temp.fa", "master_list_of_exons.txt", $N1, $N4, $N3);
 };
 
-print STDERR "perl $Bin/../sort_gene_info.pl $N4 > $N6\n";
-`perl $Bin/../sort_gene_info.pl $N4 > $N6`;
+transform_file \&sort_gene_info, $N4, $N6;
 
 print STDERR "perl $Bin/../sort_gene_fa_by_chr.pl $N3 > $N5\n";
 `perl $Bin/../sort_gene_fa_by_chr.pl $N3 > $N5`;

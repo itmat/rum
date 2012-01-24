@@ -12,7 +12,8 @@ our %EXPORT_TAGS =
                      fix_geneinfofile_for_neg_introns
                      sort_geneinfofile
                      make_ids_unique4geneinfofile
-                     get_master_list_of_exons_from_geneinfofile)]);
+                     get_master_list_of_exons_from_geneinfofile
+                     sort_gene_info)]);
 our @EXPORT_OK = qw(make_fasta_files_for_master_list_of_genes);
 Exporter::export_ok_tags('transforms');
 
@@ -506,5 +507,32 @@ sub reversecomplement () {
 }
 
 ################################################################################
+
+sub sort_gene_info {
+  my ($in, $out) = @_;
+  my %hash;
+  while (defined (my $line = <$in>)) {
+    chomp($line);
+    my @a = split(/\t/,$line);
+    my $chr = $a[0];
+    my $start = $a[2];
+    my $end = $a[3];
+    my $name = $a[7];
+    $hash{$chr}{$line}[0] = $start;
+    $hash{$chr}{$line}[1] = $end;
+    $hash{$chr}{$line}[2] = $name;
+  }
+  
+  foreach my $chr (sort {cmpChrs($a,$b)} keys %hash) {
+    foreach my $line (sort {$hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1]) || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]==$hash{$chr}{$b}[1] && $hash{$chr}{$a}[2] cmp $hash{$chr}{$b}[2])} keys %{$hash{$chr}}) {
+      chomp($line);
+      if($line =~ /\S/) {
+        print $out $line;
+        print $out "\n";
+      }
+    }
+  }
+}
+
 
 1;
