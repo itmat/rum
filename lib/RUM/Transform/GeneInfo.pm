@@ -13,7 +13,7 @@ our %EXPORT_TAGS =
                      sort_geneinfofile
                      make_ids_unique4geneinfofile
                      get_master_list_of_exons_from_geneinfofile)]);
-
+our @EXPORT_OK = qw(make_fasta_files_for_master_list_of_genes);
 Exporter::export_ok_tags('transforms');
 
 =pod
@@ -324,5 +324,187 @@ sub get_master_list_of_exons_from_geneinfofile {
     print $out "$_\n";
   }
 }
+
+
+################################################################################
+#
+# Everything between here and the next #### line has to do with
+# make_fasta_files_for_master_list_of_genes. This could probably use a
+# bit of refactoring.
+
+sub make_fasta_files_for_master_list_of_genes {
+
+  my ($genome_fasta_filename,
+      $exon_in_filename,
+      $gene_info_in_filename,
+      $final_gene_info_file,
+      $final_gene_fasta_file) = @_;
+
+  # Note: fasta file $ARGV[0] must have seq all on one line
+  open my $infile, "<", $genome_fasta_filename;
+
+  my %chromosomes_in_genome;
+  my %chromosomes_from_exons;
+
+  open my $final_gene_fasta, ">", $final_gene_fasta_file;
+
+  while (defined (my $line = <$infile>)) {
+    
+    # Read a header line
+    chomp($line);
+    $line =~ />(.*)/;
+    my $chr = $1;
+    INFO "$line\n";
+    $chromosomes_in_genome{$chr}++;
+
+    # Read a sequence line
+    $line = <$infile>;
+    chomp($line);
+    my $seq = $line;
+
+    # Get the exons for this chromosome / sequence
+    open my $exon_in_file, "<", $exon_in_filename;
+    my $exons = get_exons($exon_in_file, $chr, $seq, \%chromosomes_from_exons);
+    INFO "done with exons for $chr\n";
+  
+    # Get the genes for this chromosome / sequence
+    open(my $gene_in_file, $gene_info_in_filename);
+    get_genes($gene_in_file, $final_gene_fasta, $chr, $seq, $exons);
+    INFO "done with genes for $chr\n";
+    
+  }
+
+  remove_genes_with_missing_sequence($gene_info_in_filename,
+                                     $final_gene_info_file,
+                                     \%chromosomes_from_exons, \%chromosomes_in_genome);
+}
+
+
+
+sub remove_genes_with_missing_sequence {
+
+  my ($gene_info_in_filename, $final_gene_info_file, $from_exons, $in_genome) = @_;
+
+  my $str = "cat $gene_info_in_filename";
+  my $flag = 0;
+  foreach my $key (keys %$from_exons) {
+    if($in_genome->{$key}+0==0) {
+      if($flag == 0) {
+        INFO "no sequence for:\n$key\n";
+        $flag = 1;
+      } else {
+        INFO "$key\n";
+      }
+      $str = $str .  " | grep -v $key";
+    }
+  }
+  if($flag == 1) {
+    INFO "Removing the genes on the chromosomes for which there was no genome sequence.\n";
+    $str = $str . " > $final_gene_info_file";
+    INFO "str:\n$str\n";
+    `$str`;
+  } else {
+    `cp $gene_info_in_filename $final_gene_info_file`;
+  }
+}
+
+sub get_exons () {
+  my ($exon_in_file, $chr, $seq, $chromosomes_hash) = @_;
+
+  my %exons;
+
+  while (defined (my $line2 = <$exon_in_file>)) {
+    chomp($line2);
+    $line2 =~ /(.*):(\d+)-(\d+)/;
+    my $CHR = $1;
+    my $START = $2;
+    my $END = $3;
+    $chromosomes_hash->{$CHR}++;
+    if($CHR eq $chr) {
+      my $EXONSEQ = substr($seq,$START-1,$END-$START+1);
+      $exons{$line2} = $EXONSEQ;
+    }
+  }
+
+  return \%exons;
+}
+
+=item get_genes
+
+=cut
+sub get_genes () {
+  my ($gene_in_file, $out, $chr, $seq, $exons) = @_;
+
+  while(defined (my $line2 = <$gene_in_file>)) {
+    chomp($line2);
+    my @a = split(/\t/,$line2);
+    my $strand = $a[1];
+    my $starts = $a[5];
+    my $ends = $a[6];
+    $starts =~ s/\s*,\s*$//;
+    $ends =~ s/\s*,\s*$//;
+    my @STARTS = split(/,/,$starts);
+    my @ENDS = split(/,/,$ends);
+    my $CHR = $a[0];
+
+    if ($CHR eq $chr) {
+      my $GENESEQ = "";
+      for(my $i=0; $i<@STARTS; $i++) {
+        my $s = $STARTS[$i] + 1;  # add one because of the pesky zero based ucsc coords
+        my $e = $ENDS[$i];  # don't add one to the end, because of the pesky half-open based ucsc coords
+        my $ex = "$CHR:$s-$e";
+        $GENESEQ = $GENESEQ . $exons->{$ex};
+        if(!($exons->{$ex} =~ /\S/)) {
+          die "ERROR: exon for $ex not found.\n$line2\ni=$i\n";
+        }
+      }
+      $a[7] =~ s/::::.*//;
+      $a[7] =~ s/\([^\(]+$//;
+      print $out ">$a[7]:$CHR:$a[2]-$a[3]_$a[1]\n";
+
+      my $SEQ;
+      if($a[1] eq '-') {
+        $SEQ = &reversecomplement($GENESEQ);
+      } else {
+        $SEQ = $GENESEQ;
+      }
+      print $out "$SEQ\n";
+    }
+  }
+
+}
+
+
+sub reversecomplement () {
+  my ($sq) = @_;
+  my @A = split(//,$sq);
+  my $rev = "";
+  my $flag;
+  for (my $i=@A-1; $i>=0; $i--) {
+    $flag = 0;
+    if($A[$i] eq 'A') {
+      $rev = $rev . "T";
+      $flag = 1;
+    }
+    if($A[$i] eq 'T') {
+      $rev = $rev . "A";
+      $flag = 1;
+    }
+    if($A[$i] eq 'C') {
+      $rev = $rev . "G";
+      $flag = 1;
+    }
+    if($A[$i] eq 'G') {
+      $rev = $rev . "C";
+      $flag = 1;
+    }
+    if($flag == 0) {
+      $rev = $rev . $A[$i];
+    }
+  }
+  return $rev;
+}
+
+################################################################################
 
 1;
