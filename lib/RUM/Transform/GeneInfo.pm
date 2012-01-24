@@ -10,7 +10,8 @@ our %EXPORT_TAGS =
   (
    transforms => [qw(make_master_file_of_genes
                      fix_geneinfofile_for_neg_introns
-                     sort_geneinfofile)]);
+                     sort_geneinfofile
+                     make_ids_unique4geneinfofile)]);
 
 Exporter::export_ok_tags('transforms');
 
@@ -235,6 +236,64 @@ sub sort_geneinfofile {
   foreach my $line (sort {
     $chr{$a} cmp $chr{$b} || $start{$a}<=>$start{$b} || $end{$a}<=>$end{$b}} keys %start) {
     print $outfile "$line\n";
+  }
+}
+
+sub make_ids_unique4geneinfofile {
+  my ($in, $out) = @_;
+  my (%idcount, %typecount);
+
+  while (defined (my $line = <$in>)) {
+    chomp($line);
+    my @a = split(/\t/,$line);
+    my @b = split(/::::/,$a[7]);
+    
+    # Count the number of rows with the current id and type
+    for(my $i=0; $i<@b; $i++) {
+      $b[$i] =~ /(.*)\(([^\)]+)\)$/;
+      my $id = $1;
+      my $type = $2;
+      $id =~ s/.*://;
+      $id =~ s/\(.*//;
+      $idcount{$type}{$id}++;
+      $typecount{$id}{$type}++;
+    }
+  }
+  seek $in, 0, 0;
+
+  # Count the total number of types per id
+  my %id_type_count;
+  foreach my $id (keys %typecount) {
+    my $cnt = 0;
+    foreach my $type (keys %{$typecount{$id}}) {
+      $cnt++;
+    }
+    $id_type_count{$id} = $cnt;
+  }
+
+
+  my %idcount2;
+  while (defined (my $line = <$in>)) {
+    chomp($line);
+    my @a = split(/\t/,$line);
+    my @b = split(/::::/,$a[7]);
+    for(my $i=0; $i<@b; $i++) {
+      $b[$i] =~ /(.*)\(([^\)]+)\)$/;
+      my $id = $1;
+      my $type = $2;
+      $id =~ s/.*://;
+      $id =~ s/\(.*//;
+      $idcount2{$type}{$id}++;
+      if($idcount{$type}{$id} > 1) {
+        my $j = $idcount2{$type}{$id};
+        my $id_with_number = $id . "[[$j]]";
+        $line =~ s/$id\($type\)/$id_with_number\($type\)/;
+      }
+      if($id_type_count{$id} > 1) {
+        $line =~ s/\($type\)/\.$type($type\)/;
+      }
+    }
+    print $out "$line\n";
   }
 }
 

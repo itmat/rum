@@ -8,7 +8,7 @@ use lib "$Bin/../lib";
 
 use Getopt::Long;
 
-use RUM::Index qw(run_bowtie run_subscript);
+use RUM::Index qw(run_bowtie);
 use RUM::Transform qw(transform_file);
 use RUM::Transform::Fasta qw(:transforms);
 use RUM::Transform::GeneInfo qw(:transforms);
@@ -73,15 +73,16 @@ transform_file \&sort_geneinfofile,
   "gene_info_merged_unsorted_fixed.txt",
   "gene_info_merged_sorted_fixed.txt";
 
+transform_file \&make_ids_unique4geneinfofile,
+  "gene_info_merged_sorted_fixed.txt", $N1;
+
 exit;
-print STDERR "perl make_ids_unique4geneinfofile.pl gene_info_merged_sorted_fixed.txt $N1\n";
-`perl make_ids_unique4geneinfofile.pl gene_info_merged_sorted_fixed.txt $N1`;
+
 print STDERR "perl get_master_list_of_exons_from_geneinfofile.pl $N1\n";
 `perl get_master_list_of_exons_from_geneinfofile.pl $N1`;
 print STDERR "perl modify_fa_to_have_seq_on_one_line.pl $N2 > temp.fa\n";
 `perl modify_fa_to_have_seq_on_one_line.pl $N2 > temp.fa`;
 print STDERR "perl make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3\n";
-print "perl make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3\n";
 `perl make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3`;
 print STDERR "perl sort_gene_info.pl $N4 > $N6\n";
 `perl sort_gene_info.pl $N4 > $N6`;
