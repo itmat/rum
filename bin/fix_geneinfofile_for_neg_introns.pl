@@ -1,11 +1,14 @@
 #!/usr/bin/perl
 
-# Written by Gregory R. Grant
-# Universiry of Pennsylvania, 2010
+=head1 NAME
 
-if(@ARGV < 1) {
-    die "
-Usage: fix_geneinfofile_for_neg_introns.pl <gene info file> <starts col> <ends col> <num exons col>
+fix_geneinfofile_for_neg_introns
+
+=head1 SYNOPSIS
+
+fix_geneinfofile_for_neg_introns.pl F<gene-info-file> F<starts-col> F<ends-col> F<num-exons-col> > out.txt
+
+=head1 DESCRIPTION
 
 This script takes a UCSC gene annotation file and outputs a file that removes
 introns of zero or negative length.  You'd think there shouldn't be such introns
@@ -19,19 +22,41 @@ is no such column, set this to -1.
 This script is part of the pipeline of scripts used to create RUM indexes.
 For more information see the library file: 'how2setup_genome-indexes_forPipeline.txt'.
 
-";
-}
+=head1 OPTIONS
+
+=over 4
+
+=item I<--help|-h>
+
+Get help.
+
+=back
+
+=head1 ARGUMENTS
+
+=over 4
+
+=item F<gene-info-file>
+
+File to operate on.
+
+=back
+
+=head1 AUTHOR
+
+Written by Gregory R. Grant, University of Pennsylvania, 2010
+
+=cut
 
 use strict;
 use warnings;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Index qw(transform_input
-                  fix_geneinfofile_for_neg_introns);
+use RUM::Transform qw(get_options show_usage transform_file);
+use RUM::Transform::GeneInfo qw(fix_geneinfofile_for_neg_introns);
 
-print "Starting\n";
-
-transform_input(\&fix_geneinfofile_for_neg_introns, @ARGV[1,2,3]);
-print "Hre!\n";
-
+get_options();
+show_usage() unless @ARGV == 4;
+my ($in, @args) = @ARGV;
+transform_file \&fix_geneinfofile_for_neg_introns, $in, undef, @args;

@@ -6,7 +6,8 @@ use warnings;
 use Log::Log4perl qw(:easy);
 
 use Exporter 'import';
-our @EXPORT_OK = qw(make_master_file_of_genes);
+our @EXPORT_OK = qw(make_master_file_of_genes
+                    fix_geneinfofile_for_neg_introns);
 
 =item make_master_file_of_genes($filesfilename)
 
@@ -107,3 +108,76 @@ sub make_master_file_of_genes {
   }
   
 }
+
+
+=item fix_geneinfofile_for_neg_introns($infile, $outfile, $starts_col, $ends_col, $exon_count_col)
+
+Takes a UCSC gene annotation file ($infile) and outputs a file that removes
+introns of zero or negative length.  You'd think there shouldn't be
+such introns but for some annotation sets there are.
+
+<starts col> is the column with the exon starts, <ends col> is the
+column with the exon ends.  These are counted starting from zero.
+<num exons col> is the column that has the number of exons, also
+counted starting from zero.  If there is no such column, set this to
+-1.
+
+=cut
+sub fix_geneinfofile_for_neg_introns {
+  my ($infile, $outfile, $starts_col, $ends_col, $exon_count_col) = @_;
+
+  while (defined (my $line = <$infile>)) {
+    chomp($line);
+    my @a = split(/\t/, $line);
+    my $starts = $a[$starts_col];
+    my $ends = $a[$ends_col];
+
+    # Make sure the starts, ends, and exon_counts columns are
+    # populated
+    if(!($starts =~ /\S/)) {
+	die "ERROR: the 'starts' column has empty entries\n";
+    }
+    if(!($ends =~ /\S/)) {
+	die "ERROR: the 'ends' column has empty entries\n";
+    }
+    if(!($a[$exon_count_col] =~ /\S/)) {
+	die "ERROR: the 'exon counts' column has empty entries\n";
+    }
+
+    $starts =~ s/,\s*$//;
+    $ends =~ s/,\s*$//;
+    my @S = split(/,/, $starts);
+    my @E = split(/,/, $ends);
+    my $start_string = $S[0] . ",";
+    my $end_string = "";
+    my $N = @S;
+    for(my $i=1; $i<$N; $i++) {
+      my $intronlength = $S[$i] - $E[$i-1];
+      my $realstart = $E[$i-1] + 1;
+      my $realend = $S[$i];
+      my $length = $realend - $realstart + 1;
+      DEBUG "length = $length";
+      if($length > 0) {
+        $start_string = $start_string . $S[$i] . ",";
+        $end_string = $end_string . $E[$i-1] . ",";
+      }
+      else {
+        #           print $outfile "$line\n";
+        if($exon_count_col >= 0) {
+          $a[$exon_count_col]--;
+        }
+      }
+    }
+    $end_string = $end_string . $E[$N-1] . ",";;
+    $a[$starts_col] = $start_string;
+    $a[$ends_col] = $end_string;
+    print $outfile "$a[0]";
+    for(my $i=1; $i<@a; $i++) {
+      print $outfile "\t$a[$i]";
+    }
+    print $outfile "\n";
+  }
+  
+}
+
+1;

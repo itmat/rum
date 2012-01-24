@@ -13,7 +13,8 @@ use RUM::Transform qw(transform_file);
 use RUM::Transform::Fasta qw(modify_fasta_header_for_genome_seq_database
                              modify_fa_to_have_seq_on_one_line
                              sort_genome_fa_by_chr);
-use RUM::Transform::GeneInfo qw(make_master_file_of_genes);
+use RUM::Transform::GeneInfo qw(make_master_file_of_genes
+                                fix_geneinfofile_for_neg_introns);
 
 my $debug = 0;
 $result == GetOptions("debug" => \$debug);
@@ -64,10 +65,13 @@ $N6 = $NAME . "_gene_info.txt";
 
 transform_file \&make_master_file_of_genes, "gene_info_files", "gene_info_merged_unsorted.txt";
 
+transform_file \&fix_geneinfofile_for_neg_introns, 
+  "gene_info_merged_unsorted.txt", 
+  "gene_info_merged_unsorted_fixed.txt",
+  5, 6, 4;
+
 exit;
 
-run_subscript "fix_geneinfofile_for_neg_introns.pl",
-  "gene_info_merged_unsorted.txt 5 6 4 > gene_info_merged_unsorted_fixed.txt";
 print STDERR "perl sort_geneinfofile.pl gene_info_merged_unsorted_fixed.txt > gene_info_merged_sorted_fixed.txt\n";
 `perl sort_geneinfofile.pl gene_info_merged_unsorted_fixed.txt > gene_info_merged_sorted_fixed.txt`;
 print STDERR "perl make_ids_unique4geneinfofile.pl gene_info_merged_sorted_fixed.txt $N1\n";
