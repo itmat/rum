@@ -86,16 +86,16 @@ transform_file \&get_master_list_of_exons_from_geneinfofile,
 #  $N2, "temp.fa";
 system "cp", $N2, "temp.fa";
 
+print STDERR "perl $Bin/make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3\n";
+`perl $Bin/make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3`;
+
 exit;
 
-print STDERR "perl $Bin/../make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3\n";
-`perl make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3`;
+print STDERR "perl $Bin/../sort_gene_info.pl $N4 > $N6\n";
+`perl $Bin/../sort_gene_info.pl $N4 > $N6`;
 
-print STDERR "perl sort_gene_info.pl $N4 > $N6\n";
-`perl sort_gene_info.pl $N4 > $N6`;
-
-print STDERR "perl sort_gene_fa_by_chr.pl $N3 > $N5\n";
-`perl sort_gene_fa_by_chr.pl $N3 > $N5`;
+print STDERR "perl $Bin/../sort_gene_fa_by_chr.pl $N3 > $N5\n";
+`perl $Bin/../sort_gene_fa_by_chr.pl $N3 > $N5`;
 
 unless ($debug) {
   unlink for ($N3, $N4, "temp.fa");
