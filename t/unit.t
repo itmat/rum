@@ -7,8 +7,8 @@ use strict;
 use warnings;
 
 BEGIN { 
-  use_ok('RUM::Index', qw(modify_fa_to_have_seq_on_one_line
-                          modify_fasta_header_for_genome_seq_database)); 
+  use_ok('RUM::Transform::Fasta', qw(modify_fa_to_have_seq_on_one_line
+                                     modify_fasta_header_for_genome_seq_database)); 
 
   use_ok('RUM::ChrCmp', qw(cmpChrs sort_by_chromosome));
 }

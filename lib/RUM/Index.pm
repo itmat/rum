@@ -11,10 +11,7 @@ use RUM::ChrCmp qw(cmpChrs sort_by_chromosome);
 
 Log::Log4perl->easy_init($INFO);
 
-our @EXPORT_OK = qw(modify_fa_to_have_seq_on_one_line
-                    modify_fasta_header_for_genome_seq_database
-                    sort_genome_fa_by_chr
-                    fix_geneinfofile_for_neg_introns
+our @EXPORT_OK = qw(fix_geneinfofile_for_neg_introns
                     transform_input
                     run_bowtie run_subscript
                     make_master_file_of_genes);
@@ -62,63 +59,6 @@ our %TRANSFORM_NAMES;
 
 =cut
 
-=item modify_fa_to_have_seq_on_one_line($infile, $outfile)
-
-Modify a fasta file to have the sequence all on one line. Reads from
-$infile and writes to $outfile.
-
-=cut
-sub modify_fa_to_have_seq_on_one_line {
-  
-  my ($infile, $outfile) = @_;
-
-  my $flag = 0;
-  while(defined(my $line = <$infile>)) {
-    # TODO: Using ^ anchor seems to save 15%; 61 to 53 seconds for cow
-    if($line =~ />/) {
-      if($flag == 0) {
-        print $outfile $line;
-        $flag = 1;
-      } else {
-        print $outfile "\n$line";
-      }
-    } else {
-      chomp($line);
-      $line = uc $line;
-      print $outfile $line;
-    }
-  }
-  print $outfile "\n";
-}
-
-=item modify_fasta_header_for_genome_seq_database($infile, $outfile
-
-Transform each line on $infile and write to $outfile, changing any
-fasta header lines that look like:
-
-    >hg19_ct_UserTrack_3545_+ range=chrUn_gl000248:1-39786 ...
-
-to look like:
-
-    >chrUn_gl000248
-
-=cut
-sub modify_fasta_header_for_genome_seq_database {
-  my ($infile, $outfile) = @_;
-  while(defined(my $line = <$infile>)) {
-    chomp($line);
-    if($line =~ /^>/) {
-	$line =~ s/^>//;
-        $line =~ s/.*UserTrack_3545_.*range=//;
-        $line =~ s/ 5'pad=0 3'pad=0//;
-        $line =~ s/ repeatMasking=none//;
-        $line =~ s/ /_/g;
-	$line =~ s/:[^:]+$//;
-        $line = ">" . $line;
-    }
-    print $outfile "$line\n";
-  }
-}
 
 # Populate %TRANSFORM_NAMES so that each key is a code ref and the
 # corresponding value is the name of that function. This way we can
@@ -132,7 +72,6 @@ sub modify_fasta_header_for_genome_seq_database {
     $TRANSFORM_NAMES{$code} = $name;
   }
 }
-
 
 =item transform_input($infile_name, $function)
 
@@ -155,14 +94,7 @@ sub transform_input {
 
   my ($infile_name) = @ARGV;
 
-  pod2usage() unless @ARGV >= 1;
-  open my ($infile), $infile_name;
-  INFO "Running $function_name on $infile_name";
-  my $start = time();
-  $function->($infile, *STDOUT, @args);
-  my $stop = time();
-  my $elapsed = $stop - $start;
-  INFO "Done in $elapsed seconds.";
+  open my $infile, $infile_name or die "Can't open $ARGV[0]: $!";
 }
 
 =item run_bowtie(@args)

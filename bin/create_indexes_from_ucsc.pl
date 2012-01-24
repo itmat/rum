@@ -41,13 +41,12 @@ $F2 =~ s/.txt$/_one-line-seqs_temp.fa/;
 $F3 = $infile;
 $F3 =~ s/.txt$/_one-line-seqs.fa/;
 
-run_subscript "modify_fasta_header_for_genome_seq_database.pl", "$infile > $F1";
-run_subscript "modify_fa_to_have_seq_on_one_line.pl",  "$F1 > $F2";
-run_subscript "sort_genome_fa_by_chr.pl", "$F2 >  $F3";
+transform_file $infile, $F1, \&modify_fasta_header_for_genome_seq_database;
+transform_file $F1, $F2, \&modify_fasta_header_for_genome_seq_database;
+transform_file $F3, $F3, \&sort_genome_fa_by_chr;
 
 unless ($debug) {
-  unlink($F1);
-  unlink($F2);
+  unlink $file for my $file ($F1, $F2);
 }
 
 $NAME = $ARGV[1];
