@@ -19,6 +19,8 @@ for which there is no sequence in the <genome fasta> file.
 
 $final_gene_info_file = $ARGV[3];
 
+our %exons;
+
 # Note: fasta file $ARGV[0] must have seq all on one line
 open(INFILE, $ARGV[0]) or die "ERROR: cannot open '$ARGV[0]' for reading\n";
 $line = <INFILE>;
@@ -88,44 +90,48 @@ sub get_exons () {
 }
 
 sub get_genes () {
-    ($chr, $seq) = @_;
+  use strict;
+  my ($chr, $seq) = @_;
+  
+  open(my $gene_in_file, $ARGV[2]) or die "ERROR: cannot open '$ARGV[2]' for reading.\n";
 
-    open(GENEINFILE, $ARGV[2]) or die "ERROR: cannot open '$ARGV[2]' for reading.\n";
-    while($line2 = <GENEINFILE>) {
-	chomp($line2);
-	@a = split(/\t/,$line2);
-	$strand = $a[1];
-	$starts = $a[5];
-	$ends = $a[6];
-	$starts =~ s/\s*,\s*$//;
-	$ends =~ s/\s*,\s*$//;
-	@STARTS = split(/,/,$starts);
-	@ENDS = split(/,/,$ends);
-	$CHR = $a[0];
-	if($CHR eq $chr) {
-	    $GENESEQ = "";
-	    for($i=0; $i<@STARTS; $i++) {
-		$s = $STARTS[$i] + 1;  # add one because of the pesky zero based ucsc coords
-		$e = $ENDS[$i];  # don't add one to the end, because of the pesky half-open based ucsc coords
-		$ex = "$CHR:$s-$e";
-		$GENESEQ = $GENESEQ . $exons{$ex};
-		if(!($exons{$ex} =~ /\S/)) {
-		    die "ERROR: exon for $ex not found.\n$line2\ni=$i\n";
-		}
-	    }
-	    $a[7] =~ s/::::.*//;
-	    $a[7] =~ s/\([^\(]+$//;
-	    print ">$a[7]:$CHR:$a[2]-$a[3]_$a[1]\n";
-	    if($a[1] eq '-') {
-		$SEQ = &reversecomplement($GENESEQ);
-	    } else {
-		$SEQ = $GENESEQ;
-	    }
-	    print "$SEQ\n";
-	}
+  while(defined (my $line2 = <$gene_in_file>)) {
+    chomp($line2);
+    my @a = split(/\t/,$line2);
+    my $strand = $a[1];
+    my $starts = $a[5];
+    my $ends = $a[6];
+    $starts =~ s/\s*,\s*$//;
+    $ends =~ s/\s*,\s*$//;
+    my @STARTS = split(/,/,$starts);
+    my @ENDS = split(/,/,$ends);
+    my $CHR = $a[0];
+
+    if ($CHR eq $chr) {
+      my $GENESEQ = "";
+      for(my $i=0; $i<@STARTS; $i++) {
+        my $s = $STARTS[$i] + 1;  # add one because of the pesky zero based ucsc coords
+        my $e = $ENDS[$i];  # don't add one to the end, because of the pesky half-open based ucsc coords
+        my $ex = "$CHR:$s-$e";
+        $GENESEQ = $GENESEQ . $exons{$ex};
+        if(!($exons{$ex} =~ /\S/)) {
+          die "ERROR: exon for $ex not found.\n$line2\ni=$i\n";
+        }
+      }
+      $a[7] =~ s/::::.*//;
+      $a[7] =~ s/\([^\(]+$//;
+      print ">$a[7]:$CHR:$a[2]-$a[3]_$a[1]\n";
+
+      my $SEQ;
+      if($a[1] eq '-') {
+        $SEQ = &reversecomplement($GENESEQ);
+      } else {
+        $SEQ = $GENESEQ;
+      }
+      print "$SEQ\n";
     }
-    close(GENEINFILE);
-    close(GENEOUTFILE);
+  }
+
 }
 
 
