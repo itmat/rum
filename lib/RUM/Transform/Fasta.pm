@@ -6,6 +6,35 @@ use Log::Log4perl qw(:easy);
 use Exporter 'import';
 use RUM::ChrCmp qw(cmpChrs sort_by_chromosome);
 
+=pod
+
+=head1 NAME
+
+RUM::Transform::Fasta - Common utilities for transforming fasta files.
+
+=head1 VERSION
+
+Version 0.01
+
+=cut
+
+our $VERSION = '0.01';
+
+=head1 SYNOPSIS
+
+  use RUM::Transform::Fasta qw(:transforms);
+
+  modify_fa_to_have_seq_on_one_line($in, $out);
+  modify_fasta_header_for_genome_seq_database($in, $out);
+  sort_genome_fa_by_chr($in, $out);
+
+=head1 DESCRIPTION
+
+=head2 Subroutines
+
+=over 4
+
+=cut
 
 our %EXPORT_TAGS = 
   (transforms => [qw(modify_fa_to_have_seq_on_one_line

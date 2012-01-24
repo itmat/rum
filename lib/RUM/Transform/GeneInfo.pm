@@ -14,6 +14,36 @@ our %EXPORT_TAGS =
 
 Exporter::export_ok_tags('transforms');
 
+=pod
+
+=head1 NAME
+
+RUM::Transform::GeneInfo - Common utilities for transforming annotated gene files.
+
+=head1 VERSION
+
+Version 0.01
+
+=cut
+
+our $VERSION = '0.01';
+
+=head1 SYNOPSIS
+
+  use RUM::Transform::GeneInfo qw(:transforms);
+
+  make_master_file_of_genes($gene_info_files_file, $out);
+  fix_geneinfofile_for_neg_introns($infile, $outfile, $starts_col, $ends_col, $exon_count_col);
+  sort_geneinfofile($in, $out);
+
+=head1 DESCRIPTION
+
+=head2 Subroutines
+
+=over 4
+
+=cut
+
 =item make_master_file_of_genes($filesfilename)
 
 Reads in one or more files containing gene info and merges them
@@ -185,6 +215,11 @@ sub fix_geneinfofile_for_neg_introns {
   
 }
 
+=item sort_geneinfofile()
+
+Sorts an annotated gene file first by chromosome, then by start exons, then by end exons.
+
+=cut
 sub sort_geneinfofile {
   my ($infile, $outfile) = @_;
   my (%start, %end, %chr);
@@ -202,7 +237,5 @@ sub sort_geneinfofile {
     print $outfile "$line\n";
   }
 }
-
-
 
 1;

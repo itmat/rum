@@ -6,6 +6,40 @@ use warnings;
 use Exporter 'import';
 our @EXPORT_OK = qw(cmpChrs sort_by_chromosome);
 
+=pod
+
+=head1 NAME
+
+RUM::ChrCmp - Utilities for comparing chromosome names.
+
+=head1 VERSION
+
+Version 0.01
+
+=cut
+
+our $VERSION = '0.01';
+
+=head1 SYNOPSIS
+
+  use RUM::ChrCmp qw(cmpChrs sort_by_chromosome);
+
+  @chromosomes = sort cmpChrs @chromosomes;
+  @chromosomes = sort_by_chromosome @chromosomes;
+
+=head1 DESCRIPTION
+
+=head2 Subroutines
+
+=over 4
+
+=cut
+
+=item cmpChrs
+
+Comparator that compares chromosome names.
+
+=cut
 sub cmpChrs {
   my $a2_c = lc($b);
   my $b2_c = lc($a);
@@ -193,6 +227,12 @@ sub cmpChrs {
 
     return 1;
 }
+
+=item isroman(N)
+
+Return a true value if N is a roman numeral, false otherwise.
+
+=cut
 sub isroman($) {
   my $arg = shift;
   return $arg ne '' and
@@ -202,6 +242,11 @@ sub isroman($) {
              (?: V?I{0,3} | I[VX])$/ix;
 }
 
+=item arabic(N)
+
+Return the arabic number for the given roman numeral.
+
+=cut
 sub arabic($) {
     my $arg = shift;
     my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
@@ -219,6 +264,11 @@ sub arabic($) {
     $arabic;
 }
 
+=item Roman(N)
+
+Return the roman numeral for N.
+
+=cut
 sub Roman($) {
   my $arg = shift;
   my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
@@ -247,10 +297,20 @@ sub Roman($) {
   $roman;
 }
 
+=item roman(N)
+
+Return the lower case roman numeral for N.
+
+=cut
 sub roman($) {
   lc Roman shift;
 }
 
+=item sort_by_chromosome()
+
+Sort the given list by chromosome.
+
+=cut
 sub sort_by_chromosome {
   return sort cmpChrs @_;
 }
