@@ -13,6 +13,7 @@ use RUM::Transform qw(transform_file);
 use RUM::Transform::Fasta qw(modify_fasta_header_for_genome_seq_database
                              modify_fa_to_have_seq_on_one_line
                              sort_genome_fa_by_chr);
+use RUM::Transform::GeneInfo qw(make_master_file_of_genes);
 
 my $debug = 0;
 $result == GetOptions("debug" => \$debug);
