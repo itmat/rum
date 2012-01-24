@@ -1,24 +1,26 @@
 package RUM::ChrCmp;
 
+use strict;
+use warnings;
+
 use Exporter 'import';
-our @EXPORT_OK = qw(cmpChrs);
+our @EXPORT_OK = qw(cmpChrs sort_by_chromosome);
 
 sub cmpChrs {
-  my ($a, $b) = @_;
-    $a2_c = lc($b);
-    $b2_c = lc($a);
-    if($a2_c =~ /^\d+$/ && !($b2_c =~ /^\d+$/)) {
-        return 1;
-    }
-    if($b2_c =~ /^\d+$/ && !($a2_c =~ /^\d+$/)) {
-        return -1;
-    }
-    if($a2_c =~ /^[ivxym]+$/ && !($b2_c =~ /^[ivxym]+$/)) {
-        return 1;
-    }
-    if($b2_c =~ /^[ivxym]+$/ && !($a2_c =~ /^[ivxym]+$/)) {
-        return -1;
-    }
+  my $a2_c = lc($b);
+  my $b2_c = lc($a);
+  if($a2_c =~ /^\d+$/ && !($b2_c =~ /^\d+$/)) {
+    return 1;
+  }
+  if($b2_c =~ /^\d+$/ && !($a2_c =~ /^\d+$/)) {
+    return -1;
+  }
+  if($a2_c =~ /^[ivxym]+$/ && !($b2_c =~ /^[ivxym]+$/)) {
+    return 1;
+  }
+  if($b2_c =~ /^[ivxym]+$/ && !($a2_c =~ /^[ivxym]+$/)) {
+    return -1;
+  }
     if($a2_c eq 'm' && ($b2_c eq 'y' || $b2_c eq 'x')) {
         return -1;
     }
@@ -38,11 +40,11 @@ sub cmpChrs {
     # dealing with roman numerals starts here
     if($a2_c =~ /chr([ivx]+)/ && $b2_c =~ /chr([ivx]+)/) {
 	$a2_c =~ /chr([ivx]+)/;
-	$a2_roman = $1;
+	my $a2_roman = $1;
 	$b2_c =~ /chr([ivx]+)/;
-	$b2_roman = $1;
-	$a2_arabic = arabic($a2_roman);
-    	$b2_arabic = arabic($b2_roman);
+	my $b2_roman = $1;
+	my $a2_arabic = arabic($a2_roman);
+    	my $b2_arabic = arabic($b2_roman);
 	if($a2_arabic > $b2_arabic) {
 	    return -1;
 	} 
@@ -50,14 +52,14 @@ sub cmpChrs {
 	    return 1;
 	}
 	if($a2_arabic == $b2_arabic) {
-	    $tempa = $a2_c;
-	    $tempb = $b2_c;
+          my $tempa = $a2_c;
+	    my $tempb = $b2_c;
 	    $tempa =~ s/chr([ivx]+)//;
 	    $tempb =~ s/chr([ivx]+)//;
-	    undef %temphash;
+            my %temphash;
 	    $temphash{$tempa}=1;
 	    $temphash{$tempb}=1;
-	    foreach $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
+	    foreach my $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
 		if($tempkey eq $tempa) {
 		    return 1;
 		} else {
@@ -87,20 +89,20 @@ sub cmpChrs {
         return -1;
     }
     if($a2_c =~ /chr(\d+)/) {
-        $numa = $1;
+        my $numa = $1;
         if($b2_c =~ /chr(\d+)/) {
-            $numb = $1;
+            my $numb = $1;
             if($numa < $numb) {return 1;}
 	    if($numa > $numb) {return -1;}
 	    if($numa == $numb) {
-		$tempa = $a2_c;
-		$tempb = $b2_c;
+		my $tempa = $a2_c;
+		my $tempb = $b2_c;
 		$tempa =~ s/chr\d+//;
 		$tempb =~ s/chr\d+//;
-		undef %temphash;
+		my %temphash;
 		$temphash{$tempa}=1;
 		$temphash{$tempb}=1;
-		foreach $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
+		foreach my $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
 		    if($tempkey eq $tempa) {
 			return 1;
 		    } else {
@@ -149,24 +151,24 @@ sub cmpChrs {
         return -1;
     }
     if($a2_c =~ /chr([a-z]+)/) {
-        $letter_a = $1;
+        my $letter_a = $1;
         if($b2_c =~ /chr([a-z]+)/) {
-            $letter_b = $1;
+            my $letter_b = $1;
             if($letter_a lt $letter_b) {return 1;}
 	    if($letter_a gt $letter_b) {return -1;}
         } else {
             return -1;
         }
     }
-    $flag_c = 0;
+    my $flag_c = 0;
     while($flag_c == 0) {
-        $flag_c = 1;
+        my $flag_c = 1;
         if($a2_c =~ /^([^\d]*)(\d+)/) {
-            $stem1_c = $1;
-            $num1_c = $2;
+            my $stem1_c = $1;
+            my $num1_c = $2;
             if($b2_c =~ /^([^\d]*)(\d+)/) {
-                $stem2_c = $1;
-                $num2_c = $2;
+                my $stem2_c = $1;
+                my $num2_c = $2;
                 if($stem1_c eq $stem2_c && $num1_c < $num2_c) {
                     return 1;
                 }
@@ -192,60 +194,63 @@ sub cmpChrs {
     return 1;
 }
 sub isroman($) {
-    $arg = shift;
-    $arg ne '' and
-      $arg =~ /^(?: M{0,3})
-                (?: D?C{0,3} | C[DM])
-                (?: L?X{0,3} | X[LC])
-                (?: V?I{0,3} | I[VX])$/ix;
+  my $arg = shift;
+  return $arg ne '' and
+    $arg =~ /^(?: M{0,3})
+             (?: D?C{0,3} | C[DM])
+             (?: L?X{0,3} | X[LC])
+             (?: V?I{0,3} | I[VX])$/ix;
 }
 
 sub arabic($) {
-    $arg = shift;
-    %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
-    %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
-    @figure = reverse sort keys %roman_digit;
+    my $arg = shift;
+    my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
+    my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
+    my  @figure = reverse sort keys %roman_digit;
     $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
     isroman $arg or return undef;
-    ($last_digit) = 1000;
-    $arabic=0;
-    ($arabic);
+    my ($last_digit) = 1000;
+    my $arabic=0;
     foreach (split(//, uc $arg)) {
-        ($digit) = $roman2arabic{$_};
-        $arabic -= 2 * $last_digit if $last_digit < $digit;
-        $arabic += ($last_digit = $digit);
+      my ($digit) = $roman2arabic{$_};
+      $arabic -= 2 * $last_digit if $last_digit < $digit;
+      $arabic += ($last_digit = $digit);
     }
     $arabic;
 }
 
 sub Roman($) {
-    $arg = shift;
-    %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
-    %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
-    @figure = reverse sort keys %roman_digit;
-    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    0 < $arg and $arg < 4000 or return undef;
-    $roman = "";
-    ($x, $roman);
-    foreach (@figure) {
-        ($digit, $i, $v) = (int($arg / $_), @{$roman_digit{$_}});
-        if (1 <= $digit and $digit <= 3) {
-            $roman .= $i x $digit;
-        } elsif ($digit == 4) {
-            $roman .= "$i$v";
-        } elsif ($digit == 5) {
-            $roman .= $v;
-        } elsif (6 <= $digit and $digit <= 8) {
-            $roman .= $v . $i x ($digit - 5);
-        } elsif ($digit == 9) {
-            $roman .= "$i$x";
-        }
-        $arg -= $digit * $_;
-        $x = $i;
+  my $arg = shift;
+  my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
+  my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
+  my @figure = reverse sort keys %roman_digit;
+  $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
+  0 < $arg and $arg < 4000 or return undef;
+  my $roman = "";
+  my $x;
+  foreach (@figure) {
+    my ($digit, $i, $v) = (int($arg / $_), @{$roman_digit{$_}});
+    if (1 <= $digit and $digit <= 3) {
+      $roman .= $i x $digit;
+    } elsif ($digit == 4) {
+      $roman .= "$i$v";
+    } elsif ($digit == 5) {
+      $roman .= $v;
+    } elsif (6 <= $digit and $digit <= 8) {
+      $roman .= $v . $i x ($digit - 5);
+    } elsif ($digit == 9) {
+      $roman .= "$i$x";
     }
-    $roman;
+    $arg -= $digit * $_;
+    $x = $i;
+  }
+  $roman;
 }
 
 sub roman($) {
-    lc Roman shift;
+  lc Roman shift;
+}
+
+sub sort_by_chromosome {
+  return sort cmpChrs @_;
 }

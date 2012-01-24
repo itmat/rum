@@ -7,7 +7,7 @@ use FindBin qw($Bin);
 use Exporter 'import';
 use Pod::Usage;
 use Log::Log4perl qw(:easy);
-use RUM::ChrCmp qw(cmpChrs);
+use RUM::ChrCmp qw(cmpChrs sort_by_chromosome);
 
 Log::Log4perl->easy_init($INFO);
 
@@ -216,7 +216,7 @@ sub sort_genome_fa_by_chr {
   }
 
   INFO "Sorting chromosomes";
-  my @chromosomes = sort { cmpChrs($a, $b) } keys %hash;
+  my @chromosomes = sort_by_chromosome %hash;
   
   INFO "Printing output";
   foreach my $chr (@chromosomes) {
@@ -398,6 +398,24 @@ sub fix_geneinfofile_for_neg_introns {
     print $outfile "\n";
   }
   
+}
+
+sub sort_geneinfofile {
+  my ($infile, $outfile) = @_;
+  my (%start, %end, %chr);
+  while (defined (my $line = <$infile>)) {
+    chomp($line);
+    my @a = split(/\t/,$line);
+    $start{$line} = $a[2];
+    $end{$line} = $a[3];
+    $chr{$line} = $a[0];
+  }
+  close($infile);
+
+  foreach my $line (sort {
+    $chr{$a} cmp $chr{$b} || $start{$a}<=>$start{$b} || $end{$a}<=>$end{$b}} keys %start) {
+    print $outfile "$line\n";
+  }
 }
 
 =back
