@@ -9,9 +9,9 @@ use lib "$Bin/../lib";
 use Getopt::Long;
 
 use RUM::Index qw(run_bowtie);
-use RUM::Transform qw(transform_file);
+use RUM::Transform qw(transform_file with_timing);
 use RUM::Transform::Fasta qw(:transforms);
-use RUM::Transform::GeneInfo qw(:transforms);
+use RUM::Transform::GeneInfo qw(:transforms make_fasta_files_for_master_list_of_genes);
 
 use autodie;
 
@@ -86,10 +86,9 @@ transform_file \&get_master_list_of_exons_from_geneinfofile,
 #  $N2, "temp.fa";
 system "cp", $N2, "temp.fa";
 
-print STDERR "perl $Bin/make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3\n";
-`perl $Bin/make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3`;
-
-exit;
+with_timing "Making fasta files for master list of genes", sub {
+  make_fasta_files_for_master_list_of_genes("temp.fa", "master_list_of_exons.txt", $N1, $N4, $N3);
+};
 
 print STDERR "perl $Bin/../sort_gene_info.pl $N4 > $N6\n";
 `perl $Bin/../sort_gene_info.pl $N4 > $N6`;

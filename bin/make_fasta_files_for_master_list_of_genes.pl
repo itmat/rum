@@ -44,4 +44,7 @@ use RUM::Transform::GeneInfo qw(make_fasta_files_for_master_list_of_genes);
 
 get_options();
 show_usage() unless @ARGV == 4;
-make_fasta_files_for_master_list_of_genes(@ARGV, *STDOUT);
+
+with_timing "$0", sub {
+  make_fasta_files_for_master_list_of_genes(@ARGV, *STDOUT);
+};

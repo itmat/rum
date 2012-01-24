@@ -10,8 +10,8 @@ use Log::Log4perl qw(:easy);
 use Pod::Usage;
 use RUM::Transform::Fasta;
 use RUM::Transform::GeneInfo;
-our @EXPORT_OK = qw(transform_file
-                    require_argv
+our @EXPORT_OK = qw(with_timing
+                    transform_file
                     get_options 
                     show_usage);
 
