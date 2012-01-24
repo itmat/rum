@@ -11,7 +11,8 @@ our %EXPORT_TAGS =
    transforms => [qw(make_master_file_of_genes
                      fix_geneinfofile_for_neg_introns
                      sort_geneinfofile
-                     make_ids_unique4geneinfofile)]);
+                     make_ids_unique4geneinfofile
+                     get_master_list_of_exons_from_geneinfofile)]);
 
 Exporter::export_ok_tags('transforms');
 
@@ -231,7 +232,6 @@ sub sort_geneinfofile {
     $end{$line} = $a[3];
     $chr{$line} = $a[0];
   }
-  close($infile);
 
   foreach my $line (sort {
     $chr{$a} cmp $chr{$b} || $start{$a}<=>$start{$b} || $end{$a}<=>$end{$b}} keys %start) {
@@ -294,6 +294,34 @@ sub make_ids_unique4geneinfofile {
       }
     }
     print $out "$line\n";
+  }
+}
+
+sub get_master_list_of_exons_from_geneinfofile {
+  my ($in, $out) = @_;
+
+  my %EXONS;
+  my $_;
+
+  while(defined (my $line = <$in>)) {
+    chomp($line);
+    my @a = split(/\t/,$line);
+    $a[5]=~ s/\s*,\s*$//;
+    $a[5]=~ s/^\s*,\s*//;
+    $a[6]=~ s/\s*,\s*$//;
+    $a[6]=~ s/^\s*,\s*//;
+    my @S = split(/,/,$a[5]);
+    my @E = split(/,/,$a[6]);
+    my $N = @S;
+    for(my $e=0; $e<@S; $e++) {
+      $S[$e]++;
+      my $exon = "$a[0]:$S[$e]-$E[$e]";
+      $EXONS{$exon}++;
+    }
+  }
+
+  for (keys %EXONS) {
+    print "$_\n";
   }
 }
 

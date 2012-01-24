@@ -2,6 +2,7 @@ package RUM::Transform;
 
 use strict;
 use warnings;
+use autodie;
 
 use Exporter 'import';
 use Getopt::Long;

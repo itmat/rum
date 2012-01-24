@@ -76,12 +76,15 @@ transform_file \&sort_geneinfofile,
 transform_file \&make_ids_unique4geneinfofile,
   "gene_info_merged_sorted_fixed.txt", $N1;
 
+transform_file \&get_master_list_of_exons_from_geneinfofile,
+  $N1, "master_list_of_exons.txt";
+
+# TODO: Is this step necessary? I think $N2 already has sequences all on one line
+transform_file \&modify_fa_to_have_seq_on_one_line,
+  $N2, "temp.fa";
+
 exit;
 
-print STDERR "perl get_master_list_of_exons_from_geneinfofile.pl $N1\n";
-`perl get_master_list_of_exons_from_geneinfofile.pl $N1`;
-print STDERR "perl modify_fa_to_have_seq_on_one_line.pl $N2 > temp.fa\n";
-`perl modify_fa_to_have_seq_on_one_line.pl $N2 > temp.fa`;
 print STDERR "perl make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3\n";
 `perl make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3`;
 print STDERR "perl sort_gene_info.pl $N4 > $N6\n";
