@@ -6,7 +6,13 @@ use warnings;
 use Exporter 'import';
 use Getopt::Long;
 use Log::Log4perl qw(:easy);
-our @EXPORT_OK = qw(transform_file require_argv get_options);
+use Pod::Usage;
+use RUM::Transform::Fasta;
+use RUM::Transform::GeneInfo;
+our @EXPORT_OK = qw(transform_file
+                    require_argv
+                    get_options 
+                    show_usage);
 
 Log::Log4perl->easy_init($INFO);
 
@@ -70,6 +76,18 @@ our $VERSION = '0.01';
 
 =cut
 
+our %TRANSFORMER_NAMES;
+
+for my $package (qw(RUM::Transform::Fasta
+                    RUM::Transform::GeneInfo)) {
+  my $export_name = "${package}::EXPORT_OK";
+  no strict "refs";
+  for my $name (@$export_name) {
+    my $longname = "${package}::${name}";
+    my $coderef = \&$longname;
+    $TRANSFORMER_NAMES{$coderef} = $name;
+  }
+}
 
 =item with_timing($msg, $code)
 
@@ -94,7 +112,7 @@ sub with_timing {
 
 Opens the files identified by $in and $out in a sensible way
 and then calls $function, passing in the opened input file, output
-file, and any extra @args that were supplied.
+./file, and any extra @args that were supplied.
 
 $function should be a reference to a subroutine that takes two open
 filehandles as its first two arguments, reading from the first one and
@@ -135,8 +153,10 @@ sub transform_file {
   } else {
     $to = *STDOUT;
   }
-
-  with_timing "Transforming $in to $out with $function", sub {
+  $in = "ARGV" unless $in;
+  $out = "STDOUT" unless $out;
+  my $name = $TRANSFORMER_NAMES{$function} || "unknown function";
+  with_timing "Transforming $in to $out with $name", sub {
     $function->($from, $to, @args);
   };
 }
@@ -159,7 +179,8 @@ Delegates to GetOptions, providing the given %options hash along with
 some defaults that handle --help or -h options by printing out a
 verbose usage message based on the running program's Pod.
 
-=item
+=cut
+
 sub get_options {
   my %options = @_;
   $options{"help|h"} ||= sub {
@@ -170,3 +191,5 @@ sub get_options {
 =back
 
 =cut
+
+1;

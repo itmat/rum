@@ -15,6 +15,10 @@ This modifies a fasta file to have the sequence all on one line. Reads
 from either a file supplied on the command line of from stdin.
 Outputs to standard out.
 
+This script is part of the pipeline of scripts used to create RUM indexes.
+You should probably not be running it alone.  See the library file:
+'how2setup_genome-indexes_forPipeline.txt'.
+
 =head1 OPTIONS
 
 =over 4

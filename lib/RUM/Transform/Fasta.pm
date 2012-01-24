@@ -2,10 +2,8 @@ package RUM::Transform::Fasta;
 
 use strict;
 use warnings;
-
-use Exporter 'import';
-use Pod::Usage;
 use Log::Log4perl qw(:easy);
+use Exporter 'import';
 use RUM::ChrCmp qw(cmpChrs sort_by_chromosome);
 
 our @EXPORT_OK = qw(modify_fa_to_have_seq_on_one_line
@@ -67,6 +65,38 @@ sub modify_fasta_header_for_genome_seq_database {
         $line = ">" . $line;
     }
     print $outfile "$line\n";
+  }
+}
+
+=item sort_genome_fa_by_chr($infile, $outfile)
+
+Expects an input file containing FASTA data, where adjacent sequence
+lines are all concatenated together in a long line. Sorts the entries
+in the file by chromosome.
+
+=cut
+
+sub sort_genome_fa_by_chr {
+
+  my ($infile, $outfile) = @_;
+
+  my %hash;
+  INFO "Reading in genome";
+  while (defined (my $line = <$infile>)) {
+    chomp($line);
+    $line =~ /^>(.*)$/;
+    my $chr = $1;
+    $line = <$infile>;
+    chomp($line);
+    $hash{$chr} = $line;
+  }
+
+  INFO "Sorting chromosomes";
+  my @chromosomes = sort_by_chromosome keys %hash;
+  
+  INFO "Printing output";
+  foreach my $chr (@chromosomes) {
+    print $outfile ">$chr\n$hash{$chr}\n";
   }
 }
 

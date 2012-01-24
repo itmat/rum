@@ -9,6 +9,10 @@ use lib "$Bin/../lib";
 use Getopt::Long;
 
 use RUM::Index qw(run_bowtie run_subscript);
+use RUM::Transform qw(transform_file);
+use RUM::Transform::Fasta qw(modify_fasta_header_for_genome_seq_database
+                             modify_fa_to_have_seq_on_one_line
+                             sort_genome_fa_by_chr);
 
 my $debug = 0;
 $result == GetOptions("debug" => \$debug);
@@ -33,20 +37,19 @@ if(!($infile =~ /\.txt$/)) {
 
 # Strip extra characters off the headers, join adjacent sequence lines
 # together, and sort the genome by chromosome.
-
-$F1 = $infile;
+my $F1 = $infile;
+my $F2 = $infile;
+my $F3 = $infile;
 $F1 =~ s/.txt$/.fa/;
-$F2 = $infile;
 $F2 =~ s/.txt$/_one-line-seqs_temp.fa/;
-$F3 = $infile;
 $F3 =~ s/.txt$/_one-line-seqs.fa/;
 
-transform_file $infile, $F1, \&modify_fasta_header_for_genome_seq_database;
-transform_file $F1, $F2, \&modify_fasta_header_for_genome_seq_database;
-transform_file $F3, $F3, \&sort_genome_fa_by_chr;
+transform_file \&modify_fasta_header_for_genome_seq_database, $infile, $F1;
+transform_file \&modify_fa_to_have_seq_on_one_line, $F1, $F2;
+transform_file \&sort_genome_fa_by_chr, $F2, $F3;
 
 unless ($debug) {
-  unlink $file for my $file ($F1, $F2);
+  unlink foreach ($F1, $F2);
 }
 
 $NAME = $ARGV[1];
@@ -58,7 +61,10 @@ $N4 = $NAME . "_gene_info_unsorted.txt";
 $N5 = $NAME . "_genes.fa";
 $N6 = $NAME . "_gene_info.txt";
 
-run_subscript "make_master_file_of_genes.pl",  "gene_info_files > gene_info_merged_unsorted.txt";
+transform_file \&make_master_file_of_genes, "gene_info_files", "gene_info_merged_unsorted.txt";
+
+exit;
+
 run_subscript "fix_geneinfofile_for_neg_introns.pl",
   "gene_info_merged_unsorted.txt 5 6 4 > gene_info_merged_unsorted_fixed.txt";
 print STDERR "perl sort_geneinfofile.pl gene_info_merged_unsorted_fixed.txt > gene_info_merged_sorted_fixed.txt\n";
