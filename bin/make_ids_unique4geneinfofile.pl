@@ -40,7 +40,7 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Transform qw(transform_file get_options);
+use RUM::Transform qw(transform_file get_options show_usage);
 use RUM::Transform::GeneInfo qw(:transforms);
 
 get_options();

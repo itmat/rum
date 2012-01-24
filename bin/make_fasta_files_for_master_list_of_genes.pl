@@ -64,7 +64,7 @@ if($flag == 1) {
     `$str`;
 } else {
     $fn = $ARGV[2];
-    `mv $fn $final_gene_info_file`;
+    `cp $fn $final_gene_info_file`;
 }
 
 sub get_exons () {

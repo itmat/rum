@@ -321,7 +321,7 @@ sub get_master_list_of_exons_from_geneinfofile {
   }
 
   for (keys %EXONS) {
-    print "$_\n";
+    print $out "$_\n";
   }
 }
 
