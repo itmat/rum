@@ -126,24 +126,6 @@ sub run_subscript {
 }
 
 
-sub sort_geneinfofile {
-  my ($infile, $outfile) = @_;
-  my (%start, %end, %chr);
-  while (defined (my $line = <$infile>)) {
-    chomp($line);
-    my @a = split(/\t/,$line);
-    $start{$line} = $a[2];
-    $end{$line} = $a[3];
-    $chr{$line} = $a[0];
-  }
-  close($infile);
-
-  foreach my $line (sort {
-    $chr{$a} cmp $chr{$b} || $start{$a}<=>$start{$b} || $end{$a}<=>$end{$b}} keys %start) {
-    print $outfile "$line\n";
-  }
-}
-
 =back
 
 =head1 AUTHORS

@@ -6,8 +6,13 @@ use warnings;
 use Log::Log4perl qw(:easy);
 
 use Exporter 'import';
-our @EXPORT_OK = qw(make_master_file_of_genes
-                    fix_geneinfofile_for_neg_introns);
+our %EXPORT_TAGS = 
+  (
+   transforms => [qw(make_master_file_of_genes
+                     fix_geneinfofile_for_neg_introns
+                     sort_geneinfofile)]);
+
+Exporter::export_ok_tags('transforms');
 
 =item make_master_file_of_genes($filesfilename)
 
@@ -179,5 +184,25 @@ sub fix_geneinfofile_for_neg_introns {
   }
   
 }
+
+sub sort_geneinfofile {
+  my ($infile, $outfile) = @_;
+  my (%start, %end, %chr);
+  while (defined (my $line = <$infile>)) {
+    chomp($line);
+    my @a = split(/\t/,$line);
+    $start{$line} = $a[2];
+    $end{$line} = $a[3];
+    $chr{$line} = $a[0];
+  }
+  close($infile);
+
+  foreach my $line (sort {
+    $chr{$a} cmp $chr{$b} || $start{$a}<=>$start{$b} || $end{$a}<=>$end{$b}} keys %start) {
+    print $outfile "$line\n";
+  }
+}
+
+
 
 1;

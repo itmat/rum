@@ -6,9 +6,13 @@ use Log::Log4perl qw(:easy);
 use Exporter 'import';
 use RUM::ChrCmp qw(cmpChrs sort_by_chromosome);
 
-our @EXPORT_OK = qw(modify_fa_to_have_seq_on_one_line
-                    modify_fasta_header_for_genome_seq_database
-                    sort_genome_fa_by_chr);
+
+our %EXPORT_TAGS = 
+  (transforms => [qw(modify_fa_to_have_seq_on_one_line
+                     modify_fasta_header_for_genome_seq_database
+                     sort_genome_fa_by_chr)]);
+
+Exporter::export_ok_tags('transforms');
 
 =item modify_fa_to_have_seq_on_one_line($infile, $outfile)
 
