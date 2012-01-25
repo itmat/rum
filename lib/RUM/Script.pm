@@ -220,7 +220,6 @@ in the file by chromosome.
 =cut
 
 sub sort_genome_fa_by_chr {
-
   my ($in, $out) = _open_in_and_out(@_);
 
   my %hash;
@@ -256,11 +255,12 @@ sub sort_gene_fa_by_chr {
 
   while (defined (my $line = <$in>)) {
     chomp($line);
-    $line =~ /^>(.*):([^:]+):(\d+)-(\d+)_.$/;
+    $line =~ /^>(.*):([^:]+):(\d+)-(\d+)_.$/ or die "Expected header line, got $line";
     my $name = $1;
     my $chr = $2;
     my $start = $3;
     my $end = $4;
+
     $hash{$chr}{$line}[0] = $start;
     $hash{$chr}{$line}[1] = $end;
     $hash{$chr}{$line}[2] = $name;
@@ -269,7 +269,8 @@ sub sort_gene_fa_by_chr {
     $seq{$line} = $SEQ;
   }
   
-  foreach my $chr (sort {cmpChrs($a,$b)} keys %hash) {
+  foreach my $chr (sort_by_chromosome keys %hash) {
+
     foreach my $line (sort {$hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1]) || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]==$hash{$chr}{$b}[1] && $hash{$chr}{$a}[2] cmp $hash{$chr}{$b}[2])} keys %{$hash{$chr}}) {
       chomp($line);
       if($line =~ /\S/) {
@@ -592,6 +593,13 @@ sub get_master_list_of_exons_from_geneinfofile {
 # make_fasta_files_for_master_list_of_genes. This could probably use a
 # bit of refactoring.
 
+
+=item make_fasta_files_for_master_list_of_genes GENOME_FASTA_IN, EXON_IN, GENE_IN, GENE_INFO_OUT, GENE_FASTA_OUT
+
+TODO: Describe me.
+
+=cut
+
 sub make_fasta_files_for_master_list_of_genes {
   report "In make fasta files";
   my ($ins, $outs) = _open_in_and_out(@_);
@@ -780,7 +788,11 @@ sub reversecomplement {
 ################################################################################
 
 
+=item sort_gene_info IN, OUT
 
+Sorts a gene info file.
+
+=cut
 sub sort_gene_info {
   my ($in, $out) = _open_in_and_out(@_);
   my %hash;
@@ -832,7 +844,7 @@ sub _open_in {
     }
     return \@result;
   }
-  elsif (ref $in) {
+  elsif (ref($in) =~ /GLOB/) {
     return $in;
   } elsif (defined $in) {
     open my $from, "<", $in or die "Can't open $in for reading: $!";
@@ -862,7 +874,7 @@ sub _open_out {
     }
     return \@result;
   }
-  elsif (ref $out) {
+  elsif (ref($out) =~ /GLOB/) {
     return $out;
   } elsif (defined $out) {
     open my $to, ">", $out or die "Can't open $out for writing: $!";

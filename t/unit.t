@@ -1,14 +1,14 @@
 #!perl -T
 
-use Test::More tests => 6;
+use Test::More tests => 8;
 use lib "lib";
 
 use strict;
 use warnings;
+use Log::Log4perl qw(:easy);
 
 BEGIN { 
-  use_ok('RUM::Script', qw(modify_fa_to_have_seq_on_one_line
-                           modify_fasta_header_for_genome_seq_database)); 
+  use_ok('RUM::Script', qw(:scripts));
 
   use_ok('RUM::ChrCmp', qw(cmpChrs sort_by_chromosome));
 }
@@ -63,20 +63,80 @@ sub chromosome_comparison_ok {
 
 sub reverse_complement_ok {
 
-
   my $is_rc = sub {
     my ($in, $expected) = @_;
     is(RUM::Script::reversecomplement($in), $expected); 
   };
 
-  my @in = qw(A T C G ACCGGGTTTTT);
-  my @expected = qw(T A G C AAAAACCCGGT);
+  my @in = qw(A T C G ACCGGGTTTTT AXAA);
+  my @expected = qw(T A G C AAAAACCCGGT TTXT);
   my @got = map { RUM::Script::reversecomplement($_) } @in;
   is(@got, @expected, "Reverse complement");
 }
 
 
+sub sort_genome_fa_by_chr_ok {
+  my $in = <<IN;
+>chr9
+AA
+>chr1
+CC
+>chrVI
+GG
+>chrIII
+AT
+>chrUn
+TT
+IN
+
+  my $expected = <<OUT;
+>chr1
+CC
+>chr9
+AA
+>chrIII
+AT
+>chrUn
+TT
+>chrVI
+GG
+OUT
+
+  sort_genome_fa_by_chr(\$in, \(my $got));
+  is ($got, $expected, "Sort genome by chromosome");
+}
+
+
+sub sort_gene_fa_by_chr_ok {
+  my $in = <<IN;
+>NM_01:chr2:100-200_-
+CC
+>NM_01:chr2:1-50_-
+GG
+>NM_01:chr1:100-200_-
+AA
+>NM_01:chr1:1-50_-
+TT
+IN
+
+  my $expected = <<OUT;
+>NM_01:chr1:1-50_-
+TT
+>NM_01:chr1:100-200_-
+AA
+>NM_01:chr2:1-50_-
+GG
+>NM_01:chr2:100-200_-
+CC
+OUT
+  
+  sort_gene_fa_by_chr(\$in, \(my $got));
+  is ($got, $expected, "Sort gene FASTA file by chromosome");
+}
+
 modify_fa_to_have_seq_on_one_line_ok();
 modify_fasta_header_for_genome_seq_database_ok();
 chromosome_comparison_ok();
 reverse_complement_ok();
+sort_genome_fa_by_chr_ok();
+sort_gene_fa_by_chr_ok();
