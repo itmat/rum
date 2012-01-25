@@ -44,38 +44,10 @@ our %EXPORT_TAGS =
 
 Exporter::export_ok_tags('transforms');
 
-=item modify_fa_to_have_seq_on_one_line($infile, $outfile)
 
-Modify a fasta file to have the sequence all on one line. Reads from
-$infile and writes to $outfile.
+=item modify_fasta_header_for_genome_seq_database($infile, $out
 
-=cut
-sub modify_fa_to_have_seq_on_one_line {
-  
-  my ($infile, $outfile) = @_;
-
-  my $flag = 0;
-  while(defined(my $line = <$infile>)) {
-    # TODO: Using ^ anchor seems to save 15%; 61 to 53 seconds for cow
-    if($line =~ />/) {
-      if($flag == 0) {
-        print $outfile $line;
-        $flag = 1;
-      } else {
-        print $outfile "\n$line";
-      }
-    } else {
-      chomp($line);
-      $line = uc $line;
-      print $outfile $line;
-    }
-  }
-  print $outfile "\n";
-}
-
-=item modify_fasta_header_for_genome_seq_database($infile, $outfile
-
-Transform each line on $infile and write to $outfile, changing any
+Transform each line on $infile and write to $out, changing any
 fasta header lines that look like:
 
     >hg19_ct_UserTrack_3545_+ range=chrUn_gl000248:1-39786 ...
@@ -86,8 +58,8 @@ to look like:
 
 =cut
 sub modify_fasta_header_for_genome_seq_database {
-  my ($infile, $outfile) = @_;
-  while(defined(my $line = <$infile>)) {
+  my ($in, $out) = open_in_and_out(@_);
+  while(defined(my $line = <$in>)) {
     chomp($line);
     if($line =~ /^>/) {
 	$line =~ s/^>//;
@@ -98,11 +70,11 @@ sub modify_fasta_header_for_genome_seq_database {
 	$line =~ s/:[^:]+$//;
         $line = ">" . $line;
     }
-    print $outfile "$line\n";
+    print $out "$line\n";
   }
 }
 
-=item sort_genome_fa_by_chr($infile, $outfile)
+=item sort_genome_fa_by_chr($in, $out)
 
 Expects an input file containing FASTA data, where adjacent sequence
 lines are all concatenated together in a long line. Sorts the entries
@@ -112,15 +84,15 @@ in the file by chromosome.
 
 sub sort_genome_fa_by_chr {
 
-  my ($infile, $outfile) = @_;
+  my ($in, $out) = open_in_and_out(@_);
 
   my %hash;
   INFO "Reading in genome";
-  while (defined (my $line = <$infile>)) {
+  while (defined (my $line = <$in>)) {
     chomp($line);
     $line =~ /^>(.*)$/;
     my $chr = $1;
-    $line = <$infile>;
+    $line = <$in>;
     chomp($line);
     $hash{$chr} = $line;
   }
@@ -130,7 +102,7 @@ sub sort_genome_fa_by_chr {
   
   INFO "Printing output";
   foreach my $chr (@chromosomes) {
-    print $outfile ">$chr\n$hash{$chr}\n";
+    print $out ">$chr\n$hash{$chr}\n";
   }
 }
 

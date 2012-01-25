@@ -45,10 +45,11 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 
 =cut
 
+use strict;
+use warnings;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Transform qw(transform_file get_options);
-use RUM::Transform::Fasta qw(modify_fa_to_have_seq_on_one_line);
+use RUM::Script qw(:scripts get_options);
 
 get_options();
-transform_file \&modify_fa_to_have_seq_on_one_line;
+modify_fa_to_have_seq_on_one_line();

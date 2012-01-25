@@ -77,12 +77,12 @@ sub make {
   my @args = @_;
 
   if ($makefile) {
-    my ($function, $dep, $target) = @_;
+    my ($function, $dep, $target, @args) = @_;
     my $name = $TRANSFORMER_NAMES{$function} or die "I can't find a name\n";
     my $script = "$name.pl";
     $dep = "@$dep" if ref($dep) =~ /^ARRAY/;
     $target = "@$target" if ref($target) =~ /^ARRAY/;
-    print "$target : $dep\n\t$script \$^ >\$@\n\n";
+    print "$target : $dep\n\t$script \$^ @args >\$@\n\n";
   }
   else {
     transform_file @args;

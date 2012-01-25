@@ -119,7 +119,8 @@ from either the files listed in @ARGV or STDIN
 
 sub _open_in {
   my ($in) = @_;
-  if (ref $in =~ /^ARRAY/) {
+  if (ref($in) and ref($in) =~ /^ARRAY/) {
+    INFO "Recurring on @$\n";
     return [map &_open_in, @$in];
   }
   elsif (ref $in) {
@@ -152,6 +153,15 @@ sub _open_out {
   } else {
     return *STDOUT;
   }
+}
+
+=item open_ins_and_outs IN, OUT
+
+=cut
+
+sub open_in_and_out {
+  my ($in, $out) = @_;
+  return (_open_in($in), _open_out($out));
 }
 
 =item transform_file FUNCTION
