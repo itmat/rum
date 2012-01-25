@@ -244,7 +244,8 @@ sub sort_genome_fa_by_chr {
 
 =item sort_gene_fa_by_chr IN, OUT
 
-Sort a gene FASTA file by chromosome. Reads from IN and writes to OUT.
+Sort a gene FASTA file by chromosome, then start and end position,
+then gene name (I think). Reads from IN and writes to OUT.
 
 =cut
 sub sort_gene_fa_by_chr {
@@ -271,6 +272,7 @@ sub sort_gene_fa_by_chr {
   
   foreach my $chr (sort_by_chromosome keys %hash) {
 
+    # TODO: Document this?
     foreach my $line (sort {$hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1]) || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]==$hash{$chr}{$b}[1] && $hash{$chr}{$a}[2] cmp $hash{$chr}{$b}[2])} keys %{$hash{$chr}}) {
       chomp($line);
       if($line =~ /\S/) {
@@ -482,7 +484,10 @@ sub sort_geneinfofile {
   }
 
   foreach my $line (sort {
-    $chr{$a} cmp $chr{$b} || $start{$a}<=>$start{$b} || $end{$a}<=>$end{$b}} keys %start) {
+    $chr{$a}   cmp $chr{$b} || 
+    $start{$a} <=> $start{$b} ||
+    $end{$a}   <=> $end{$b}
+  } keys %start) {
     print $outfile "$line\n";
   }
 }

@@ -109,6 +109,14 @@ OUT
 
 sub sort_gene_fa_by_chr_ok {
   my $in = <<IN;
+>NM_02:chr2:100-200_-
+CC
+>NM_02:chr2:1-50_-
+GG
+>NM_02:chr1:100-200_-
+AA
+>NM_02:chr1:1-50_-
+TT
 >NM_01:chr2:100-200_-
 CC
 >NM_01:chr2:1-50_-
@@ -122,11 +130,19 @@ IN
   my $expected = <<OUT;
 >NM_01:chr1:1-50_-
 TT
+>NM_02:chr1:1-50_-
+TT
 >NM_01:chr1:100-200_-
+AA
+>NM_02:chr1:100-200_-
 AA
 >NM_01:chr2:1-50_-
 GG
+>NM_02:chr2:1-50_-
+GG
 >NM_01:chr2:100-200_-
+CC
+>NM_02:chr2:100-200_-
 CC
 OUT
   
