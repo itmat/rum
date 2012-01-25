@@ -55,7 +55,7 @@ together and append the names used in both files.
 
 =cut
 
-sub _read_files_file {
+sub read_files_file {
   my ($filesfile) = @_;
 
   my @files;
@@ -68,11 +68,12 @@ sub _read_files_file {
 
 sub make_master_file_of_genes {
   my ($filesfile, $outfile) = @_;
+
   my $total = 0;
 
   my %geneshash;
 
-  my @files = _read_files_file($filesfile);
+  my @files = read_files_file($filesfile);
 
   for my $file (@files) {
     INFO "processing $file";
@@ -343,12 +344,14 @@ sub get_master_list_of_exons_from_geneinfofile {
 # bit of refactoring.
 
 sub make_fasta_files_for_master_list_of_genes {
+  my ($ins, $outs) = @_;
 
   my ($genome_fasta_filename,
       $exon_in_filename,
-      $gene_info_in_filename,
-      $final_gene_info_file,
-      $final_gene_fasta_file) = @_;
+      $gene_info_in_filename) = @$ins;
+
+  my ($final_gene_info_file,
+      $final_gene_fasta_file) = @$outs;
 
   # Note: fasta file $ARGV[0] must have seq all on one line
   open my $infile, "<", $genome_fasta_filename;

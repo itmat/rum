@@ -13,7 +13,8 @@ use RUM::Transform::GeneInfo;
 our @EXPORT_OK = qw(with_timing
                     transform_file
                     get_options 
-                    show_usage);
+                    show_usage
+                    %TRANSFORMER_NAMES);
 
 Log::Log4perl->easy_init($INFO);
 
@@ -108,6 +109,51 @@ sub with_timing {
   return $elapsed;
 }
 
+=item _open_in IN
+
+f is already a ref assume it's a readable file handle, otherwise if
+it's defined try to open it, otherwise just set it so that it will ead
+from either the files listed in @ARGV or STDIN
+
+=cut
+
+sub _open_in {
+  my ($in) = @_;
+  if (ref $in =~ /^ARRAY/) {
+    return [map &_open_in, @$in];
+  }
+  elsif (ref $in) {
+    return $in;
+  } elsif (defined $in) {
+    open my $from, "<", $in or die "Can't open $in for reading: $!";
+    return $from;
+  } else {
+    return *ARGV;
+  }
+}
+
+=item _open_out OUT
+
+If OUT is already a ref assume it's a writable file handle, otherwise
+if it's defined try to open it, otherwise set it to STDOUT.
+
+=cut
+
+sub _open_out {
+  my ($out) = @_;
+  if (ref $out =~ /^ARRAY/) {
+    return map &_open_out, @$out;
+  }
+  elsif (ref $out) {
+    return $out;
+  } elsif (defined $out) {
+    open my $to, ">", $out or die "Can't open $out for writing: $!";
+    return $to;
+  } else {
+    return *STDOUT;
+  }
+}
+
 =item transform_file FUNCTION
 
 =item transform_file FUNCTION, IN
@@ -142,30 +188,9 @@ Any extra args will be passed on to the function.
 sub transform_file {
   my ($function, $in, $out, @args) = @_;
 
-  my ($from, $to);
-
-  # If $in is already a ref assume it's a readable file handle,
-  # otherwise if it's defined try to open it, otherwise just set it so
-  # that it will read from either the files listed in @ARGV or STDIN
-  if (ref $in) {
-    $from = $in;
-  } elsif (defined $in) {
-    open $from, "<", $in or die "Can't open $in for reading: $!";
-  } else {
-    $from = *ARGV;
-  }
-
-  # If $out is already a ref assume it's a writable file handle,
-  # otherwise if it's defined try to open it, otherwise set it to
-  # STDOUT.
-  if (ref $out) {
-    $to = $out;
-  } elsif (defined $out) {
-    open $to, ">", $out or die "Can't open $out for writing: $!";
-  } else {
-    $to = *STDOUT;
-  }
-
+  my $from = _open_in($in);
+  my $to = _open_out($out);
+ 
   # Get names for IN, OUT, and FUNCTION so we can log a message
   $in = "ARGV" unless $in;
   $out = "STDOUT" unless $out;
@@ -175,6 +200,8 @@ sub transform_file {
     $function->($from, $to, @args);
   };
 }
+
+
 
 =item show_usage
 
