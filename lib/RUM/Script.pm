@@ -14,6 +14,77 @@ Version 0.01
 
 our $VERSION = '0.01';
 
+=head1 DESCRIPTION
+
+This module provides some "scripts" for operating on data files. All
+of the scripts read from one or more sources and write to one or more
+sources. 
+
+=head2 Calling conventions
+
+All of the scripts conform to a standard calling convention that
+allows us to be flexible in terms of how we specify the source files
+and destination files. In particular, the first argument should always
+be the source(s) and the second argument should always be the
+destination(s). No constraints are made on the rest of the arguments.
+
+  foo IN, OUT, ARGS
+
+IN can be:
+
+=over 4
+
+=item * A file handle opened for reading.
+
+=item * The name of a file to be opened for reading.
+
+=item * undef, in which case *ARGV will be used. This allows scripts to
+read from either STDIN or the files listed on the command line. Please
+see L<perlopentut/Filters>.
+
+=item * An array reference whose elements are one of the above types.
+
+=back
+
+OUT can be:
+
+=over 4
+
+=item * A file handle opened for writing.
+
+=item * The name of a file to be opened for writing.
+
+=item * undef, in which case STDOUT will be used.
+
+=item * An array reference whose elements are one of the above types.
+
+=back
+
+ARGS can be a list of other arguments.
+
+Suppose we have a script "foo" that reads from one file and writes to
+another file. We could call this as:
+
+  # Read from STDIN, write to STDOUT
+  foo();
+
+  # Read from "in.txt", write to "out.txt"
+  foo("in.txt", "out.txt");
+
+  # Read from $in, write to $out
+  open my $in, "<", "in.txt";
+  open my $out, ">", "out.txt";
+  foo($in, $out);
+
+=head2 Utility functions
+
+These are some functions you can use to provide a consistent
+command-line interface.
+
+=over 4
+
+=cut
+
 use strict;
 use warnings;
 use autodie;
@@ -75,61 +146,14 @@ sub show_usage {
     -verbose => 1 };
 }
 
-sub _open_in {
-  my ($in) = @_;
-  if (ref($in) and ref($in) =~ /^ARRAY/) {
-    my @in = @$in;
-    my @result;
-    for my $file (@$in) {
-      push @result, _open_in($file);
-    }
-    return \@result;
-  }
-  elsif (ref $in) {
-    return $in;
-  } elsif (defined $in) {
-    open my $from, "<", $in or die "Can't open $in for reading: $!";
-    return $from;
-  } else {
-    return *ARGV;
-  }
-}
 
-=item _open_out OUT
+=back
 
-If OUT is already a ref assume it's a writable file handle, otherwise
-if it's defined try to open it, otherwise set it to STDOUT.
+=head2 Scripts
 
-=cut
+These are the file processing scripts provided by this module.
 
-sub _open_out {
-  my ($out) = @_;
-  if (ref($out) =~ /^ARRAY/) {
-    my @out = @$out;
-    my @result;
-    for my $file (@$out) {
-      push @result, _open_out($file);
-    }
-    return \@result;
-  }
-  elsif (ref $out) {
-    return $out;
-  } elsif (defined $out) {
-    open my $to, ">", $out or die "Can't open $out for writing: $!";
-    return $to;
-  } else {
-    return *STDOUT;
-  }
-}
-
-=item open_ins_and_outs IN, OUT
-
-=cut
-
-sub open_in_and_out {
-  my ($in, $out, @args) = @_;
-  return (_open_in($in), _open_out($out), @args);
-}
+=over 4
 
 =item modify_fa_to_have_seq_on_one_line IN, OUT
 
@@ -139,7 +163,7 @@ IN and writes to OUT
 =cut
 sub modify_fa_to_have_seq_on_one_line {
 
-  my ($in, $out) = open_in_and_out(@_);
+  my ($in, $out) = _open_in_and_out(@_);
 
   my $flag = 0;
   while(defined(my $line = <$in>)) {
@@ -173,7 +197,7 @@ to look like:
 
 =cut
 sub modify_fasta_header_for_genome_seq_database {
-  my ($in, $out) = open_in_and_out(@_);
+  my ($in, $out) = _open_in_and_out(@_);
   while(defined(my $line = <$in>)) {
     chomp($line);
     if($line =~ /^>/) {
@@ -199,7 +223,7 @@ in the file by chromosome.
 
 sub sort_genome_fa_by_chr {
 
-  my ($in, $out) = open_in_and_out(@_);
+  my ($in, $out) = _open_in_and_out(@_);
 
   my %hash;
   report "Reading in genome";
@@ -227,7 +251,7 @@ Sort a gene FASTA file by chromosome. Reads from IN and writes to OUT.
 
 =cut
 sub sort_gene_fa_by_chr {
-  my ($in, $out) = open_in_and_out(@_);
+  my ($in, $out) = _open_in_and_out(@_);
 
   my %hash;
   my %seq;
@@ -286,7 +310,7 @@ together and append the names used in both files.
 =cut
 
 sub make_master_file_of_genes {
-  my ($filesfile, $outfile) = open_in_and_out(@_);
+  my ($filesfile, $outfile) = _open_in_and_out(@_);
 
   my $total = 0;
 
@@ -384,7 +408,7 @@ counted starting from zero.  If there is no such column, set this to
 =cut
 
 sub fix_geneinfofile_for_neg_introns {
-  my ($infile, $outfile, $starts_col, $ends_col, $exon_count_col) = open_in_and_out(@_);
+  my ($infile, $outfile, $starts_col, $ends_col, $exon_count_col) = _open_in_and_out(@_);
 
   while (defined (my $line = <$infile>)) {
     chomp($line);
@@ -440,7 +464,7 @@ sub fix_geneinfofile_for_neg_introns {
   
 }
 
-=item sort_geneinfofile
+=item sort_geneinfofile IN, OUT
 
 Sorts an annotated gene file first by chromosome, then by start exons,
 then by end exons.
@@ -448,7 +472,7 @@ then by end exons.
 =cut
 
 sub sort_geneinfofile {
-  my ($infile, $outfile) = open_in_and_out(@_);
+  my ($infile, $outfile) = _open_in_and_out(@_);
   my (%start, %end, %chr);
   while (defined (my $line = <$infile>)) {
     chomp($line);
@@ -471,7 +495,7 @@ TODO: Document me.
 =cut
 
 sub make_ids_unique4geneinfofile {
-  my ($in, $out) = open_in_and_out(@_);
+  my ($in, $out) = _open_in_and_out(@_);
   my (%idcount, %typecount);
 
   while (defined (my $line = <$in>)) {
@@ -529,7 +553,7 @@ sub make_ids_unique4geneinfofile {
 }
 
 
-=item get_master_list_of_exons_from_geneinfofile(IN, OUT)
+=item get_master_list_of_exons_from_geneinfofile IN, OUT
 
 Read in the gene info file from IN and print out one exon per line to
 OUT.
@@ -537,7 +561,7 @@ OUT.
 =cut
 
 sub get_master_list_of_exons_from_geneinfofile {
-  my ($in, $out) = open_in_and_out(@_);
+  my ($in, $out) = _open_in_and_out(@_);
 
   my %EXONS;
   my $_;
@@ -572,7 +596,7 @@ sub get_master_list_of_exons_from_geneinfofile {
 
 sub make_fasta_files_for_master_list_of_genes {
   report "In make fasta files";
-  my ($ins, $outs) = open_in_and_out(@_);
+  my ($ins, $outs) = _open_in_and_out(@_);
 
   report "Opened stuff";
   my ($genome_fasta, $exon_in, $gene_in) = @$ins;
@@ -629,7 +653,7 @@ sub remove_genes_with_missing_sequence {
   }
 }
 
-=item get_exons(EXON_IN_FILE, CHROMOSOME, SEQUENCE, CHROMOSOMES_HASH)
+=item get_exons EXON_IN_FILE, CHROMOSOME, SEQUENCE, CHROMOSOMES_HASH
 
 Read the chromosome names and exon positions from EXON_IN_FILE and
 return a hash mapping "<chromosome-name>:<start>-<end>" to appropriate
@@ -658,7 +682,7 @@ sub get_exons () {
   return \%exons;
 }
 
-=item print_genes(GENE_IN_FILE, OUT, CHR, SEQ, EXONS)
+=item print_genes GENE_IN_FILE, OUT, CHR, SEQ, EXONS
 
 Read genes from GENE_IN_FILE and write to OUT.
 
@@ -748,7 +772,7 @@ sub reversecomplement () {
 
 
 sub sort_gene_info {
-  my ($in, $out) = open_in_and_out(@_);
+  my ($in, $out) = _open_in_and_out(@_);
   my %hash;
   while (defined (my $line = <$in>)) {
     chomp($line);
@@ -775,6 +799,85 @@ sub sort_gene_info {
 
 =back
 
+=head2 Private-ish subs
+
+=over 4
+
+=item _open_in IN
+
+Attempt to open IN for reading. If it's already an open filehandle,
+just return it. If it's a filename, open that file. If it's undef,
+return *ARGV. If it's an array reference, open each element of the
+array.
+
 =cut
+
+sub _open_in {
+  my ($in) = @_;
+  if (ref($in) and ref($in) =~ /^ARRAY/) {
+    my @in = @$in;
+    my @result;
+    for my $file (@$in) {
+      push @result, _open_in($file);
+    }
+    return \@result;
+  }
+  elsif (ref $in) {
+    return $in;
+  } elsif (defined $in) {
+    open my $from, "<", $in or die "Can't open $in for reading: $!";
+    return $from;
+  } else {
+    return *ARGV;
+  }
+}
+
+
+=item _open_out OUT
+
+Attempt to open OUT for writing. If it's already an open filehandle,
+just return it. If it's a filename, open that file. If it's undef,
+return *STDOUT. If it's an array reference, open each element of the
+array.q
+
+=cut
+
+sub _open_out {
+  my ($out) = @_;
+  if (ref($out) =~ /^ARRAY/) {
+    my @out = @$out;
+    my @result;
+    for my $file (@$out) {
+      push @result, _open_out($file);
+    }
+    return \@result;
+  }
+  elsif (ref $out) {
+    return $out;
+  } elsif (defined $out) {
+    open my $to, ">", $out or die "Can't open $out for writing: $!";
+    return $to;
+  } else {
+    return *STDOUT;
+  }
+}
+
+=item open_ins_and_outs IN, OUT
+
+=cut
+
+sub _open_in_and_out {
+  my ($in, $out, @args) = @_;
+  return (_open_in($in), _open_out($out), @args);
+}
+
+=back
+
+=head1 AUTHOR
+
+Written by Gregory R. Grant, University of Pennsylvania, 2010
+
+=cut
+
 
 1;
