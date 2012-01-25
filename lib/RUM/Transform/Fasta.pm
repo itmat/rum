@@ -39,7 +39,8 @@ our $VERSION = '0.01';
 our %EXPORT_TAGS = 
   (transforms => [qw(modify_fa_to_have_seq_on_one_line
                      modify_fasta_header_for_genome_seq_database
-                     sort_genome_fa_by_chr)]);
+                     sort_genome_fa_by_chr
+                     sort_gene_fa_by_chr)]);
 
 Exporter::export_ok_tags('transforms');
 
@@ -130,6 +131,45 @@ sub sort_genome_fa_by_chr {
   INFO "Printing output";
   foreach my $chr (@chromosomes) {
     print $outfile ">$chr\n$hash{$chr}\n";
+  }
+}
+
+=item sort_gene_fa_by_chr(IN, OUT)
+
+Sort a gene FASTA file by chromosome. Reads from IN and writes to OUT.
+
+=cut
+sub sort_gene_fa_by_chr {
+  my ($in, $out) = @_;
+
+  my %hash;
+  my %seq;
+
+  while (defined (my $line = <$in>)) {
+    chomp($line);
+    $line =~ /^>(.*):([^:]+):(\d+)-(\d+)_.$/;
+    my $name = $1;
+    my $chr = $2;
+    my $start = $3;
+    my $end = $4;
+    $hash{$chr}{$line}[0] = $start;
+    $hash{$chr}{$line}[1] = $end;
+    $hash{$chr}{$line}[2] = $name;
+    my $SEQ = <$in>;
+    chomp($SEQ);
+    $seq{$line} = $SEQ;
+  }
+  
+  foreach my $chr (sort {cmpChrs($a,$b)} keys %hash) {
+    foreach my $line (sort {$hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1]) || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]==$hash{$chr}{$b}[1] && $hash{$chr}{$a}[2] cmp $hash{$chr}{$b}[2])} keys %{$hash{$chr}}) {
+      chomp($line);
+      if($line =~ /\S/) {
+        print $out $line;
+        print $out "\n";
+        print $out $seq{$line};
+        print $out "\n";
+      }
+    }
   }
 }
 

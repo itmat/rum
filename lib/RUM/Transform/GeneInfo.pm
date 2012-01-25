@@ -409,6 +409,11 @@ sub remove_genes_with_missing_sequence {
   }
 }
 
+=item get_exons(EXON_IN_FILE, CHROMOSOME, SEQUENCE, CHROMOSOMES_HASH)
+
+
+
+=cut
 sub get_exons () {
   my ($exon_in_file, $chr, $seq, $chromosomes_hash) = @_;
 

@@ -1,39 +1,74 @@
 #!/usr/bin/perl
 
-# Written by Gregory R. Grant
-# Universiry of Pennsylvania, 2010
+=head1 NAME
+
+sort_gene_fa_by_chr.pl
+
+=head1 SYNOPSIS
+
+create_indexes_from_ucsc.pl F<NAME_genome.txt> F<NAME>
+
+=head1 DESCRIPTION
+
+
+=head1 OPTIONS
+
+=over 4
+
+=item I<--help|-h>
+
+Get help.
+
+=item --debug
+
+Run in debug mode. Don't delete intermediate temporary files.
+
+=back
+
+=head1 ARGUMENTS
+
+=over 4
+
+=item F<NAME_genome.txt>
+
+The genome file to operate on.
+
+=item F<NAME>
+
+Name of the genome, used when naming output files.
+
+=back
+
+=head1 AUTHOR
+
+Written by Gregory R. Grant, University of Pennsylvania, 2010
+
+=cut
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
-use Getopt::Long;
-
 use RUM::Index qw(run_bowtie);
-use RUM::Transform qw(transform_file with_timing);
+use RUM::Transform qw(transform_file with_timing get_options);
 use RUM::Transform::Fasta qw(:transforms);
 use RUM::Transform::GeneInfo qw(:transforms make_fasta_files_for_master_list_of_genes);
 
 use autodie;
 
 my $debug = 0;
-$result == GetOptions("debug" => \$debug);
+get_options("debug" => \$debug);
+my ($infile, $NAME) = @ARGV;
 
-if(@ARGV < 1) {
-    die "
-Usage: create_indexes_from_ucsc.pl <NAME_genome.txt> <NAME_refseq_ucsc>
-
-This script is part of the pipeline of scripts used to create RUM indexes.
-For more information see the library file: 'how2setup_genome-indexes_forPipeline.txt'.
-
-Genome fasta file must be formatted as described in:
-'how2setup_genome-indexes_forPipeline.txt'.
-
-";
+if (!($infile =~ /\.txt$/)) {
+  die "ERROR: the <NAME_genome.txt> file has to end in '.txt', yours doesn't...\n";
 }
 
-$infile = $ARGV[0];
-if(!($infile =~ /\.txt$/)) {
-    die "ERROR: the <NAME_gnome.txt> file has to end in '.txt', yours doesn't...\n";
+sub unlink_temp_files {
+  no autodie;
+  my $_;
+  while (shift) {
+    unlink or warn "Couldn't unlink $_: $!";
+  }
 }
 
 # Strip extra characters off the headers, join adjacent sequence lines
@@ -49,11 +84,7 @@ transform_file \&modify_fasta_header_for_genome_seq_database, $infile, $F1;
 transform_file \&modify_fa_to_have_seq_on_one_line, $F1, $F2;
 transform_file \&sort_genome_fa_by_chr, $F2, $F3;
 
-unless ($debug) {
-  unlink foreach ($F1, $F2);
-}
-
-$NAME = $ARGV[1];
+unlink_temp_files($F1, $F2);
 
 $N1 = $NAME . "_gene_info_orig.txt";
 $N2 = $F3;
@@ -92,13 +123,11 @@ with_timing "Making fasta files for master list of genes", sub {
 
 transform_file \&sort_gene_info, $N4, $N6;
 
-print STDERR "perl $Bin/../sort_gene_fa_by_chr.pl $N3 > $N5\n";
-`perl $Bin/../sort_gene_fa_by_chr.pl $N3 > $N5`;
+transform_file \&sort_gene_fa_by_chr, $N3, $N5;
 
-unless ($debug) {
-  unlink for ($N3, $N4, "temp.fa");
-}
 
+
+unlink_temp_files($N3, $N4, "temp.fa");
 exit;
 
 $N6 =~ /^([^_]+)_/;
