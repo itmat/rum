@@ -89,6 +89,8 @@ use strict;
 use warnings;
 use autodie;
 
+use subs qw(report _open_in _open_out _open_in_and_out);
+
 use Getopt::Long;
 use Pod::Usage;
 use Log::Log4perl qw(:easy);
@@ -114,10 +116,6 @@ our @EXPORT_OK = qw(get_options
 Exporter::export_ok_tags('scripts');
 
 use RUM::ChrCmp qw(cmpChrs sort_by_chromosome);
-
-sub report {
-  INFO "  @_";
-}
 
 =item get_options OPTIONS
 
@@ -635,6 +633,12 @@ sub make_fasta_files_for_master_list_of_genes {
                                      \%chromosomes_from_exons, \%chromosomes_in_genome);
 }
 
+=item remove_genes_with_missing_sequence GENE_INFO_IN, FINAL_GENE_INFO, FROM_EXONS, IN_GENOME
+
+TODO: document me
+
+=cut
+
 sub remove_genes_with_missing_sequence {
 
   my ($gene_info_in, $final_gene_info, $from_exons, $in_genome) = @_;
@@ -736,8 +740,14 @@ sub print_genes () {
 
 }
 
+=item reversecomplement SEQUENCE
 
-sub reversecomplement () {
+Return the reverse complement of SEQUENCE.
+
+=cut
+
+sub reversecomplement {
+
   my ($sq) = @_;
   my @A = split(//,$sq);
   my $rev = "";
@@ -870,6 +880,17 @@ sub _open_in_and_out {
   my ($in, $out, @args) = @_;
   return (_open_in($in), _open_out($out), @args);
 }
+
+=item report MSG
+
+Log the given message at the info level with indentation.
+
+=cut
+
+sub report {
+  INFO "  @_";
+}
+
 
 =back
 

@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 5;
+use Test::More tests => 6;
 use lib "lib";
 
 use strict;
@@ -8,7 +8,7 @@ use warnings;
 
 BEGIN { 
   use_ok('RUM::Script', qw(modify_fa_to_have_seq_on_one_line
-                                     modify_fasta_header_for_genome_seq_database)); 
+                           modify_fasta_header_for_genome_seq_database)); 
 
   use_ok('RUM::ChrCmp', qw(cmpChrs sort_by_chromosome));
 }
@@ -61,6 +61,22 @@ sub chromosome_comparison_ok {
   is(@sorted, @expected, "Chromasome comparison");
 }
 
+sub reverse_complement_ok {
+
+
+  my $is_rc = sub {
+    my ($in, $expected) = @_;
+    is(RUM::Script::reversecomplement($in), $expected); 
+  };
+
+  my @in = qw(A T C G ACCGGGTTTTT);
+  my @expected = qw(T A G C AAAAACCCGGT);
+  my @got = map { RUM::Script::reversecomplement($_) } @in;
+  is(@got, @expected, "Reverse complement");
+}
+
+
 modify_fa_to_have_seq_on_one_line_ok();
 modify_fasta_header_for_genome_seq_database_ok();
 chromosome_comparison_ok();
+reverse_complement_ok();
