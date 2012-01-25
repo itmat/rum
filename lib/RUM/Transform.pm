@@ -120,7 +120,7 @@ from either the files listed in @ARGV or STDIN
 sub _open_in {
   my ($in) = @_;
   if (ref($in) and ref($in) =~ /^ARRAY/) {
-    INFO "Recurring on @$\n";
+    INFO "Recurring on @$in\n";
     return [map &_open_in, @$in];
   }
   elsif (ref $in) {

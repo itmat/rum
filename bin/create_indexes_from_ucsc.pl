@@ -23,10 +23,6 @@ Get help.
 
 Run in debug mode. Don't delete intermediate temporary files.
 
-=item --makefile|m
-
-Instead of actually running anything, just print out a Makefile that will create the index.
-
 =back
 
 =head1 ARGUMENTS
@@ -55,17 +51,15 @@ use warnings;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
-
-
+use Log::Log4perl qw(:easy);
+use RUM::Script qw(:scripts
+                   get_options
+                   show_usage);
 use RUM::Index qw(run_bowtie);
-use RUM::Transform qw(transform_file with_timing get_options show_usage %TRANSFORMER_NAMES);
-use RUM::Transform::Fasta qw(:transforms);
-use RUM::Transform::GeneInfo qw(:transforms make_fasta_files_for_master_list_of_genes);
 
 use autodie;
 
-get_options("debug" => \(my $debug),
-            "makefile|m" => \(my $makefile));
+get_options("debug" => \(my $debug));
 
 my ($infile, $NAME) = @ARGV;
 show_usage unless @ARGV == 2;
@@ -73,27 +67,11 @@ if (!($infile =~ /\.txt$/)) {
   die "ERROR: the <NAME_genome.txt> file has to end in '.txt', yours doesn't...\n";
 }
 
-sub make {
-  my @args = @_;
-
-  if ($makefile) {
-    my ($function, $dep, $target, @args) = @_;
-    my $name = $TRANSFORMER_NAMES{$function} or die "I can't find a name\n";
-    my $script = "$name.pl";
-    $dep = "@$dep" if ref($dep) =~ /^ARRAY/;
-    $target = "@$target" if ref($target) =~ /^ARRAY/;
-    print "$target : $dep\n\t$script \$^ @args >\$@\n\n";
-  }
-  else {
-    transform_file @args;
-  }
-
-}
-
 sub unlink_temp_files {
   my @files = @_;
-  return if $debug || $makefile;
+  return if $debug;
   no autodie;
+  INFO "Removing temporary files @files";
   for my $filename (@files) {
     unlink $filename or warn "Couldn't unlink $filename: $!";
   }
@@ -108,13 +86,14 @@ $F1 =~ s/.txt$/.fa/;
 $F2 =~ s/.txt$/_one-line-seqs_temp.fa/;
 $F3 =~ s/.txt$/_one-line-seqs.fa/;
 
-if ($makefile) {
-  print "all : pripac_genes.fa\n\n";
-}
+INFO "Modifying fasta header from $infile to $F1";
+modify_fasta_header_for_genome_seq_database $infile, $F1;
 
-make \&modify_fasta_header_for_genome_seq_database, $infile, $F1;
-make \&modify_fa_to_have_seq_on_one_line, $F1, $F2;
-make \&sort_genome_fa_by_chr, $F2, $F3;
+INFO "Modifying fasta to have sequence on one line from $F1 to $F2";
+modify_fa_to_have_seq_on_one_line $F1, $F2;
+
+INFO "Sorting genome by chromosome from $F2 to $F3\n";
+sort_genome_fa_by_chr $F2, $F3;
 
 unlink_temp_files($F1, $F2);
 
@@ -125,45 +104,41 @@ my $N4 = $NAME . "_gene_info_unsorted.txt";
 my $N5 = $NAME . "_genes.fa";
 my $N6 = $NAME . "_gene_info.txt";
 
-make \&make_master_file_of_genes,
-  "gene_info_files", 
-  "gene_info_merged_unsorted.txt";
+INFO "Making master file of genes from gene_info_files to gene_info_merged_unsorted.txt";
+make_master_file_of_genes "gene_info_files", "gene_info_merged_unsorted.txt";
 
-make \&fix_geneinfofile_for_neg_introns, 
+INFO "Fixing gene info file for negative introns from gene_info_merged_unsorted.txt to gene_info_merged_unsorted_fixed.txt";
+fix_geneinfofile_for_neg_introns
   "gene_info_merged_unsorted.txt", 
   "gene_info_merged_unsorted_fixed.txt",
   5, 6, 4;
 
-make \&sort_geneinfofile,
+INFO "Sorting gene info file from gene_info_merged_unsorted_fixed.txt to gene_info_merged_sorted_fixed.txt";
+sort_geneinfofile
   "gene_info_merged_unsorted_fixed.txt",
   "gene_info_merged_sorted_fixed.txt";
 
-make \&make_ids_unique4geneinfofile,
+INFO "Making ids unique from gene_info_merged_sorted_fixed.txt to $N1";
+make_ids_unique4geneinfofile
   "gene_info_merged_sorted_fixed.txt", $N1;
 
-make \&get_master_list_of_exons_from_geneinfofile,
+INFO "Getting master list of exons from $N1 to master_list_of_exons.txt";
+get_master_list_of_exons_from_geneinfofile
   $N1, "master_list_of_exons.txt";
 
-# TODO: Is this step necessary? I think $N2 already has sequences all on one line
-#make \&modify_fa_to_have_seq_on_one_line,
-#  $N2, "temp.fa";
-if ($makefile) {
-  print "temp.fa : $N2\n\tcp \$< \$@\n\n";
-}
-else {
-  system "cp", $N2, "temp.fa";
-}
-make \&make_fasta_files_for_master_list_of_genes,
-  ["temp.fa", "master_list_of_exons.txt", $N1],
+INFO "Making FASTA files for master list of genes";
+make_fasta_files_for_master_list_of_genes
+  [$N2, "master_list_of_exons.txt", $N1],
   [$N4, $N3];
 
-make \&sort_gene_info, $N4, $N6;
+INFO "Sorting gene info from $N4 to $N6";
+sort_gene_info $N4, $N6;
 
-make \&sort_gene_fa_by_chr, $N3, $N5;
+INFO "Sorting gene FASTA from $N3 to $N5";
+sort_gene_fa_by_chr $N3, $N5;
 
+unlink_temp_files $N3, $N4, "temp.fa";
 
-
-unlink_temp_files($N3, $N4, "temp.fa");
 exit;
 
 $N6 =~ /^([^_]+)_/;
@@ -200,3 +175,6 @@ print STDERR "running bowtie on the genome index, please wait this can take some
 run_bowtie($F3, $organism . "_genome");
 
 print STDERR "ok, all done...\n\n";
+
+__END__
+
