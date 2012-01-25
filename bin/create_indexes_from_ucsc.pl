@@ -64,10 +64,10 @@ if (!($infile =~ /\.txt$/)) {
 }
 
 sub unlink_temp_files {
+  my @files = @_;
   no autodie;
-  my $_;
-  while (shift) {
-    unlink or warn "Couldn't unlink $_: $!";
+  for my $filename (@files) {
+    unlink $filename or warn "Couldn't unlink $filename: $!";
   }
 }
 

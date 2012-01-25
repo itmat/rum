@@ -161,6 +161,7 @@ counted starting from zero.  If there is no such column, set this to
 -1.
 
 =cut
+
 sub fix_geneinfofile_for_neg_introns {
   my ($infile, $outfile, $starts_col, $ends_col, $exon_count_col) = @_;
 
@@ -223,6 +224,7 @@ sub fix_geneinfofile_for_neg_introns {
 Sorts an annotated gene file first by chromosome, then by start exons, then by end exons.
 
 =cut
+
 sub sort_geneinfofile {
   my ($infile, $outfile) = @_;
   my (%start, %end, %chr);
@@ -298,13 +300,20 @@ sub make_ids_unique4geneinfofile {
   }
 }
 
+=item get_master_list_of_exons_from_geneinfofile(IN, OUT)
+
+Read in the gene info file from IN and print out one exon per line to
+OUT.
+
+=cut
+
 sub get_master_list_of_exons_from_geneinfofile {
   my ($in, $out) = @_;
 
   my %EXONS;
   my $_;
 
-  while(defined (my $line = <$in>)) {
+  while (defined (my $line = <$in>)) {
     chomp($line);
     my @a = split(/\t/,$line);
     $a[5]=~ s/\s*,\s*$//;
@@ -370,7 +379,7 @@ sub make_fasta_files_for_master_list_of_genes {
   
     # Get the genes for this chromosome / sequence
     open(my $gene_in_file, $gene_info_in_filename);
-    get_genes($gene_in_file, $final_gene_fasta, $chr, $seq, $exons);
+    print_genes($gene_in_file, $final_gene_fasta, $chr, $seq, $exons);
     INFO "done with genes for $chr\n";
     
   }
@@ -411,38 +420,50 @@ sub remove_genes_with_missing_sequence {
 
 =item get_exons(EXON_IN_FILE, CHROMOSOME, SEQUENCE, CHROMOSOMES_HASH)
 
-
+Read the chromosome names and exon positions from EXON_IN_FILE and
+return a hash mapping "<chromosome-name>:<start>-<end>" to appropriate
+substring of SEQUENCE, where chromosome-name eq CHROMOSOME. Populate
+keys of CHROMOSOMES_HASH as the set of all chromosomes seen in
+EXON_IN_FILE.
 
 =cut
+
 sub get_exons () {
   my ($exon_in_file, $chr, $seq, $chromosomes_hash) = @_;
-
+  my $_;
   my %exons;
 
-  while (defined (my $line2 = <$exon_in_file>)) {
-    chomp($line2);
-    $line2 =~ /(.*):(\d+)-(\d+)/;
-    my $CHR = $1;
-    my $START = $2;
-    my $END = $3;
+  while (<$exon_in_file>) {
+    chomp;
+    # Find the chromosome name, start, and end points
+    my ($CHR, $START, $END) = /(.*):(\d+)-(\d+)/g;
     $chromosomes_hash->{$CHR}++;
     if($CHR eq $chr) {
       my $EXONSEQ = substr($seq,$START-1,$END-$START+1);
-      $exons{$line2} = $EXONSEQ;
+      $exons{$_} = $EXONSEQ;
     }
   }
 
   return \%exons;
 }
 
-=item get_genes
+=item print_genes(GENE_IN_FILE, OUT, CHR, SEQ, EXONS)
+
+Read genes from GENE_IN_FILE and write to OUT.
+
+TODO: More.
 
 =cut
-sub get_genes () {
+
+sub print_genes () {
   my ($gene_in_file, $out, $chr, $seq, $exons) = @_;
 
   while(defined (my $line2 = <$gene_in_file>)) {
     chomp($line2);
+
+    # TODO: Split the line into fields and assign the fields to vars
+    # right away.
+
     my @a = split(/\t/,$line2);
     my $strand = $a[1];
     my $starts = $a[5];
@@ -539,5 +560,8 @@ sub sort_gene_info {
   }
 }
 
+=back
+
+=cut
 
 1;

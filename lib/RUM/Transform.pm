@@ -90,11 +90,11 @@ for my $package (qw(RUM::Transform::Fasta
   }
 }
 
-=item with_timing($msg, $code)
+=item with_timing MSG, CODE
 
-$msg should be a message string and $code should be a CODE ref. Logs a
-start message, then runs $code->(), then logs a stop message
-indicating how long $code->() took.
+MSG should be a message string and $code should be a CODE ref. Logs a
+start message, then runs CODE->(), then logs a stop message
+indicating how long CODE->() took.
 
 =cut
 
@@ -108,26 +108,31 @@ sub with_timing {
   return $elapsed;
 }
 
+=item transform_file FUNCTION
 
-=item transform_file($function, [$in, [$out, [@args]]])
+=item transform_file FUNCTION, IN
 
-Opens the files identified by $in and $out in a sensible way
-and then calls $function, passing in the opened input file, output
-./file, and any extra @args that were supplied.
+=item transform_file FUNCTION, IN, OUT
 
-$function should be a reference to a subroutine that takes two open
+=item transform_file FUNCTION, IN, OUT, ARGS
+
+Opens the files identified by IN and OUT in a sensible way
+and then calls FUNCTION, passing in the opened input file, output
+./file, and any extra ARGS that were supplied.
+
+FUNCTION should be a reference to a subroutine that takes two open
 filehandles as its first two arguments, reading from the first one and
 writing to the second one. It may also take additional args.
 
-$in should either be a file handle opened for reading, a string
+IN should either be a file handle opened for reading, a string
 naming a file, or undef. If it's already a file handle, we just pass
-it to $function. If it's a filename, we open it. If it's undef, we'll
+it to FUNCTION. If it's a filename, we open it. If it's undef, we'll
 use *ARGV, which will read from all the files listed in @ARGV or from
 STDIN if @ARGV is empty.
 
-$out should either be a file handle opened for writing, a string
+OUT should either be a file handle opened for writing, a string
 naming a file, or undef. If it's already a file handle, we just pass
-it to $function. If it's a filename, we open it. If it's undef, we use
+it to FUNCTION. If it's a filename, we open it. If it's undef, we use
 *STDOUT.
 
 Any extra args will be passed on to the function.
@@ -139,6 +144,9 @@ sub transform_file {
 
   my ($from, $to);
 
+  # If $in is already a ref assume it's a readable file handle,
+  # otherwise if it's defined try to open it, otherwise just set it so
+  # that it will read from either the files listed in @ARGV or STDIN
   if (ref $in) {
     $from = $in;
   } elsif (defined $in) {
@@ -147,6 +155,9 @@ sub transform_file {
     $from = *ARGV;
   }
 
+  # If $out is already a ref assume it's a writable file handle,
+  # otherwise if it's defined try to open it, otherwise set it to
+  # STDOUT.
   if (ref $out) {
     $to = $out;
   } elsif (defined $out) {
@@ -154,15 +165,18 @@ sub transform_file {
   } else {
     $to = *STDOUT;
   }
+
+  # Get names for IN, OUT, and FUNCTION so we can log a message
   $in = "ARGV" unless $in;
   $out = "STDOUT" unless $out;
   my $name = $TRANSFORMER_NAMES{$function} || "unknown function";
+
   with_timing "Transforming $in to $out with $name", sub {
     $function->($from, $to, @args);
   };
 }
 
-=item show_usage()
+=item show_usage
 
 Print a usage message based on the running script's Pod and exit.
 
@@ -174,9 +188,9 @@ sub show_usage {
     -verbose => 1 };
 }
 
-=item get_options(%options)
+=item get_options OPTIONS
 
-Delegates to GetOptions, providing the given %options hash along with
+Delegates to GetOptions, providing the given OPTIONS hash along with
 some defaults that handle --help or -h options by printing out a
 verbose usage message based on the running program's Pod.
 
