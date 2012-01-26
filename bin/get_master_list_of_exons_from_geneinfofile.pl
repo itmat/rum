@@ -55,9 +55,8 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Transform qw(transform_file get_options show_usage);
-use RUM::Transform::GeneInfo qw(:transforms);
+use RUM::Script qw(:scripts get_options show_usage);
 
 get_options();
-transform_file \&get_master_list_of_exons_from_geneinfofile;
+get_master_list_of_exons_from_geneinfofile;
 

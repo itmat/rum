@@ -59,9 +59,8 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Transform qw(transform_file get_options show_usage);
-use RUM::Transform::GeneInfo qw(make_master_file_of_genes);
+use RUM::Script qw(:scripts get_options show_usage);
 
 get_options();
 show_usage() unless @ARGV == 1;
-transform_file \&make_master_file_of_genes, $ARGV[0];
+make_master_file_of_genes, $ARGV[0];

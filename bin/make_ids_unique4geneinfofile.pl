@@ -40,9 +40,8 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Transform qw(transform_file get_options show_usage);
-use RUM::Transform::GeneInfo qw(:transforms);
+use RUM::Script qw(:scripts get_options show_usage);
 
 get_options();
 show_usage() unless @ARGV == 1;
-transform_file \&make_ids_unique4geneinfofile, $ARGV[0];
+make_ids_unique4geneinfofile, $ARGV[0];

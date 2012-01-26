@@ -45,8 +45,7 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Transform qw(transform_file get_options);
-use RUM::Transform::Fasta qw(sort_genome_fa_by_chr);
+use RUM::Transform qw(:scripts get_options);
 
 get_options();
-transform_file \&sort_genome_fa_by_chr;
+sort_genome_fa_by_chr;

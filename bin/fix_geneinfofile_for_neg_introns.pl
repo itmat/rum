@@ -53,10 +53,9 @@ use warnings;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Transform qw(get_options show_usage transform_file);
-use RUM::Transform::GeneInfo qw(fix_geneinfofile_for_neg_introns);
+use RUM::Script qw(get_options show_usage :scripts);
 
 get_options();
 show_usage() unless @ARGV == 4;
 my ($in, @args) = @ARGV;
-transform_file \&fix_geneinfofile_for_neg_introns, $in, undef, @args;
+fix_geneinfofile_for_neg_introns $in, undef, @args;

@@ -39,14 +39,12 @@ use autodie;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Transform qw(transform_file get_options with_timing);
-use RUM::Transform::GeneInfo qw(make_fasta_files_for_master_list_of_genes);
+use RUM::Script qw(:scripts get_options with_timing);
 
 get_options();
 show_usage() unless @ARGV == 4;
 
-with_timing "$0", sub {
-  my @ins = @ARGV[0,1,2];
-  my @outs = ($ARGV[3], *STDOUT);
-  make_fasta_files_for_master_list_of_genes(\@ins, \@outs);
-};
+my @ins = @ARGV[0,1,2];
+my @outs = ($ARGV[3], *STDOUT);
+make_fasta_files_for_master_list_of_genes(\@ins, \@outs);
+
