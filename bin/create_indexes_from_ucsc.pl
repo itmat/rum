@@ -52,9 +52,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
 use Log::Log4perl qw(:easy);
-use RUM::Script qw(:scripts
-                   get_options
-                   show_usage);
+use RUM::Script qw(get_options show_usage);
 use RUM::Index qw(run_bowtie);
 
 use autodie;
@@ -63,9 +61,8 @@ get_options("debug" => \(my $debug));
 
 my ($infile, $NAME) = @ARGV;
 show_usage unless @ARGV == 2;
-if (!($infile =~ /\.txt$/)) {
-  die "ERROR: the <NAME_genome.txt> file has to end in '.txt', yours doesn't...\n";
-}
+die "ERROR: the <NAME_genome.txt> file has to end in '.txt', ".
+  "yours doesn't...\n" unless $infile =~ /\.txt$/;
 
 sub unlink_temp_files {
   my @files = @_;
@@ -77,81 +74,80 @@ sub unlink_temp_files {
   }
 }
 
+sub import_scripts_with_logging {
+  my @names = @{$RUM::Script::EXPORT_TAGS{scripts}};
+  for my $name (@names) {
+    no strict "refs";
+    my $long_name = "RUM::Script::$name";
+    my $new_name  = "main::$name";
+    *{$new_name} = sub {
+      my @args = @_;
+      INFO "START $name @args";
+      &$long_name(@args);
+      INFO "END $name @args";
+    };
+  }
+}
+
+import_scripts_with_logging();
+
+
+# Put all the filenames we will use in vars.
+my $genome_fa = $infile;
+my $genome_one_line_seqs_temp = $infile;
+my $genome_one_line_seqs = $infile;
+$genome_fa =~ s/.txt$/.fa/;
+$genome_one_line_seqs_temp =~ s/.txt$/_one-line-seqs_temp.fa/;
+$genome_one_line_seqs =~ s/.txt$/_one-line-seqs.fa/;
+my $gene_info_orig = $NAME . "_gene_info_orig.txt";
+my $genes_unsorted = $NAME . "_genes_unsorted.fa";
+my $gene_info_unsorted = $NAME . "_gene_info_unsorted.txt";
+my $genes_fa = $NAME . "_genes.fa";
+my $gene_info = $NAME . "_gene_info.txt";
+my $gene_info_merged_unsorted = "gene_info_merged_unsorted.txt";
+my $gene_info_merged_unsorted_fixed = "${gene_info_merged_unsorted}_fixed.txt";
+my $gene_info_merged_sorted_fixed = "gene_info_merged_sorted_fixed.txt";
+my $gene_info_files = "gene_info_files";
+my $master_list_of_exons = "master_list_of_exons.txt";
+
 # Strip extra characters off the headers, join adjacent sequence lines
 # together, and sort the genome by chromosome.
-my $F1 = $infile;
-my $F2 = $infile;
-my $F3 = $infile;
-$F1 =~ s/.txt$/.fa/;
-$F2 =~ s/.txt$/_one-line-seqs_temp.fa/;
-$F3 =~ s/.txt$/_one-line-seqs.fa/;
+modify_fasta_header_for_genome_seq_database($infile, $genome_fa);
+modify_fa_to_have_seq_on_one_line($genome_fa, $genome_one_line_seqs_temp);
+sort_genome_fa_by_chr($genome_one_line_seqs_temp, $genome_one_line_seqs);
+unlink_temp_files($genome_fa, $genome_one_line_seqs_temp);
 
-INFO "Modifying fasta header from $infile to $F1";
-modify_fasta_header_for_genome_seq_database $infile, $F1;
+# FOO
+make_master_file_of_genes($gene_info_files, $gene_info_merged_unsorted);
+fix_geneinfofile_for_neg_introns($gene_info_merged_unsorted,
+                                 $gene_info_merged_unsorted_fixed,
+                                 5, 6, 4);
+sort_geneinfofile($gene_info_merged_unsorted_fixed,
+                  $gene_info_merged_sorted_fixed);
+make_ids_unique4geneinfofile($gene_info_merged_sorted_fixed, $gene_info_orig);
+get_master_list_of_exons_from_geneinfofile($gene_info_orig,
+                                           $master_list_of_exons);
+make_fasta_files_for_master_list_of_genes(
+  [$genome_one_line_seqs, $master_list_of_exons, $gene_info_orig],
+  [$gene_info_unsorted, $genes_unsorted]);
 
-INFO "Modifying fasta to have sequence on one line from $F1 to $F2";
-modify_fa_to_have_seq_on_one_line $F1, $F2;
-
-INFO "Sorting genome by chromosome from $F2 to $F3\n";
-sort_genome_fa_by_chr $F2, $F3;
-
-unlink_temp_files($F1, $F2);
-
-my $N1 = $NAME . "_gene_info_orig.txt";
-my $N2 = $F3;
-my $N3 = $NAME . "_genes_unsorted.fa";
-my $N4 = $NAME . "_gene_info_unsorted.txt";
-my $N5 = $NAME . "_genes.fa";
-my $N6 = $NAME . "_gene_info.txt";
-
-INFO "Making master file of genes from gene_info_files to gene_info_merged_unsorted.txt";
-make_master_file_of_genes "gene_info_files", "gene_info_merged_unsorted.txt";
-
-INFO "Fixing gene info file for negative introns from gene_info_merged_unsorted.txt to gene_info_merged_unsorted_fixed.txt";
-fix_geneinfofile_for_neg_introns
-  "gene_info_merged_unsorted.txt", 
-  "gene_info_merged_unsorted_fixed.txt",
-  5, 6, 4;
-
-INFO "Sorting gene info file from gene_info_merged_unsorted_fixed.txt to gene_info_merged_sorted_fixed.txt";
-sort_geneinfofile
-  "gene_info_merged_unsorted_fixed.txt",
-  "gene_info_merged_sorted_fixed.txt";
-
-INFO "Making ids unique from gene_info_merged_sorted_fixed.txt to $N1";
-make_ids_unique4geneinfofile
-  "gene_info_merged_sorted_fixed.txt", $N1;
-
-INFO "Getting master list of exons from $N1 to master_list_of_exons.txt";
-get_master_list_of_exons_from_geneinfofile
-  $N1, "master_list_of_exons.txt";
-
-INFO "Making FASTA files for master list of genes";
-make_fasta_files_for_master_list_of_genes
-  [$N2, "master_list_of_exons.txt", $N1],
-  [$N4, $N3];
-
-INFO "Sorting gene info from $N4 to $N6";
-sort_gene_info $N4, $N6;
-
-INFO "Sorting gene FASTA from $N3 to $N5";
-sort_gene_fa_by_chr $N3, $N5;
-
-unlink_temp_files $N3, $N4, "temp.fa";
+sort_gene_info($gene_info_unsorted, $gene_info);
+sort_gene_fa_by_chr($genes_unsorted, $genes_fa);
+unlink_temp_files($genes_unsorted, $gene_info_unsorted, "temp.fa");
 
 exit;
 
-$N6 =~ /^([^_]+)_/;
+$gene_info =~ /^([^_]+)_/;
 my $organism = $1;
 
 # write rum.config file:
-my $config = "indexes/$N6\n";
+my $config = "indexes/$gene_info\n";
 $config = $config . "bin/bowtie\n";
 $config = $config . "bin/blat\n";
 $config = $config . "bin/mdust\n";
 $config = $config . "indexes/$organism" . "_genome\n";
 $config = $config . "indexes/$organism" . "_genes\n";
-$config = $config . "indexes/$N2\n";
+$config = $config . "indexes/$genome_one_line_seqs\n";
 $config = $config . "scripts\n";
 $config = $config . "lib\n";
 my $configfile = "rum.config_" . $organism;
@@ -163,16 +159,16 @@ unless ($debug) {
   unlink("gene_info_merged_unsorted.txt");
   unlink("gene_info_merged_unsorted_fixed.txt");
   unlink("gene_info_merged_sorted_fixed.txt");
-  unlink("master_list_of_exons.txt");
+  unlink("$master_list_of_exons");
 }
 
 # run bowtie on genes index
 print STDERR "\nRunning bowtie on the gene index, please wait...\n\n";
-run_bowtie($N5, $organism . "_genes");
+run_bowtie($genes_fa, $organism . "_genes");
 
 # run bowtie on genome index
 print STDERR "running bowtie on the genome index, please wait this can take some time...\n\n";
-run_bowtie($F3, $organism . "_genome");
+run_bowtie($genome_one_line_seqs, $organism . "_genome");
 
 print STDERR "ok, all done...\n\n";
 
