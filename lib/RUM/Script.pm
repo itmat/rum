@@ -681,14 +681,13 @@ sub make_fasta_files_for_master_list_of_genes {
     # Read a sequence line
     $line = <$genome_fasta>;
     chomp($line);
-    my $seq = $line;
 
     # Get the exons for this chromosome / sequence
-    my $exons = get_exons($exon_in, $chr, $seq, \%chromosomes_from_exons);
+    my $exons = get_exons($exon_in, $chr, $line, \%chromosomes_from_exons);
     report "done with exons for $chr; starting genes\n";
   
     # Get the genes for this chromosome / sequence
-    print_genes($gene_in, $final_gene_fasta, $chr, $seq, $exons);
+    print_genes($gene_in, $final_gene_fasta, $chr, $exons);
     report "done with genes for $chr\n";
   }
   
@@ -750,7 +749,7 @@ sub get_exons {
   return \%exons;
 }
 
-=item print_genes GENE_IN_FILE, OUT, CHR, SEQ, EXONS
+=item print_genes GENE_IN_FILE, OUT, CHR, EXONS
 
 Read genes from GENE_IN_FILE and write to OUT.
 
@@ -762,7 +761,7 @@ TODO: More.
 =cut
 
 sub print_genes {
-  my ($gene_in_file, $out, $chr, $seq, $exons) = @_;
+  my ($gene_in_file, $out, $chr, $exons) = @_;
 
   while(defined (my $line2 = <$gene_in_file>)) {
     chomp($line2);

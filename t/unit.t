@@ -336,7 +336,7 @@ sub print_genes_ok {
   do {
     open my $in, "<", \$genes;
     open my $out, ">", \(my $got);
-    RUM::Script::print_genes($in, $out, "chr1", undef, \%exons);
+    RUM::Script::print_genes($in, $out, "chr1", \%exons);
     
     my $expected = <<EXPECTED;
 >NM_123:chr1:1-20_+
@@ -352,7 +352,7 @@ EXPECTED
     open my $in, "<", \$genes;
     open my $out, ">", \(my $got);
     throws_ok { 
-      RUM::Script::print_genes($in, $out, "chr1", undef, {});
+      RUM::Script::print_genes($in, $out, "chr1", {});
     } qr/exon for chr1:2-5 not found/,
       "Die when we're missing exons for a chromosome";
   };    
