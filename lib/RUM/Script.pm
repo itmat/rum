@@ -680,7 +680,7 @@ EXON_IN_FILE.
 
 =cut
 
-sub get_exons () {
+sub get_exons {
   my ($exon_in_file, $chr, $seq, $chromosomes_hash) = @_;
   my $_;
   my %exons;

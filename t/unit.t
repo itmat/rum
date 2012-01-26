@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 8;
+use Test::More tests => 10;
 use lib "lib";
 
 use strict;
@@ -150,9 +150,43 @@ OUT
   is ($got, $expected, "Sort gene FASTA file by chromosome");
 }
 
+sub get_exons_ok {
+  my $exons_in = <<EXONS;
+chr1:1-5
+chr1:7-12
+chr2:17-24
+chr2:31-45
+EXONS
+
+  my $seq = "ACGTACTGATGCATGCGCGATGCAGTCAGTAACCCCGGGTAGCAGTGACTTTGCTTTC";
+
+my %expected1 = 
+  ("chr1:1-5" => substr($seq, 0, 5),
+   "chr1:7-12" => substr($seq, 6, 6));
+
+my %expected2 = 
+  ("chr2:17-24" => substr($seq, 16, 8),
+   "chr2:31-45" => substr($seq, 30, 15));
+
+  my %chromosomes;
+
+  open my $in, "<", \$exons_in;
+  my $exons1 = RUM::Script::get_exons($in, "chr1", $seq, \%chromosomes);
+  open my $in, "<", \$exons_in;
+  my $exons2 = RUM::Script::get_exons($in, "chr2", $seq, \%chromosomes);
+  is_deeply([$exons1, $exons2],
+            [\%expected1, \%expected2],
+            "Get sequences for exons");
+
+  is_deeply([sort keys %chromosomes],
+            ["chr1", "chr2"],
+            "Get chromosomes from exon file");
+}
+
 modify_fa_to_have_seq_on_one_line_ok();
 modify_fasta_header_for_genome_seq_database_ok();
 chromosome_comparison_ok();
 reverse_complement_ok();
 sort_genome_fa_by_chr_ok();
 sort_gene_fa_by_chr_ok();
+get_exons_ok();
