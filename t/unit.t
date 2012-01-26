@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 10;
+use Test::More tests => 11;
 use lib "lib";
 
 use strict;
@@ -204,6 +204,39 @@ my %expected2 =
             "Get chromosomes from exon file");
 }
 
+sub make_master_file_of_genes_ok {
+  my $refseq_in = <<IN;
+#name\tchrom\tstrand\texonStarts\texonEnds
+NM_1234\tchr1\t+\t1,17,32\t5,22,45
+NM_5432\tchr1\t-\t54,62\t60,67
+NM_4321\tchr2\t+\t1,8\t7,11
+NM_9876\tchr2\t+\t12,23\t20,32
+IN
+
+  my $ensembl_in = <<IN;
+#name\tchrom\tstrand\texonStarts\texonEnds
+ENSBTAT1234\tchr1\t+\t1,17,32\t5,22,45
+ENSBTAT5432\tchr1\t-\t54,62\t70,79
+ENSBTAT\tchr2\t+\t1,8\t7,11
+ENSBTAT\tchr2\t+\t12,23\t34,40
+IN
+  
+  my $expected = <<EXPECTED;
+chr1	-	54	67	2	54,62	60,67	NM_5432(refseq)
+chr1	+	1	45	3	1,17,32	5,22,45	NM_1234(refseq)::::ENSBTAT1234(ensembl)
+chr1	-	54	79	2	54,62	70,79	ENSBTAT5432(ensembl)
+chr2	+	12	32	2	12,23	20,32	NM_9876(refseq)
+chr2	+	12	40	2	12,23	34,40	ENSBTAT(ensembl)
+chr2	+	1	11	2	1,8	7,11	NM_4321(refseq)::::ENSBTAT(ensembl)
+EXPECTED
+
+  my $out;
+  RUM::Script::_make_master_file_of_genes_impl([\$refseq_in, \$ensembl_in], 
+                                               \$out,
+                                               ["refseq", "ensembl"]);
+  is($out, $expected, "Make master file of genes");
+}
+
 modify_fa_to_have_seq_on_one_line_ok();
 modify_fasta_header_for_genome_seq_database_ok();
 chromosome_comparison_ok();
@@ -211,3 +244,4 @@ reverse_complement_ok();
 sort_genome_fa_by_chr_ok();
 sort_gene_fa_by_chr_ok();
 get_exons_ok();
+make_master_file_of_genes_ok();

@@ -310,20 +310,15 @@ together and append the names used in both files.
 
 =cut
 
-sub make_master_file_of_genes {
-  my ($filesfile, $outfile) = _open_in_and_out(@_);
-
-  my $total = 0;
-
+sub _make_master_file_of_genes_impl {
+  my ($ins, $out, $types) = _open_in_and_out(@_);
+  my @ins = @$ins;
+  my @types = @$types;
   my %geneshash;
-
-  my @files = read_files_file($filesfile);
-
-  for my $file (@files) {
-    report "processing $file";
-    my ($type) = $file =~ /(.*).txt$/g;
-    open(my $infile, "<", $file);
-    my $line = <$infile>;
+  my $total;
+  while (my $in = shift(@ins)) {
+    my $type = shift @types;
+    my $line = <$in>;
     chomp($line);
     my @header = split(/\t/,$line);
     my $n = @header;
@@ -351,7 +346,7 @@ sub make_master_file_of_genes {
     # TODO: Make sure we got all the fields?
 
     my $cnt=0;
-    while(defined (my $line = <$infile>)) {
+    while(defined (my $line = <$in>)) {
       chomp($line);
       
       # Skip comments
@@ -387,9 +382,25 @@ sub make_master_file_of_genes {
   report "TOTAL: $total\n";
   
   foreach my $geneinfo (keys %geneshash) {
-    print $outfile "$geneinfo\t$geneshash{$geneinfo}\n";
-  }
-  
+    print $out "$geneinfo\t$geneshash{$geneinfo}\n";
+  }  
+}
+
+
+
+sub make_master_file_of_genes {
+  my ($filesfile, $out) = _open_in_and_out(@_);
+
+  my $total = 0;
+
+  my %geneshash;
+
+  my @ins = read_files_file($filesfile);
+  my @types = map {
+    /(.*).txt$/; $1;
+  } @ins;
+
+  return _make_master_file_of_genes_impl(\@ins, $out, @types);  
 }
 
 
@@ -601,7 +612,7 @@ sub get_master_list_of_exons_from_geneinfofile {
 
 =item make_fasta_files_for_master_list_of_genes GENOME_FASTA_IN, EXON_IN, GENE_IN, GENE_INFO_OUT, GENE_FASTA_OUT
 
-TODO: Describe me.
+Take a list of genes in BED format, with columns name, strand, 
 
 =cut
 
