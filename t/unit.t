@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 12;
+use Test::More tests => 13;
 use lib "lib";
 
 use strict;
@@ -33,10 +33,10 @@ GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
 TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 INPUT
 
-  my $expected = <<EXPECTED;
->gi|123|ref|123sdf|Foo bar
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-EXPECTED
+  my $expected = 
+    ">gi|123|ref|123sdf|Foo bar\n".
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC".
+    "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT\n";
 
   transform_ok(\&modify_fa_to_have_seq_on_one_line,
                $input, $expected, "Joining sequence lines together");
@@ -285,6 +285,35 @@ sub make_ids_unique4geneinfofile_ok {
   is_deeply(\@out, \@expected, "Make IDs unique");
 }
 
+sub get_master_list_of_exons_from_geneinfofile_ok {
+  my @fields = (["chr1", "1,10,20", "5,16,27"],
+                ["chr2", "9,19,29", "14,27,38"]);
+  
+  my $in = "";
+
+  for my $row (@fields) {
+    my ($chr, $starts, $ends) = @$row;
+    my @padded = ($chr, "", "", "", "", $starts, $ends, "");
+    $in .= join("\t", @padded) . "\n";
+  }
+
+  my $expected = <<EXPECTED;
+chr1:2-5
+chr1:11-16
+chr1:21-27
+chr2:20-27
+chr2:10-14
+chr2:30-38
+EXPECTED
+  
+  get_master_list_of_exons_from_geneinfofile(\$in, \(my $got));
+
+  my @expected = sort split /\n/, $expected;
+  my @got = sort split /\n/, $got;
+
+  is_deeply(\@got, \@expected, "Master list of exons");
+}
+
 modify_fa_to_have_seq_on_one_line_ok();
 modify_fasta_header_for_genome_seq_database_ok();
 chromosome_comparison_ok();
@@ -294,3 +323,4 @@ sort_gene_fa_by_chr_ok();
 get_exons_ok();
 make_master_file_of_genes_ok();
 make_ids_unique4geneinfofile_ok();
+get_master_list_of_exons_from_geneinfofile_ok();

@@ -556,6 +556,9 @@ sub make_ids_unique4geneinfofile {
       $typecount{$id}{$type}++;
     }
   }
+  
+  # Rewind to the front of the file; we need to make a second pass
+  # through it.
   seek $in, 0, 0;
 
   # Count the total number of types per id
@@ -598,7 +601,11 @@ sub make_ids_unique4geneinfofile {
 =item get_master_list_of_exons_from_geneinfofile IN, OUT
 
 Read in the gene info file from IN and print out one exon per line to
-OUT.
+OUT. IN must have the chromosome name in the 0th column and the start
+and end points in the 5th and 6th column (starting column numbering at
+0).
+
+Increments the start position before printing the exon line.
 
 =cut
 
@@ -610,6 +617,9 @@ sub get_master_list_of_exons_from_geneinfofile {
 
   while (defined (my $line = <$in>)) {
     chomp($line);
+
+    # Fields 5 and 6 are exon starts and ends. Trim leading and
+    # trailing whitespace and commas, and split on comma.
     my @a = split(/\t/,$line);
     $a[5]=~ s/\s*,\s*$//;
     $a[5]=~ s/^\s*,\s*//;
@@ -618,7 +628,10 @@ sub get_master_list_of_exons_from_geneinfofile {
     my @S = split(/,/,$a[5]);
     my @E = split(/,/,$a[6]);
     my $N = @S;
-    for(my $e=0; $e<@S; $e++) {
+
+    # For each of the start and end points, add a line like
+    # "$chr:$start-$end".
+    for (my $e=0; $e<@S; $e++) {
       $S[$e]++;
       my $exon = "$a[0]:$S[$e]-$E[$e]";
       $EXONS{$exon}++;
