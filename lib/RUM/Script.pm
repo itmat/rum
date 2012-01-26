@@ -476,9 +476,9 @@ sub fix_geneinfofile_for_neg_introns {
     my $N = @S;
     for(my $i=1; $i<$N; $i++) {
       my $intronlength = $S[$i] - $E[$i-1];
-      my $realstart = $E[$i-1] + 1;
-      my $realend = $S[$i];
-      my $length = $realend - $realstart + 1;
+      my $realstart    = $E[$i-1] + 1;
+      my $realend      = $S[$i];
+      my $length       = $realend - $realstart + 1;
       DEBUG "length = $length";
       if($length > 0) {
         $start_string = $start_string . $S[$i] . ",";

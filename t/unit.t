@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 11;
+use Test::More tests => 12;
 use lib "lib";
 
 use strict;
@@ -237,6 +237,54 @@ EXPECTED
   is($out, $expected, "Make master file of genes");
 }
 
+sub make_ids_unique4geneinfofile_ok {
+
+  my @in_ids = qw{
+                   NM_123(refseq)
+                   NM_456(ensembl)
+                   NM_789(refseq)
+                   NM_789(ensembl)
+                   NM_987(refseq)
+                   NM_987(refseq)
+                   NM_654(refseq)
+                   NM_654(refseq)
+                   NM_654(refseq)
+                   NM_321(ensembl)
+                   NM_321(ensembl)
+                  };
+
+  my @expected_ids = qw{
+                         NM_123(refseq)
+                         NM_456(ensembl)
+                         NM_789.refseq(refseq)
+                         NM_789.ensembl(ensembl)
+                         NM_987[[1]](refseq)
+                         NM_987[[2]](refseq)
+                         NM_654[[1]](refseq)
+                         NM_654[[2]](refseq)
+                         NM_654[[3]](refseq)
+                         NM_321[[1]](ensembl)
+                         NM_321[[2]](ensembl)
+                     };
+
+  my $_;
+
+  # Build a string that looks like an input file with our ids, which
+  # are in the 8th column of the tab file.
+  my $in       = join "", map { "\t\t\t\t\t\t\t$_\n" } @in_ids;
+  my $expected = join "", map { "\t\t\t\t\t\t\t$_\n" } @expected_ids;
+
+  make_ids_unique4geneinfofile(\$in, \(my $out));
+
+  # Extract the ids from the output; split the lines and trim whitespace.
+  my @out = split /\n/, $out;
+  my @expected = split /\n/, $expected;
+  s/\s+//g foreach @out;
+  s/\s+//g foreach @expected;
+
+  is_deeply(\@out, \@expected, "Make IDs unique");
+}
+
 modify_fa_to_have_seq_on_one_line_ok();
 modify_fasta_header_for_genome_seq_database_ok();
 chromosome_comparison_ok();
@@ -245,3 +293,4 @@ sort_genome_fa_by_chr_ok();
 sort_gene_fa_by_chr_ok();
 get_exons_ok();
 make_master_file_of_genes_ok();
+make_ids_unique4geneinfofile_ok();
