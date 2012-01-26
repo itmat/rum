@@ -302,11 +302,25 @@ sub read_files_file {
   return @files;
 }
 
-=item make_master_file_of_genes FILES_FILE
+=item make_master_file_of_genes INS, OUT, TYPES
 
-Reads in one or more files containing gene info and merges them
+Reads from one or more files containing gene info and merges them
 together. For records that exist in both files, we merge the records
 together and append the names used in both files.
+
+INS must be a reference to an array of gene info files.
+
+We write a single merged table to OUT.
+
+TYPES must be a reference to an array with the same length as INS;
+each element should be a string that can describes type type of the
+corresponding file in INS.
+
+For example:
+
+  _make_master_file_of_genes_impl(["refseq.txt", "ensemble.txt"],
+                                  "merged.txt",
+                                  ["refseq", "ensembl"]);
 
 =cut
 
@@ -386,6 +400,19 @@ sub _make_master_file_of_genes_impl {
   }  
 }
 
+=item make_master_file_of_genes FILES_FILE, OUT
+
+Reads in one or more files containing gene info and merges them
+together. For records that exist in both files, we merge the records
+together and append the names used in both files.
+
+FILES_FILE should be a file that contains a list of filenames, each of
+which is a gene info file with five columns: name, chromosome, strand,
+exon starts, and exon ends.
+
+Writes a single merged table to OUT.
+
+=cut
 
 
 sub make_master_file_of_genes {
