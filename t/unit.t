@@ -1,6 +1,7 @@
 #!perl -T
 
-use Test::More tests => 13;
+use Test::More tests => 15;
+use Test::Exception;
 use lib "lib";
 
 use strict;
@@ -314,6 +315,51 @@ EXPECTED
   is_deeply(\@got, \@expected, "Master list of exons");
 }
 
+sub print_genes_ok {
+  my %exons = (
+               "chr1:2-5" =>   "A" x 4,
+               "chr1:8-10" =>  "C" x 3,
+               "chr1:34-40" => "G" x 7,
+               "chr1:46-57" => "T" x 12,
+               "chr2:72-80" => "A" x 8);
+
+  my @genes_in = 
+    (
+     ["chr1", "+",  1, 20, "", "1,7,",   "5,10,", "NM_123"],
+     ["chr1", "-", 30, 60, "", "33,45,", "40,57,", "NM_456"],
+     ["chr2", "+", 71, 80, "", "71,",    "80,",    "NM_789"]
+    );
+
+
+  my $genes = join("\n", map { join("\t", @$_) } @genes_in) . "\n";
+
+  do {
+    open my $in, "<", \$genes;
+    open my $out, ">", \(my $got);
+    RUM::Script::print_genes($in, $out, "chr1", undef, \%exons);
+    
+    my $expected = <<EXPECTED;
+>NM_123:chr1:1-20_+
+AAAACCC
+>NM_456:chr1:30-60_-
+AAAAAAAAAAAACCCCCCC
+EXPECTED
+    is($got, $expected, "Print genes");
+  };
+
+  # Make sure we fail if we're missing an exon
+  do {
+    open my $in, "<", \$genes;
+    open my $out, ">", \(my $got);
+    throws_ok { 
+      RUM::Script::print_genes($in, $out, "chr1", undef, {});
+    } qr/exon for chr1:2-5 not found/,
+      "Die when we're missing exons for a chromosome";
+  };    
+}
+
+
+
 modify_fa_to_have_seq_on_one_line_ok();
 modify_fasta_header_for_genome_seq_database_ok();
 chromosome_comparison_ok();
@@ -324,3 +370,4 @@ get_exons_ok();
 make_master_file_of_genes_ok();
 make_ids_unique4geneinfofile_ok();
 get_master_list_of_exons_from_geneinfofile_ok();
+print_genes_ok();

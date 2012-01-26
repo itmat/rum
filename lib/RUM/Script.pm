@@ -754,46 +754,55 @@ sub get_exons {
 
 Read genes from GENE_IN_FILE and write to OUT.
 
+EXONS must be a hash mapping "<chromosome-name>:<start>-<end>" to a
+sequence.
+
 TODO: More.
 
 =cut
 
-sub print_genes () {
+sub print_genes {
   my ($gene_in_file, $out, $chr, $seq, $exons) = @_;
 
   while(defined (my $line2 = <$gene_in_file>)) {
     chomp($line2);
 
-    # TODO: Split the line into fields and assign the fields to vars
-    # right away.
+    my ($CHR, $strand, $gene_start, $gene_end, undef, $starts, $ends, $id) 
+      = split(/\t/,$line2);
 
-    my @a = split(/\t/,$line2);
-    my $strand = $a[1];
-    my $starts = $a[5];
-    my $ends = $a[6];
+    # Trim trailing commas from the exon starts and ends and split
+    # them
     $starts =~ s/\s*,\s*$//;
     $ends =~ s/\s*,\s*$//;
     my @STARTS = split(/,/,$starts);
     my @ENDS = split(/,/,$ends);
-    my $CHR = $a[0];
 
     if ($CHR eq $chr) {
+
+      # Concatenate together all the exons for this gene.
       my $GENESEQ = "";
       for(my $i=0; $i<@STARTS; $i++) {
         my $s = $STARTS[$i] + 1;  # add one because of the pesky zero based ucsc coords
         my $e = $ENDS[$i];  # don't add one to the end, because of the pesky half-open based ucsc coords
         my $ex = "$CHR:$s-$e";
-        $GENESEQ = $GENESEQ . $exons->{$ex};
-        if(!($exons->{$ex} =~ /\S/)) {
+
+        my $exon_seq = $exons->{$ex};
+        if ($exon_seq and $exons->{$ex} =~ /\S/) {
+          $GENESEQ = $GENESEQ . $exons->{$ex};
+        }
+        else {
           die "ERROR: exon for $ex not found.\n$line2\ni=$i\n";
         }
       }
-      $a[7] =~ s/::::.*//;
-      $a[7] =~ s/\([^\(]+$//;
-      print $out ">$a[7]:$CHR:$a[2]-$a[3]_$a[1]\n";
+
+      # Print the header, using only the first one of the gene
+      # ids. TODO: why only the first id for this gene?
+      $id =~ s/::::.*//;
+      $id =~ s/\([^\(]+$//;
+      print $out ">$id:$CHR:${gene_start}-${gene_end}_$strand\n";
 
       my $SEQ;
-      if($a[1] eq '-') {
+      if($strand eq '-') {
         $SEQ = &reversecomplement($GENESEQ);
       } else {
         $SEQ = $GENESEQ;
