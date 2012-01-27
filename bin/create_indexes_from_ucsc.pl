@@ -47,6 +47,7 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 
 use strict;
 use warnings;
+use autodie;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
@@ -54,12 +55,10 @@ use lib "$Bin/../lib";
 use Log::Log4perl qw(:easy);
 use RUM::Script qw(get_options show_usage);
 
-use autodie;
-
 Log::Log4perl->easy_init($INFO);
 
+# Parse command line options
 get_options("debug" => \(my $debug));
-
 my ($infile, $NAME) = @ARGV;
 show_usage unless @ARGV == 2;
 die "ERROR: the <NAME_genome.txt> file has to end in '.txt', ".
@@ -134,8 +133,6 @@ sort_gene_info($gene_info_unsorted, $gene_info);
 sort_gene_fa_by_chr($genes_unsorted, $genes_fa);
 unlink_temp_files($genes_unsorted, $gene_info_unsorted, "temp.fa");
 
-exit;
-
 $gene_info =~ /^([^_]+)_/;
 my $organism = $1;
 
@@ -163,11 +160,11 @@ unless ($debug) {
 
 # run bowtie on genes index
 print STDERR "\nRunning bowtie on the gene index, please wait...\n\n";
-run_bowtie($genes_fa, $organism . "_genes");
+system "bowtie-build", $genes_fa, $organism . "_genes";
 
 # run bowtie on genome index
 print STDERR "running bowtie on the genome index, please wait this can take some time...\n\n";
-run_bowtie($genome_one_line_seqs, $organism . "_genome");
+system "bowtie-build", $genome_one_line_seqs, $organism . "_genome";
 
 print STDERR "ok, all done...\n\n";
 
