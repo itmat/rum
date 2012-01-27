@@ -274,13 +274,10 @@ sub sort_gene_fa_by_chr {
 
     # TODO: Document this?
     foreach my $line (sort {
-      $hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || 
-        ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && 
-         $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1]) || 
-           ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && 
-            $hash{$chr}{$a}[1]==$hash{$chr}{$b}[1] && 
-            $hash{$chr}{$a}[2] cmp $hash{$chr}{$b}[2])
-         } keys %{$hash{$chr}}) {
+      $hash{$chr}{$a}[0] <=> $hash{$chr}{$b}[0] || 
+      $hash{$chr}{$a}[1] <=> $hash{$chr}{$b}[1] || 
+      $hash{$chr}{$a}[2] cmp $hash{$chr}{$b}[2]
+    } keys %{$hash{$chr}}) {
       chomp($line);
       if($line =~ /\S/) {
         print $out $line;
@@ -877,17 +874,13 @@ sub sort_gene_info {
   
   foreach my $chr (sort cmpChrs keys %hash) {
     foreach my $line (sort {
-      $hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || 
-        ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && 
-         $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1]) || 
-           ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && 
-            $hash{$chr}{$a}[1]==$hash{$chr}{$b}[1] && 
-            $hash{$chr}{$a}[2] cmp $hash{$chr}{$b}[2])
-         } keys %{$hash{$chr}}) {
+      $hash{$chr}{$a}[0] <=> $hash{$chr}{$b}[0] || 
+      $hash{$chr}{$a}[1] <=> $hash{$chr}{$b}[1] || 
+      $hash{$chr}{$a}[2] cmp $hash{$chr}{$b}[2]
+    } keys %{$hash{$chr}}) {
       chomp($line);
       if($line =~ /\S/) {
-        print $out $line;
-        print $out "\n";
+        print $out $line . "\n";
       }
     }
   }
