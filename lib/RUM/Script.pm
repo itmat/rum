@@ -221,7 +221,7 @@ in the file by chromosome.
 
 sub sort_genome_fa_by_chr {
   my ($in, $out) = _open_in_and_out(@_);
-
+  
   my %hash;
   report "Reading in genome";
   while (defined (my $line = <$in>)) {
@@ -427,7 +427,7 @@ sub make_master_file_of_genes {
     /(.*).txt$/; $1;
   } @ins;
 
-  return _make_master_file_of_genes_impl(\@ins, $out, @types);  
+  return _make_master_file_of_genes_impl(\@ins, $out, \@types);  
 }
 
 
@@ -685,15 +685,16 @@ sub make_fasta_files_for_master_list_of_genes {
     # Get the exons for this chromosome / sequence
     my $exons = get_exons($exon_in, $chr, $line, \%chromosomes_from_exons);
     report "Got " . scalar(keys(%$exons)) . " exons for $chr; starting genes\n";
-  
+
     # Get the genes for this chromosome / sequence
     print_genes($gene_in, $final_gene_fasta, $chr, $exons);
     report "done with genes for $chr\n";
   }
   
+  my @chromosomes_from_exons = keys %chromosomes_from_exons;
   remove_genes_with_missing_sequence($gene_in,
                                      $final_gene_info,
-                                     \%chromosomes_from_exons, \%chromosomes_in_genome);
+                                     \@chromosomes_from_exons, \%chromosomes_in_genome);
 }
 
 =item remove_genes_with_missing_sequence GENE_INFO_IN, FINAL_GENE_INFO, FROM_EXONS, IN_GENOME
@@ -707,17 +708,14 @@ sub remove_genes_with_missing_sequence {
   my ($gene_info_in, $final_gene_info, $from_exons, $in_genome) = @_;
 
   my $_;
-  my @missing = grep { not exists $in_genome->{$_} } keys %$from_exons;
+  my @missing = grep { not exists $in_genome->{$_} } @$from_exons;
 
   seek $gene_info_in, 0, 0;
   my $pattern = join("|", map { "($_)" } @missing);
   my $regex = qr/$pattern/;
   report "I am missing these genes: @missing, pattern is $pattern\n";
   while (defined($_ = <$gene_info_in>)) {
-    
-    unless (@missing and /$regex/) {
-      print $final_gene_info $_;
-    }
+    print $final_gene_info $_ unless @missing && /$regex/;
   }
 }
 
@@ -786,7 +784,7 @@ sub print_genes {
         my $e = $ENDS[$i];  # don't add one to the end, because of the pesky half-open based ucsc coords
         my $ex = "$CHR:$s-$e";
         my $exon_seq = $exons->{$ex};
-        if ($exon_seq and $exons->{$ex} =~ /\S/) {
+        if ($exon_seq and $exon_seq =~ /\S/) {
           $GENESEQ = $GENESEQ . $exons->{$ex};
         }
         else {
@@ -903,7 +901,7 @@ array.
 
 sub _open_in {
   my ($in) = @_;
-  if (ref($in) and ref($in) =~ /^ARRAY/) {
+  if (ref($in) =~ /^ARRAY/) {
     my @in = @$in;
     my @result;
     for my $file (@$in) {

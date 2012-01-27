@@ -53,9 +53,10 @@ use lib "$Bin/../lib";
 
 use Log::Log4perl qw(:easy);
 use RUM::Script qw(get_options show_usage);
-use RUM::Index qw(run_bowtie);
 
 use autodie;
+
+Log::Log4perl->easy_init($INFO);
 
 get_options("debug" => \(my $debug));
 
@@ -88,9 +89,7 @@ sub import_scripts_with_logging {
     };
   }
 }
-
 import_scripts_with_logging();
-
 
 # Put all the filenames we will use in vars.
 my $genome_fa = $infile;

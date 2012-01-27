@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 24;
+use Test::More tests => 28;
 use Test::Exception;
 use lib "lib";
 
@@ -9,7 +9,7 @@ use warnings;
 use Log::Log4perl qw(:easy);
 
 BEGIN { 
-  use_ok('RUM::Script', qw(:scripts));
+  use_ok('RUM::Script', qw(:scripts get_options));
 
   use_ok('RUM::ChrCmp', qw(cmpChrs by_chromosome));
 }
@@ -374,6 +374,17 @@ EXPECTED
     } qr/exon for chr1:2-5 not found/,
       "Die when we're missing exons for a chromosome";
   };    
+
+  # Make sure we fail if we're missing an exon
+  do {
+    open my $in, "<", \$genes;
+    open my $out, ">", \(my $got);
+  my %exons = ("chr1:2-5" =>   "  ");
+    throws_ok { 
+      RUM::Script::print_genes($in, $out, "chr1", \%exons);
+    } qr/exon for chr1:2-5 not found/,
+      "Die when we're missing exons for a chromosome";
+  };    
 }
 
 sub make_fasta_files_for_master_list_of_genes_ok {
@@ -543,6 +554,35 @@ sub fix_geneinfofile_for_neg_introns_ok {
   };
 }
 
+sub remove_genes_with_missing_sequence_ok {
+
+  do {
+    open my $in, "<", \"chr1\nchr2\nchr3\n";
+    open my $outh, ">", \(my $out);
+    RUM::Script::remove_genes_with_missing_sequence
+        ($in, $outh, 
+         ["chr1", "chr2", "chr3"],
+         { chr1 => 1, chr3 => 1});
+    is($out, "chr1\nchr3\n", "Remove genes with missing sequence");
+  };
+
+  do {
+    open my $in, "<", \"chr1\nchr2\nchr3\n";
+    open my $outh, ">", \(my $out);
+    RUM::Script::remove_genes_with_missing_sequence
+        ($in, $outh, 
+         ["chr1", "chr2", "chr3"],
+         { chr1 => 1, chr2 => 1, chr3 => 1});
+    is($out, "chr1\nchr2\nchr3\n", "Doesn't remove any genes when no sequences missing");
+  };
+}
+
+sub get_options_ok {
+  local @ARGV = ("--foo");
+  get_options("foo" => \(my $foo));
+  is($foo, 1, "Get options");
+}
+
 modify_fa_to_have_seq_on_one_line_ok();
 modify_fasta_header_for_genome_seq_database_ok();
 chromosome_comparison_ok();
@@ -559,3 +599,5 @@ sort_gene_info_ok();
 sort_geneinfofile_ok();
 read_files_file_ok();
 fix_geneinfofile_for_neg_introns_ok();
+remove_genes_with_missing_sequence_ok();
+get_options_ok();
