@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 23;
+use Test::More tests => 24;
 use Test::Exception;
 use lib "lib";
 
@@ -178,6 +178,16 @@ OUT
   
   sort_gene_fa_by_chr(\$in, \(my $got));
   is ($got, $expected, "Sort gene FASTA file by chromosome");
+
+  do {
+  my $in = ">NM_02:chr2:100-200_-\nGG\nGG\n";
+
+    throws_ok { 
+      sort_gene_fa_by_chr(\$in, \(my $out));
+    } qr/expected.*header/i,
+      "Sort FASTA fails on invalid format";
+  };
+
 }
 
 sub get_exons_ok {
