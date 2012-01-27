@@ -115,7 +115,6 @@ modify_fa_to_have_seq_on_one_line($genome_fa, $genome_one_line_seqs_temp);
 sort_genome_fa_by_chr($genome_one_line_seqs_temp, $genome_one_line_seqs);
 unlink_temp_files($genome_fa, $genome_one_line_seqs_temp);
 
-# FOO
 make_master_file_of_genes($gene_info_files, $gene_info_merged_unsorted);
 fix_geneinfofile_for_neg_introns($gene_info_merged_unsorted,
                                  $gene_info_merged_unsorted_fixed,
@@ -147,26 +146,24 @@ $config = $config . "indexes/$genome_one_line_seqs\n";
 $config = $config . "scripts\n";
 $config = $config . "lib\n";
 my $configfile = "rum.config_" . $organism;
-open(OUTFILE, ">$configfile");
-print OUTFILE $config;
-close(OUTFILE);
 
-unless ($debug) {
-  unlink("gene_info_merged_unsorted.txt");
-  unlink("gene_info_merged_unsorted_fixed.txt");
-  unlink("gene_info_merged_sorted_fixed.txt");
-  unlink("$master_list_of_exons");
-}
+open my $outfile, ">", $configfile;
+print $outfile $config;
+
+unlink_temp_files("gene_info_merged_unsorted.txt",
+                  "gene_info_merged_unsorted_fixed.txt",
+                  "gene_info_merged_sorted_fixed.txt",
+                  "$master_list_of_exons");
 
 # run bowtie on genes index
-print STDERR "\nRunning bowtie on the gene index, please wait...\n\n";
+INFO "\nRunning bowtie on the gene index, please wait...\n\n";
 system "bowtie-build", $genes_fa, $organism . "_genes";
 
 # run bowtie on genome index
-print STDERR "running bowtie on the genome index, please wait this can take some time...\n\n";
+INFO "running bowtie on the genome index, please wait this can take some time...\n\n";
 system "bowtie-build", $genome_one_line_seqs, $organism . "_genome";
 
-print STDERR "ok, all done...\n\n";
+INFO "ok, all done...\n\n";
 
 __END__
 
