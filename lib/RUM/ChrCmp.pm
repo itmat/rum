@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use Exporter 'import';
-our @EXPORT_OK = qw(cmpChrs sort_by_chromosome);
+our @EXPORT_OK = qw(cmpChrs by_chromosome);
 
 =pod
 
@@ -40,9 +40,9 @@ our $VERSION = '0.01';
 Comparator that compares chromosome names.
 
 =cut
-sub cmpChrs {
-  my $a2_c = lc($b);
-  my $b2_c = lc($a);
+sub cmpChrs ($$) {
+  my $a2_c = lc($_[1]);
+  my $b2_c = lc($_[0]);
   if($a2_c =~ /^\d+$/ && !($b2_c =~ /^\d+$/)) {
     return 1;
   }
@@ -306,11 +306,4 @@ sub roman($) {
   lc Roman shift;
 }
 
-=item sort_by_chromosome()
-
-Sort the given list by chromosome.
-
-=cut
-sub sort_by_chromosome {
-  return sort cmpChrs @_;
-}
+*by_chromosome = *cmpChrs;

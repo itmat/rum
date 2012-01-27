@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 15;
+use Test::More tests => 17;
 use Test::Exception;
 use lib "lib";
 
@@ -11,7 +11,7 @@ use Log::Log4perl qw(:easy);
 BEGIN { 
   use_ok('RUM::Script', qw(:scripts));
 
-  use_ok('RUM::ChrCmp', qw(cmpChrs sort_by_chromosome));
+  use_ok('RUM::ChrCmp', qw(cmpChrs by_chromosome));
 }
 
 sub transform_ok {
@@ -32,12 +32,16 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
 TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+>gi|123|ref|123sdf|Foo bar
+ACGT
 INPUT
 
   my $expected = 
     ">gi|123|ref|123sdf|Foo bar\n".
     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC".
-    "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT\n";
+    "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT\n".
+    ">gi|123|ref|123sdf|Foo bar\n".
+    "ACGT\n";
 
   transform_ok(\&modify_fa_to_have_seq_on_one_line,
                $input, $expected, "Joining sequence lines together");
@@ -46,10 +50,10 @@ INPUT
 
 sub modify_fasta_header_for_genome_seq_database_ok {
 
-  my $input = ">hg19_ct_UserTrack_3545_+ range=chrUn_gl000248:1-39786 5'pad=0 3'pad=0 strand=+ repeatMasking=none\n";
+  my $input = ">hg19_ct_UserTrack_3545_+ range=chrUn_gl000248:1-39786 5'pad=0 3'pad=0 strand=+ repeatMasking=none\nACGT\n";
 
 
-  my $expected = ">chrUn_gl000248\n";
+  my $expected = ">chrUn_gl000248\nACGT\n";
 
   transform_ok(\&modify_fasta_header_for_genome_seq_database,
                $input, $expected, "Reformatting header line");
@@ -79,8 +83,8 @@ sub chromosome_comparison_ok {
                     chrUn_GJ060000 chrUn_GJ060001 chrUn_GJ060002 chrUn_GJ060003
                     chrUn_GJ060004 chrUn_GJ060005 chrUn_GJ060006 chrUn_GJ060007
                     chrUn_GJ060008 chrUn_GJ060009);
-  my @got = sort_by_chromosome @in;
-  is_deeply(\@got, \@expected);
+  my @got = sort by_chromosome @in;
+  is_deeply(\@got, \@expected, "Chromosome comparison");
 }
 
 sub reverse_complement_ok {
@@ -358,7 +362,92 @@ EXPECTED
   };    
 }
 
+sub make_fasta_files_for_master_list_of_genes_ok {
+  my $exons_in = <<EXONS;
+chr1:2-5
+chr1:8-10
+chr1:34-40
+chr1:46-57
+chr2:72-80
+EXONS
 
+  my @genes_in = 
+    (
+     ["chr1", "+",  1, 20, "", "1,7,",   "5,10,", "NM_123"],
+     ["chr1", "-", 30, 60, "", "33,45,", "40,57,", "NM_456"],
+     ["chr2", "+", 71, 80, "", "71,",    "80,",    "NM_789"]
+    );
+
+  my $genome_in = ">chr1\n" . ("A" x 100) . "\n";
+
+  my $genes_in = join("\n", map { join("\t", @$_) } @genes_in) . "\n";
+
+  my @ins = (\$genome_in, \$exons_in, \$genes_in);
+  make_fasta_files_for_master_list_of_genes(\@ins, [\(my $got1), \(my $got2)]);
+  
+  my $expected = <<EXPECTED;
+>NM_123:chr1:1-20_+
+AAAAAAA
+>NM_456:chr1:30-60_-
+TTTTTTTTTTTTTTTTTTT
+EXPECTED
+
+  is($got2, $expected, "Print genes");
+  
+}
+
+sub bed_file {
+  my $num_cols = shift;
+  my @col_nums = @{shift()};
+  my $result = "";
+
+  while (my $row = shift()) {
+    my @row = map { "" } (0..$num_cols);
+    @row[@col_nums] = @$row;
+    $result .= join("\t", @row) . "\n";
+  }
+  return $result;
+}
+
+sub parse_bed_file {
+  my ($data, @col_nums) = @_;
+  open my $in, "<", \$data;
+  my $_;
+  my @result;
+  while (defined($_ = <$in>)) {
+    chomp;
+    my @row = split /\t/;
+    push @result, [@row[@col_nums]];
+  }
+  return [@result];
+}
+
+sub sort_gene_info_ok {
+
+  my $in = bed_file
+    (8,
+     [0,      2, 3, 7],
+     ["chr1", 1,  5, "NM123"],
+     ["chr2", 1,  5, "NM123"],
+     ["chr1", 6, 12, "NM567"],
+     ["chr1", 6, 10, "NM123"],
+     ["chr1", 6, 12, "NM123"],
+    );     
+
+  my @expected = 
+    (
+     ["chr1", 1,  5, "NM123"],
+     ["chr1", 6, 10, "NM123"],
+     ["chr1", 6, 12, "NM123"],
+     ["chr1", 6, 12, "NM567"],
+     ["chr2", 1,  5, "NM123"],
+    );     
+
+  sort_gene_info(\$in, \(my $got));
+  
+  my $table = parse_bed_file($got, 0, 2, 3, 7);
+  is_deeply($table, \@expected, "Sort gene info");
+}
 
 modify_fa_to_have_seq_on_one_line_ok();
 modify_fasta_header_for_genome_seq_database_ok();
@@ -371,3 +460,5 @@ make_master_file_of_genes_ok();
 make_ids_unique4geneinfofile_ok();
 get_master_list_of_exons_from_geneinfofile_ok();
 print_genes_ok();
+make_fasta_files_for_master_list_of_genes_ok();
+sort_gene_info_ok();

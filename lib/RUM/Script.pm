@@ -115,7 +115,7 @@ our @EXPORT_OK = qw(get_options
                     show_usage);
 Exporter::export_ok_tags('scripts');
 
-use RUM::ChrCmp qw(cmpChrs sort_by_chromosome);
+use RUM::ChrCmp qw(cmpChrs by_chromosome);
 
 =item get_options OPTIONS
 
@@ -234,7 +234,7 @@ sub sort_genome_fa_by_chr {
   }
 
   report "Sorting chromosomes";
-  my @chromosomes = sort_by_chromosome keys %hash;
+  my @chromosomes = sort by_chromosome keys %hash;
   
   report "Printing output";
   foreach my $chr (@chromosomes) {
@@ -270,7 +270,7 @@ sub sort_gene_fa_by_chr {
     $seq{$line} = $SEQ;
   }
   
-  foreach my $chr (sort_by_chromosome keys %hash) {
+  foreach my $chr (sort by_chromosome keys %hash) {
 
     # TODO: Document this?
     foreach my $line (sort {$hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1]) || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]==$hash{$chr}{$b}[1] && $hash{$chr}{$a}[2] cmp $hash{$chr}{$b}[2])} keys %{$hash{$chr}}) {
@@ -670,7 +670,6 @@ sub make_fasta_files_for_master_list_of_genes {
   my %chromosomes_from_exons;
 
   while (defined (my $line = <$genome_fasta>)) {
-    
     # Read a header line
     chomp($line);
     $line =~ />(.*)/;
@@ -684,7 +683,7 @@ sub make_fasta_files_for_master_list_of_genes {
 
     # Get the exons for this chromosome / sequence
     my $exons = get_exons($exon_in, $chr, $line, \%chromosomes_from_exons);
-    report "done with exons for $chr; starting genes\n";
+    report "Got " . scalar(keys(%$exons)) . " exons for $chr; starting genes\n";
   
     # Get the genes for this chromosome / sequence
     print_genes($gene_in, $final_gene_fasta, $chr, $exons);
@@ -707,15 +706,16 @@ sub remove_genes_with_missing_sequence {
   my ($gene_info_in, $final_gene_info, $from_exons, $in_genome) = @_;
 
   my $_;
-  my @missing = grep { $in_genome->{$_} + 0 == 0 } keys %$from_exons;
+  my @missing = grep { not exists $in_genome->{$_} } keys %$from_exons;
 
   seek $gene_info_in, 0, 0;
   my $pattern = join("|", map { "($_)" } @missing);
   my $regex = qr/$pattern/;
-  report "I am missing these genes: @missing";
-  while (defined (my $line = <$gene_info_in>)) {
+  report "I am missing these genes: @missing, pattern is $pattern\n";
+  while (defined($_ = <$gene_info_in>)) {
+    
     unless (@missing and /$regex/) {
-      print $final_gene_info $line;
+      print $final_gene_info $_;
     }
   }
 }
@@ -784,7 +784,6 @@ sub print_genes {
         my $s = $STARTS[$i] + 1;  # add one because of the pesky zero based ucsc coords
         my $e = $ENDS[$i];  # don't add one to the end, because of the pesky half-open based ucsc coords
         my $ex = "$CHR:$s-$e";
-
         my $exon_seq = $exons->{$ex};
         if ($exon_seq and $exons->{$ex} =~ /\S/) {
           $GENESEQ = $GENESEQ . $exons->{$ex};
@@ -872,8 +871,10 @@ sub sort_gene_info {
     $hash{$chr}{$line}[2] = $name;
   }
   
-  foreach my $chr (sort {cmpChrs($a,$b)} keys %hash) {
-    foreach my $line (sort {$hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1]) || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]==$hash{$chr}{$b}[1] && $hash{$chr}{$a}[2] cmp $hash{$chr}{$b}[2])} keys %{$hash{$chr}}) {
+  foreach my $chr (sort cmpChrs keys %hash) {
+    foreach my $line (sort {
+      $hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || 
+        ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1]) || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]==$hash{$chr}{$b}[1] && $hash{$chr}{$a}[2] cmp $hash{$chr}{$b}[2])} keys %{$hash{$chr}}) {
       chomp($line);
       if($line =~ /\S/) {
         print $out $line;
