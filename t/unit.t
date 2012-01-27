@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 17;
+use Test::More tests => 19;
 use Test::Exception;
 use lib "lib";
 
@@ -444,9 +444,40 @@ sub sort_gene_info_ok {
     );     
 
   sort_gene_info(\$in, \(my $got));
-  
   my $table = parse_bed_file($got, 0, 2, 3, 7);
   is_deeply($table, \@expected, "Sort gene info");
+}
+
+sub sort_geneinfofile_ok {
+  my $in = bed_file
+    (
+     4, 
+     [0, 2, 3],
+     ["chr1", 6, 12],
+     ["chr1", 1,  5],
+     ["chr2", 1,  5],
+     ["chr1", 6, 10],
+     );
+
+  my @expected = 
+    (
+     ["chr1", 1,  5],
+     ["chr1", 6, 10],
+     ["chr1", 6, 12],
+     ["chr2", 1,  5],
+     );
+
+  sort_geneinfofile(\$in, \(my $got));
+  my $table = parse_bed_file($got, 0, 2, 3);
+  is_deeply($table, \@expected, "Sort geneinfofile");
+}
+
+sub read_files_file_ok {
+  open my $in, "<", \"refseq.txt\nensembl.txt\n";
+  my @expected = ("refseq.txt", "ensembl.txt");
+  
+  my @got = RUM::Script::read_files_file($in);
+  is_deeply(\@got, \@expected, "read files file");
 }
 
 modify_fa_to_have_seq_on_one_line_ok();
@@ -462,3 +493,5 @@ get_master_list_of_exons_from_geneinfofile_ok();
 print_genes_ok();
 make_fasta_files_for_master_list_of_genes_ok();
 sort_gene_info_ok();
+sort_geneinfofile_ok();
+read_files_file_ok();

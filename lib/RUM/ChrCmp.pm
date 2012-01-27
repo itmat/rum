@@ -306,4 +306,10 @@ sub roman($) {
   lc Roman shift;
 }
 
+=item by_chromosome A, B
+
+Comparator that compares chromosome names.
+
+=cut
+
 *by_chromosome = *cmpChrs;
