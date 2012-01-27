@@ -13,6 +13,8 @@ These instructions have three parts:
 =item 3 Your organism is not on either ucsc or ensembl but you have
 genome sequence and optionally gene or transcript models.
 
+=back
+
 Prerequisites: You need bowtie installed on your system, including bowtie-build
 which should come with the default installation. The bowtie-build executable
 must be in the system path. If that's not possible then you can edit the perl
@@ -44,16 +46,25 @@ browser. You can alternatively get it from the downloads page as follows:
 If you do not opt to get the fasta files from the download page, then use
 the following instructions:
 
+=over 4
+
+=item *
+
 Go to UCSC's main page (http://genome.ucsc.edu/), choose the organism and
 assembly.
 
+=item *
+
 Go to Table Browser and set the options as follows:
 
-group: all tables
-table: chromInfo
-output format: selected fields from primary and related tables
-output file: chromosome_sizes.txt
+  group: all tables
+  table: chromInfo
+  output format: selected fields from primary and related tables
+  output file: chromosome_sizes.txt
+
 hit "get output" and choose the 'chrom' and 'size' fields.
+
+=item *
 
 Now remove the header line (if any) from chromosome_sizes.txt and add
 columns so rows look like this:
@@ -67,26 +78,33 @@ and add a col with '+' at the end
 
 * The next steps get fasta file with the complete genome sequence.
 
+=item *
+
 Submit the file from the previous step to the genome browser as a custom track, then go to table browser
 and set as follows:
 
-group: custom tracks
-track: User Track
-region: genome
-output format: sequence
-output file: NAME_genome.txt
-file type returned: gzip
+  group: custom tracks
+  track: User Track
+  region: genome
+  output format: sequence
+  output file: NAME_genome.txt
+  file type returned: gzip
 
 where "NAME" should be replaced by something that identifies your name/assembly, eg mm9.
 Just use alphanumeric, dashes, periods in NAME, do not use underscores.
 The scripts below won't work unless you follow this naming convention exactly.
 Note the suffix must be '.txt' not '.fa'
 
+=item *
+
 Hit get output, and request all upper case
 
 gunzip the file and run:
 
+=back
+
 Now to make files of gene info and sequence:
+
  - you can use any of the annotation tracks as long as they have the five fields you
 are asked to select below:
  - the following illustrates using two tracks "UCSC Known" and "RefSeq". 
@@ -107,47 +125,62 @@ output file: ucscknown.txt (keep the name of this file simple, but it must end i
 
 Hit "get output"
 
+=over 4
+
+=item *
+
 Select the following fields from the table:
-name
-chrom
-strand
-exonStarts
-exonEnds
+
+  name
+  chrom
+  strand
+  exonStarts
+  exonEnds
 
 hit "get output".
+
+=item *
 
 Now do the same thing but get RefSeq genes, save to file called: refseq.txt
   - Set 'table' to be "refGene".
 
+=item *
+
 make a file called "gene_info_files" with one line per gene annotation filename:
---------------
-refseq.txt
-ucscknown.txt
+
+  refseq.txt
+  ucscknown.txt
 
 All the scripts and the data files you just downloaded need to be in the same
 directory. Now run:
 
-> perl create_indexes_from_ucsc.pl NAME_genome.txt NAME_refseq_ucsc
-  - this is a master script that runs a bunch of other scripts including bowtie-build...
-  - you will need a fair amount of RAM to do this, 10Gb was sufficient for Human
+  > perl create_indexes_from_ucsc.pl NAME_genome.txt NAME_refseq_ucsc
+
+=over 4
+  
+=item * this is a master script that runs a bunch of other scripts including bowtie-build...
+
+=item * you will need a fair amount of RAM to do this, 10Gb was sufficient for Human
+
+=back
 
 After it is finished, the files you need to keep are the following 15:
 
-NAME_refseq_ucsc_gene_info.txt
-NAME_genome_one-line-seqs.fa
-NAME_genes.4.ebwt
-NAME_genes.3.ebwt
-NAME_genes.2.ebwt
-NAME_genes.1.ebwt
-NAME_genes.rev.2.ebwt
-NAME_genes.rev.1.ebwt
-NAME_genome.4.ebwt
-NAME_genome.3.ebwt
-NAME_genome.2.ebwt
-NAME_genome.1.ebwt
-NAME_genome.rev.2.ebwt
-NAME_genome.rev.1.ebwt
-rum.config_NAME
+  NAME_refseq_ucsc_gene_info.txt
+  NAME_genome_one-line-seqs.fa
+  NAME_genes.4.ebwt
+  NAME_genes.3.ebwt
+  NAME_genes.2.ebwt
+  NAME_genes.1.ebwt
+  NAME_genes.rev.2.ebwt
+  NAME_genes.rev.1.ebwt
+  NAME_genome.4.ebwt
+  NAME_genome.3.ebwt
+  NAME_genome.2.ebwt
+  NAME_genome.1.ebwt
+  NAME_genome.rev.2.ebwt
+  NAME_genome.rev.1.ebwt
+  rum.config_NAME
 
 Put all but rum.config_NAME in the indexes directory. The last file rum.config_NAME
 might need to be edited if you have put anything somewhere other than the default
@@ -158,7 +191,8 @@ run RUM).
  *** Note: edit rum.config_NAME if you have moved any scripts, executables, or indexes
      from their default locations.
 
--- THIS ENDS THE UCSC INSTRUCTIONS --
+=back
+
 
 =head2 Your organism is available on the ensembl website
 
