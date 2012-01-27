@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 19;
+use Test::More tests => 23;
 use Test::Exception;
 use lib "lib";
 
@@ -139,6 +139,8 @@ sub sort_gene_fa_by_chr_ok {
 CC
 >NM_02:chr2:1-50_-
 GG
+>NM_02:chr2:1-25_+
+ACG
 >NM_02:chr1:100-200_-
 AA
 >NM_02:chr1:1-50_-
@@ -162,6 +164,8 @@ TT
 AA
 >NM_02:chr1:100-200_-
 AA
+>NM_02:chr2:1-25_+
+ACG
 >NM_01:chr2:1-50_-
 GG
 >NM_02:chr2:1-50_-
@@ -480,6 +484,55 @@ sub read_files_file_ok {
   is_deeply(\@got, \@expected, "read files file");
 }
 
+sub fix_geneinfofile_for_neg_introns_ok {
+  my $in = bed_file
+    (3,
+     [0, 1, 2],
+     ["1,10,20,", "7,18,29,", 3],
+     ["40,50,60", "45,60,70,", 3],
+     ["40,50,60", "50,59,70,", 3],
+     ["40,50,60", "51,61,70,", 3],
+    );
+
+  my @expected = 
+    (
+     ["1,10,20,", "7,18,29,", 3],
+     ["40,50,", "45,70,", 2],
+     ["40,60,", "59,70,", 2],
+     ["40,", "70,", 1],
+    );
+
+  fix_geneinfofile_for_neg_introns(\$in, \(my $out), 0, 1, 2);
+
+  my $got = parse_bed_file($out, 0,1,2);
+
+  is_deeply($got, \@expected, "Fix negative length introns");
+
+  do {
+    my $in = bed_file(3, [0, 1, 2], ["", "7,18,29,", 3]);
+    throws_ok { 
+      fix_geneinfofile_for_neg_introns(\$in, \(my $out), 0, 1, 2);
+    } qr/starts.*column.*empty/,
+      "Fix negative introns dies when missing value in starts col";
+  };
+
+  do {
+    my $in = bed_file(3, [0, 1, 2], ["1,2,3", "", 3]);
+    throws_ok { 
+      fix_geneinfofile_for_neg_introns(\$in, \(my $out), 0, 1, 2);
+    } qr/ends.*column.*empty/,
+      "Fix negative introns dies when missing value in ends col";
+  };
+
+  do {
+    my $in = bed_file(3, [0, 1, 2], ["1,2,3", "4,5,6", ""]);
+    throws_ok { 
+      fix_geneinfofile_for_neg_introns(\$in, \(my $out), 0, 1, 2);
+    } qr/count.*column.*empty/,
+      "Fix negative introns dies when missing value in count col";
+  };
+}
+
 modify_fa_to_have_seq_on_one_line_ok();
 modify_fasta_header_for_genome_seq_database_ok();
 chromosome_comparison_ok();
@@ -495,3 +548,4 @@ make_fasta_files_for_master_list_of_genes_ok();
 sort_gene_info_ok();
 sort_geneinfofile_ok();
 read_files_file_ok();
+fix_geneinfofile_for_neg_introns_ok();

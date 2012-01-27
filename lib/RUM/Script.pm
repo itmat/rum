@@ -425,10 +425,6 @@ Writes a single merged table to OUT.
 sub make_master_file_of_genes {
   my ($filesfile, $out) = _open_in_and_out(@_);
 
-  my $total = 0;
-
-  my %geneshash;
-
   my @ins = read_files_file($filesfile);
   my @types = map {
     /(.*).txt$/; $1;
@@ -454,9 +450,11 @@ counted starting from zero.  If there is no such column, set this to
 =cut
 
 sub fix_geneinfofile_for_neg_introns {
-  my ($infile, $outfile, $starts_col, $ends_col, $exon_count_col) = _open_in_and_out(@_);
+  my ($in, $out, $starts_col, $ends_col, $exon_count_col) = 
+    _open_in_and_out(@_);
 
-  while (defined (my $line = <$infile>)) {
+  while (defined (my $line = <$in>)) {
+
     chomp($line);
     my @a = split(/\t/, $line);
     my $starts = $a[$starts_col];
@@ -482,6 +480,7 @@ sub fix_geneinfofile_for_neg_introns {
     my $end_string = "";
     my $N = @S;
     for(my $i=1; $i<$N; $i++) {
+
       my $intronlength = $S[$i] - $E[$i-1];
       my $realstart    = $E[$i-1] + 1;
       my $realend      = $S[$i];
@@ -492,20 +491,18 @@ sub fix_geneinfofile_for_neg_introns {
         $end_string = $end_string . $E[$i-1] . ",";
       }
       else {
-        #           print $outfile "$line\n";
+        #           print $out "$line\n";
         if($exon_count_col >= 0) {
           $a[$exon_count_col]--;
         }
       }
     }
+
     $end_string = $end_string . $E[$N-1] . ",";;
     $a[$starts_col] = $start_string;
     $a[$ends_col] = $end_string;
-    print $outfile "$a[0]";
-    for(my $i=1; $i<@a; $i++) {
-      print $outfile "\t$a[$i]";
-    }
-    print $outfile "\n";
+
+    print $out join("\t", @a) . "\n";
   }
   
 }
