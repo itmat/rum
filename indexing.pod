@@ -6,12 +6,18 @@ These instructions have three parts:
 
 =over 4
 
-=item 1 Your organism is available on the ucsc genome browser
+=item 1
 
-=item 2 Your organism is available on the ensembl website
+Your organism is available on the ucsc genome browser
 
-=item 3 Your organism is not on either ucsc or ensembl but you have
-genome sequence and optionally gene or transcript models.
+=item 2
+
+Your organism is available on the ensembl website
+
+=item 3
+
+Your organism is not on either ucsc or ensembl but you have genome
+sequence and optionally gene or transcript models.
 
 =back
 
@@ -32,9 +38,9 @@ building your own indexes.
 This first part explains how to get the genome sequence using the table
 browser. You can alternatively get it from the downloads page as follows:
 
-=over 4
+=head3 Downloading the genome sequence from the genome downloads page
 
-=item The downloads link is on the left of the home page, find the species
+The downloads link is on the left of the home page, find the species
 and hit the "Full data set" and get the file with the genome sequence,
 unmasked, sometimes it's called chromFA.tar.gz, or something like
 that. When you unpack it, it may be in many pieces, possibly
@@ -44,7 +50,7 @@ together into one file and name that file NAME_genome.txt (where
 'fa'. After that proceed with the instructions to get the gene models
 file(s) using the table browser.
 
-=back
+=head3 Downloading the genome sequence using the table browser
 
 If you do not opt to get the fasta files from the download page, then use
 the following instructions:
@@ -64,8 +70,8 @@ hit "get output" and choose the 'chrom' and 'size' fields.
 Now remove the header line (if any) from chromosome_sizes.txt and add
 columns so rows look like this:
 
-  chr1    0       249250621       +
-  chr2    0       181748087	+
+  chr1    0       249250621     +
+  chr2    0       181748087     +
   ....
 
 in other words, add a column with '0' between the chr and size cols,
@@ -96,16 +102,24 @@ Now to make files of gene info and sequence:
 
 =over 4
 
-=item you can use any of the annotation tracks as long as they have the five fields you
+=item *
+
+you can use any of the annotation tracks as long as they have the five fields you
 are asked to select below:
 
-=item the following illustrates using two tracks "UCSC Known" and "RefSeq". 
+=item *
 
-=item If there are many annotation tracks, such as for mouse where there are more than ten,
-   you probably shouldn't include them all, by default we have been using just three of
-   them for mouse: refseq, ucsc and aceview. Using all tracks would create a transcript
-   db that is too complex, it's better to let blat map the reads for transcripts that
-   are not present in the db rather than to expand the db too much with false transcripts.
+the following illustrates using two tracks "UCSC Known" and "RefSeq". 
+
+=item *
+
+If there are many annotation tracks, such as for mouse where there are
+more than ten, you probably shouldn't include them all, by default we
+have been using just three of them for mouse: refseq, ucsc and
+aceview. Using all tracks would create a transcript db that is too
+complex, it's better to let blat map the reads for transcripts that
+are not present in the db rather than to expand the db too much with
+false transcripts.
 
 =back
 
@@ -145,9 +159,13 @@ directory. Now run:
 
 =over 4
 
-=item * this is a master script that runs a bunch of other scripts including bowtie-build...
+=item *
 
-=item * you will need a fair amount of RAM to do this, 10Gb was sufficient for Human
+this is a master script that runs a bunch of other scripts including bowtie-build...
+
+=item *
+
+you will need a fair amount of RAM to do this, 10Gb was sufficient for Human
 
 =back
 
