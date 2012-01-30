@@ -823,7 +823,7 @@ TODO: More.
 
 sub print_genes {
   my ($gene_in_file, $out, $chr, $exons) = @_;
-  warn "Processing $chr\n";
+
   while(defined (my $line2 = <$gene_in_file>)) {
     chomp($line2);
 
