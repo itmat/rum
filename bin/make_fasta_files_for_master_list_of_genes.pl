@@ -35,7 +35,6 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 
 use strict;
 use warnings;
-use autodie;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
