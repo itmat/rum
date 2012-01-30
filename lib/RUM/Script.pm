@@ -259,12 +259,8 @@ sub sort_gene_fa_by_chr {
 
   while (defined (my $line = <$in>)) {
     chomp($line);
-    $line =~ /^>(.*):([^:]+):(\d+)-(\d+)_.$/ 
+    my ($name, $chr, $start, $end) = $line =~ /^>(.*):([^:]+):(\d+)-(\d+)_.$/ 
       or croak "Expected header line, got $line";
-    my $name = $1;
-    my $chr = $2;
-    my $start = $3;
-    my $end = $4;
 
     $hash{$chr}{$line}[0] = $start;
     $hash{$chr}{$line}[1] = $end;
@@ -693,8 +689,9 @@ sub make_fasta_files_for_master_list_of_genes {
     chomp($line);
 
     # Get the exons for this chromosome / sequence
+    seek $exon_in, 0, 0;
     my $exons = get_exons($exon_in, $chr, $line, \%chromosomes_from_exons);
-    report "Got " . scalar(keys(%$exons)) . " exons for $chr; starting genes\n";
+    warn "Got " . scalar(keys(%$exons)) . " exons for $chr; starting genes\n";
 
     # Get the genes for this chromosome / sequence
     print_genes($gene_in, $final_gene_fasta, $chr, $exons);

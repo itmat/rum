@@ -252,9 +252,13 @@ have chosen above.
 
 =over 4
 
-=item this is a master script that runs a bunch of other scripts including bowtie-build...
+=item *
 
-=item you will need a fair amount of RAM to do this, 10Gb was sufficient for Human
+This is a master script that runs a bunch of other scripts including bowtie-build...
+
+=item *
+
+You will need a fair amount of RAM to do this, 10Gb was sufficient for Human
 
 =back
 

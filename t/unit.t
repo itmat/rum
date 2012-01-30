@@ -403,7 +403,7 @@ EXONS
      ["chr2", "+", 71, 80, "", "71,",    "80,",    "NM_789"]
     );
 
-  my $genome_in = ">chr1\n" . ("A" x 100) . "\n";
+  my $genome_in = ">chr1\n" . ("A" x 100) . "\n>chr2\n" . ("C" x 100) . "\n";
 
   my $genes_in = join("\n", map { join("\t", @$_) } @genes_in) . "\n";
 
@@ -415,6 +415,8 @@ EXONS
 AAAAAAA
 >NM_456:chr1:30-60_-
 TTTTTTTTTTTTTTTTTTT
+>NM_789:chr2:71-80_-
+CCCCC
 EXPECTED
 
   is($got2, $expected, "Print genes");
