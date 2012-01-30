@@ -1,0 +1,9 @@
+indexes/zebrafish_danRer7_refseq_ensembl_gene_info.txt
+bin/bowtie
+bin/blat
+bin/mdust
+indexes/zebrafish_genome
+indexes/zebrafish_genes
+indexes/zebrafish_danRer7_genome_one-line-seqs.fa
+scripts
+lib

@@ -1,0 +1,16 @@
+1) gene annotation file, can be relative path to where the RUM_runner.pl script is, or absolute path
+   e.g.: indexes/mm9_ucsc_refseq_gene_info.txt
+2) bowtie executable, can be relative path to where the RUM_runner.pl script is, or absolute path
+   e.g.: bin/bowtie
+3) blat executable, can be relative path to where the RUM_runner.pl script is, or absolute path
+   e.g.: bin/blat
+4) mdust executable, can be relative path to where the RUM_runner.pl script is, or absolute path
+   e.g.: bin/mdust
+5) bowtie genome index, can be relative path to where the RUM_runner.pl script is, or absolute path
+   e.g.: indexes/mm9
+6) bowtie gene index, can be relative path to where the RUM_runner.pl script is, or absolute path
+   e.g.: indexes/mm9_genes_ucsc_refseq
+7) blat genome index, can be relative path to where the RUM_runner.pl script is, or absolute path
+   e.g. indexes/mm9_genome_sequence_single-line-seqs.fa
+8) perl scripts directory, can be relative path to where the RUM_runner.pl script is, or absolute path
+   e.g.: scripts
