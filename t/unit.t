@@ -286,7 +286,7 @@ sub make_ids_unique4geneinfofile_ok {
                          NM_321[[2]](ensembl)
                      };
 
-  my $_;
+  local $_;
 
   # Build a string that looks like an input file with our ids, which
   # are in the 8th column of the tab file.
@@ -437,7 +437,7 @@ sub bed_file {
 sub parse_bed_file {
   my ($data, @col_nums) = @_;
   open my $in, "<", \$data;
-  my $_;
+  local $_;
   my @result;
   while (defined($_ = <$in>)) {
     chomp;

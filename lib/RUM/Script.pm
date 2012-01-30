@@ -614,7 +614,7 @@ sub get_master_list_of_exons_from_geneinfofile {
   my ($in, $out) = _open_in_and_out(@_);
 
   my %EXONS;
-  my $_;
+  local $_;
 
   while (defined (my $line = <$in>)) {
     chomp($line);
@@ -707,7 +707,7 @@ sub remove_genes_with_missing_sequence {
 
   my ($gene_info_in, $final_gene_info, $from_exons, $in_genome) = @_;
 
-  my $_;
+  local $_;
   my @missing = grep { not exists $in_genome->{$_} } @$from_exons;
 
   seek $gene_info_in, 0, 0;
@@ -731,7 +731,7 @@ EXON_IN_FILE.
 
 sub get_exons {
   my ($exon_in_file, $chr, $seq, $chromosomes_hash) = @_;
-  my $_;
+  local $_;
   my %exons;
 
   while (<$exon_in_file>) {
