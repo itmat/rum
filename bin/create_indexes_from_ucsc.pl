@@ -47,8 +47,8 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 
 use strict;
 use warnings;
-use autodie;
 
+use Carp;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
@@ -67,7 +67,6 @@ die "ERROR: the <NAME_genome.txt> file has to end in '.txt', ".
 sub unlink_temp_files {
   my @files = @_;
   return if $debug;
-  no autodie;
   INFO "Removing temporary files @files";
   for my $filename (@files) {
     unlink $filename or warn "Couldn't unlink $filename: $!";
@@ -155,15 +154,19 @@ unlink_temp_files("gene_info_merged_unsorted.txt",
                   "gene_info_merged_sorted_fixed.txt",
                   "$master_list_of_exons");
 
+sub bowtie {
+  my @cmd = ("bowtie-build", @_);
+  system(@cmd) == 0 or LOGCROAK "Couldn't run '@cmd': $!";
+}
+
 # run bowtie on genes index
 INFO "\nRunning bowtie on the gene index, please wait...\n\n";
-system "bowtie-build", $genes_fa, $organism . "_genes";
+bowtie($genes_fa, $organism . "_genes");
+
 
 # run bowtie on genome index
 INFO "running bowtie on the genome index, please wait this can take some time...\n\n";
-system "bowtie-build", $genome_one_line_seqs, $organism . "_genome";
+bowtie($genome_one_line_seqs, $organism . "_genome");
 
 INFO "ok, all done...\n\n";
-
-__END__
 

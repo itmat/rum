@@ -1,5 +1,8 @@
 package RUM::Script;
 
+use strict;
+use warnings;
+
 =pod
 
 =head1 NAME
@@ -85,12 +88,9 @@ command-line interface.
 
 =cut
 
-use strict;
-use warnings;
-use autodie;
 
 use subs qw(report _open_in _open_out _open_in_and_out);
-
+use Carp;
 use Getopt::Long;
 use Pod::Usage;
 use Log::Log4perl qw(:easy);
@@ -139,7 +139,7 @@ Print a usage message based on the running script's Pod and exit.
 =cut
 
 sub show_usage {
-  pod2usage { 
+  return pod2usage { 
     -message => "Please see perldoc $0 for more information",
     -verbose => 1 };
 }
@@ -160,8 +160,8 @@ IN and writes to OUT
 
 =cut
 sub modify_fa_to_have_seq_on_one_line {
-
-  my ($in, $out) = _open_in_and_out(@_);
+  my @args = @_;
+  my ($in, $out) = _open_in_and_out(@args);
 
   my $flag = 0;
   while(defined(my $line = <$in>)) {
@@ -195,7 +195,8 @@ to look like:
 
 =cut
 sub modify_fasta_header_for_genome_seq_database {
-  my ($in, $out) = _open_in_and_out(@_);
+  my @args = @_;
+  my ($in, $out) = _open_in_and_out(@args);
   while(defined(my $line = <$in>)) {
     chomp($line);
     if($line =~ /^>/) {
@@ -220,13 +221,14 @@ in the file by chromosome.
 =cut
 
 sub sort_genome_fa_by_chr {
-  my ($in, $out) = _open_in_and_out(@_);
+  my @args = @_;
+  my ($in, $out) = _open_in_and_out(@args);
   
   my %hash;
   report "Reading in genome";
   while (defined (my $line = <$in>)) {
     chomp($line);
-    $line =~ /^>(.*)$/;
+    $line =~ /^>(.*)$/ or croak "Expected header line, got $line";
     my $chr = $1;
     $line = <$in>;
     chomp($line);
@@ -249,14 +251,16 @@ then gene name (I think). Reads from IN and writes to OUT.
 
 =cut
 sub sort_gene_fa_by_chr {
-  my ($in, $out) = _open_in_and_out(@_);
+  my @args = @_;
+  my ($in, $out) = _open_in_and_out(@args);
 
   my %hash;
   my %seq;
 
   while (defined (my $line = <$in>)) {
     chomp($line);
-    $line =~ /^>(.*):([^:]+):(\d+)-(\d+)_.$/ or die "Expected header line, got $line";
+    $line =~ /^>(.*):([^:]+):(\d+)-(\d+)_.$/ 
+      or croak "Expected header line, got $line";
     my $name = $1;
     my $chr = $2;
     my $start = $3;
@@ -272,7 +276,6 @@ sub sort_gene_fa_by_chr {
   
   foreach my $chr (sort by_chromosome keys %hash) {
 
-    # TODO: Document this?
     foreach my $line (sort {
       $hash{$chr}{$a}[0] <=> $hash{$chr}{$b}[0] || 
       $hash{$chr}{$a}[1] <=> $hash{$chr}{$b}[1] || 
@@ -329,7 +332,8 @@ For example:
 =cut
 
 sub _make_master_file_of_genes_impl {
-  my ($ins, $out, $types) = _open_in_and_out(@_);
+  my @args = @_;
+  my ($ins, $out, $types) = _open_in_and_out(@args);
   my @ins = @$ins;
   my @types = @$types;
   my %geneshash;
@@ -371,9 +375,11 @@ sub _make_master_file_of_genes_impl {
       next if($line =~ /^#/);
 
       my @a = split(/\t/,$line);
-      $a[$exonStartscol] =~ /^(\d+)/;
+      $a[$exonStartscol] =~ /^(\d+)/ 
+        or croak "Expected a number in the exon starts col";
       my $txStart = $1;
-      $a[$exonEndscol] =~ /(\d+),?$/;
+      $a[$exonEndscol] =~ /(\d+),?$/
+        or croak "Expected a number in the exon ends col";
       my $txEnd = $1;
       my @b = split(/,/,$a[$exonStartscol]);
       my $exonCnt = @b;
@@ -420,11 +426,13 @@ Writes a single merged table to OUT.
 
 
 sub make_master_file_of_genes {
-  my ($filesfile, $out) = _open_in_and_out(@_);
+  my @args = @_;
+  my ($filesfile, $out) = _open_in_and_out(@args);
 
   my @ins = read_files_file($filesfile);
   my @types = map {
-    /(.*).txt$/; $1;
+    (/(.*).txt$/ and $1) 
+      or croak "Files listed in gene_info_file should end with .txt";
   } @ins;
 
   return _make_master_file_of_genes_impl(\@ins, $out, \@types);  
@@ -447,26 +455,27 @@ counted starting from zero.  If there is no such column, set this to
 =cut
 
 sub fix_geneinfofile_for_neg_introns {
+  my @args = @_;
   my ($in, $out, $starts_col, $ends_col, $exon_count_col) = 
-    _open_in_and_out(@_);
+    _open_in_and_out(@args);
 
   while (defined (my $line = <$in>)) {
 
     chomp($line);
-    my @a = split(/\t/, $line);
-    my $starts = $a[$starts_col];
-    my $ends = $a[$ends_col];
+    my @row = split(/\t/, $line);
+    my $starts = $row[$starts_col];
+    my $ends = $row[$ends_col];
 
     # Make sure the starts, ends, and exon_counts columns are
     # populated
     if(!($starts =~ /\S/)) {
-	die "ERROR: the 'starts' column has empty entries\n";
+      croak "ERROR: the 'starts' column has empty entries\n";
     }
     if(!($ends =~ /\S/)) {
-	die "ERROR: the 'ends' column has empty entries\n";
+      croak "ERROR: the 'ends' column has empty entries\n";
     }
-    if(!($a[$exon_count_col] =~ /\S/)) {
-	die "ERROR: the 'exon counts' column has empty entries\n";
+    if(!($row[$exon_count_col] =~ /\S/)) {
+      croak "ERROR: the 'exon counts' column has empty entries\n";
     }
 
     $starts =~ s/,\s*$//;
@@ -490,16 +499,16 @@ sub fix_geneinfofile_for_neg_introns {
       else {
         #           print $out "$line\n";
         if($exon_count_col >= 0) {
-          $a[$exon_count_col]--;
+          $row[$exon_count_col]--;
         }
       }
     }
 
     $end_string = $end_string . $E[$N-1] . ",";;
-    $a[$starts_col] = $start_string;
-    $a[$ends_col] = $end_string;
+    $row[$starts_col] = $start_string;
+    $row[$ends_col] = $end_string;
 
-    print $out join("\t", @a) . "\n";
+    print $out join("\t", @row) . "\n";
   }
   
 }
@@ -512,7 +521,8 @@ then by end exons.
 =cut
 
 sub sort_geneinfofile {
-  my ($infile, $outfile) = _open_in_and_out(@_);
+  my @args = @_;
+  my ($infile, $outfile) = _open_in_and_out(@args);
   my (%start, %end, %chr);
   while (defined (my $line = <$infile>)) {
     chomp($line);
@@ -538,7 +548,8 @@ TODO: Document me.
 =cut
 
 sub make_ids_unique4geneinfofile {
-  my ($in, $out) = _open_in_and_out(@_);
+  my @args = @_;
+  my ($in, $out) = _open_in_and_out(@args);
   my (%idcount, %typecount);
 
   while (defined (my $line = <$in>)) {
@@ -548,7 +559,7 @@ sub make_ids_unique4geneinfofile {
     
     # Count the number of rows with the current id and type
     for(my $i=0; $i<@b; $i++) {
-      $b[$i] =~ /(.*)\(([^\)]+)\)$/;
+      $b[$i] =~ /(.*)\(([^\)]+)\)$/ or croak "Invalid gene name $b[$i]";
       my $id = $1;
       my $type = $2;
       $id =~ s/.*://;
@@ -579,7 +590,7 @@ sub make_ids_unique4geneinfofile {
     my @a = split(/\t/,$line);
     my @b = split(/::::/,$a[7]);
     for(my $i=0; $i<@b; $i++) {
-      $b[$i] =~ /(.*)\(([^\)]+)\)$/;
+      $b[$i] =~ /(.*)\(([^\)]+)\)$/ or croak "Invalid gene name $b[$i]";
       my $id = $1;
       my $type = $2;
       $id =~ s/.*://;
@@ -611,10 +622,10 @@ Increments the start position before printing the exon line.
 =cut
 
 sub get_master_list_of_exons_from_geneinfofile {
-  my ($in, $out) = _open_in_and_out(@_);
+  my @args = @_;
+  my ($in, $out) = _open_in_and_out(@args);
 
   my %EXONS;
-  local $_;
 
   while (defined (my $line = <$in>)) {
     chomp($line);
@@ -639,8 +650,8 @@ sub get_master_list_of_exons_from_geneinfofile {
     }
   }
 
-  for (keys %EXONS) {
-    print $out "$_\n";
+  for my $key (keys %EXONS) {
+    print $out "$key\n";
   }
 }
 
@@ -658,10 +669,9 @@ Take a list of genes in BED format, with columns name, strand,
 =cut
 
 sub make_fasta_files_for_master_list_of_genes {
-  report "In make fasta files";
-  my ($ins, $outs) = _open_in_and_out(@_);
+  my @args = @_;
+  my ($ins, $outs) = _open_in_and_out(@args);
 
-  report "Opened stuff";
   my ($genome_fasta, $exon_in, $gene_in) = @$ins;
   my ($final_gene_info, $final_gene_fasta) = @$outs;
 
@@ -711,7 +721,7 @@ sub remove_genes_with_missing_sequence {
   my @missing = grep { not exists $in_genome->{$_} } @$from_exons;
 
   seek $gene_info_in, 0, 0;
-  my $pattern = join("|", map { "($_)" } @missing);
+  my $pattern = join("|", map("($_)", @missing));
   my $regex = qr/$pattern/;
   report "I am missing these genes: @missing, pattern is $pattern\n";
   while (defined($_ = <$gene_info_in>)) {
@@ -788,7 +798,7 @@ sub print_genes {
           $GENESEQ = $GENESEQ . $exons->{$ex};
         }
         else {
-          die "ERROR: exon for $ex not found.\n$line2\ni=$i\n";
+          croak "ERROR: exon for $ex not found.\n$line2\ni=$i\n";
         }
       }
 
@@ -856,7 +866,8 @@ Sorts a gene info file.
 
 =cut
 sub sort_gene_info {
-  my ($in, $out) = _open_in_and_out(@_);
+  my @args = @_;
+  my ($in, $out) = _open_in_and_out(@args);
   my %hash;
   while (defined (my $line = <$in>)) {
     chomp($line);
@@ -912,7 +923,7 @@ sub _open_in {
   elsif (ref($in) =~ /GLOB/) {
     return $in;
   } elsif (defined $in) {
-    open my $from, "<", $in or die "Can't open $in for reading: $!";
+    open my $from, "<", $in or croak "Can't open $in for reading: $!";
     return $from;
   } else {
     return *ARGV;
@@ -942,7 +953,7 @@ sub _open_out {
   elsif (ref($out) =~ /GLOB/) {
     return $out;
   } elsif (defined $out) {
-    open my $to, ">", $out or die "Can't open $out for writing: $!";
+    open my $to, ">", $out or croak "Can't open $out for writing: $!";
     return $to;
   } else {
     return *STDOUT;
