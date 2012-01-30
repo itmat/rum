@@ -48,10 +48,9 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 use strict;
 use warnings;
 
-use lib "$Bin/../lib";
-
-use Carp;
 use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use Carp;
 use Log::Log4perl qw(:easy);
 
 use RUM::Script qw(get_options show_usage);
