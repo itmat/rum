@@ -1,7 +1,0 @@
-=head1 NAME
-
-RUM
-
-=head1 SEE ALSO
-
-Please see L<indexing> for instructions on how to create an index.
