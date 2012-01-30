@@ -158,6 +158,10 @@ These are the file processing scripts provided by this module.
 Modify a fasta file to have the sequence all on one line. Reads from
 IN and writes to OUT
 
+TODO: Perhaps we should provide an abstraction on top of the fasta
+file format, so we don't need to have the sequence all on one line. It
+would be easy to write a fasta parser, or we could use BioPerl.
+
 =cut
 sub modify_fa_to_have_seq_on_one_line {
   my @args = @_;
@@ -217,6 +221,29 @@ sub modify_fasta_header_for_genome_seq_database {
 Expects an input file containing FASTA data, where adjacent sequence
 lines are all concatenated together in a long line. Sorts the entries
 in the file by chromosome.
+
+TODO: We are currently storing the whole FASTA file in memory while we
+sort it. This can take up a lot of space. Instead of sorting the fasta
+file, we could do one of the following:
+
+=over 4
+
+=item *
+
+Store the sequences in some file-backed structure like a tied hash
+keyed on chromosome name.
+
+=item *
+
+Create an index into the fasta file, so we know the start location of
+each chromosome.
+
+=item *
+
+Use BioPerl's Bio::Index::Fasta package, which provides an indexed
+view into fasta files.
+
+=back
 
 =cut
 
@@ -343,6 +370,7 @@ sub _make_master_file_of_genes_impl {
 
     my ($namecol, $chromcol, $strandcol, $exonStartscol, $exonEndscol);
 
+    # TODO: Maybe use a standard tab file parser?
     for(my $i=0; $i<$n; $i++) {
 
       if($header[$i] =~ /name/) {
@@ -666,7 +694,27 @@ sub get_master_list_of_exons_from_geneinfofile {
 
 =item make_fasta_files_for_master_list_of_genes GENOME_FASTA_IN, EXON_IN, GENE_IN, GENE_INFO_OUT, GENE_FASTA_OUT
 
-Take a list of genes in BED format, with columns name, strand, 
+=over 4
+
+=item GENOME_FASTA_IN
+
+ must be a fasta file that contains an entry for each chromosome.
+
+=item EXON_IN 
+
+must be a file produced by get_master_list_of_exons_from_geneinfofile;
+each line should be formatted like "<chromosome>:<start>-<end>".
+
+=item GENE_IN
+
+must be a tab-delimited file containing the chromosome, strand, gene
+start, gene end, ?, exon starts, exon ends, and id fields (in order).
+
+=item GENE_INFO_OUT
+
+We write a gene info file here 
+
+=back
 
 =cut
 
