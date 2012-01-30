@@ -615,6 +615,12 @@ and end points in the 5th and 6th column (starting column numbering at
 
 Increments the start position before printing the exon line.
 
+TODO: Rather than create a temp file containing this master list of
+exons, I think it would be better to read it into a data structure and
+keep it in memory. It's not very big compared to the other files that
+we're keeping in memory anyway. If it does turn out to be too large,
+we can easily convert it to a tied hash.
+
 =cut
 
 sub get_master_list_of_exons_from_geneinfofile {
@@ -691,9 +697,10 @@ sub make_fasta_files_for_master_list_of_genes {
     # Get the exons for this chromosome / sequence
     seek $exon_in, 0, 0;
     my $exons = get_exons($exon_in, $chr, $line, \%chromosomes_from_exons);
-    warn "Got " . scalar(keys(%$exons)) . " exons for $chr; starting genes\n";
+    report "Got " . scalar(keys(%$exons)) . " exons for $chr; starting genes\n";
 
     # Get the genes for this chromosome / sequence
+    seek $gene_in, 0, 0;
     print_genes($gene_in, $final_gene_fasta, $chr, $exons);
     report "done with genes for $chr\n";
   }
@@ -768,7 +775,7 @@ TODO: More.
 
 sub print_genes {
   my ($gene_in_file, $out, $chr, $exons) = @_;
-
+  warn "Processing $chr\n";
   while(defined (my $line2 = <$gene_in_file>)) {
     chomp($line2);
 

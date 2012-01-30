@@ -415,8 +415,8 @@ EXONS
 AAAAAAA
 >NM_456:chr1:30-60_-
 TTTTTTTTTTTTTTTTTTT
->NM_789:chr2:71-80_-
-CCCCC
+>NM_789:chr2:71-80_+
+CCCCCCCCC
 EXPECTED
 
   is($got2, $expected, "Print genes");
