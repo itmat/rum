@@ -98,6 +98,8 @@ Hit get output, and request all upper case
 
 gunzip the file and run:
 
+=head3 Making gene info files
+
 Now to make files of gene info and sequence:
 
 =over 4
@@ -280,9 +282,8 @@ locations. The default location to put rum.config_NAME is in RUM's lib directory
 (but it actually doesn't matter where you put it, you specify its location when you
 run RUM).
 
-Note: edit rum.config_NAME if you have moved any scripts, executables,
+I<Note>: edit rum.config_NAME if you have moved any scripts, executables,
  or indexes from their default locations.
-
 
 =head2 Your organism is not on either ucsc or ensembl but you have
 genome sequence and optionally gene or transcript models.
@@ -370,9 +371,22 @@ All the scripts and the data files you just downloaded need to be in the same
 directory. Now run:
 
   > perl create_indexes_from_ucsc.pl NAME_genome.txt NAME_refseq_ucsc
-    - NAME is as defined above - make sure there are no underscores in NAME
-    - this is a master script that runs a bunch of other scripts including bowtie-build...
-    - you will need a fair amount of RAM to do this, 10Gb was sufficient for Human
+
+=over 4
+
+=item * 
+
+NAME is as defined above - make sure there are no underscores in NAME
+
+=item *
+
+this is a master script that runs a bunch of other scripts including bowtie-build...
+
+=item *
+
+you will need a fair amount of RAM to do this, 10Gb was sufficient for Human
+
+=back
 
 After it is finished, the files you need to keep are the following 15:
 
