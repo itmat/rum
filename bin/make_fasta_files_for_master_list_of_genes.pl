@@ -38,7 +38,7 @@ use warnings;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Script qw(:scripts get_options with_timing);
+use RUM::Script qw(:scripts get_options show_usage);
 
 get_options();
 show_usage() unless @ARGV == 4;
