@@ -1,0 +1,21 @@
+#!/usr/bin/env perl
+
+# -*- cperl -*-
+
+use strict;
+use warnings;
+
+use Getopt::Long;
+use FindBin '$Bin';
+use lib "$Bin/../lib";
+use Log::Log4perl qw(:easy);
+Log::Log4perl->easy_init($WARN);
+use RUM::Config qw(config_defaults config_fields format_config);
+
+my %options = %{ config_defaults() };
+
+my @options = map("--$_=s", config_fields());
+
+GetOptions(\%options, @options);
+
+print format_config(%options);
