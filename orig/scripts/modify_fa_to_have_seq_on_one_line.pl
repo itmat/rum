@@ -25,6 +25,7 @@ while($line = <INFILE>) {
         }
     } else {
         chomp($line);
+	$line = uc $line;
         print $line;
     }
 }

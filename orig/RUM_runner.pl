@@ -1,11 +1,18 @@
-
 # Written by Gregory R Grant
-# University of Pennsylvania, 2010
+# University of Pennsylvania, 2011
+
+$version = "1.11.beta.  Released XXX";
+
+$| = 1;
+
+if($ARGV[0] eq '-version' || $ARGV[0] eq '-v' || $ARGV[0] eq '--version' || $ARGV[0] eq '--v') {
+    die "RUM version: $version\n";
+}
 
 $date = `date`;
 
 if(@ARGV == 1 && @ARGV[0] eq "config") {
-    die "
+    print "
 The following describes the configuration file:
 Note: All entries can be absolute path, or relative path to where the RUM_runner.pl script is.
 
@@ -25,32 +32,36 @@ Note: All entries can be absolute path, or relative path to where the RUM_runner
    e.g. indexes/mm9_genome_sequence_single-line-seqs.fa
 8) perl scripts directory, can be relative path to where the RUM_runner.pl script is, or absolute path
    e.g.: scripts
+9) lib directory, this directory holds the config files and the pipeline_template.sh file.  It can
+   be relative path to where the RUM_runner.pl script is, or absolute path
+   e.g.: lib
 
 ";
 }
 if(@ARGV < 5) {
-    die "
-
+    print "
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                 _   _   _   _   _   _   
-               // \\// \\// \\// \\// \\// \\/                       
-              //\\_//\\_//\\_//\\_//\\_//\\_// 
-        o_O__O_ o      
+RUM version: $version
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                 _   _   _   _   _   _
+               // \\// \\// \\// \\// \\// \\/
+              //\\_//\\_//\\_//\\_//\\_//\\_//
+        o_O__O_ o
        | ====== |       .-----------.
        `--------'       |||||||||||||
         || ~~ ||        |-----------|
         || ~~ ||        | .-------. |
         ||----||        ! | UPENN | !
-       //      \\\\        \\`-------'/  
+       //      \\\\        \\`-------'/
       // /!  !\\ \\\\        \\_  O  _/
-     !!__________!!         \\   /  
+     !!__________!!         \\   /
      ||  ~~~~~~  ||          `-'
      || _        ||
      |||_|| ||\\/|||
      ||| \\|_||  |||
      ||          ||
-     ||  ~~~~~~  ||   
-     ||__________||    
+     ||  ~~~~~~  ||
+     ||__________||
 .----|||        |||------------------.
      ||\\\\      //||                 /|
      |============|                //
@@ -65,22 +76,16 @@ Usage: RUM_runner.pl <config file> <reads file(s)> <output dir> <num chunks>
                      <name> [options]
 
 <config file>   :  This file tells RUM where to find the various executables
-                   and indexes.  This file is included in the download for
-                   a given organism, for example rum.config_mm9 for mouse
-                   build mm9, which will work if you leave everything in its
-                   default location.  To modify or make your own config file,
-                   run this program with the single argument 'config' for more
-                   information on the config file.
+                   and indexes.  This file is included in the 'lib' directory
+                   when you download an organism, for example rum.config_mm9
+                   for mouse build mm9, which will work if you leave everything
+                   in its default location.  To modify or make your own config
+                   file, run this program with the single argument 'config' for
+                   more information on the config file.
 
-<reads file(s)> :  What to put here depends on whether your data is paired or
-                   unpaired:
-
-                   1) For unpaired data, the single file of reads.
-                      - Don't forget to set the -single option in this case
-                   2) For paired data, either: 
-                      - The files of forward and reverse reads, separated
-                        by three commas ',,,' (with no spaces).
-                      - One file formatted using parse2fasta.pl.
+<reads file(s)> :  1) For unpaired data, the single file of reads.
+                   2) For paired data the files of forward and reverse reads,
+                      separated by three commas ',,,' (with no spaces).
 
                    NOTE ON FILE FORMATS: Files can be either fasta or fastq,
                    the type is inferred.
@@ -97,24 +102,27 @@ Usage: RUM_runner.pl <config file> <reads file(s)> <output dir> <num chunks>
 
 <name>          :  A string to identify this run - use only alphanumeric,
                    underscores, and dashes.  No whitespace or other characters.
+                   Must be less than 250 characters.
 
-Options: There are many options, but RUM is typically run with the defaults.
-         Just don't forget to set -single if you have single-end data.  The
+Options: There are many options, but RUM is typically run with the defaults. The
          option -kill is also quite useful to stop a run, because killing just
          the main program will not always kill the spawned processes.
 
-       -single    : Data is single-end (default is paired-end).
+       -strandspecific : If the data are strand specific, then you can use this
+                         option to generate strand specific coverage plots and
+                         quantified values.
 
        -dna       : Run in dna mode, meaning don't map across splice junctions.
 
-       -fast      : Run with blat params that run about 3 times faster but
-                    a tad less sensitive
+       -genome_only : Do RNA mapping, but without using a transcript database.  
+                      Note: there will be no feature quantifications in this
+                      mode, because those are based on the transcript database.
 
        -variable_read_lengths : Set this if your reads are not all of the same
-                                length
+                                length.
 
-       -limitNU x : Limits the number of ambiguous mappers in the final output
-                    to a max of x
+       -limitNU N : Limits the number of ambiguous mappers in the final output
+                    by removing all reads that map to N locations or more.
 
        -limitBowtieNU : Limits the number of ambiguous mappers in the Bowtie
                         run to a max of 100.  If you have short reads and a
@@ -125,58 +133,87 @@ Options: There are many options, but RUM is typically run with the defaults.
                         bases considered long, between it's hard to say).
 
        -quantify : Use this *if* using the -dna flag and you still want quantified
-                   features.  If this is set you must have the gene models file
+                   features.  If this is set you *must* have the gene models file
                    specified in the rum config file.  Without the -dna flag
                    quantified features are generated by default so you don't
-                   need to set this. 
+                   need to set this.
 
        -junctions : Use this *if* using the -dna flag and you still want junction
                     calls.  If this is set you should have the gene models file
                     specified in the rum config file (if you have one).  Without
                     the -dna flag junctions generated by default so you don't
-                    need to set this. 
+                    need to set this.
 
-       -ram n : Specify the max number of Gb of ram you want to dedicate to each
-                chunk, if less than seven.  If you have at least 6 or 7 per chunk
-                then don't worry about this.  The program will try to figure out
-                the amount of available RAM automatically, so this option is
-                mainly just a backup for when RAM is limited but the program is
-                unable to figure that out - in this case a warning message will
-                be generated.
-
-       -minidentity x : run blat with minIdentity=x (default x=93).  You
-                        shouldn't need to change this.
+       -minlength x : don't report alignments less than this long.  The default
+                      = 50 if the readlength >= 80, else = 35 if readlength >= 45
+                      else = 0.8 * readlength.  Don't set this too low you will
+                      start to pick up a lot of garbage.
 
        -countmismatches : Report in the last column the number of mismatches,
                           ignoring insertions
 
        -altgenes x : x is a file with gene models to use for calling junctions
                      novel.  If not specified will use the gene models file
-                     specified in the config file. 
+                     specified in the config file.
+
+       -altquant x : if specified x will be used to quantify features in addition
+                     to the gene models file specified in the config file.  Both
+                     are reported to separate files.
 
        -qsub      : Use qsub to fire the job off to multiple nodes on a cluster.
-                    This means you're on a cluster that understands qsub.  
+                    This means you're on a cluster that understands qsub like
+		    the Sun Grid Engine.
 
                       ** Note: without using -qsub, you can still specify more
                       than one chunk.  It should fire each chunk off to a
                       separate core.  But don't use more chunks than you have
                       cores, because that can slow things down considerable.
 
-       -max_insertions_per_read n : Allow at most n insertions in one read.  
+       -max_insertions_per_read n : Allow at most n insertions in one read.
                     The default is n=1.  Setting n>1 is only allowed for single
                     end reads.  Don't raise it unless you know what you are
                     doing, because it can greatly increase the false alignments.
 
-       -postprocess : Rerun just the post-processing steps, after the alignment,
-                      if for some reason you need to do this.
+       -noclean   : do not remove the intermediate and temp files after finishing.
+
+       -preserve_names : Keep the original read names in the SAM output file.
+                         Note: this doesn't work when there are variable length reads.
 
        -kill      : To kill a job, run with all the same parameters but add
                     -kill.  Note: it is not sufficient to just terminate
                     RUM_runner.pl, that will leave other phantom processes.
                     Use -kill instead.
 
-Running RUM_runner.pl with the one argument 'config' will explain how to make
-the config file.
+       -ram n : On some systems RUM might not be able to determine the amount of
+                RAM you have.  In that case, with this option you can specify
+                the number of Gb of ram you want to dedicate to each chunk.
+                This is rarely necessary and never necessary if you have at
+                least 6 Gb per chunk.
+
+       -version : Returns the current version.  -v works too.
+
+BLAT options: You can tweak the BLAT portion of RUM to suit your needs. We
+                found the following to be a good balance for speed, sensitivity,
+                and temporary file size.
+
+       -minidentity x : run blat with minIdentity=x (default x=93).  You
+                        shouldn't need to change this.
+
+       -tileSize x : run blat with tileSize=x (default x=12).
+                     You shouldn't need to change this.
+
+       -stepSize x : run blat with stepSize=x (default x=6).
+                     You shouldn't need to change this.
+
+       -repMatch x : run blat with repMatch=x (default x=256).
+                     You shouldn't need to change this.
+
+       -maxIntron x : run blat with maxIntron=x (default x=50000).
+		      You shouldn't need to change this.
+
+Default config files are supplied with each organism.  If you need to make or
+modify one then running RUM_runner.pl with the one argument 'config' gives an
+explaination of the the file.
 
 This program writes very large intermediate files.  If you have a large genome
 such as mouse or human then it is recommended to run in chunks on a cluster, or
@@ -191,46 +228,97 @@ Usage (again): RUM_runner.pl <configfile> <reads file(s)> <output dir> <num chun
                      <name> [options]
 
 ";
+   exit();
 }
 
+$JID = int(rand(10000000)) + 10;
 
 $configfile = $ARGV[0];
 $readsfile = $ARGV[1];
 $output_dir = $ARGV[2];
 $output_dir =~ s!/$!!;
+if(!(-d $output_dir)) {
+    die "\nERROR: The directory '$output_dir' does not seem to exists...\n\n";
+}
+
+$kill = "false";
+$postprocess = "false";
+for($i=5; $i<@ARGV; $i++) {
+    if($ARGV[$i] eq "-kill") {
+       $kill = "true";
+    }
+    if($ARGV[$i] eq "-postprocess") {
+       $postprocess = "true";
+    }
+}
+
+if($postprocess eq "false" && $kill eq "false") {
+    open(ERRORLOG, ">$output_dir/rum.error-log");
+    print ERRORLOG "\n--------------------\n";
+    print ERRORLOG "Job ID: $JID\n";
+    print ERRORLOG "--------------------\n";
+}
+
 $numchunks = $ARGV[3];
+$NUMCHUNKS = $ARGV[3];
+if($numchunks =~ /(\d+)s/) {
+    $numchunks = $1;
+}
 $name = $ARGV[4];
 if($name =~ /^-/) {
-    die "\nError: The name '$name' is invalid, probably you forgot a required argument\n\n";
+    print ERRORLOG "\nERROR: The name '$name' is invalid, probably you forgot a required argument\n\n";
+    die "\nERROR: The name '$name' is invalid, probably you forgot a required argument\n\n";
 }
 
 $name_o = $ARGV[4];
 $name =~ s/\s+/_/g;
-$name =~ s/[^a-zA-Z0-9_-]//g;
-
+$name =~ s/^[^a-zA-Z0-9_.-]//;
+$name =~ s/[^a-zA-Z0-9_.-]$//g;
+$name =~ s/[^a-zA-Z0-9_.-]/_/g;
 if($name ne $name_o) {
-    print STDERR "\nWarning: name changed from '$name_o' to '$name'.\n\n";
+    print "\nWarning: name changed from '$name_o' to '$name'.\n\n";
+    if(length($name) > 250) {
+        die "\nError: The name must be less than 250 characters.\n\n";
+    }
 }
-$paired_end = "true";
-$fast = "false";
+
+# Defualt options
 $dna = "false";
+$genomeonly = "false";
 $limitNU = "false";
 $limitNUhard = "false";
 $qsub = "false";
-$minidentity=93;
-$postprocess = "false";
+$qsub2 = "false";
+$minlength=0;
 $blatonly = "false";
-$kill = "false";
+$cleanup = "true";
 $variable_read_lengths = "false";
 $countmismatches = "false";
 $num_insertions_allowed = 1;
 $junctions = "false";
 $quatify = "false";
-$ram = 8;
+$ram = 6;
 $user_ram = "false";
+$user_jid = "false";
+$nocat = "false";
+$quals_specified = "false";
+$strandspecific = "false";
+$quantify = "false";
+$quantify_specified = "false";
+$altgenes = "false";
+$altquant = "false";
+# BLAT defualt options
+$minidentity=93;
+$tileSize=12;
+$stepSize=6;
+$repMatch=256;
+$maxIntron=500000;
+$preserve_names = "false";
+
 if(@ARGV > 5) {
     for($i=5; $i<@ARGV; $i++) {
 	$optionrecognized = 0;
+
         if($ARGV[$i] eq "-max_insertions_per_read") {
 	    $i++;
 	    $num_insertions_allowed = $ARGV[$i];
@@ -238,6 +326,10 @@ if(@ARGV > 5) {
 	        $optionrecognized = 1;
 	    }
         }
+	if($ARGV[$i] eq "-strandspecific") {
+	    $strandspecific = "true";
+	    $optionrecognized = 1;
+	}
         if($ARGV[$i] eq "-ram") {
 	    $i++;
 	    $ram = $ARGV[$i];
@@ -246,16 +338,35 @@ if(@ARGV > 5) {
 	        $optionrecognized = 1;
 	    }
         }
-	if($ARGV[$i] eq "-single") {
-	    $paired_end = "false";
+        if($ARGV[$i] eq "-jid") {
+	    $i++;
+	    $JID = $ARGV[$i];
+            $user_jid = "true";
+            if($postprocess eq "false" && $kill eq "false") {
+                close(ERRORLOG);
+                open(ERRORLOG, ">$output_dir/rum.error-log");
+                print ERRORLOG "\n--------------------\n";
+                print ERRORLOG "Job ID: $JID\n";
+                print ERRORLOG "--------------------\n";
+            }
+            if($ARGV[$i] =~ /^\d+$/) {
+	        $optionrecognized = 1;
+	    }
+        }
+	if($ARGV[$i] eq "-nocat") {
+	    $nocat = "true";
+	    $optionrecognized = 1;
+	}
+	if($ARGV[$i] eq "-preserve_names") {
+	    $preserve_names = "true";
+	    $optionrecognized = 1;
+	}
+	if($ARGV[$i] eq "-noclean") {
+	    $cleanup = "false";
 	    $optionrecognized = 1;
 	}
 	if($ARGV[$i] eq "-junctions") {
 	    $junctions = "true";
-	    $optionrecognized = 1;
-	}
-	if($ARGV[$i] eq "-postprocess") {
-	    $postprocess = "true";
 	    $optionrecognized = 1;
 	}
 	if($ARGV[$i] eq "-blatonly") {
@@ -264,26 +375,31 @@ if(@ARGV > 5) {
 	}
 	if($ARGV[$i] eq "-quantify") {
 	    $quantify = "true";
+            $quantify_specified = "true";
 	    $optionrecognized = 1;
 	}
 	if($ARGV[$i] eq "-countmismatches") {
 	    $countmismatches = "true";
 	    $optionrecognized = 1;
 	}
-	if($ARGV[$i] eq "-variable_read_lengths") {
+	if($ARGV[$i] eq "-variable_read_lengths" || $ARGV[$i] eq "-variable_length_reads") {
 	    $variable_read_lengths = "true";
-	    $optionrecognized = 1;
-	}
-	if($ARGV[$i] eq "-fast") {
-	    $fast = "true";
 	    $optionrecognized = 1;
 	}
 	if($ARGV[$i] eq "-kill") {
 	    $kill = "true";
 	    $optionrecognized = 1;
 	}
+	if($ARGV[$i] eq "-postprocess") {
+            $postprocess = "true";
+	    $optionrecognized = 1;
+	}
 	if($ARGV[$i] eq "-dna") {
 	    $dna = "true";
+	    $optionrecognized = 1;
+	}
+	if($ARGV[$i] eq "-genome_only") {
+	    $genomeonly = "true";
 	    $optionrecognized = 1;
 	}
 	if($ARGV[$i] eq "-limitBowtieNU") {
@@ -294,20 +410,87 @@ if(@ARGV > 5) {
 	    $qsub = "true";
 	    $optionrecognized = 1;
 	}
+	if($ARGV[$i] eq "-qsub2") {
+	    $qsub2 = "true";
+            $i++;
+            $starttime = $ARGV[$i];
+	    $optionrecognized = 1;
+	}
 	if($ARGV[$i] eq "-altgenes") {
 	    $altgenes = "true";
             $i++;
             $altgene_file = $ARGV[$i];
-            open(TESTIN, $altgene_file) or die "\nError: cannot open '$altgene_file' for reading.\n\n";
+            if(!(open(TESTIN, $altgene_file))) {
+                print ERRORLOG "\nERROR: cannot open '$altgene_file' for reading.\n\n";
+                die "\nERROR: cannot open '$altgene_file' for reading.\n\n";
+            }
             close(TESTIN);
 	    $optionrecognized = 1;
 	}
-	if($ARGV[$i] eq "-minidentity") {
+	if($ARGV[$i] eq "-altquant") {
+	    $altquant = "true";
+            $i++;
+            $altquant_file = $ARGV[$i];
+            if(!(open(TESTIN, $altquant_file))) {
+                print ERRORLOG "\nERROR: cannot open '$altquant_file' for reading.\n\n";
+                die "\nERROR: cannot open '$altquant_file' for reading.\n\n";
+            }
+            close(TESTIN);
+	    $optionrecognized = 1;
+	}
 
+	if($ARGV[$i] eq "-qualsfile" || $ARGV[$i] eq "-qualfile") {
+	    $quals_specified = "true";
+            $i++;
+            $quals_file = $ARGV[$i];
+            $quals = "true";
+            if($quals_file =~ /\//) {
+               print ERRORLOG "ERROR: do not specify -quals file with a full path, put it in the '$output_dir' directory.\n\n";
+               die "ERROR: do not specify -quals file with a full path, put it in the '$output_dir' directory.\n\n";
+            }
+	    $optionrecognized = 1;
+	}
+
+	if($ARGV[$i] eq "-minidentity") {
 	    $minidentity = $ARGV[$i+1];
 	    $i++;
 	    if(!($minidentity =~ /^\d+$/ && $minidentity <= 100)) {
+                print ERRORLOG "\nERROR: minidentity must be an integer between zero and 100.\nYou have given '$minidentity'.\n\n";
 		die "\nERROR: minidentity must be an integer between zero and 100.\nYou have given '$minidentity'.\n\n";
+	    }
+	    $optionrecognized = 1;
+	}
+
+        if($ARGV[$i] eq "-tileSize") {
+            $tileSize = $ARGV[$i+1];
+            $i++;
+            $optionrecognized = 1;
+        }
+
+        if($ARGV[$i] eq "-stepSize") {
+            $stepSize = $ARGV[$i+1];
+            $i++;
+            $optionrecognized = 1;
+        }
+
+        if($ARGV[$i] eq "-repMatch") {
+            $repMatch = $ARGV[$i+1];
+            $i++;
+            $optionrecognized = 1;
+        }
+
+        if($ARGV[$i] eq "-maxIntron") {
+            $maxIntron = $ARGV[$i+1];
+            $i++;
+            $optionrecognized = 1;
+        }
+
+	if($ARGV[$i] eq "-minlength") {
+	    $minlength = $ARGV[$i+1];
+	    $i++;
+	    if(!($minlength =~ /^\d+$/ && $minlength >= 10)) {
+                print ERRORLOG "\nERROR: minlength must be an integer >= 10.\nYou have given '$minlength'.\n\n";
+		die "\nERROR: minlength must be an integer >= 10.\nYou have given '$minlength'.\n\n";
 	    }
 	    $optionrecognized = 1;
 	}
@@ -316,29 +499,76 @@ if(@ARGV > 5) {
 	    $i++;
 	    $limitNUhard = "true";
 	    if(!($NU_limit =~ /^\d+$/ && $NU_limit > 0)) {
+                print ERRORLOG "\nERROR: -limitNU must be an integer greater than zero.\nYou have given '$NU_limit'.\n\n";
 		die "\nERROR: -limitNU must be an integer greater than zero.\nYou have given '$NU_limit'.\n\n";
 	    }
 	    $optionrecognized = 1;
 	}
 	if($optionrecognized == 0) {
-	    print STDERR "\nERROR: option $ARGV[$i] not recognized.\n\n";
-	    exit();
+            print ERRORLOG "\nERROR: option $ARGV[$i] not recognized.\n\n";
+	    die "\nERROR: option $ARGV[$i] not recognized.\n\n";
 	}
     }
 }
+
+if(!($starttime =~ /\S/)) {
+   $starttime = time();
+}
+
+$H = `hostname`;
+if($H =~ /login.genomics.upenn.edu/ && $qsub eq "false") {
+    print ERRORLOG "ERROR: you cannot run RUM on the PGFI cluster without using the -qsub option.\n\n";
+    die "ERROR: you cannot run RUM on the PGFI cluster without using the -qsub option.\n\n";
+}
+
 if($dna eq "false") {
     $junctions = "true";
     $quantify = "true";
 }
 
+if($preserve_names eq "true" && $variable_length_reads eq "true") {
+    print ERRORLOG "ERROR: Cannot use both -preserve_names and -variable_read_lengths at the same time.\nSorry, we will fix this eventually.\n\n";
+    die "ERROR: Cannot use both -preserve_names and -variable_read_lengths at the same time.\nSorry, we will fix this eventually.\n\n";
+}
+
+if($genomeonly eq "true") {
+    $junctions = "true";
+    if($quantify_specified eq "true") {
+       $quantify = "true";
+    } else {
+       $quantify = "false";
+    }
+}
+
 if($kill eq "true") {
+
+    open(ERRORLOG, ">>$output_dir/rum.error-log");
+    $DT = `date`;
+    print ERRORLOG "\nRUM Job $JID killed using -kill option at $DT\n";
+    open(LOGFILE, ">>$output_dir/rum.log_master");
+    print LOGFILE "\nRUM Job $JID killed using -kill option at $DT\n";
+    close(ERRORLOG);
+    close(LOGFILE);
+
+    if(-e "$output_dir/kill_command") {
+        $K = `cat "$output_dir/kill_command"`;
+        @a = split(/\n/,$K);
+        $A = $a[0] . "\n";
+        $R = `$A`;
+        print "$R\n";
+        $A = $a[1] . "\n";
+        $R = `$A`;
+        print "$R\n";
+        exit();
+    }
+
     $outdir = $output_dir;
-    $str = `ps x | grep $outdir`;
+    $str = `ps a | grep $outdir`;
     @candidates = split(/\n/,$str);
     for($i=0; $i<@candidates; $i++) {
-	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/pipeline.\d+.sh/) {
+	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
 	    $pid = $1;
-	    print STDERR "killing $pid\n";
+	    print "killing $pid\n";
 	    `kill -9 $pid`;
 	}
     }
@@ -346,36 +576,40 @@ if($kill eq "true") {
 	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
 	    if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
 		$pid = $1;
-		print STDERR "killing $pid\n";
+		print "killing $pid\n";
 		`kill -9 $pid`;
 	    }
 	}
     }
+    print "\nRUM Job $JID killed using -kill option at $DT\n";
     exit();
 }
 
-print STDERR "
+
+print "
+
+RUM version: $version
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                 _   _   _   _   _   _   
-               // \\// \\// \\// \\// \\// \\/                       
-              //\\_//\\_//\\_//\\_//\\_//\\_// 
-        o_O__O_ o      
+                 _   _   _   _   _   _    _
+               // \\// \\// \\// \\// \\// \\/
+              //\\_//\\_//\\_//\\_//\\_//\\_//
+        o_O__O_ o
        | ====== |       .-----------.
        `--------'       |||||||||||||
         || ~~ ||        |-----------|
         || ~~ ||        | .-------. |
         ||----||        ! | UPENN | !
-       //      \\\\        \\`-------'/  
+       //      \\\\        \\`-------'/
       // /!  !\\ \\\\        \\_  O  _/
-     !!__________!!         \\   /  
+     !!__________!!         \\   /
      ||  ~~~~~~  ||          `-'
      || _        ||
      |||_|| ||\\/|||
      ||| \\|_||  |||
      ||          ||
-     ||  ~~~~~~  ||   
-     ||__________||    
+     ||  ~~~~~~  ||
+     ||__________||
 .----|||        |||------------------.
      ||\\\\      //||                 /|
      |============|                //
@@ -387,141 +621,232 @@ print STDERR "
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ";
 
-sleep(2);
-print STDERR "Please wait while I check that everything is in order.\n\n";
-sleep(2);
-print STDERR "This could take a few minutes.\n\n";
-sleep(2);
-print STDERR "I'm going to try to figure out how much RAM you have.\nIf you see some error messages here, don't worry, these are harmless.\n\n";
-sleep(2);
-# figure out how much RAM is available:
-if($user_ram eq "false") {
-     $did_not_figure_out_ram = "false";
-     $ramcheck = `free -g`;  # this should work on linux
-     $ramcheck =~ /Mem:\s+(\d+)/s;
-     $totalram = $1;
-     if(!($totalram =~ /\d+/)) { # so above still didn't work, trying even harder
-         $x = `grep memory /var/run/dmesg.boot`; # this should work on freeBSD
-         $x =~ /avail memory = (\d+)/;
-         $totalram = int($1 / 1000000000);
-         if($totalram == 0) {
-     	$totalram = "";
-         }
-     }
-     if(!($totalram =~ /\d+/)) { # so above didn't work, trying harder
-         $x = `top -l 1 | grep free`;  # this should work on a mac
-         $x =~ /(\d+)(.)\s+used, (\d+)(.) free/;
-         $used = $1;
-         $type1 = $2;
-         $free = $3;
-         $type2 = $4;
-         if($type1 eq "K" || $type1 eq "k") {
-     	$used = int($used / 1000000);
-         }
-         if($type2 eq "K" || $type2 eq "k") {
-     	$free = int($free / 1000000);
-         }
-         if($type1 eq "M" || $type1 eq "m") {
-     	$used = int($used / 1000);
-         }
-         if($type2 eq "M" || $type2 eq "m") {
-     	$free = int($free / 1000);
-         }
-         $totalram = $used + $free;
-         if($totalram == 0) {
-     	$totalram = "";
-         }
-     }
-     if(!($totalram =~ /\d+/)) { # so above didn't work, warning user
-         $did_not_figure_out_ram = "true";
-         print "\nWarning: I could not determine how much RAM you have.  If you have less\nthan eight gigs per chunk and a large genome, or a lot of reads, then you shoud specify that\nusing the -ram option, or this might not work.\nFor a genome like human you'll need at least 5 or 6 Gb per chunk.\n\n";
-         $RAMperchunk = 6;
-     } else {
-         $RAMperchunk = int($totalram / $numchunks);
-         if($RAMperchunk == 1) {
-             print "\nWarning: you have one gig of RAM per chunk.  If you\nhave a large genome or a lot of reads then this might not work.\nFor a genome like human you'll need at least 5 or 6 Gb per chunk.\n\n";
-         }elsif($RAMperchunk == 0) {
-             print "\nWarning: you have less than one gig of RAM per chunk.  If you\nhave a large genome or a lot of reads then this might not work.\nFor a genome like human you'll need at least 5 or 6 Gb per chunk.\n\n";
-            $RAMperchunk = 1;
-         }elsif($RAMperchunk < 7 && $RAMperchunk > 1) {
-             print "\nWarning: you have only $RAMperchunk gigs of RAM per chunk.  If you\nhave a large genome or a lot of reads then this might not work.\nFor a genome like human you'll need at least 5 or 6 Gb per chunk.\n\n";
-         }
-    }
-    $ram = $RAMperchunk;
-}
-if($did_not_figure_out_ram eq "false") {
-    if($RAMperchunk >= 7) {
-        print STDERR "It seems like you have $totalram Gb of RAM on your machine.\n";
-        print STDERR "That's a generous amount, so unless you have too much other\nstuff running, RAM should not be a problem.\n";
-    } else {
-        print STDERR "It seems like you have $totalram Gb of RAM on your machine.\n";
-    }
-    sleep(3);
-    if($RAMperchunk >= 6) {
-         print STDERR "\nI'm going to try to use about $ram Gb of RAM per chunk.  Seems like that should work.\nIf that fails, try using the -ram option to lower it.  For a genome like human, you're\ngoing to need at least 5 or 6 Gb per chunk.\n\n";
-    } else {
-         print STDERR "\nI'm going to try to use about $ram Gb of RAM per chunk.\nIf that fails, try using the -ram option to lower it.  For a genome like human, you're\ngoing to need at least 5 or 6 Gb per chunk.\n\n";
-    }
-} else {
-    print STDERR "\nI'm going to try to use about $ram Gb of RAM per chunk.  I couldn't figure out much you have so that's a (hopeful) guess.\nIf this fails, try using the -ram option to lower it.  For a genome like human, you're\ngoing to need at least 5 or 6 Gb per chunk.\n\n";
-}
-
-$check = `ps x | grep RUM_runner.pl`;
+$check = `ps a | grep RUM_runner.pl | grep perl | grep -s -v "\\-c perl"`;
 @a = split(/\n/,$check);
 $CNT=0;
+
 for($i=0; $i<@a; $i++) {
     chomp($a[$i]);
+    next if $a[$i] =~ /screen.*RUM_runner/i;
     $a[$i] =~ s/.*RUM_runner.pl *//;
     @b = split(/ +/,$a[$i]);
-    if($b[2] eq $output_dir || $b[2] eq $ARGV[2]) {
+    $temp1 = $output_dir;
+    $temp2 = $ARGV[2];
+    $temp3 = $b[2];
+    $temp1 =~ s!.*/!!;
+    $temp2 =~ s!.*/!!;
+    $temp3 =~ s!.*/!!;
+    $cwd = `pwd`;
+    chomp($cwd);
+    $temp4 = $cwd . "/" . $temp1;
+    $temp5 = $cwd . "/" . $temp2;
+    $temp6 = $cwd . "/" . $temp3;
+    if($temp4 eq $temp6 || $temp5 eq $temp6) {
 	$CNT++;
 	if($CNT > 1) {
-	    die "\nERROR: You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\nExiting...\n\n";
+            print ERRORLOG "\nERROR: You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\nExiting.\n\nTry killing by running the same command with -kill.\nIf that doesn't work use kill -9 on the process ID.\n\n";
+	    die "\nERROR: You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\nExiting.\n\nTry killing by running the same command with -kill.\nIf that doesn't work use kill -9 on the process ID.\n\n";
 	}
     }
 }
-if($kill eq "true") {
-    $outdir = $output_dir;
-    $str = `ps x | grep $outdir`;
-    @candidates = split(/\n/,$str);
-    for($i=0; $i<@candidates; $i++) {
-	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/pipeline.\d+.sh/) {
-	    $pid = $1;
-	    print STDERR "killing $pid\n";
-	    `kill -9 $pid`;
-	}
+
+print "\nIf this is a big job, you should keep an eye on the rum.error-log file as it runs,\nbecause errors in the various chunks will be reported there that might indicate a\nfailure that will require a restart that you otherwise might not become aware of\nuntil it's finished.\n\n";
+
+if($qsub eq "true") {
+     $q = `qstat`;
+     @b = split(/\n/,$q);
+     for($i=2; $i<@b; $i++) {
+         $b[$i] =~ s/^\s+//;
+         $b[$i] =~ s/\s+$//;
+         @a = split(/\s+/,$b[$i]);
+         $pid = $a[0];
+         $args = `qstat -j $pid | grep job_args`;
+         $args =~ s/\s*job_args:+\s+//;
+         $args =~ s/,,,//;
+         @c = split(/,/,$args);
+         $dir = $c[3];
+         if($dir eq $output_dir) {
+             print ERRORLOG "\nERROR: You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\nExiting.\n\nTry killing by running the same command with -kill.\nIf that doesn't work use kill -9 on the process ID.\n\n";
+             die "\nERROR: You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\n";
+          }
     }
-    for($i=0; $i<@candidates; $i++) {
-	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
-	    if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
-		$pid = $1;
-		print STDERR "killing $pid\n";
-		`kill -9 $pid`;
-	    }
-	}
-    }
-    exit();
+
+     print "\nWarning: You are using qsub - so if you have installed RUM somewhere other than your\nhome directory, then you will probably need to specify everything with full paths,\nincluding in the <rum config> file, nor this may not work.\n\n";
+
+     print "You have chosen to submit the jobs using 'qsub'.  I'm going to assume each node has\nsufficient RAM for this.  If you are running a mammalian genome then you should have\nat least 6 Gigs per node.\n\n";
+
+     $starttime = time();
+     $clusterID  = $name . "." . $starttime . ".";
+     if($clusterID =~ /^\d/) {
+         $clusterID = "R." . $clusterID;
+     }
+     open(KF, ">$output_dir/kill_command");
+     $argstring = "";
+     for($i=0; $i<@ARGV; $i++) {
+#          if($i == 2) {
+#              $cwd = `pwd`;
+#              chomp($cwd);
+#              $ARGV[$i] =~ s!/$!!;
+#              $ARGV[$i] =~ s!.*/!!;
+#              $ARGV[$i] = $cwd . "/" . $ARGV[$i];
+#          }
+          $argstring = $argstring . " $ARGV[$i]";
+     }
+     $argstring =~ s/qsub/qsub2 $starttime/g;
+     $mastername = $clusterID . "master";
+     print KF "qdel $mastername\n";
+     close(KF);
+     `qsub -V -cwd -N $mastername -j y -b y perl $0 $argstring`;
+     exit(0);
 }
+
+if($postprocess eq "false") {
+     sleep(1);
+     print "Please wait while I check that everything is in order.\n\n";
+     sleep(1);
+     print "This could take a few minutes.\n\n";
+     sleep(1);
+}
+
+open(INFILE, $configfile);
+$gene_annot_file = <INFILE>;
+chomp($gene_annot_file);
+if($dna eq "false") {
+    if(!(-e $gene_annot_file)) {
+       print ERRORLOG "\nERROR: the file '$gene_annot_file' does not seem to exist.\n\n";
+       die "\nERROR: the file '$gene_annot_file' does not seem to exist.\n\n";
+    }
+}
+$bowtie_exe = <INFILE>;
+chomp($bowtie_exe);
+if(!(-e $bowtie_exe)) {
+    print ERRORLOG "\nERROR: the executable '$bowtie_exe' does not seem to exist.\n\n";
+}
+$blat_exe = <INFILE>;
+chomp($blat_exe);
+if(!(-e $blat_exe)) {
+    print ERRORLOG "\nERROR: the executable '$blat_exe' does not seem to exist.\n\n";
+}
+$mdust_exe = <INFILE>;
+chomp($mdust_exe);
+if(!(-e $mdust_exe)) {
+    print ERRORLOG "\nERROR: the executable '$mdust_exe' does not seem to exist.\n\n";
+}
+$genome_bowtie = <INFILE>;
+chomp($genome_bowtie);
+$transcriptome_bowtie = <INFILE>;
+chomp($transcriptome_bowtie);
+$genome_blat = <INFILE>;
+chomp($genome_blat);
+if(!(-e $genome_blat)) {
+    print ERRORLOG "\nERROR: the file '$genome_blat' does not seem to exist.\n\n";
+}
+$scripts_dir = <INFILE>;
+$scripts_dir =~ s!/$!!;
+chomp($scripts_dir);
+$lib = <INFILE>;
+$lib =~ s!/$!!;
+chomp($lib);
+$genomefa = $genome_blat;
+close(INFILE);
+$genome_size = (-s $genomefa) / 1000000000;
+$min_ram = int($genome_size * 1.67)+1;
+
+if($postprocess eq "false") {
+     if($qsub2 eq "false") {
+          print "I'm going to try to figure out how much RAM you have.\nIf you see some error messages here, don't worry, these are harmless.\n\n";
+          sleep(2);
+          # figure out how much RAM is available:
+          if($user_ram eq "false") {
+               $did_not_figure_out_ram = "false";
+               $ramcheck = `free -g`;  # this should work on linux
+               $ramcheck =~ /Mem:\s+(\d+)/s;
+               $totalram = $1;
+               if(!($totalram =~ /\d+/)) { # so above still didn't work, trying even harder
+                   $x = `grep memory /var/run/dmesg.boot`; # this should work on freeBSD
+                   $x =~ /avail memory = (\d+)/;
+                   $totalram = int($1 / 1000000000);
+                   if($totalram == 0) {
+               	$totalram = "";
+                   }
+               }
+               if(!($totalram =~ /\d+/)) { # so above didn't work, trying harder
+                   $x = `top -l 1 | grep free`;  # this should work on a mac
+                   $x =~ /(\d+)(.)\s+used, (\d+)(.) free/;
+                   $used = $1;
+                   $type1 = $2;
+                   $free = $3;
+                   $type2 = $4;
+                   if($type1 eq "K" || $type1 eq "k") {
+                    	$used = int($used / 1000000);
+                   }
+                   if($type2 eq "K" || $type2 eq "k") {
+                    	$free = int($free / 1000000);
+                        }
+                   if($type1 eq "M" || $type1 eq "m") {
+               	$used = int($used / 1000);
+                   }
+                   if($type2 eq "M" || $type2 eq "m") {
+               	$free = int($free / 1000);
+                   }
+                   $totalram = $used + $free;
+                   if($totalram == 0) {
+                  	$totalram = "";
+                   }
+               }
+               if(!($totalram =~ /\d+/)) { # so above didn't work, warning user
+                   $did_not_figure_out_ram = "true";
+                   print "\nWarning: I could not determine how much RAM you have.  If you have less\nthan $min_ram gigs per chunk this might not work.  I'm going to proceed with fingers crossed.\n\n";
+                   $ram = $min_ram;
+               } else {
+                   $RAMperchunk = int($totalram / $numchunks);
+               }
+          }
+
+          if($did_not_figure_out_ram eq "false") {
+              if($RAMperchunk >= $min_ram) {
+                  print "It seems like you have $totalram Gb of RAM on your machine.\n";
+                  print "\nUnless you have too much other stuff running, RAM should not be a problem.\n";
+              } else {
+                  print "\nWarning: you have only $RAMperchunk Gb of RAM per chunk.  Based on the\nsize of your genome you will probably need more like $min_ram Gb per chunk.\nAnyway I can try and see what happens.\n\n";
+                  print "Do you really want me to proceed?  Enter 'Y' or 'N' ";
+                  $answer = <STDIN>;
+                  if($answer eq "n" || $answer eq "N") {
+                      exit();
+                  }
+              }
+              $ram = $min_ram;
+              if($ram < 6 && $ram < $RAMperchunk) {
+                   $ram = $RAMperchunk;
+                   if($ram > 6) {
+                       $ram = 6;
+                   }
+              }
+              sleep(1);
+          }
+     }
+}
+
 if($kill eq "false") {
-    sleep(2);
-    print STDERR "Checking for phantom processes from prior runs that might need to be killed.\n\n";
+    sleep(1);
+    print "\nChecking for phantom processes from prior runs that might need to be killed.\n\n";
     $outdir = $output_dir;
-    $str = `ps x | grep $outdir | grep -v RUM_runner.pl`;
+    $str = `ps a | grep $outdir | grep -v RUM_runner.pl`;
     @candidates = split(/\n/,$str);
     $cleanedflag = 0;
     for($i=0; $i<@candidates; $i++) {
-	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/pipeline.\d+.sh/) {
+	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
 	    $pid = $1;
-	    print STDERR "killing $pid\n";
+	    print "killing $pid\n";
 	    `kill -9 $pid`;
             $cleanedflag = 1;
 	}
     }
     for($i=0; $i<@candidates; $i++) {
 	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
-	    if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
+	    if(!($candidates[$i] =~ /^$name.$starttime/)) {
 		$pid = $1;
-		print STDERR "killing $pid\n";
+		print "killing $pid\n";
 		`kill -9 $pid`;
                 $cleanedflag = 1;
 	    }
@@ -530,115 +855,273 @@ if($kill eq "false") {
 }
 if($cleanedflag == 1) {
     sleep(2);
-    print STDERR "OK there was some cleaning up to do, hopefully that worked.\n\n";
+    print "OK there was some cleaning up to do, hopefully that worked.\n\n";
 }
 sleep(2);
 
-for($i=1; $i<=$numchunks; $i++) {
-    $logfile = "$output_dir/rum_log.$i";
-    if (-e $logfile) {
-	unlink($logfile);
+if($postprocess eq "false") {
+    for($i=1; $i<=$numchunks; $i++) {
+        $logfile = "$output_dir/rum.log_chunk.$i";
+        if (-e $logfile) {
+       	    unlink($logfile);
+        }
     }
 }
 
-open(INFILE, $configfile);
-$gene_annot_file = <INFILE>;
-chomp($gene_annot_file);
-$bowtie_exe = <INFILE>;
-chomp($bowtie_exe);
-$blat_exe = <INFILE>;
-chomp($blat_exe);
-$mdust_exe = <INFILE>;
-chomp($mdust_exe);
-$genome_bowtie = <INFILE>;
-chomp($genome_bowtie);
-$transcriptome_bowtie = <INFILE>;
-chomp($transcriptome_bowtie);
-$genome_blat = <INFILE>;
-chomp($genome_blat);
-$scripts_dir = <INFILE>;
-$scripts_dir =~ s!/$!!;
-chomp($scripts_dir);
-$genomefa = $genome_blat;
-close(INFILE);
+$paired_end = "";
+if(($readsfile =~ /,,,/)) {
+   $paired_end = "true";
+}
+$file_needs_splitting = "false";
+$preformatted = "false";
+if(!($readsfile =~ /,,,/)) {
+
+    if(!(-e $readsfile)) {
+        print ERRORLOG "\nERROR: The reads file '$readsfile' does not seem to exist\n\n";
+        die "\nERROR: The reads file '$readsfile' does not seem to exist\n\n";
+    }
+
+    open(INFILE, $readsfile);
+    for($i=0; $i<50000; $i++) {
+        $line = <INFILE>;
+        if($line =~ /:Y:/) {
+             $line = <INFILE>;
+             chomp($ine);
+             if($line =~ /^--$/) {
+                  print ERRORLOG "\nERROR: you appear to have entries in your fastq file \"$readsfile\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
+                  die "ERROR: you appear to have entries in your fastq file \"$readsfile\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
+             }
+        }
+    }
+    close(INFILE);
+
+    $head = `head -4 $readsfile`;
+    $head =~ /seq.(\d+)(.).*seq.(\d+)(.)/s;
+    $num1 = $1;
+    $type1 = $2;
+    $num2 = $3;
+    $type2 = $4;
+
+    $paired_end = "false";
+    if($num1 == 1 && $num2 == 1 & $type1 eq 'a' && $type2 eq 'b') {
+         $paired_end = "true";
+         $file_needs_splitting = "true";
+         $preformatted = "true";
+    }
+    if($num1 == 1 && $num2 == 2 & $type1 eq 'a' && $type2 eq 'a') {
+         $paired_end = "false";
+         $file_needs_splitting = "true";
+         $preformatted = "true";
+    }
+}
 
 if($num_insertions_allowed > 1 && $paired_end eq "true") {
-    die "\nError: for paired end data, you cannot set -max_ins_per_read to be greater than 1.\n\n";
+    print ERRORLOG "\nERROR: for paired end data, you cannot set -max_insertions_per_read to be greater than 1.\n\n";
+    die "\nERROR: for paired end data, you cannot set -max_insertions_per_read to be greater than 1.\n\n";
 }
 
-if(($readsfile =~ /,,,/) && $paired_end eq "false") {
-    die "\nError: You've given two files separated by three commas, this means we are expecting paired end\ndata but you set -single.\n\n";
+if($paired_end eq "true") {
+     print "Processing as paired-end data\n";
+} else {
+     print "Processing as single-end data\n";
 }
-if(!($readsfile =~ /,,,/) && !(-e $readsfile)) {
-    die "\nError: The reads file '$readsfile' does not seem to exist\n\n";
-}
+
 $quals = "false";
-if(($readsfile =~ /,,,/) && ($paired_end eq "true") && ($postprocess eq "false")) {
+if($readsfile =~ /,,,/ && $postprocess eq "false") {
     @a = split(/,,,/, $readsfile);
     if(@a > 2) {
-	die "\nError: You've given more than two files separated by three commas, should be at most two files.\n\n";
-    }    
+        print ERRORLOG "\nERROR: You've given more than two files separated by three commas, should be at most two files.\n\n";
+	die "\nERROR: You've given more than two files separated by three commas, should be at most two files.\n\n";
+    }
     if(!(-e $a[0])) {
-	die "\nError: The reads file '$a[0]' does not seem to exist\n\n";
+        print ERRORLOG "\nERROR: The reads file '$a[0]' does not seem to exist\n\n";
+	die "\nERROR: The reads file '$a[0]' does not seem to exist\n\n";
     }
     if(!(-e $a[1])) {
-	die "\nError: The reads file '$a[1]' does not seem to exist\n\n";
+        print ERRORLOG "\nERROR: The reads file '$a[1]' does not seem to exist\n\n";
+	die "\nERROR: The reads file '$a[1]' does not seem to exist\n\n";
     }
     if($a[0] eq $a[1]) {
-	die "\nError: You specified the same file for the forward and reverse reads, must be an error...\n\n";
+        print ERRORLOG "\nERROR: You specified the same file for the forward and reverse reads, must be an error...\n\n";
+	die "\nERROR: You specified the same file for the forward and reverse reads, must be an error...\n\n";
     }
 
-    print STDERR "Reformatting reads file... please be patient.\n";
-    `perl $scripts_dir/parse2fasta.pl $a[0] $a[1] > $output_dir/reads.fa`;
-    `perl $scripts_dir/fastq2qualities.pl $a[0] $a[1] > $output_dir/quals.fa`;
-    $X = `head -2 $output_dir/quals.fa | tail -1`;
-    if($X =~ /\S/ && !($X =~ /Sorry, can't figure these files out/)) {
-	$quals = "true"
+    # Make sure these aren't fastq files with entries that didn't pass quality:
+
+    $size1 = -s $a[0];
+    $size2 = -s $a[1];
+    if($size1 != $size2) {
+          print ERRORLOG "\nERROR: The fowards and reverse files are different sizes.\n$size1 versus $size2.  They should be the exact same size.\n\n";
+          die "\nERROR: The fowards and reverse files are different sizes.\n$size1 versus $size2.  They should be the exact same size.\n\n";
     }
-    $readsfile = "$output_dir/reads.fa";
-    $qualsfile = "$output_dir/quals.fa";
+
+    open(INFILE, $a[0]);
+    for($i=0; $i<50000; $i++) {
+        $line = <INFILE>;
+        if($line =~ /:Y:/) {
+             $line = <INFILE>;
+             chomp($ine);
+             if($line =~ /^--$/) {
+                  print ERRORLOG "\nERROR: you appear to have entries in your fastq file \"$a[0]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
+                  die "ERROR: you appear to have entries in your fastq file e \"$a[0]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
+             }
+        }
+    }
+    close(INFILE);
+
+    open(INFILE, $a[1]);
+    for($i=0; $i<50000; $i++) {
+        $line = <INFILE>;
+        if($line =~ /:Y:/) {
+             $line = <INFILE>;
+             chomp($ine);
+             if($line =~ /^--$/) {
+                  print ERRORLOG "\nERROR: you appear to have entries in your fastq file e \"$a[1]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
+                  die "ERROR: you appear to have entries in your fastq file e \"$a[1]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
+             }
+        }
+    }
+    close(INFILE);
+
+    # Going to figure out here if these are standard fastq files
+
+    $head40 = `head -40 $a[0]`;
+    $head40 =~ s/^\s*//s;
+    $head40 =~ s/\s*$//s;
+    @b = split(/\n/, $head40);
+    $fastq = "true";
+    for($i=0; $i<10; $i++) {
+        if(!($b[$i*4] =~ /^@/)) {
+            $fastq = "false";
+        }
+        if(!($b[$i*4+1] =~ /^[acgtnACGTN.]+$/)) {
+            $fastq = "false";
+        }
+        if(!($b[$i*4+2] =~ /^\+/)) {
+            $fastq = "false";
+        }
+    }
+
+   # Check to see if it's fasta
+
+    $fasta = "true";
+    for($i=0; $i<10; $i++) {
+        if(!($b[$i*2] =~ /^>/)) {
+            $fasta = "false";
+        }
+        if(!($b[$i*2+1] =~ /^[acgtnACGTN.]+$/)) {
+            $fasta = "false";
+        }
+    }
+
+    # Check here that the quality scores are the same length as the reads.
+
+    $FL = `head -50000 $a[0] | wc -l`;
+    chomp($FL);
+    $FL =~ s/[^\d]//gs;
+
+    `perl $scripts_dir/parse2fasta.pl $a[0] $a[1] | head -$FL > $output_dir/reads_temp.fa 2>> $output_dir/rum.error-log`;
+    `perl $scripts_dir/fastq2qualities.pl $a[0] $a[1] | head -$FL > $output_dir/quals_temp.fa 2>> $output_dir/rum.error-log`;
+    $X = `head -20 $output_dir/quals_temp.fa`;
+    if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
+        open(RFILE, "$output_dir/reads_temp.fa");
+        open(QFILE, "$output_dir/quals_temp.fa");
+        while($linea = <RFILE>) {
+            $lineb = <QFILE>;
+            $line1 = <RFILE>;
+            $line2 = <QFILE>;
+            chomp($line1);
+            chomp($line2);
+            if(length($line1) != length($line2)) {
+               print ERRORLOG "ERROR: It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.\n\n";
+               die "ERROR: It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.\n\n";
+            }
+        }
+    }
+
+    # Check that reads are not variable length
+
+    if($X =~ /\S/s) {
+        open(RFILE, "$output_dir/reads_temp.fa");
+        $length_flag = 0;
+        while($linea = <RFILE>) {
+            $line1 = <RFILE>;
+            chomp($line1);
+            if($length_flag == 0) {
+                 $length_hold = length($line1);
+                 $length_flag = 1;
+            }
+            if(length($line1) != $length_hold && $variable_read_lengths eq 'false') {
+               print ERRORLOG "\nWARNING: It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.\n\n";
+               print "\nWARNING: It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.\n\n";
+               $variable_read_lengths = "true";
+            }
+            $length_hold = length($line1);
+        }
+    }
+
+    # Clean up:
+
+    unlink("$output_dir/reads_temp.fa");
+    unlink("$output_dir/quals_temp.fa");
+
+    # Done checking
+
+    print "\nReformatting reads file... please be patient.\n";
+
+    if($fastq eq "true" && $variable_read_lengths eq "false" && $FL == 50000) {
+        if($preserve_names eq "false") {
+            `perl $scripts_dir/parsefastq.pl $a[0],,,$a[1] $numchunks $output_dir/reads.fa $output_dir/quals.fa 2>> $output_dir/rum.error-log`;
+        } else {
+            `perl $scripts_dir/parsefastq.pl $a[0],,,$a[1] $numchunks $output_dir/reads.fa $output_dir/quals.fa -name_mapping $output_dir/read_names_mapping 2>> $output_dir/rum.error-log`;
+        }
+        $x = `grep -A 2 "something wrong with line" $output_dir/rum.error-log`;
+        if($x =~ /something wrong/s) {
+            print "$x\n";
+            exit();
+        }
+   	$quals = "true";
+        $file_needs_splitting = "false";
+    } elsif($fasta eq "true" && $variable_read_lengths eq "false" && $FL == 50000 && $preformatted eq "false") {
+        if($preserve_names eq "false") {
+            `perl $scripts_dir/parsefasta.pl $a[0],,,$a[1] $numchunks $output_dir/reads.fa 2>> $output_dir/rum.error-log`;
+        } else {
+            `perl $scripts_dir/parsefasta.pl $a[0],,,$a[1] $numchunks $output_dir/reads.fa -name_mapping $output_dir/read_names_mapping 2>> $output_dir/rum.error-log`;
+        }
+   	$quals = "false";
+        $file_needs_splitting = "false";
+    } elsif($preformatted eq "false") {
+        `perl $scripts_dir/parse2fasta.pl $a[0] $a[1] > $output_dir/reads.fa 2>> $output_dir/rum.error-log`;
+        `perl $scripts_dir/fastq2qualities.pl $a[0] $a[1] > $output_dir/quals.fa 2>> $output_dir/rum.error-log`;
+        $file_needs_splitting = "true";
+        $X = `head -20 $output_dir/quals.fa`;
+        if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
+    	     $quals = "true";
+        }
+    }
+    if($preformatted eq "false") {
+       $qualsfile = "$output_dir/quals.fa";
+       $readsfile = "$output_dir/reads.fa";
+    } else {
+       $file_needs_splitting = "true";
+    }
 }
+
 if($postprocess eq "true") {
     $readsfile = "$output_dir/reads.fa";
+    if(!(-e $readsfile)) {
+        $readsfile = $ARGV[1];
+    }
     $qualsfile = "$output_dir/quals.fa";
-    $X = `head -2 $output_dir/quals.fa | tail -1`;
-    if($X =~ /\S/ && !($X =~ /Sorry, can't figure these files out/)) {
-	$quals = "true"
+    $quals = "false";
+    if(-e $qualsfile) {
+        $X = `head -20 $output_dir/quals.fa`;
+        if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
+	    $quals = "true";
+        }
     }
 }
 
-open(LOGFILE, ">$output_dir/rum.log");
-print LOGFILE "config file: $configfile\n";
-print LOGFILE "readsfile: $readsfile\n";
-print LOGFILE "output_dir: $output_dir\n";
-print LOGFILE "numchunks: $numchunks\n";
-print LOGFILE "name: $name\n";
-print LOGFILE "paired_end: $paired_end\n";
-print LOGFILE "fast: $fast\n";
-print LOGFILE "limitNU: $limitNU\n";
-print LOGFILE "dna: $dna\n";
-print LOGFILE "qsub: $qsub\n";
-print LOGFILE "blat minidentity: $minidentity\n";
-print LOGFILE "output junctions: $junctions\n";
-print LOGFILE "output quantified values: $quantify\n";
-
-if($numchunks =~ /(\d+)s/) {
-    $numchunks = $1;
-    $fasta_already_fragmented = "true";
-} else {
-    $fasta_already_fragmented = "false";
-}
-
-$head = `head -2 $readsfile | tail -1`;
-chomp($head);
-@a = split(//,$head);
-if($variable_read_lengths eq "false") {
-   $readlength = @a;
-} else {
-   $readlength = "v";
-}
-print LOGFILE "readlength: $readlength\n";
-print LOGFILE "\nstart: $date\n";
 
 $head = `head -4 $readsfile`;
 $head =~ /seq.(\d+)(.).*seq.(\d+)(.)/s;
@@ -646,34 +1129,204 @@ $num1 = $1;
 $type1 = $2;
 $num2 = $3;
 $type2 = $4;
-if($postprocess eq "false") {
-    if($paired_end eq 'false') {
-        if($type1 ne "a") {
-	   print STDERR "Reformatting reads file... please be patient.\n";
-	   `perl scripts/parse2fasta.pl $readsfile > $output_dir/reads.fa`;
-	   `perl scripts/fastq2qualities.pl $readsfile > $output_dir/quals.fa`;
-	   $X = `head -2 $output_dir/quals.fa | tail -1`;
-           if($X =~ /\S/ && !($X =~ /Sorry, can't figure these files out/)) {
-	       $quals = "true"
+
+if($paired_end eq 'false' && $postprocess eq "false") {
+    if($type1 ne "a" || $type2 ne "a") {
+        print "\nReformatting reads file... please be patient.\n";
+
+        $head40 = `head -40 $readsfile`;
+        $head40 =~ s/^\s*//s;
+        $head40 =~ s/\s*$//s;
+        @b = split(/\n/, $head40);
+        $fastq = "true";
+        for($i=0; $i<10; $i++) {
+            if(!($b[$i*4] =~ /^@/)) {
+                $fastq = "false";
+            }
+            if(!($b[$i*4+1] =~ /^[acgtnACGTN.]+$/)) {
+                $fastq = "false";
+            }
+            if(!($b[$i*4+2] =~ /^\+/)) {
+                $fastq = "false";
+            }
+        }
+
+        # Check to see if it's fasta
+
+         $fasta = "true";
+         for($i=0; $i<10; $i++) {
+             if(!($b[$i*2] =~ /^>/)) {
+                 $fasta = "false";
+             }
+             if(!($b[$i*2+1] =~ /^[acgtnACGTN.]+$/)) {
+                 $fasta = "false";
+             }
+         }
+
+        # Check here that the quality scores are the same length as the reads.
+
+        $FL = `head -50000 $readsfile | wc -l`;
+        chomp($FL);
+        $FL =~ s/[^\d]//gs;
+
+        `perl $scripts_dir/parse2fasta.pl $readsfile | head -$FL > $output_dir/reads_temp.fa 2>> $output_dir/rum.error-log`;
+        `perl $scripts_dir/fastq2qualities.pl $readsfile | head -$FL > $output_dir/quals_temp.fa 2>> $output_dir/rum.error-log`;
+        $X = `head -20 $output_dir/quals_temp.fa`;
+        if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
+            open(RFILE, "$output_dir/reads_temp.fa");
+            open(QFILE, "$output_dir/quals_temp.fa");
+            while($linea = <RFILE>) {
+                $lineb = <QFILE>;
+                $line1 = <RFILE>;
+                $line2 = <QFILE>;
+                chomp($line1);
+                chomp($line2);
+                if(length($line1) != length($line2)) {
+                   print ERRORLOG "ERROR: It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.\n\n";
+                   die "ERROR: It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.\n\n";
+                }
+            }
+        }
+
+        # Check that reads are not variable length
+
+        if($X =~ /\S/s) {
+            open(RFILE, "$output_dir/reads_temp.fa");
+            $length_flag = 0;
+            while($linea = <RFILE>) {
+                $line1 = <RFILE>;
+                chomp($line1);
+                if($length_flag == 0) {
+                     $length_hold = length($line1);
+                     $length_flag = 1;
+                }
+                if(length($line1) != $length_hold && $variable_read_lengths eq 'false') {
+                   print ERRORLOG "\nWARNING: It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.\n\n";
+                   print "\nWARNING: It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.\n\n";
+                   $variable_read_lengths = "true";
+                }
+                $length_hold = length($line1);
+            }
+        }
+
+        # Clean up:
+        unlink("$output_dir/reads_temp.fa");
+        unlink("$output_dir/quals_temp.fa");
+
+        # Done checking
+
+        if($fastq eq "true" && $variable_read_lengths eq "false" && $FL == 50000) {
+           if($preserve_names eq "false") {
+              `perl $scripts_dir/parsefastq.pl $readsfile $numchunks $output_dir/reads.fa $output_dir/quals.fa 2>> $output_dir/rum.error-log`;
+           } else {
+              `perl $scripts_dir/parsefastq.pl $readsfile $numchunks $output_dir/reads.fa $output_dir/quals.fa -name_mapping $output_dir/read_names_mapping 2>> $output_dir/rum.error-log`;
+           }
+           $x = `grep -A 2 "something wrong with line" $output_dir/rum.error-log`;
+           if($x =~ /something wrong/s) {
+               print "$x\n";
+               exit();
+           }
+           $quals = "true";
+           $file_needs_splitting = "false";
+        } elsif($fasta eq "true" && $variable_read_lengths eq "false" && $FL == 50000 && $preformatted eq "false") {
+           if($preserve_names eq "false") {
+               `perl $scripts_dir/parsefasta.pl $readsfile $numchunks $output_dir/reads.fa 2>> $output_dir/rum.error-log`;
+           } else {
+               `perl $scripts_dir/parsefasta.pl $readsfile $numchunks $output_dir/reads.fa -name_mapping $output_dir/read_names_mapping 2>> $output_dir/rum.error-log`;
+           }
+       	   $quals = "false";
+           $file_needs_splitting = "false";
+        } elsif($preformatted eq "false") {
+           `perl $scripts_dir/parse2fasta.pl $readsfile > $output_dir/reads.fa 2>> $output_dir/rum.error-log`;
+           `perl $scripts_dir/fastq2qualities.pl $readsfile > $output_dir/quals.fa 2>> $output_dir/rum.error-log`;
+           $file_needs_splitting = "true";
+           $X = `head -20 $output_dir/quals.fa`;
+           if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
+	       $quals = "true";
 	   }
-	   $readsfile = "$output_dir/reads.fa";
- 	   $qualsfile = "$output_dir/quals.fa";
-	   $head = `head -4 $readsfile`;
-	   $head =~ /seq.(\d+)(.).*seq.(\d+)(.)/s;
-	   $num1 = $1;
-	   $type1 = $2;
-	   $num2 = $3;
-	   $type2 = $4;
+        }
+        if($preformatted eq "true") {
+            $file_needs_splitting = "true";
+        } else {
+            $readsfile = "$output_dir/reads.fa";
+            $qualsfile = "$output_dir/quals.fa";
         }
     }
 }
-if($postprocess eq "true") {
-    $readsfile = "$output_dir/reads.fa";
-    $qualsfile = "$output_dir/quals.fa";
-    $X = `head -2 $output_dir/quals.fa | tail -1`;
-    if($X =~ /\S/ && !($X =~ /Sorry, can't figure these files out/)) {
-	$quals = "true"
+
+$X = `grep -c "This does not appear to be a valid file" $readsfile`;
+if($X > 0) {
+       print ERRORLOG "ERROR: This does not appear to be a valid input file.\nFastQ files must have FOUR lines for each entry (do not include entries that do not have all four lines).\nFastA must have TWO lines for each entry.\n\n";
+       die "ERROR: This does not appear to be a valid input file.\nFastQ files must have FOUR lines for each entry (do not include entries that do not have all four lines).\nFastA must have TWO lines for each entry.\n\n";
+}
+
+$head = `head -2 $readsfile | tail -1`;
+chomp($head);
+@a = split(//,$head);
+if($variable_read_lengths eq "false") {
+   $readlength = @a;
+   if($minlength > $readlength) {
+       print ERRORLOG "ERROR: you specified a minimum length alignment to report as '$minlength', however\nyour read length is only $readlength\n";
+       die "ERROR: you specified a minimum length alignment to report as '$minlength', however\nyour read length is only $readlength\n";
+   }
+} else {
+   $readlength = "v";
+}
+
+if($NUMCHUNKS =~ /(\d+)s/) {
+    $file_needs_splitting = "false";
+}
+
+if($file_needs_splitting eq "true" && $postprocess eq "false") {
+    $x = &breakup_file($readsfile, $numchunks);
+    print "Splitting files ... please be patient.\n\n";
+    $qualflag = 0;
+    if($quals eq "true" || $quals_specified eq "true") {
+        print "Half done splitting...\n\n";
+        $qualflag = 1;
+        if($quals_specified eq 'true') {
+       	    $x = &breakup_file("$output_dir/$quals_file", $numchunks);
+        } else {
+       	    $x = &breakup_file($qualsfile, $numchunks);
+        }
     }
+}
+
+$head = `head -2 $readsfile | tail -1`;
+chomp($head);
+$rl = length($head);
+$tail = `tail -2 $readsfile | head -1`;
+$tail =~ /seq.(\d+)/s;
+$nr = $1;
+
+if($minlength == 0) {
+   if($rl < 80) {
+      if($match_length_cutoff == 0) {
+         $match_length_cutoff = 35;
+      }
+   } else {
+      if($match_length_cutoff == 0) {
+         $match_length_cutoff = 50;
+      }
+   }
+   if($match_length_cutoff >= .8 * $rl) {
+       $match_length_cutoff = int(.6 * $rl);
+   }
+} else {
+	$match_length_cutoff = $minlength;
+}
+
+if($quals_specified eq 'true') {
+    if(!(open(TESTIN, "$output_dir/$quals_file"))) {
+       print ERRORLOG "\nERROR: cannot open '$quals_file' for reading, it should be in the '$output_dir' directory.\n\n";
+       die "\nERROR: cannot open '$quals_file' for reading, it should be in the '$output_dir' directory.\n\n";
+    }
+    close(TESTIN);
+    $qualsfile = "$output_dir/$quals_file";
+    $quals = "true";
+}
+
+if($postprocess eq "true") {
     $head = `head -4 $readsfile`;
     $head =~ /seq.(\d+)(.).*seq.(\d+)(.)/s;
     $num1 = $1;
@@ -682,205 +1335,522 @@ if($postprocess eq "true") {
     $type2 = $4;
 }
 
-if($type1 ne "a") {
-    print STDERR "ERROR: the fasta def lines are misformatted.  The first one should end in an 'a'.\n";
-    print LOGFILE "Error: fasta file misformatted... The first line should end in an 'a'.\n";
-    exit();
-}
-if($num2 ne "2" && $paired_end eq "false") {
-    print STDERR "ERROR: the fasta def lines are misformatted.  The second one should be '2a' or '1b'\n";
-    print STDERR "       depending on whether it is paired end or not.  ";
-    print LOGFILE "Error: fasta file misformatted...  The second line should be '2a' or '1b' depending\n";
-    print LOGFILE "on whether it is paired end or not..\n";
-    if($paired_end eq "true") {
-	print STDERR "Note: You are running in paired end mode.\n";
-	print LOGFILE "Note: You ran in paired end mode.\n";
+if($postprocess eq "false") {
+    open(LOGFILE, ">$output_dir/rum.log_master");
+    print LOGFILE "RUM version: $version\n";
+    print LOGFILE "\nJob ID: $JID\n";
+    print LOGFILE "\nstart: $date\n";
+    print LOGFILE "name: $name\n";
+    if($configfile =~ /hg(18)/ || $configfile =~ /hg(19)/) {
+        print LOGFILE "config file: $configfile  [ human - build $1 ]\n";
+    } elsif($configfile =~ /mm(8)/ || $configfile =~ /mm(9)/) {
+        print LOGFILE "config file: $configfile  [ mouse build $1 ]\n";
+    } else {
+        print LOGFILE "config file: $configfile\n";
     }
-    else {
-	print STDERR "Note: You are not running in paired end mode.\n";
-	print LOGFILE "Note: You ran in unpaired mode.\n";
-    }
-    exit();
-}
-if($type2 ne "b" && $paired_end eq "true") {
-    print STDERR "ERROR: the fasta def lines are misformatted.  You are in paired end mode so the second\n";
-    print STDERR "       one should end in a 'b'.\n";
-    print LOGFILE "Error: fasta file misformatted...  You ran in paried end mode so the second\n";
-    print LOGFILE "one should end in a 'b'.\n";
-    exit();
-}
-if($type1 eq "a" && $type2 eq "a" && $paired_end eq "true") {
-    print STDERR "ERROR: You are running in paired end mode, paired reads should have def\n";
-    print STDERR "       lines '>seq.Na' and '>seq.Nb' for N = 1, 2, 3, ... ";
-    print LOGFILE "Error: fasta file misformatted...\n";
-    print LOGFILE "You are running in paired end mode, paired reads should have def\n";
-    print LOGFILE "lines '>seq.Na' and '>seq.Nb' for N = 1, 2, 3, ... ";
-    exit();
-}
-if($paired_end eq "false" && $type1 eq "a" && $type2 eq "a" && ($num1 ne "1" || $num2 ne "2")) {
-    print STDERR "ERROR: You ran in unpaired mode, reads should have def\n";
-    print STDERR "lines '>seq.Nb' for N = 1, 2, 3, ... ";
-    print LOGFILE "Error: fasta file misformatted...\n";
-    print LOGFILE "You ran in unpaired mode, reads should have def\n";
-    print LOGFILE "lines '>seq.Nb' for N = 1, 2, 3, ... ";
-    exit();
-}
-if($paired_end eq "true" && ($type1 ne "a" || $type2 ne "b")) {
-    print STDERR "ERROR: You ran in paired mode, reads should have def\n";
-    print STDERR "lines alternating '>seq.Na' and '>seq.Nb' for N = 1, 2, 3, ... ";
-    print LOGFILE "Error: fasta file misformatted...\n";
-    print LOGFILE "You ran in paired mode, reads should have def\n";
-    print LOGFILE "lines alternating '>seq.Na' and '>seq.Nb' for N = 1, 2, 3, ... ";
-    exit();
-}
 
-if($readlength ne "variable" && $readlength < 55 && $limitNU eq "false") {
-    print STDERR "\n\nWARNING: you have pretty short reads ($readlength bases).  If you have a large\n";
-    print STDERR "genome such as mouse or human then the files of ambiguous mappers could grow\n";
-    print STDERR "very large, in this case it's recommended to run with the -limitNU option.  You\n";
-    print STDERR "can watch the files that start with 'X' and 'Y' to see if they are growing\n";
-    print STDERR "larger than 10 gigabytes per million reads at which point you might want to use.\n";
-    print STDERR "-limitNU\n\n";
+    print LOGFILE "paired_end: $paired_end\n";
+    if($ARGV[1] =~ /,,,/) {
+        @RF = split(/,,,/,$ARGV[1]);
+        print LOGFILE "forward reads file: $RF[0]\n";
+        print LOGFILE "reverse reads file: $RF[1]\n";
+    } else {
+        print LOGFILE "reads file: $ARGV[1]\n";
+    }
+    if($gene_annot_file =~ /\S/) {
+       print LOGFILE "transcript db: $gene_annot_file\n";
+    }
+    if($altquant_file =~ /\S/) {
+       print LOGFILE "alternate transcript db: $altquant_file\n";
+    }
+    print LOGFILE "genome db: $genomefa\n";
+    if($fasta eq "true") {
+       print LOGFILE "input file format: fasta\n";
+    }
+    if($fastq eq "true") {
+       print LOGFILE "input file format: fastq\n";
+    }
+    print LOGFILE "output_dir: $output_dir\n";
+    if($variable_read_lengths eq "false") {
+        print LOGFILE "readlength: $rl\n";
+    } else {
+        print LOGFILE "readlength: variable\n";
+    }
+    $NR = &format_large_int($nr);
+    if($paired_end eq 'false') {
+        print LOGFILE "number of reads: $NR\n";
+    } else {
+        print LOGFILE "number of read pairs: $NR\n";
+    }
+
+    if($variable_read_lengths eq "false" || $minlength > 0) {
+        if($minlength == 0) {
+            print LOGFILE "minimum length alignment to report: $match_length_cutoff\n  *** NOTE: If you want to change the min size of alignment reported, use the -minlength option.\n";
+        } else {
+            print LOGFILE "minimum length alignment to report: $match_length_cutoff.\n";
+        }
+        print "\n *** NOTE: I am going to report alginments of length $match_length_cutoff.\n";
+        print "If you want to change the minimum size of alignments reported, use the -minlength option.\n\n";
+    } else {
+        print LOGFILE "minimum length alignment to report: NA since read length is variable\n";
+    }
+    $nc = $numchunks;
+    $nc =~ s/s//;
+    print LOGFILE "number of chunks: $nc\n";
+    print LOGFILE "ram per chunk: $ram\n";
+    print LOGFILE "limitBowtieNU: $limitNU\n";
+    if($limitNUhard eq "true") {
+        print LOGFILE "limitNU: $limitNUhard (no alignments reported if more than $NU_limit locations)\n";
+    } else {
+        print LOGFILE "limitNU: $limitNUhard\n";
+    }
+    print LOGFILE "dna: $dna\n";
+    print LOGFILE "genome only: $genomeonly\n";
+    print LOGFILE "qsub: $qsub2\n";
+    print LOGFILE "blat minidentity: $minidentity\n";
+    print LOGFILE "blat tileSize: $tileSize\n";
+    print LOGFILE "blat stepSize: $stepSize\n";
+    print LOGFILE "blat repMatch: $repMatch\n";
+    print LOGFILE "blat maxIntron: $maxIntron\n";
+    print LOGFILE "output junctions: $junctions\n";
+    print LOGFILE "output quantified values: $quantify\n";
+    print LOGFILE "strand specific: $strandspecific\n";
+    print LOGFILE "number of insertions allowed per read: $num_insertions_allowed\n";
+    print LOGFILE "count mismatches: $countmismatches\n";
+
+    print ERRORLOG "\nNOTE: I am going to report alginments of length $match_length_cutoff.\n";
+    print ERRORLOG "  *** If you want to change the min size of alignment reported, use the -minlength option.\n\n";
+
+    if($readlength ne "v" && $readlength < 55 && $limitNU eq "false") {
+        print ERRORLOG "\nWARNING: you have pretty short reads ($readlength bases).  If you have a large\n";
+        print ERRORLOG "genome such as mouse or human then the files of ambiguous mappers could grow\n";
+        print ERRORLOG "very large, in this case it's recommended to run with the -limitBowtieNU option.  You\n";
+        print ERRORLOG "can watch the files that start with 'X' and 'Y' to see if they are growing\n";
+        print ERRORLOG "larger than 10 gigabytes per million reads at which point you might want to use.\n";
+        print ERRORLOG "-limitNU\n\n";
+
+        print "\n\nWARNING: you have pretty short reads ($readlength bases).  If you have a large\n";
+        print "genome such as mouse or human then the files of ambiguous mappers could grow\n";
+        print "very large, in this case it's recommended to run with the -limitBowtieNU option.  You\n";
+        print "can watch the files that start with 'X' and 'Y' to see if they are growing\n";
+        print "larger than 10 gigabytes per million reads at which point you might want to use.\n";
+        print "-limitNU\n\n";
+    }
 }
 
 if($blatonly eq "true" && $dna eq "true") {
-    $dna = "false";  # because blat only is dna only anyway, and setting them both breaks things below
+    $dna = "false";  # setting them both breaks things below
+}
+
+if($dna eq "true" && $genomeonly eq "true") {
+    die "\nError: Sorry it makes no sense to set both -dna and -genome_only to be true.\n";
 }
 
 if($postprocess eq "false") {
-    $pipeline_template = `cat pipeline_template.sh`;
-    if($dna eq "true") {
+    open(OUT, ">$output_dir/restart.ids");
+    print OUT "";
+    close(OUT);
+
+    $pipeline_template = `cat $lib/pipeline_template.sh`;
+    if($cleanup eq 'false') {
+        $pipeline_template =~ s/^.*unlink.*$//mg;
+        $pipeline_template =~ s!if . -f OUTDIR.RUM_NU_temp3.CHUNK .\nthen\n\nfi\n!!gs;
+    }
+    if($dna eq "true" || $genomeonly eq "true") {
         $pipeline_template =~ s/# cp /cp /gs;
         $pipeline_template =~ s/xxx1.*xxx2//s;
+        $pipeline_template =~ s/\n[^\n]*CNU[^\n]*\n/\n/s;
     }
     if($blatonly eq "true") {
         $pipeline_template =~ s/xxx0.*xxx2//s;
         $pipeline_template =~ s!# cp OUTDIR/GU.CHUNK OUTDIR/BowtieUnique.CHUNK!echo `` >> OUTDIR/BowtieUnique.CHUNK!s;
         $pipeline_template =~ s!# cp OUTDIR/GNU.CHUNK OUTDIR/BowtieNU.CHUNK!echo `` >> OUTDIR/BowtieNU.CHUNK!s;
     }
-    if($fasta_already_fragmented eq "false") {
-        print STDERR "Splitting files ... please be patient.\n\n";
-        $qualflag = 0;
-        $x = breakup_file($readsfile, $numchunks);
-        if($quals eq "true") {
-            print STDERR "Half done splitting...\n\n";
-            $qualflag = 1;
-    	    $x = breakup_file($qualsfile, $numchunks);
-        }
-    }
 
-    print STDERR "Reads fasta file already fragmented: $fasta_already_fragmented\n";
-    print STDERR "Number of Chunks: $numchunks\n";
-    print STDERR "Reads File: $readsfile\n";
-    print STDERR "Paired End: $paired_end\n";
+    print "Number of Chunks: $numchunks\n";
+    if($ARGV[1] =~ /,,,/) {
+        @RF = split(/,,,/,$ARGV[1]);
+        print "Forward Reads File: $RF[0]\n";
+        print "Reverse Reads File: $RF[1]\n";
+    } else {
+        print "Reads File: $ARGV[1]\n";
+    }
+    print "Paired End: $paired_end\n";
 
     $readsfile =~ s!.*/!!;
     $readsfile = $output_dir . "/" . $readsfile;
-    
-    print STDERR "\nEverything seems okay, I am going to fire off the job.\n\n";
-    
+    $t = `tail -2 $readsfile`;
+    $t =~ /seq.(\d+)/;
+    $NumSeqs = $1;
+    $f = &format_large_int($NumSeqs);
+    if($paired_end eq 'true') {
+       print "Number of Read Pairs: $f\n";
+    } else {
+       print "Number of Reads: $f\n";
+    }
+
+    print "\nEverything seems okay, I am going to fire off the job.\n\n";
+
+    if($qsub2 eq "true") {
+	open(KF, ">>$output_dir/kill_command");
+	$kc = $name . "." . $starttime . ".*";
+	print KF "qdel \"$kc\"\n";
+	close(KF);
+    }
+
     for($i=1; $i<=$numchunks; $i++) {
+        if(!(open(EOUT, ">$output_dir/errorlog.$i"))) {
+            print ERRORLOG "\nERROR: cannot open '$output_dir/errorlog.$i' for writing\n\n";
+            die "\nERROR: cannot open '$output_dir/errorlog.$i' for writing\n\n";
+        }
+        close(EOUT);
         $pipeline_file = $pipeline_template;
+
+        if($altquant eq "true") {
+            @PF = split(/\n/,$pipeline_template);
+            $pipeline_file = "";
+            for($j=0; $j<@PF; $j++) {
+                $pipeline_file = $pipeline_file . $PF[$j];
+                $pipeline_file = $pipeline_file . "\n";
+                if($PF[$j] =~ /rum2quantifications/) {
+                    $PF[$j] =~ s/GENEANNOTFILE/$altquant_file/;
+                    $PF[$j] =~ s/S1s.CHUNK/S1s.altquant.CHUNK/;
+                    $PF[$j] =~ s/S2s.CHUNK/S2s.altquant.CHUNK/;
+                    $PF[$j] =~ s/S1a.CHUNK/S1a.altquant.CHUNK/;
+                    $PF[$j] =~ s/S2a.CHUNK/S2a.altquant.CHUNK/;
+                    $pipeline_file = $pipeline_file . $PF[$j];
+                    $pipeline_file = $pipeline_file . "\n";
+                }
+            }
+        }
+
+        $pipeline_file =~ s!ERRORFILE!$output_dir/errorlog!gs;
         if($limitNUhard eq "true") {
-    	$pipeline_file =~ s!LIMITNUCUTOFF!$NU_limit!gs;
-    	$pipeline_file =~ s!sort_RUM.pl OUTDIR.RUM_NU_temp2.CHUNK!sort_RUM.pl OUTDIR/RUM_NU_temp3.CHUNK!gs;
+    	   $pipeline_file =~ s!LIMITNUCUTOFF!$NU_limit!gs;
         } else {
-    	$pipeline_file =~ s!perl SCRIPTSDIR/limit_NU.pl OUTDIR/RUM_NU_temp2.CHUNK LIMITNUCUTOFF > OUTDIR/RUM_NU_temp3.CHUNK\n!!gs;
+    	   $pipeline_file =~ s!perl SCRIPTSDIR/limit_NU.pl OUTDIR/RUM_NU_temp3.CHUNK LIMITNUCUTOFF > OUTDIR/RUM_NU.CHUNK[^\n]*\n!mv OUTDIR/RUM_NU_temp3.CHUNK OUTDIR/RUM_NU.CHUNK\n!gs;
         }
         if($num_insertions_allowed != 1) {
-    	$pipeline_file =~ s!MAXINSERTIONSALLOWED!-num_insertions_allowed $num_insertions_alllowed!gs;
+    	   $pipeline_file =~ s!MAXINSERTIONSALLOWED!-num_insertions_allowed $num_insertions_alllowed!gs;
         } else {
-    	$pipeline_file =~ s!MAXINSERTIONSALLOWED!!gs;
+    	   $pipeline_file =~ s!MAXINSERTIONSALLOWED!!gs;
+        }
+        if($preserve_names eq "false") {
+           $pipeline_file =~ s!NAMEMAPPING.CHUNK!!gs;
+        } else {
+           $pipeline_file =~ s!NAMEMAPPING!-name_mapping $output_dir/read_names_mapping!gs;
         }
         $pipeline_file =~ s!OUTDIR!$output_dir!gs;
         if($quals eq "false") {
-    	$pipeline_file =~ s!QUALSFILE.CHUNK!none!gs;
+    	   $pipeline_file =~ s!QUALSFILE.CHUNK!none!gs;
         } else {
-    	$pipeline_file =~ s!QUALSFILE!$qualsfile!gs;
+    	   $pipeline_file =~ s!QUALSFILE!$qualsfile!gs;
+        }
+        if($strandspecific eq 'true') {
+           $pipeline_file =~ s/STRAND1s/-strand p/gs;
+           $pipeline_file =~ s/quant.S1s/quant.ps/gs;
+           $pipeline_file =~ s/STRAND2s/-strand m/gs;
+           $pipeline_file =~ s/quant.S2s/quant.ms/gs;
+           $pipeline_file =~ s/STRAND1a/-strand p -anti/gs;
+           $pipeline_file =~ s/quant.S1a/quant.pa/gs;
+           $pipeline_file =~ s/STRAND2a/-strand m -anti/gs;
+           $pipeline_file =~ s/quant.S2a/quant.ma/gs;
+        } else {
+           $pipeline_file =~ s/STRAND1s//sg;
+           $pipeline_file =~ s/quant.S1s/quant/sg;
+           $pipeline_file =~ s/[^\n]+quant.S2s[^\n]*\n//sg;
+           $pipeline_file =~ s/[^\n]+quant.S1a[^\n]*\n//sg;
+           $pipeline_file =~ s/[^\n]+quant.S2a[^\n]*\n//sg;
+        }
+        if($ram != 6) {
+           $pipeline_file =~ s!RAM!-ram $ram!gs;
+        } else {
+           $pipeline_file =~ s! RAM!!gs;
         }
         $pipeline_file =~ s!CHUNK!$i!gs;
-        $pipeline_file =~ s!MINIDENTITY!$minidentity!gs;
         $pipeline_file =~ s!BOWTIEEXE!$bowtie_exe!gs;
         $pipeline_file =~ s!GENOMEBOWTIE!$genome_bowtie!gs;
-        $pipeline_file =~ s!BOWTIEEXE!$bowtie_exe!gs;
         $pipeline_file =~ s!READSFILE!$readsfile!gs;
         $pipeline_file =~ s!SCRIPTSDIR!$scripts_dir!gs;
         $pipeline_file =~ s!TRANSCRIPTOMEBOWTIE!$transcriptome_bowtie!gs;
         $pipeline_file =~ s!GENEANNOTFILE!$gene_annot_file!gs;
+        $blat_opts = "-minIdentity='$minidentity' -tileSize='$tileSize' -stepSize='$stepSize' -repMatch='$repMatch' -maxIntron='$maxIntron'";
+        $pipeline_file =~ s!BLATEXEOPTS!$blat_opts!gs;
         $pipeline_file =~ s!BLATEXE!$blat_exe!gs;
         $pipeline_file =~ s!MDUSTEXE!$mdust_exe!gs;
         $pipeline_file =~ s!GENOMEBLAT!$genome_blat!gs;
         $pipeline_file =~ s!GENOMEFA!$genomefa!gs;
         $pipeline_file =~ s!READLENGTH!$readlength!gs;
         if($countmismatches eq "true") {
-    	$pipeline_file =~ s!COUNTMISMATCHES!-countmismatches!gs;
+    	   $pipeline_file =~ s!COUNTMISMATCHES!-countmismatches!gs;
         } else {
-    	$pipeline_file =~ s!COUNTMISMATCHES!!gs;
+    	   $pipeline_file =~ s!COUNTMISMATCHES!!gs;
         }
         if($limitNU eq "true") {
-    	$pipeline_file =~ s! -a ! -k 100 !gs;	
+    	   $pipeline_file =~ s! -a ! -k 100 !gs;
         }
-        if($fast eq "false") {
-    	$pipeline_file =~ s!SPEED!-stepSize=5!gs;
+        if($dna eq 'true') {
+    	   $pipeline_file =~ s!DNA!-dna!gs;
+        } else {
+    	   $pipeline_file =~ s!DNA!!gs;
         }
-        else {
-    	$pipeline_file =~ s!SPEED!!gs;
+        if($minlength > 0) {
+    	   $pipeline_file =~ s!MATCHLENGTHCUTOFF!-match_length_cutoff $minlength!gs;
+           $pipeline_file =~ s!MINOVERLAP!$minlength!gs;
+        } else {
+    	   $pipeline_file =~ s!MATCHLENGTHCUTOFF!!gs;
+           $pipeline_file =~ s!-minoverlap MINOVERLAP!!gs;
         }
         if($paired_end eq "true") {
-    	$pipeline_file =~ s!PAIREDEND!paired!gs;
+    	   $pipeline_file =~ s!PAIREDEND!paired!gs;
         } else {
-    	$pipeline_file =~ s!PAIREDEND!single!gs;
+    	   $pipeline_file =~ s!PAIREDEND!single!gs;
         }
-        $outfile = "pipeline." . $i . ".sh";
-        open(OUTFILE, ">$output_dir/$outfile") or die "\nError: cannot open '$output_dir/$outfile' for writing\n\n";
+        $outfile = $name . "." . $starttime . "." . $i . ".sh";
+        if(!(open(OUTFILE, ">$output_dir/$outfile"))) {
+            print ERRORLOG "\nERROR: cannot open '$output_dir/$outfile' for writing\n\n";
+            die "\nERROR: cannot open '$output_dir/$outfile' for writing\n\n";
+        }
+        if($qsub2 eq "true") {
+    	   $pipeline_file =~ s!2>>\s*[^\s]*!!gs;
+    	   $pipeline_file =~ s!2>\s*[^\s]*!!gs;
+        }
+
         print OUTFILE $pipeline_file;
+
+        # Add postprocessing steps to the last chunk only:
+
+        if($i == $numchunks) {
+            $t = `tail -2 $readsfile`;
+            $t =~ /seq.(\d+)/s;
+            $NumSeqs = $1;
+            $PPlog = "postprocessing_$name" . ".log";
+            $shellscript = "\n\n# Postprocessing stuff starts here...\n\n";
+            $shellscript = $shellscript . "perl $scripts_dir/wait.pl $output_dir $JID 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            if($NumSeqs =~ /(\d+)/) {
+                $shellscript = $shellscript . "echo 'computing mapping statistics' > $output_dir/$PPlog\n";
+                $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
+                $shellscript = $shellscript . "perl $scripts_dir/count_reads_mapped.pl $output_dir/RUM_Unique $output_dir/RUM_NU -minseq 1 -maxseq $NumSeqs > $output_dir/mapping_stats.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            } else {
+                $shellscript = $shellscript . "perl $scripts_dir/count_reads_mapped.pl $output_dir/RUM_Unique $output_dir/RUM_NU -minseq 1 > $output_dir/mapping_stats.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            }
+            if($quantify eq "true") {
+                $shellscript = $shellscript . "echo 'merging feature quantifications' >> $output_dir/$PPlog\n";
+                $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
+                if($strandspecific eq 'true') {
+                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.ps -strand ps -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.ms -strand ms -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.pa -strand pa -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.ma -strand ma -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants_strandspecific.pl $output_dir/feature_quantifications.ps $output_dir/feature_quantifications.ms $output_dir/feature_quantifications.pa $output_dir/feature_quantifications.ma $gene_annot_file $output_dir/feature_quantifications_$name 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                } else {
+                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications_$name -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                }
+                if($altquant eq "true") {
+                    if($strandspecific eq 'true') {
+                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.altquant.ps -alt -strand ps -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.altquant.ms -alt -strand ms -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.altquant.pa -alt -strand pa -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.altquant.ma -alt -strand ma -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants_strandspecific.pl $output_dir/feature_quantifications.altquant.ps $output_dir/feature_quantifications.altquant.ms $output_dir/feature_quantifications.altquant.pa $output_dir/feature_quantifications.altquant.ma $altquant_file $output_dir/feature_quantifications_$name" . ".altquant 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                    } else {
+                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications_$name" . ".altquant -alt -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                    }
+                }
+            }
+
+            $string = "$output_dir/RUM_Unique.sorted";
+            for($j=1; $j<$numchunks+1; $j++) {
+                $string = $string . " $output_dir/RUM_Unique.sorted.$j";
+            }
+            $shellscript = $shellscript . "echo 'merging RUM_Unique.sorted files' >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "perl $scripts_dir/merge_sorted_RUM_files.pl $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $string = "$output_dir/RUM_NU.sorted";
+            for($j=1; $j<$numchunks+1; $j++) {
+                $string = $string . " $output_dir/RUM_NU.sorted.$j";
+            }
+            $shellscript = $shellscript . "echo 'merging RUM_NU.sorted files' >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "perl $scripts_dir/merge_sorted_RUM_files.pl $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+
+            $string = "$output_dir/mapping_stats.txt";
+            for($j=1; $j<$numchunks+1; $j++) {
+                $string = $string . " $output_dir/chr_counts_u.$j";
+            }
+            $shellscript = $shellscript . "echo '' >> $output_dir/mapping_stats.txt\n";
+            $shellscript = $shellscript . "echo 'RUM_Unique reads per chromosome' >> $output_dir/mapping_stats.txt\n";
+            $shellscript = $shellscript . "echo '-------------------------------' >> $output_dir/mapping_stats.txt\n";
+            $shellscript = $shellscript . "perl $scripts_dir/merge_chr_counts.pl $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+
+            $string = "$output_dir/mapping_stats.txt";
+            for($j=1; $j<$numchunks+1; $j++) {
+                $string = $string . " $output_dir/chr_counts_nu.$j";
+            }
+            $shellscript = $shellscript . "echo '' >> $output_dir/mapping_stats.txt\n";
+            $shellscript = $shellscript . "echo 'RUM_NU reads per chromosome' >> $output_dir/mapping_stats.txt\n";
+            $shellscript = $shellscript . "echo '---------------------------' >> $output_dir/mapping_stats.txt\n";
+            $shellscript = $shellscript . "perl $scripts_dir/merge_chr_counts.pl $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+
+            $shellscript = $shellscript . "perl $scripts_dir/merge_nu_stats.pl $output_dir $numchunks -chunk_ids_file $output_dir/restart.ids >> $output_dir/mapping_stats.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+
+            if($junctions eq "true") {
+               $shellscript = $shellscript . "echo 'computing junctions' >> $output_dir/$PPlog\n";
+               $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
+               if($altgenes eq "true") {
+                    $ANNOTFILE = $altgene_file;
+               } else {
+                    $ANNOTFILE = $gene_annot_file;
+               }
+               if($strandspecific eq 'true') {
+                   $shellscript = $shellscript . "perl $scripts_dir/make_RUM_junctions_file.pl $output_dir/RUM_Unique $output_dir/RUM_NU $genomefa $ANNOTFILE $output_dir/junctions_ps_all.rum $output_dir/junctions_ps_all.bed $output_dir/junctions_high-quality_ps.bed -faok -strand p 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                   $shellscript = $shellscript . "perl $scripts_dir/make_RUM_junctions_file.pl $output_dir/RUM_Unique $output_dir/RUM_NU $genomefa $ANNOTFILE $output_dir/junctions_ms_all.rum $output_dir/junctions_ms_all.bed $output_dir/junctions_high-quality_ms.bed -faok -strand m 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+               } else {
+                   $shellscript = $shellscript . "perl $scripts_dir/make_RUM_junctions_file.pl $output_dir/RUM_Unique $output_dir/RUM_NU $genomefa $ANNOTFILE $output_dir/junctions_all_temp.rum $output_dir/junctions_all_temp.bed $output_dir/junctions_high-quality_temp.bed -faok 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+               }
+               if($strandspecific eq 'true') {
+                     $shellscript = $shellscript . "cp $output_dir/junctions_ps_all.rum $output_dir/junctions_all_temp.rum\n";
+                     $shellscript = $shellscript . "grep -v long_overlap_nu_reads $output_dir/junctions_ms_all.rum >> $output_dir/junctions_all_temp.rum\n";
+                     $shellscript = $shellscript . "cp $output_dir/junctions_ps_all.bed $output_dir/junctions_all_temp.bed\n";
+                     $shellscript = $shellscript . "grep -v rum_junctions_neg-strand $output_dir/junctions_ms_all.bed >> $output_dir/junctions_all_temp.bed\n";
+                     $shellscript = $shellscript . "cp $output_dir/junctions_high-quality_ps.bed $output_dir/junctions_high-quality_temp.bed\n";
+                     $shellscript = $shellscript . "grep -v rum_junctions_neg-strand $output_dir/junctions_high-quality_ms.bed >> $output_dir/junctions_high-quality_temp.bed\n";
+                     if($cleanup eq 'true') {
+                         $shellscript = $shellscript . "yes|rm $output_dir/junctions_high-quality_ps.bed $output_dir/junctions_high-quality_ms.bed $output_dir/junctions_ps_all.bed $output_dir/junctions_ms_all.bed $output_dir/junctions_ps_all.rum $output_dir/junctions_ms_all.rum\n";
+                     }
+               }
+               $shellscript = $shellscript . "perl $scripts_dir/sort_by_location.pl $output_dir/junctions_all_temp.rum $output_dir/junctions_all.rum -location_column 1 -skip 1\n";
+               $shellscript = $shellscript . "perl $scripts_dir/sort_by_location.pl $output_dir/junctions_all_temp.bed $output_dir/junctions_all.bed -location_columns 1,2,3 -skip 1\n";
+               $shellscript = $shellscript . "perl $scripts_dir/sort_by_location.pl $output_dir/junctions_high-quality_temp.bed $output_dir/junctions_high-quality.bed -location_columns 1,2,3 -skip 1\n";
+               if($cleanup eq 'true') {
+                   $shellscript = $shellscript . "yes|rm $output_dir/junctions_high-quality_temp.bed $output_dir/junctions_all_temp.bed $output_dir/junctions_all_temp.rum\n";
+               }
+            }
+            $shellscript = $shellscript . "echo 'making coverage plots' >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_Unique.sorted $output_dir/RUM_Unique.cov -name \"$name Unique Mappers\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "echo 'unique mappers coverage plot finished' >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted $output_dir/RUM_NU.cov -name \"$name Non-Unique Mappers\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "echo 'NU mappers coverage plot finished' >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
+            if($strandspecific eq 'true') {
+                  # breakup RUM_Unique and RUM_NU files into plus and minus
+                  $shellscript = $shellscript . "perl $scripts_dir/breakup_RUM_files_by_strand.pl $output_dir/RUM_Unique.sorted $output_dir/RUM_Unique.sorted.plus $output_dir/RUM_Unique.sorted.minus 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                  $shellscript = $shellscript . "perl $scripts_dir/breakup_RUM_files_by_strand.pl $output_dir/RUM_NU.sorted $output_dir/RUM_NU.sorted.plus $output_dir/RUM_NU.sorted.minus 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                  # run rum2cov on all four files
+                  $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_Unique.sorted.plus $output_dir/RUM_Unique.plus.cov -name \"$name Unique Mappers Plus Strand\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                  $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_Unique.sorted.minus $output_dir/RUM_Unique.minus.cov -name \"$name Unique Mappers Minus Strand\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                  $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted.plus $output_dir/RUM_NU.plus.cov -name \"$name Non-Unique Mappers Plus Strand\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                  $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted.minus $output_dir/RUM_NU.minus.cov -name \"$name Non-Unique Mappers Minus Strand\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            }
+            $shellscript = $shellscript . "echo post-processing finished >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
+            if($qsub2 eq "true") {
+        	   $shellscript =~ s!2>>\s*[^\s]*!!gs;
+        	   $shellscript =~ s!2>\s*[^\s]*!!gs;
+            }
+            print OUTFILE $shellscript;
+        }
         close(OUTFILE);
-    
-        if($qsub eq "true") {
-    	`qsub -l mem_free=6G -pe DJ 4 $output_dir/$outfile`;
+
+        if($qsub2 eq "true") {
+           $ofile = $output_dir . "/chunk.$i" . ".o";
+           $efile = $output_dir . "/errorlog.$i";
+           $MEM = $ram . "G";
+    	   $Q = `qsub -l mem_free=$MEM -o $ofile -e $efile $output_dir/$outfile`;
+           $Q =~ /Your job (\d+)/;
+           $jobid{$i} = $1;
+        } else {
+    	   system("/bin/bash $output_dir/$outfile &");
+           $Q = `ps a | grep $output_dir/$outfile | grep -v "ps a" | grep -v "grep "`;
+           $Q =~ /^\s*(\d+)/;
+           $PID = $1;
+           $jobid{$i} = $PID;
         }
-        else {
-    	system("/bin/bash $output_dir/$outfile &");
-        }
-        print STDERR "Chunk $i initiated\n";
+        print "Chunk $i initiated\n";
         $status{$i} = 1;
     }
     if($numchunks > 1) {
-        print STDERR "\nAll chunks initiated, now the long wait...\n";
-        print STDERR "\nI'm going to watch for all chunks to finish, then I will merge everything...\n";
+        print "\nAll chunks initiated, now the long wait...\n";
+        print "\nI'm going to watch for all chunks to finish, then I will merge everything...\n\n";
         sleep(2);
-        if($qsub eq "false" && $blatonly eq "false") {
-    	    print STDERR "\nThe next thing to print here will (probably) be the status reports from bowtie for each chunk.\n";
-    	    print STDERR "     * Don't be alarmed by the number of reads that 'failed to align'\n       that's just referring to one stage, the end result will be better.\n\n";
-        }
     } else {
-        print STDERR "\nThe job has been initiated, now the long wait...\n";
+        print "\nThe job has been initiated, now the long wait...\n";
         sleep(2);
-        if($qsub eq "false" && $blatonly eq "false") {
-    	    print STDERR "\nThe next thing to print here will (probably) be the status reports from bowtie for each chunk.\n";
-    	    print STDERR "     * Don't be alarmed by the number of reads that 'failed to align'\n       that's just referring to stage, the end result will be better.\n\n";
-        }
     }
-    
+
     $currenttime = time();
     $lastannouncetime = $currenttime;
     $numannouncements = 0;
     $doneflag = 0;
-    
+
+    for($i=1; $i<=$numchunks; $i++) {
+       $efiles_hash{$i} = "";
+    }
+
+    for($i=1; $i<=$numchunks; $i++) {
+        $number_consecutive_restarts{$i} = 0;
+    }
+
     while($doneflag == 0) {
+        sleep(3);
+
+        if($qsub2 eq "false") {
+#            print "------\n";
+            for($i=1; $i<=$numchunks; $i++) {
+                 $PID = $jobid{$i};
+                 if(!($PID =~ /\S/)) {
+                     next;
+                 }
+                 $Q1 = `ps -af | grep -w $PID`;
+                 @Q = split(/\n/,$Q1);
+                 for($j=0; $j<@Q; $j++) {
+                     if($Q[$j] =~ /^\s*[^\s]+\s+([^\s]+)\s+$PID\s/) {
+                         $CID = $1;
+                         $child{$i}{$CID}++;
+                     }
+                 }
+            }
+            for($i=1; $i<=$numchunks; $i++) {
+               foreach $K (keys %{$child{$i}}) {
+                   if(!($K =~ /\S/)) {
+                       delete $child{$i}{$K};
+                       next;
+                   }
+                   $Q1 = `ps a | grep -v grep| grep $K | wc -l`;
+                   if($Q1 == 0) {
+                        delete $child{$i}{$K};
+                   }
+               }
+            }
+#            for($i=1; $i<=$numchunks; $i++) {
+#               foreach $K (keys %{$child{$i}}) {
+#                  print "child{$i}{$K} = $child{$i}{$K}\n";
+#               }
+#            }
+        }
+
         $doneflag = 1;
         $numdone = 0;
         for($i=1; $i<=$numchunks; $i++) {
-            $logfile = "$output_dir/rum_log.$i";
+            if($restarted{$i} =~ /\S/) {
+                $logfile = "$output_dir/rum.log_chunk.$i.$restarted{$i}";
+            } else {
+                $logfile = "$output_dir/rum.log_chunk.$i";
+            }
             if (-e $logfile) {
     	        $x = `cat $logfile`;
     	        if(!($x =~ /pipeline complete/s)) {
     		    $doneflag = 0;
     	        } else {
-    		    $numdone++;
+        	    $numdone++;
     		    if($status{$i} == 1) {
     		        $status{$i} = 2;
-		        print STDERR "\n *** Chunk $i has finished.\n";
+		        print "\n *** Chunk $i has finished.\n";
+                        if($i != $numchunks) {
+                            delete $jobid{$i};
+                        }
 		    }
 	        }
 	    }
@@ -889,127 +1859,1031 @@ if($postprocess eq "false") {
 	    }
         }
         if($doneflag == 0) {
-	    sleep(30);
 	    $currenttime = time();
     	    if($currenttime - $lastannouncetime > 3600) {
 	        $lastannouncetime = $currenttime;
 	        $numannouncements++;
 	        if($numannouncements == 1) {
 		    if($numdone == 1) {
-		        print STDERR "\nIt has been $numannouncements hour, $numdone chunk has finished.\n";
+		        print "\nIt has been $numannouncements hour, $numdone chunk has finished.\n";
 		    } else {
-		        print STDERR "\nIt has been $numannouncements hour, $numdone chunks have finished.\n";
+		        print "\nIt has been $numannouncements hour, $numdone chunks have finished.\n";
 		    }
 	        } else {
 		    if($numdone == 1) {
-		        print STDERR "\nIt has been $numannouncements hours, $numdone chunk has finished.\n";
+		        print "\nIt has been $numannouncements hours, $numdone chunk has finished.\n";
 		    } else {
-		        print STDERR "\nIt has been $numannouncements hours, $numdone chunks have finished.\n";
+		        print "\nIt has been $numannouncements hours, $numdone chunks have finished.\n";
 		    }
 	        }
     	    }
         }
+        for($i=1; $i<=$numchunks; $i++) {
+           $efile = $output_dir . "/errorlog.$i";
+           $efile_content = `cat $efile`;
+           $efile_content =~ s/stdin: is not a tty[^\n]*\n//sg;
+           if(!($efile_content eq $efiles_hash{$i})) {
+                 $efile_temp = $efiles_hash{$i};
+                 $efiles_hash{$i} = $efile_content;
+                 $efile_content =~ s/^$efile_temp//s;
+                 $time = `date`;
+                 $time =~ s/\s*$//;
+                 print ERRORLOG "--------------------------------------------------------------------------\n";
+                 print ERRORLOG "The following was reported to chunk $i";
+                 print ERRORLOG "'s errorlog (errorlog.$i) around $time:\n\n";
+                 print ERRORLOG "$efile_content\n";
+                 print ERRORLOG "*** This may be innocuous, having no effect at all, or at worst indicating\nan error that lead to a node restart.\n";
+                 print ERRORLOG "*** Or this may be more serious, which sometimes is clear from the message,\nor usually from the rum.error-log when the run finishes.\n";
+                 print ERRORLOG "--------------------------------------------------------------------------\n";
+             }
+        }
+        for($i=1; $i<=$numchunks; $i++) {
+          # Check here to make sure node still running
+                  $DIED = "false";
+                  if($restarted{$i} =~ /\S/) {
+                      $logfile = "$output_dir/rum.log_chunk.$i.$restarted{$i}";
+                  } else {
+                      $logfile = "$output_dir/rum.log_chunk.$i";
+                  }
+                  $x = "";
+                  if (-e $logfile) {
+        	        $x = `cat $logfile`;
+                  }
+                  $Jobid = $jobid{$i};
+                  if(!($x =~ /pipeline complete/s) || ($x =~ /pipeline complete/s && $i == $numchunks && $status{$i} == 2)) {
+                       if($qsub2 eq 'true') {
+                            for($t=0; $t<10; $t++) {
+                                $X = `qstat -j $Jobid | grep job_number`;
+                                if($X =~ /job_number:\s+$Jobid/s) {
+                                   $t = 10;
+                                } else {
+                                   if($t<=7) {
+                                        print "Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n";
+                                   }
+                                   if($t==8) {
+                                        print "Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n";
+                                   }
+                                   sleep(3);
+                                   if($t == 8) {
+                                      sleep(300);  # try one last time waiting five minutes
+                                   }
+                                }
+                            }
+                            if(!($X =~ /job_number:\s+$Jobid/s) && (!($x =~ /pipeline complete/s) || ($x =~ /pipeline complete/s && $i == $numchunks && $status{$i} == 2))) {
+                                 $DIED = "true";
+                                 $X = `qdel $Jobid`;
+                            }
+                       } else {
+                            $PID = $jobid{$i};
+                            $Q = `ps a | grep -w $PID | grep -v grep`;
+                            if(!($Q =~ /^\s*$PID\s/)) {
+                                 $DIED = "true";
+                                 foreach $CID (keys %{$child{$i}}) {
+                                       $G = `ps a | grep $CID`;
+                                       $x = `kill -9 $CID`;
+#                                       print "-------\nKILLED: $CID\n$G\n$x\n-------\n";
+                                 }
+                            }
+                       }
+                       sleep(2);
+                       if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
+                            $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
+                            if($Q =~ /pipeline complete/) {
+                                  $DIED = "false";
+                            }
+                       }
+                       if($DIED eq "true") {
+                            $DATE = `date`;
+                            $DATE =~ s/^\s+//;
+                            $DATE =~ s/\s+$//;
+                            print ERRORLOG "\n *** Chunk $i seems to have failed sometime around $DATE!  Trying to restart it...\n";
+                            print "\n *** Chunk $i seems to have failed sometime around $DATE!\nDon't panic, I'm going to try to restart it.\n";
+                            $ofile = $output_dir . "/chunk.restart.$i" . ".o";
+                            $efile = $output_dir . "/chunk.restart.$i" . ".e";
+                            $outfile = "$name" . "." . $starttime . "." . $i . ".sh";
+                            $FILE = `cat $output_dir/$outfile`;
+                            $restarted{$i}++;
+                            open(OUT, ">$output_dir/restart.ids");
+                            foreach $key (keys %restarted) {
+                                print OUT "$key\t$restarted{$key}\n";
+                            }
+                            close(OUT);
+                            # changing the names of the files of this chunk to avoid possible collision with
+                            # phantom processes that didn't die properly..
+
+                            # Note, can't modify the postprocessing scripts to reflect the new file names, since it
+                            # has already been submmitted.  Instead the postprocessing scripts that need file names
+                            # will recover the correct ones from the restart.ids file
+
+                            if(!($i == $numchunks && $status{$i} == 2)) { # otherwise it's postprocessing node in waiting state, don't change names in this case
+                                 if($restarted{$i} == 1) {
+                                     $J1 = $i;
+                                     $J3 = $i;
+                                     $FILE =~ s/\.$i/.$i.1/g;
+                                     $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
+                                     $suffixold = $i;
+                                     $suffixnew = "$i.1";
+                                 } else {
+                                     $J1 = $restarted{$i} - 1;
+                                     $J2 = $restarted{$i};
+                                     $J3 = "$i.$J1";
+                                     $FILE =~ s/\.$i\.$J1/.$i.$J2/g;
+                                     $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
+                                     $suffixold = "$i.$J1";
+                                     $suffixnew = "$i.$J2";
+                                 }
+                                 # rename reads and quals files with new suffix
+                                 `mv $output_dir/reads.fa.$suffixold $output_dir/reads.fa.$suffixnew`;
+                                 if(-e "$output_dir/quals.fa.$suffixold") {
+                                    `mv $output_dir/quals.fa.$suffixold $output_dir/quals.fa.$suffixnew`;
+                                 }
+                                 if(-e "$output_dir/read_names_mapping.$suffixold") {
+                                    `mv $output_dir/read_names_mapping.$suffixold $output_dir/read_names_mapping.$suffixnew`;
+                                 }
+
+                                 # move things that have already finished to new suffix, so don't have to redo them
+                                 # and remove the things that have finished from the shell script $FILE so don't get redone
+
+                                 $LOGFILE = `cat $output_dir/rum.log_chunk.$suffixold`;
+                                 `mv $output_dir/rum.log_chunk.$suffixold $output_dir/rum.log_chunk.$suffixnew`;
+                                 if($LOGFILE =~ /finished first bowtie/s) {
+                                        if(-e "$output_dir/X.$suffixold") {
+                                           `mv $output_dir/X.$suffixold $output_dir/X.$suffixnew`;
+                                       }
+                                       $FILE =~ s/echo .starting.*finished first bowtie run[^\n]*\n//s;
+                                 }                                 
+
+                                 if($LOGFILE =~ /finished parsing genome bowtie/s) {
+                                       if(-e "$output_dir/GU.$suffixold") {
+                                            `mv $output_dir/GU.$suffixold $output_dir/GU.$suffixnew`;
+                                       }
+                                       if(-e "$output_dir/GNU.$suffixold") {
+                                            `mv $output_dir/GNU.$suffixold $output_dir/GNU.$suffixnew`;
+                                       }
+                                       $FILE =~ s/perl $scripts_dir.make_GU_and_GNU.pl.*finished parsing genome bowtie run[^\n]*\n[^\n]+\n[^\n]+\n//s;
+                                 }                                 
+                                 if($LOGFILE =~ /finished second bowtie/s) {
+                                        if(-e "$output_dir/Y.$suffixold") {
+                                             `mv $output_dir/Y.$suffixold $output_dir/Y.$suffixnew`;
+                                        }
+                                        $FILE =~ s/..transcriptome bowtie starts here.*finished second bowtie run[^\n]*\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished parsing transcriptome bowtie/s) {
+                                        if(-e "$output_dir/TU.$suffixold") {
+                                             `mv $output_dir/TU.$suffixold $output_dir/TU.$suffixnew`;
+                                        }
+                                        if(-e "$output_dir/TNU.$suffixold") {
+                                             `mv $output_dir/TNU.$suffixold $output_dir/TNU.$suffixnew`;
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.make_TU_and_TNU.pl[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished merging TU and GU/s) {
+                                        if(-e "$output_dir/BowtieUnique.$suffixold") {
+                                             `mv $output_dir/BowtieUnique.$suffixold $output_dir/BowtieUnique.$suffixnew`;
+                                        }
+                                        if(-e "$output_dir/CNU.$suffixold") {
+                                             `mv $output_dir/CNU.$suffixold $output_dir/CNU.$suffixnew`;
+                                        }
+                                        $FILE =~ s/..merging starts here.*finished merging TU and GU[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished merging GNU, TNU and CNU/s) {
+                                        if(-e "$output_dir/BowtieNU.$suffixold") {
+                                             `mv $output_dir/BowtieNU.$suffixold $output_dir/BowtieNU.$suffixnew`;
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.merge_GNU_and_TNU_and_CNU.pl[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /checkpoint 1/s) {
+                                     if($dna eq "true" || $genomeonly eq "true") {
+                                             if((-e  "$output_dir/$GU.$i.$suffix_old") && (-e "$output_dir/BowtieUnique.$suffixold")) {
+                                                  $s1 = -s "$output_dir/$GU.$i.$suffix_old";
+                                                  $s2 = -s "$output_dir/BowtieUnique.$suffixold";
+                                                  if($s1 != $s2) {
+                                                      $x = `cp $output_dir/$GU.$i.$suffix_old $output_dir/BowtieUnique.$suffixold`;
+                                                  }
+                                             }
+                                             if((-e  "$output_dir/$GNU.$i.$suffix_old") && (-e "$output_dir/BowtieNU.$suffixold")) {
+                                                  $s1 = -s "$output_dir/$GNU.$i.$suffix_old";
+                                                  $s2 = -s "$output_dir/BowtieNU.$suffixold";
+                                                  if($s1 != $s2) {
+                                                      $x = `cp $output_dir/$GNU.$i.$suffix_old $output_dir/BowtieNU.$suffixold`;
+                                                  }
+                                             }
+                                             if(-e "$output_dir/BowtieUnique.$suffixold") {
+                                                  `mv $output_dir/BowtieUnique.$suffixold $output_dir/BowtieUnique.$suffixnew`;
+                                             }
+                                             if(-e "$output_dir/BowtieNU.$suffixold") {
+                                                  `mv $output_dir/BowtieNU.$suffixold $output_dir/BowtieNU.$suffixnew`;
+                                             }
+                                             $FILE =~ s/..uncomment the following for dna or genome only mapping.*checkpoint 1[^\n]+\n\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;  # one less line to remove becuase the CNU line has been revmoed in this case
+                                      } else {
+                                             $FILE =~ s/..uncomment the following for dna or genome only mapping.*checkpoint 1[^\n]+\n\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
+                                      }
+                                 }
+
+                                 if($LOGFILE =~ /finished making R/s) {
+                                        if(-e "$output_dir/R.$suffixold") {
+                                             `mv $output_dir/R.$suffixold $output_dir/R.$suffixnew`;
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.make_unmapped_file[^\n]+\n[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished running BLAT/s) {
+                                        if(-e "$output_dir/R.$suffixold.blat") {
+                                             `mv $output_dir/R.$suffixold.blat $output_dir/R.$suffixnew.blat`;
+                                        }
+                                        $bt = $blat_exe;
+                                        $bt =~ s!/!.!g;
+                                        $FILE =~ s/$bt[^\n]+\n[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished running mdust/s) {
+                                        if(-e "$output_dir/R.mdust.$suffixold") {
+                                             `mv $output_dir/R.mdust.$suffixold $output_dir/R.mdust.$suffixnew`;
+                                        }
+                                        $bt = $mdust_exe;
+                                        $bt =~ s!/!.!g;
+                                        $FILE =~ s/$bt[^\n]+\n[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished parsing BLAT/s) {
+                                        if(-e "$output_dir/BlatUnique.$suffixold") {
+                                             `mv $output_dir/BlatUnique.$suffixold $output_dir/BlatUnique.$suffixnew`;
+                                        }
+                                        if(-e "$output_dir/BlatNU.$suffixold") {
+                                             `mv $output_dir/BlatNU.$suffixold $output_dir/BlatNU.$suffixnew`;
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.parse_blat_out.pl[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished merging Bowtie and Blat/s) {
+                                        if(-e "$output_dir/RUM_Unique_temp.$suffixold") {
+                                             `mv $output_dir/RUM_Unique_temp.$suffixold $output_dir/RUM_Unique_temp.$suffixnew`;
+                                        }
+                                        if(-e "$output_dir/RUM_NU_temp.$suffixold") {
+                                             `mv $output_dir/RUM_NU_temp.$suffixold $output_dir/RUM_NU_temp.$suffixnew`;
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.merge_Bowtie_and_Blat.pl[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished cleaning up final results/s) {
+                                        if(-e "$output_dir/RUM_Unique_temp2.$suffixold") {
+                                             `mv $output_dir/RUM_Unique_temp2.$suffixold $output_dir/RUM_Unique_temp2.$suffixnew`;
+                                        }
+                                        if(-e "$output_dir/RUM_NU_temp.$suffixold") {
+                                             `mv $output_dir/RUM_NU_temp2.$suffixold $output_dir/RUM_NU_temp2.$suffixnew`;
+                                        }
+                                        if(-e "$output_dir/sam_header.$suffixold") {
+                                             `mv $output_dir/sam_header.$suffixold $output_dir/sam_header.$suffixnew`;
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.RUM_finalcleanup.pl[^\n]+\n[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished sorting NU/s) {
+                                        if(-e "$output_dir/RUM_NU_idsorted.$suffixold") {
+                                             `mv $output_dir/RUM_NU_idsorted.$suffixold $output_dir/RUM_NU_idsorted.$suffixnew`;
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.sort_RUM_by_id.pl.*finished sorting NU[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished removing dups/s) {
+                                        if(-e "$output_dir/RUM_NU_temp3.$suffixold") {
+                                             `mv $output_dir/RUM_NU_temp3.$suffixold $output_dir/RUM_NU_temp3.$suffixnew`;
+                                        }
+                                        if($limitNU eq "false") {
+                                             if(-e "$output_dir/RUM_NU.$suffixold") {
+                                                  `mv $output_dir/RUM_NU.$suffixold $output_dir/RUM_NU.$suffixnew`;
+                                             }
+                                             $FILE =~ s/perl $scripts_dir.removedups.pl.*finished removing dups[^\n]+\n\n[^\n]+\n//s;
+                                        } else {
+                                             $FILE =~ s/perl $scripts_dir.removedups.pl.*finished removing dups[^\n]+\n//s;
+                                        }
+                                 }
+                                 if($LOGFILE =~ /finished sorting Unique/s) {
+                                        if(-e "$output_dir/RUM_Unique.$suffixold") {
+                                             `mv $output_dir/RUM_Unique.$suffixold $output_dir/RUM_Unique.$suffixnew`;
+                                        }
+                                        $FILE =~ s!perl $scripts_dir/sort_RUM_by_id.pl.*perl $scripts_dir.rum2sam.pl!perl $scripts_dir/rum2sam.pl!s;
+                                 }
+                                 if($LOGFILE =~ /finished converting to SAM/s) {
+                                        if(-e "$output_dir/RUM.sam.$suffixold") {
+                                             `mv $output_dir/RUM.sam.$suffixold $output_dir/RUM.sam.$suffixnew`;
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.rum2sam.pl.*finished converting to SAM[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished counting the nu mappers/s) {
+                                        if(-e "$output_dir/nu_stats.$suffixold") {
+                                             `mv $output_dir/nu_stats.$suffixold $output_dir/nu_stats.$suffixnew`;
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.get_nu_stats.pl.*finished counting the nu mappers[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished sorting RUM_Unique/s) {
+                                        if(-e "$output_dir/RUM_Unique.sorted.$suffixold") {
+                                             `mv $output_dir/RUM_Unique.sorted.$suffixold $output_dir/RUM_Unique.sorted.$suffixnew`;
+                                        }
+                                        if(-e "$output_dir/chr_counts_u.$suffixold") {
+                                             `mv $output_dir/chr_counts_u.$suffixold $output_dir/chr_counts_u.$suffixnew`;
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.sort_RUM_by_location.pl.*finished sorting RUM_Unique[^\n]+\n[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished sorting RUM_NU/s) {
+                                        if(-e "$output_dir/RUM_NU.sorted.$suffixold") {
+                                             `mv $output_dir/RUM_NU.sorted.$suffixold $output_dir/RUM_NU.sorted.$suffixnew`;
+                                        }
+                                        if(-e "$output_dir/chr_counts_nu.$suffixold") {
+                                             `mv $output_dir/chr_counts_nu.$suffixold $output_dir/chr_counts_nu.$suffixnew`;
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.sort_RUM_by_location.pl.*finished sorting RUM_NU[^\n]+\n[^\n]+\n//s;
+                                 }
+                                 if($LOGFILE =~ /finished quantification/s) {
+                                        if(-e "$output_dir/quant.$suffixold" && $strandspecific eq "false") {
+                                             `mv $output_dir/quant.$suffixold $output_dir/quant.$suffixnew`;
+                                             if(-e "$output_dir/quant.altquant.$suffixold") {
+                                                 `mv $output_dir/quant.altquant.$suffixold $output_dir/quant.altquant.$suffixnew`;
+                                             }
+                                        }
+                                        if(-e "$output_dir/quant.ps.$suffixold" && $strandspecific eq "true") {
+                                             `mv $output_dir/quant.ps.$suffixold $output_dir/quant.ps.$suffixnew`;
+                                             if(-e "$output_dir/quant.ps.altquant.$suffixold") {
+                                                   `mv $output_dir/quant.ps.altquant.$suffixold $output_dir/quant.ps.altquant.$suffixnew`;
+                                             }
+                                        }
+                                        if(-e "$output_dir/quant.ms.$suffixold" && $strandspecific eq "true") {
+                                             `mv $output_dir/quant.ms.$suffixold $output_dir/quant.ms.$suffixnew`;
+                                             if(-e "$output_dir/quant.ms.altquant.$suffixold") {
+                                                   `mv $output_dir/quant.ms.altquant.$suffixold $output_dir/quant.ms.altquant.$suffixnew`;
+                                             }
+                                        }
+                                        if(-e "$output_dir/quant.pa.$suffixold" && $strandspecific eq "true") {
+                                             `mv $output_dir/quant.pa.$suffixold $output_dir/quant.pa.$suffixnew`;
+                                             if(-e "$output_dir/quant.pa.altquant.$suffixold") {
+                                                   `mv $output_dir/quant.pa.altquant.$suffixold $output_dir/quant.pa.altquant.$suffixnew`;
+                                             }
+                                        }
+                                        if(-e "$output_dir/quant.ma.$suffixold" && $strandspecific eq "true") {
+                                             `mv $output_dir/quant.ma.$suffixold $output_dir/quant.ma.$suffixnew`;
+                                             if(-e "$output_dir/quant.ma.altquant.$suffixold") {
+                                                   `mv $output_dir/quant.ma.altquant.$suffixold $output_dir/quant.ma.altquant.$suffixnew`;
+                                             }
+                                        }
+                                        $FILE =~ s/perl $scripts_dir.rum2quantifications.pl.*pipeline complete./echo "pipeline complete"/s;
+                                 }
+                                 open(OUTX, ">$output_dir/$outfile");
+                                 print OUTX $FILE;
+                                 close(OUTX);
+                            }
+                            # cache errorlogs and initiate new ones
+                            open(OUT, ">>$output_dir/restart_error_log");
+                            print OUT "------ chunk $i restarted, here is its error log before it was deleted --------\n";
+                            close(OUT);
+                            `cat $output_dir/errorlog.$i >> $output_dir/restart_error_log`;
+                            `yes|rm $output_dir/errorlog.$i`;
+                            open(EOUT, ">$output_dir/errorlog.$i");
+                            close(EOUT);
+
+                            $leave_last_chunk_log = "false";
+                            if($i == $numchunks) {
+                                # this is the post-processing node.  Check if it finished up to the
+                                # post-processing, if so then remove that part so as not to repeat it.
+                                if($status{$i} == 2) {  # it has finished
+                                    $Q = `ps a | grep wait.pl`;
+                                    $Q =~ /^\s*(\d+)/;
+                                    $PID = $1;
+                                    $w = `kill -9 $PID`;
+                                    $FILE =~ s/# xxx0.*Postprocessing stuff starts here.../# Postprocessing stuff starts here.../s;
+                                    open(OUTFILE, ">$output_dir/$outfile");
+                                    print OUTFILE $FILE;
+                                    close(OUTFILE);
+                                    $restarted{$i}--;
+                                    if($restarted{$i} < 1) {
+                                        delete $restarted{$i};
+                                    }
+                                    open(OUT, ">$output_dir/restart.ids");
+                                    foreach $key (keys %restarted) {
+                                        print OUT "$key\t$restarted{$key}\n";
+                                    }
+                                    close(OUT);
+                                    $leave_last_chunk_log = "true";
+                                }
+                            }
+
+                            # remove the old files...
+                            &deletefiles($output_dir, $J3, $leave_last_chunk_log);
+
+                            $MEM = $ram . "G";
+                            if($qsub2 eq "true") {
+                                 $Q = `qsub -l mem_free=$MEM -o $ofile -e $efile $output_dir/$outfile`;
+                                 $Q =~ /Your job (\d+)/;
+                                 $jobid{$i} = $1;
+                            } else {
+                         	  system("/bin/bash $output_dir/$outfile &");
+                                  $Q = `ps a | grep $output_dir/$outfile | grep -v "ps a" | grep -v "grep "`;
+                                  $Q =~ /^\s*(\d+)/;
+                                  $PID = $1;
+                                  $jobid{$i} = $PID;
+                            }
+                            sleep(5);
+                            if($jobid{$i} =~ /^\d+$/) {
+                                  $DATE = `date`;
+                                  $DATE =~ s/^\s+//;
+                                  $DATE =~ s/\s+$//;
+                                  sleep(2);
+                                  print ERRORLOG " *** Chunk $i seems to have restarted successfully at $DATE.\n\n";
+                                  print " *** OK chunk $i seems to have restarted.\n\n";
+                                  $number_consecutive_restarts{$i}=0;
+                                  if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
+                                       $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
+                                       if($Q =~ /pipeline complete/) {
+                                            print ERRORLOG " *** Well, there was realy nothing to do, chunk $i seems to have finished.\n\n";
+                                            print " *** Well, there was realy nothing to do, chunk $i seems to have finished.\n\n";
+                                            $doneflag = 1;
+                                       }
+                                  } else {
+                                  }
+
+                            } else {
+                                  $number_consecutive_restarts{$i}++;
+                                  if($number_consecutive_restarts{$i} > 20) {
+                                       print ERRORLOG " *** Hmph, I tried 20 times, I'm going to give up because I'm afraid I'm caught in an infinite loop.  Could be a bug.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
+                                       print " *** Hmph, I tried 20 times, I'm going to give up because I'm afraid I'm caught in an infinite loop.  Could be a bug.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
+                                       if(-e "$output_dir/kill_command") {
+                                           $K = `cat "$output_dir/kill_command"`;
+                                           @a = split(/\n/,$K);
+                                           $A = $a[0] . "\n";
+                                           $R = `$A`;
+                                           print "$R\n";
+                                           $A = $a[1] . "\n";
+                                           $R = `$A`;
+                                           print "$R\n";
+                                           exit();
+                                       }
+
+                                       $outdir = $output_dir;
+                                       $str = `ps a | grep $outdir`;
+                                       @candidates = split(/\n/,$str);
+                                       for($i=0; $i<@candidates; $i++) {
+                                           if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
+                                               $pid = $1;
+                                                print "killing $pid\n";
+                                                `kill -9 $pid`;
+                                           }
+                                        }
+                                        for($i=0; $i<@candidates; $i++) {
+                                             if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
+                                                  if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
+                                        		$pid = $1;
+                                        		print "killing $pid\n";
+                                        		`kill -9 $pid`;
+                                         	    }
+                                             }
+                                        }
+                                        exit(0);
+                                  }
+                                  print ERRORLOG " *** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
+                                  print " *** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
+                            }
+                      }
+                 }
+             }
+         }
+    }
+
+
+if($postprocess eq "false") {
+     print "\nWhew, all chunks have finished.\n\nNext I will merge everything, create the coverage plots and\ncalculate the quantified values, etc.  This could take some time...\n\n";
+} else {
+     print "\nOK, will now merge everything, create the coverage plots and\ncalculate the quantified values, etc.  This could take some time...\n\n";
+}
+
+if($qsub2 eq "true") {
+    $efile = $output_dir . "/errorlog.$numchunks";
+    open(EFILE, ">>$efile");
+    print EFILE "\nPost-Processing Log Starts Here\n";
+    close(EFILE);
+}
+
+if($nocat eq "false") {
+    $date = `date`;
+    if(defined $restarted{1}) {
+        $R = $restarted{1};
+        $x = `cp $output_dir/RUM_Unique.1.$R $output_dir/RUM_Unique`;
+        $x = `cp $output_dir/RUM_NU.1.$R $output_dir/RUM_NU`;
+    } else {
+        $x = `cp $output_dir/RUM_Unique.1 $output_dir/RUM_Unique`;
+        $x = `cp $output_dir/RUM_NU.1 $output_dir/RUM_NU`;
+    }
+    for($i=2; $i<=$numchunks; $i++) {
+        if(defined $restarted{$i}) {
+            $R = $restarted{$i};
+            $x = `cat $output_dir/RUM_Unique.$i.$R >> $output_dir/RUM_Unique`;
+            $x = `cat $output_dir/RUM_NU.$i.$R >> $output_dir/RUM_NU`;
+        } else {
+            $x = `cat $output_dir/RUM_Unique.$i >> $output_dir/RUM_Unique`;
+            $x = `cat $output_dir/RUM_NU.$i >> $output_dir/RUM_NU`;
+        }
+    }
+    for($i=1; $i<=$numchunks; $i++) {
+       if(defined $restarted{$i}) {
+           $R = $restarted{$i};
+           if(!(open(SAMHEADER, "$output_dir/sam_header.$i.$R"))) {
+              print ERRORLOG "\nERROR: Cannot open '$output_dir/sam_header.$i.$R' for reading.\n\n";
+              die "\nERROR: Cannot open '$output_dir/sam_header.$i.$R' for reading.\n\n";
+           }
+       } else {
+           if(!(open(SAMHEADER, "$output_dir/sam_header.$i"))) {
+              print ERRORLOG "\nERROR: Cannot open '$output_dir/sam_header.$i' for reading.\n\n";
+              die "\nERROR: Cannot open '$output_dir/sam_header.$i' for reading.\n\n";
+           }
+       }
+       while($line = <SAMHEADER>) {
+           chomp($line);
+           $line =~ /SN:([^\s]+)\s/;
+           $samheader{$1}=$line;
+       }
+       close(SAMHEADER);
+    }
+    if(!(open(SAMOUT, ">$output_dir/RUM.sam"))) {
+        print ERRORLOG "\nERROR: Cannot open '$output_dir/RUM.sam' for writing.\n\n";
+        die "\nERROR: Cannot open '$output_dir/RUM.sam' for writing.\n\n";
+    }
+    foreach $key (sort {cmpChrs($a,$b)} keys %samheader) {
+        $shout = $samheader{$key};
+        print SAMOUT "$shout\n";
+    }
+    close(SAMOUT);
+    for($i=1; $i<=$numchunks; $i++) {
+       if(defined $restarted{$i}) {
+           $R = $restarted{$i};
+           $x = `cat $output_dir/RUM.sam.$i.$R >> $output_dir/RUM.sam`;
+       } else {
+           $x = `cat $output_dir/RUM.sam.$i >> $output_dir/RUM.sam`;
+       }
     }
 }
 
-print STDERR "\nWhew, all chunks have finished.\n\nNext I will merge everything, create the coverage plots and\ncalculate the quantified values, etc.  This could take some time...\n\n";
+print "Finished creating RUM_Unique, RUM_NU and RUM.sam: $date\n";
 
-$date = `date`;
-print LOGFILE "finished creating RUM_Unique.*/RUM_NU.*: $date\n";
-$x = `cp $output_dir/RUM_Unique.1 $output_dir/RUM_Unique`;
-for($i=2; $i<=$numchunks; $i++) {
-    $x = `cat $output_dir/RUM_Unique.$i >> $output_dir/RUM_Unique`;
-}
-$x = `cp $output_dir/RUM_NU.1 $output_dir/RUM_NU`;
-for($i=2; $i<=$numchunks; $i++) {
-    $x = `cat $output_dir/RUM_NU.$i >> $output_dir/RUM_NU`;
-}
-$x = `cp $output_dir/sam_header.1 $output_dir/RUM.sam`;
-for($i=1; $i<=$numchunks; $i++) {
-    $x = `cat $output_dir/RUM.sam.$i >> $output_dir/RUM.sam`;
-}
-print LOGFILE "finished creating RUM_Unique/RUM_NU/RUM.sam: $date\n";
-print LOGFILE "starting the post processing: $date\n";
-$PPlog = "postprocessing_$name" . ".log";
-$shellscript = "#!/bin/sh\n";
-$shellscript = $shellscript . "perl $scripts_dir/count_reads_mapped.pl $output_dir/RUM_Unique $output_dir/RUM_NU > $output_dir/mapping_stats.txt\n";
-$shellscript = $shellscript . "echo sorting RUM_Unique > $output_dir/$PPlog\n";
-$shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-$shellscript = $shellscript . "perl $scripts_dir/sort_RUM_by_location.pl $output_dir/RUM_Unique $output_dir/RUM_Unique.sorted -ram $ram >> $output_dir/mapping_stats.txt\n";
-$shellscript = $shellscript . "echo sorting RUM_NU > $output_dir/$PPlog\n";
-$shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-$shellscript = $shellscript . "perl $scripts_dir/sort_RUM_by_location.pl $output_dir/RUM_NU $output_dir/RUM_NU.sorted -ram $ram >> $output_dir/mapping_stats.txt\n";
-$shellscript = $shellscript . "echo making coverage plots >> $output_dir/$PPlog\n";
-$shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-$shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_Unique.sorted $output_dir/RUM_Unique.cov -name \"$name Unique Mappers\"\n";
-$shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted $output_dir/RUM_NU.cov -name \"$name Non-Unique Mappers\"\n";
-if($quantify eq "true") {
-   $shellscript = $shellscript . "echo starting to quantify features >> $output_dir/$PPlog\n";
-   $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-   $shellscript = $shellscript . "perl $scripts_dir/quantify_one_sample.pl $output_dir/RUM_Unique.cov $gene_annot_file -zero -open > $output_dir/feature_quantifications_$name\n";
-}
-if($junctions eq "true") {
-   $shellscript = $shellscript . "echo starting to compute junctions >> $output_dir/$PPlog\n";
-   $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-   if($altgenes eq "true") {
-       $shellscript = $shellscript . "perl $scripts_dir/make_RUM_junctions_file.pl $output_dir/RUM_Unique $output_dir/RUM_NU $genomefa $altgene_file $output_dir/junctions_all.rum $output_dir/junctions_all.bed $output_dir/junctions_high-quality.bed -faok\n";
-   } else {
-       $shellscript = $shellscript . "perl $scripts_dir/make_RUM_junctions_file.pl $output_dir/RUM_Unique $output_dir/RUM_NU $genomefa $gene_annot_file $output_dir/junctions_all.rum $output_dir/junctions_all.bed $output_dir/junctions_high-quality.bed -faok\n";
+if($cleanup eq 'true') {
+   print "\nCleaning up some temp files...\n\n";
+   `yes|rm $output_dir/RUM.sam.* $output_dir/sam_header.*`;
+   if($preserve_names eq "true") {
+      `yes|rm $output_dir/read_names_mapping.*`;
    }
 }
-$shellscript = $shellscript . "echo finished >> $output_dir/$PPlog\n";
-$shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-$str = "postprocessing_$name" . ".sh";
-open(OUTFILE2, ">$output_dir/$str");
-print OUTFILE2 $shellscript;
-close(OUTFILE2);
 
-if($qsub eq "true") {
-    `qsub -l mem_free=6G -pe DJ 4 $output_dir/$str`;
-}
-else {
-    system("/bin/bash $output_dir/$str");
-}
+# XXX Need to make a separate shell script now to handle the option -postprocess
+#   - not yet implemented..
 
-print STDERR "\nWorking, now another wait...\n\n";
+print "\nStarted postprocessing at $date\n";
+print LOGFILE "\nStarted postprocessing at $date\n";
+
+# Write file that wait.pl is watching for, in the shell script for the last chunk.
+# Once that is written, wait.pl finishes and the postprocessing will start.
+
+if(!(open(OUTFILE, ">$output_dir/$JID"))) {
+    print ERRORLOG "\nERROR: Cannot open '$output_dir/$JID' for writing.\n\n";
+    die "\nERROR: Cannot open '$output_dir/$JID' for writing.\n\n";
+}
+print OUTFILE "$JID\n";
+close(OUTFILE);
+
+print "\nWorking, now another wait...\n\n";
+
 $doneflag = 0;
+
+undef %child;
+
+$finished = 0;
 while($doneflag == 0) {
     $doneflag = 1;
+    $x = "";
     if (-e "$output_dir/$PPlog") {
 	$x = `cat $output_dir/$PPlog`;
-	if(!($x =~ /finished/s)) {
-	    $doneflag = 0;
+	if(!($x =~ /post-processing finished/s)) {
+  	    $doneflag = 0;
 	}
-    }
-    else {
+    } else {
 	$doneflag = 0;
     }
+
+# check here for node failure, and restart if necessary
+
+
+    $DIED = "false";
     if($doneflag == 0) {
-	sleep(30);
-    }
+        $Jobid = $jobid{$numchunks};
+
+        if($qsub2 eq 'false') {
+          $Q1 = `ps -af | grep -w $Jobid`;
+          @Q = split(/\n/,$Q1);
+          for($j=0; $j<@Q; $j++) {
+              if($Q[$j] =~ /^\s*[^\s]+\s+([^\s]+)\s+$Jobid\s/) {
+                  $CID = $1;
+                  $child{$CID}++;
+              }
+           }
+        }
+
+        foreach $K (keys %child) {
+            if(!($K =~ /\S/)) {
+                delete $child{$K};
+                next;
+            }
+            $Q1 = `ps a | grep -v grep| grep $K | wc -l`;
+            if($Q1 == 0) {
+                 delete $child{$K};
+            }
+        }
+#        foreach $K (keys %child) {
+#            print "child{$K} = $child{$K}\n";
+#        }
+
+        if($doneflag == 0) {
+           sleep(1);
+        }
+        if($qsub2 eq 'true') {
+             for($t=0; $t<10; $t++) {
+                 $X = `qstat -j $Jobid | grep job_number`;
+                 if($X =~ /job_number:\s+$Jobid/s) {
+                    $t = 10;
+                 } else {
+                    if($t<=7) {
+                        print "Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n";
+                    }
+                    if($t==8) {
+                        print "Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n";
+                    }
+                    sleep(3);
+                    if($t == 8) {
+                        sleep(300);  # try one last time waiting five minutes
+                    }
+                 }
+             }
+        }
+        if(-e "$output_dir/$PPlog"){
+             $Q = `grep "processing finished" $output_dir/$PPlog`;
+             if($Q =~ /processing finished/) {
+                $DIED = "false";
+                $finished = 1;
+             }
+        }
+        if($finished == 0) {
+             if($qsub2 eq "true") {
+                 if(!($X =~ /job_number:\s+$Jobid/s)) {
+                     $DIED = "true";
+                     $X = `qdel $Jobid`;
+                   }
+             } else {
+                 $Q = `ps a | grep -w $Jobid | grep -v grep`;
+                 if(!($Q =~ /^\s*$Jobid\s/)) {
+                     $DIED = "true";
+                     foreach $CID (keys %child) {
+                         $G = `ps a | grep $CID`;
+                         $x = `kill -9 $CID`;
+#                         print "-------\nKILLED: $CID\n$G\n$x\n-------\n";
+                     }
+                 }
+             }
+        }
+        if($DIED eq "true") {
+            $DATE = `date`;
+            $DATE =~ s/^\s+//;
+            $DATE =~ s/\s+$//;
+            print ERRORLOG "\n *** The post-processing node seems to have failed during post-processing, sometime around $DATE!\nI'm going to try to restart it.\n";
+            print "\n *** The post-processing node seems to have failed during post-processing, sometime around $DATE!\nDon't panic, I'm going to try to restart it.\n";
+            $X = `qdel $Jobid`;
+            $ofile = $output_dir . "/chunk.restart.$numchunks" . ".o";
+            $efile = $output_dir . "/errorlog.restart.$numchunks";
+            $outfile = "$name" . "." . $starttime . "." . $numchunks . ".sh";
+
+            # first remove the pre-post-processing stuff from the shell script
+            $FILE = `cat $output_dir/$outfile`;
+            $FILE =~ s/# xxx0.*Postprocessing stuff starts here.../\n/s;
+            $FILE =~ s/perl scripts.wait.pl [^\s]+ \d+[^\n]*//s;
+
+            # futher remove post-processing steps that have finished
+            if(-e "$output_dir/$PPlog") {
+                $PPlog_contents = `cat $output_dir/$PPlog`;
+            } else {
+                $PPlog_contents = "";
+            }
+            $PPlog_contents =~ s/.*Post Processing Restarted At This Point[^\n]*\n//s;
+
+#            print "==================== PPlog_contents start ====================\n";
+#            print $PPlog_contents;
+#            print "==================== PPlog_contents end ======================\n";
+
+            open(POUT, ">>$output_dir/$PPlog");
+            print POUT "------- Post Processing Restarted At This Point ------\n";
+            close(POUT);
+            if(-e "$output_dir/mapping_stats.txt") {
+                $mapping_stats_contents = `cat $output_dir/mapping_stats.txt`;
+            } else {
+                $mapping_stats_contents = "";
+            }
+            if($PPlog_contents =~ /merging feature quantifications/s) {
+                 $FILE =~ s!^.*merging feature quantifications[^\n]+\n!!s;
+                 $FILE =~ s/^[^\n]*\n//s;
+            }
+            if($PPlog_contents =~ /merging RUM_Unique.sorted files/s) {
+                  $FILE =~ s!^.*merging RUM_Unique.sorted files[^\n]+\n!!s;
+                  $FILE =~ s/^[^\n]*\n//s;
+             }
+            if($PPlog_contents =~ /merging RUM_NU.sorted files/s) {
+                 $FILE =~ s!^.*merging RUM_NU.sorted files[^\n]+\n!!s;
+                 $FILE =~ s/^[^\n]*\n//s;
+            }
+            if($mapping_stats_contents =~ /RUM_Unique reads per chromosome/s) {
+                 $FILE =~ s!^.*RUM_Unique reads per chromosome[^\n]+\n[^\n]+\n!!s;
+            }
+            if($mapping_stats_contents =~ /RUM_NU reads per chromosome/s) {
+                 $FILE =~ s!^.*RUM_NU reads per chromosome[^\n]+\n[^\n]+\n!!s;
+            }
+            if($PPlog_contents =~ /computing junctions/s) {
+                 $FILE =~ s!^.*computing junctions[^\n]+\n!!s;
+                 $FILE =~ s/^[^\n]*\n//s;
+            }
+            if($PPlog_contents =~ /making coverage plots/s) {
+                 $FILE =~ s/^.*making coverage plots[^\n]+\n//s;
+                 $FILE =~ s/^[^\n]+\n//s;
+            }
+            if($PPlog_contents =~ /unique mappers coverage plot finished/s) {
+                 $FILE =~ s/^.*unique mappers coverage plot finished[^\n]+\n//s;
+                 $FILE =~ s/^[^\n]+\n//s;
+            }
+            if($PPlog_contents =~ /NU mappers coverage plot finished/s) {
+                 $FILE =~ s/^.*NU mappers coverage plot finished[^\n]+\n//s;
+                 $FILE =~ s/^[^\n]+\n//s;
+            }
+
+            open(OUTFILE, ">$output_dir/$outfile");
+            print OUTFILE $FILE;
+            close(OUTFILE);
+
+            $MEM = $ram . "G";
+            if($qsub2 eq "true") {
+                 $Q = `qsub -l mem_free=$MEM -o $ofile -e $efile $output_dir/$outfile`;
+                 $Q =~ /Your job (\d+)/;
+                 $jobid{$numchunks} = $1;
+            } else {
+               	  system("/bin/bash $output_dir/$outfile &");
+                   $Q = `ps a | grep $output_dir/$outfile | grep -v "ps a" | grep -v "grep "`;
+                  $Q =~ /^\s*(\d+)/;
+                  $PID = $1;
+                  $jobid{$numchunks} = $PID;
+            }
+            if($FILE =~ /perl/s) {
+                 if($jobid{$numchunks} =~ /^\d+$/) {
+                       sleep(2);
+                       print ERRORLOG " *** OK, post-processing seems to have restarted.\n\n";
+                       print " *** OK, post-processing seems to have restarted.\n\n";
+                 } else {
+                       print ERRORLOG " *** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
+                       print " *** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
+                 }
+            } else {
+                  print ERRORLOG " *** OK, post-processing seems to have restarted, there wasn't anything left to do though.\n\n";
+                  print " *** OK, post-processing seems to have restarted, there wasn't anything left to do though.\n\n";
+            }
+        }
+   }
 }
 
-print STDERR "\nOkay, all finished.\n\n";
+# Check RUM_Unique and RUM_Unique.sorted are the same size
+$filesize1 = -s "$output_dir/RUM_Unique";
+$filesize2 = -s "$output_dir/RUM_Unique.sorted";
+if($filesize1 != $filesize2) {
+    print ERRORLOG "ERROR: RUM_Unique and RUM_Unique.sorted are not the same size.  This probably indicates a problem.\n";
+    print "ERROR: RUM_Unique and RUM_Unique.sorted are not the same size.  This probably indicates a problem.\n";
+}
+
+# Check RUM_NU and RUM_NU.sorted are the same size
+$filesize1 = -s "$output_dir/RUM_NU";
+$filesize2 = -s "$output_dir/RUM_NU.sorted";
+if($filesize1 != $filesize2) {
+    print ERRORLOG "ERROR: RUM_NU and RUM_NU.sorted are not the same size.  This could indicates a problem.\n";
+    print "ERROR: RUM_NU and RUM_NU.sorted are not the same size.  This could indicates a problem.\n";
+}
+
+# XXX   More error checks to implement:
+#
+# Find last chr in RUM_Unique and RUM_NU.
+# Make sure thr right one of those last chrs is the last chr in RUM.sam.
+# Make sure that last chr is the last chr in RUM_Unique.cov and RUM_NU.cov.
+# If any of these fail, report them to ERRORLOG.
+
+$check_if_any_errors_already_reported = `grep -i error $output_dir/rum.error-log`;
+if(!($check_if_any_errors_already_reported =~ /\S/)) {
+   $noerrors = "true";
+} else {
+   $noerrors = "false";
+}
+
+if($qsub2 eq "false") {
+    $E = `cat $output_dir/PostProcessing-errorlog`;
+    $E =~ s/^\s*//s;
+    $E =~ s/\s*$//s;
+} else {
+    if(-e "$output_dir/errorlog.restart.$numchunks") {
+        $E1 = `cat $output_dir/errorlog.$numchunks`;
+        $E1 =~ s/^.*Post-Processing Log Starts Here//s;
+        $E = `cat $output_dir/errorlog.restart.$numchunks`;
+        $E =~ s/^.*Post-Processing Log Starts Here//s;
+        $E = $E1 . "\n" . $E;
+    } else {
+        $E = `cat $output_dir/errorlog.$numchunks`;
+        $E =~ s/^.*Post-Processing Log Starts Here//s;
+    }
+}
+if($E =~ /\S/) {
+    print ERRORLOG "\n------- Post Processing Errors -------\n";
+    $E =~ s/stdin: is not a tty[^\n]*\n//sg;
+    print ERRORLOG "$E\n";
+    $noerrors = "false";
+}
+for($i=1; $i<=$numchunks; $i++) {
+    $E = `cat $output_dir/errorlog.$i`;
+    $E =~ s/# reads[^\n]+\n//sg;
+    $E =~ s/Reported \d+ [^\n]+\n//sg;
+    $E =~ s/stdin: is not a tty[^\n]*\n//sg;
+    $E =~ s/^\s*//s;
+    $E =~ s/\s*$//s;
+    if($qsub2 eq "true") {
+        $E =~ s/Post-Processing Log Starts Here.*$//s;
+        if(-e "$output_dir/errorlog.restart.$i") {
+            $E1 = `cat $output_dir/errorlog.restart.$i`;
+            $E1 =~ s/Post-Processing Log Starts Here.*$//s;
+            $E1 =~ s/# reads[^\n]+\n//sg;
+            $E1 =~ s/Reported \d+ [^\n]+\n//sg;
+            $E = $E1 . "\n" . $E;
+        }
+    }
+    if($E =~ /\S/) {
+       $E =~ s/stdin: is not a tty[^\n]*\n//sg;
+       if($E =~ /\S/) {
+             print ERRORLOG "\n------- errors from chunk $i -------\n";
+             print ERRORLOG "$E\n";
+             $noerrors = "false";
+       }
+    }
+   `yes|rm $output_dir/errorlog.$i`;
+    if(defined $restarted{$i}) {
+        $R = $restarted{$i};
+        $E = `grep \"$output_dir\" $output_dir/rum.log_chunk.$i.$R | grep -v finished`;
+    } else {
+        $E = `grep \"$output_dir\" $output_dir/rum.log_chunk.$i | grep -v finished`;
+    }
+    $E =~ s/^\s*//s;
+    $E =~ s/\s*$//s;
+    @a = split(/\n/,$E);
+    $flag = 0;
+    for($j=0; $j<@a; $j++) {
+        @b = split(/\s+/,$a[$j]);
+        if($b[4] == 0) {
+            $file = $b[@b-1];
+            if($flag == 0) {
+                print ERRORLOG "\n";
+                $flag = 1;
+            }
+            print ERRORLOG "WARNING: temp file '$file' had size zero.\n  *  Could be no mappers in that step, but this often indicates an error.\n";
+            $noerrors = "false";
+        }
+    }
+}
+$T1 = `tail $output_dir/RUM_Unique`;
+if(!($T1 =~ /\n$/)) {
+     print ERRORLOG "ERROR: RUM_Unique does not end with a newline, that probably means it is incomplete.\n";
+     print "ERROR: RUM_Unique does not end with a newline, that probably means it is incomplete.\n";
+    $noerrors = "false";
+}
+$T1 = `tail $output_dir/RUM_NU`;
+if(!($T1 =~ /\n$/)) {
+     print ERRORLOG "ERROR: RUM_NU does not end with a newline, that probably means it is incomplete.\n";
+     print "ERROR: RUM_NU does not end with a newline, that probably means it is incomplete.\n";
+    $noerrors = "false";
+}
+$T1 = `tail $output_dir/RUM_Unique.sorted`;
+if(!($T1 =~ /\n$/)) {
+     print ERRORLOG "ERROR: RUM_Unique.sorted does not end with a newline, that probably means it is incomplete.\n";
+     print "ERROR: RUM_Unique.sorted does not end with a newline, that probably means it is incomplete.\n";
+    $noerrors = "false";
+}
+$T1 = `tail $output_dir/RUM_NU.sorted`;
+if(!($T1 =~ /\n$/)) {
+     print ERRORLOG "ERROR: RUM_NU.sorted does not end with a newline, that probably means it is incomplete.\n";
+     print "ERROR: RUM_NU.sorted does not end with a newline, that probably means it is incomplete.\n";
+    $noerrors = "false";
+}
+$T1 = `tail $output_dir/RUM_Unique.cov`;
+if(!($T1 =~ /\n$/)) {
+     print ERRORLOG "ERROR: RUM_Unique.cov does not end with a newline, that probably means it is incomplete.\n";
+     print "ERROR: RUM_Unique.cov does not end with a newline, that probably means it is incomplete.\n";
+    $noerrors = "false";
+}
+$T1 = `tail $output_dir/RUM_NU.cov`;
+if(!($T1 =~ /\n$/)) {
+     print ERRORLOG "ERROR: RUM_NU.cov does not end with a newline, that probably means it is incomplete.\n";
+     print "ERROR: RUM_NU.cov does not end with a newline, that probably means it is incomplete.\n";
+    $noerrors = "false";
+}
+$T1 = `tail $output_dir/RUM.sam`;
+if(!($T1 =~ /\n$/)) {
+     print ERRORLOG "ERROR: RUM.sam does not end with a newline, that probably means it is incomplete.\n";
+     print "ERROR: RUM.sam does not end with a newline, that probably means it is incomplete.\n";
+    $noerrors = "false";
+}
+if($quantify eq "true") {
+     $T1 = `tail $output_dir/feature_quantifications_$name`;
+     if(!($T1 =~ /\n$/)) {
+          print ERRORLOG "ERROR: feature_quantifications_$name does not end with a newline, that probably means it is incomplete.\n";
+          print "ERROR: feature_quantifications_$name does not end with a newline, that probably means it is incomplete.\n";
+         $noerrors = "false";
+     }
+}
+if($junctions eq "true") {
+     $T1 = `tail $output_dir/junctions_all.rum`;
+     if(!($T1 =~ /\n$/)) {
+          print ERRORLOG "ERROR: junctions_all.rum does not end with a newline, that probably means it is incomplete.\n";
+          print "ERROR: junctions_all.rum does not end with a newline, that probably means it is incomplete.\n";
+         $noerrors = "false";
+     }
+     $T1 = `tail $output_dir/junctions_all.bed`;
+     if(!($T1 =~ /\n$/)) {
+          print ERRORLOG "ERROR: junctions_all.bed does not end with a newline, that probably means it is incomplete.\n";
+          print "ERROR: junctions_all.bed does not end with a newline, that probably means it is incomplete.\n";
+         $noerrors = "false";
+     }
+     $T1 = `tail $output_dir/junctions_high-quality.bed`;
+     if(!($T1 =~ /\n$/)) {
+          print ERRORLOG "ERROR: junctions_high-quality.bed does not end with a newline, that probably means it is incomplete.\n";
+          print "ERROR: junctions_high-quality.bed does not end with a newline, that probably means it is incomplete.\n";
+         $noerrors = "false";
+     }
+}
+
+if($noerrors eq "true") {
+    print ERRORLOG "\nNo Errors. Very good!\n\n";
+}
+print ERRORLOG "--------------------------------------\n";
+
+if($cleanup eq 'true') {
+   print "\nCleaning up some more temp files...\n\n";
+   if(-e "$output_dir/kill_command") {
+      `yes|rm $output_dir/kill_command`;
+   }
+   for($i=1; $i<=$numchunks; $i++) {
+      if(defined $restarted{$i}) {
+         $ext = ".$restarted{$i}";
+      } else {
+         $ext = "";
+      }
+      `yes|rm $output_dir/RUM_Unique.$i$ext $output_dir/RUM_NU.$i$ext`;
+      `yes|rm $output_dir/RUM_Unique.sorted.$i$ext $output_dir/RUM_NU.sorted.$i$ext`;
+      `yes|rm $output_dir/reads.fa.$i$ext`;
+      `yes|rm $output_dir/quals.fa.$i$ext`;
+      `yes|rm $output_dir/nu_stats.$i$ext`;
+   }
+   `yes|rm $output_dir/chr_counts*`;
+   `yes|rm $output_dir/quant.*`;
+   `yes|rm $output_dir/$name.*`;
+   if($strandspecific eq 'true') {
+      `yes|rm $output_dir/feature_quantifications.ps`;
+      `yes|rm $output_dir/feature_quantifications.ms`;
+      `yes|rm $output_dir/feature_quantifications.pa`;
+      `yes|rm $output_dir/feature_quantifications.ma`;
+      if(-e "$output_dir/feature_quantifications.altquant.ps") {
+         `yes|rm $output_dir/feature_quantifications.altquant.ps`;
+         `yes|rm $output_dir/feature_quantifications.altquant.ms`;
+         `yes|rm $output_dir/feature_quantifications.altquant.pa`;
+         `yes|rm $output_dir/feature_quantifications.altquant.ma`;
+      }
+
+   }
+   `yes|rm $output_dir/$JID`;
+}
+
+print "\nOkay, all finished.\n\n";
 
 $date = `date`;
 print LOGFILE "pipeline finished: $date\n";
 close(LOGFILE);
+close(ERRORLOG);
 
 sub breakup_file () {
     ($FILE, $numpieces) = @_;
 
-    open(INFILE, $FILE);
-    $filesize = `wc -l $FILE`;
-    chomp($filesize);
-    $filesize =~ s/^\s+//;
-    $filesize =~ s/\s.*//;
-    $numseqs = $filesize / 2;
+    if(!(open(INFILE, $FILE))) {
+       print ERRORLOG "\nERROR: Cannot open '$FILE' for reading.\n\n";
+       die "\nERROR: Cannot open '$FILE' for reading.\n\n";
+    }
+    $tail = `tail -2 $FILE | head -1`;
+    $tail =~ /seq.(\d+)/s;
+    $numseqs = $1;
     $piecesize = int($numseqs / $numpieces);
-    $piecesize2 = int($numseqs / $numpieces / 2);
-    if($numchunks > 1) {
-	print LOGFILE "processing in $numchunks pieces of approx $piecesize2 reads each\n";
-    } else {
-	print LOGFILE "processing in one piece of approx $piecesize2 reads\n";
+
+    $t = `tail -2 $FILE`;
+    $t =~ /seq.(\d+)/s;
+    $NS = $1;
+    $piecesize2 = &format_large_int($piecesize);
+    if(!($FILE =~ /qual/)) {
+	if($numchunks > 1) {
+	    print LOGFILE "processing in $numchunks pieces of approx $piecesize2 reads each\n";
+	} else {
+	    $NS2 = &format_large_int($NS);
+	    print LOGFILE "processing in one piece of $NS2 reads\n";
+	}
     }
     if($piecesize % 2 == 1) {
 	$piecesize++;
@@ -1018,21 +2892,26 @@ sub breakup_file () {
 
     $F2 = $FILE;
     $F2 =~ s!.*/!!;
+
+    if($paired_end eq 'true') {
+	$PS = $piecesize * 2;
+    } else {
+	$PS = $piecesize;
+    }
+
     for($i=1; $i<$numpieces; $i++) {
 	$outfilename = $output_dir . "/" . $F2 . "." . $i;
 
 	open(OUTFILE, ">$outfilename");
-	for($j=0; $j<$piecesize; $j++) {
+	for($j=0; $j<$PS; $j++) {
 	    $line = <INFILE>;
 	    chomp($line);
-	    $line =~ s/\^M$//s;
 	    if($qualflag == 0) {
 		$line =~ s/[^ACGTNab]$//s;
 	    }
 	    print OUTFILE "$line\n";
 	    $line = <INFILE>;
 	    chomp($line);
-	    $line =~ s/\^M$//s;
 	    if($qualflag == 0) {
 		$line =~ s/[^ACGTNab]$//s;
 	    }
@@ -1050,32 +2929,465 @@ sub breakup_file () {
     return 0;
 }
 
-sub checkstatus () {
-    ($CHUNK) = @_;
-    $log = `cat $output_dir/rum_log.$CHUNK`;
-    @LOG = split(/\n/, $log);
-    $LOG[1] =~ /(\d+)$/;
-    $started_at = $1;
-    if($log =~ /finished first bowtie run/s) {
-	$LOG[3] =~ /(\d+)$/;
-	$firstbowtie_at = $1;
-	$firstbowtie_filesize = -s "$output_dir/X.$CHUNK";
-	if($firstbowtie_filesize == 0) {
-	    print STDERR "Warning: genome bowtie outfile for chunk $CHUNK is empty.\n";
+sub merge() {
+    $tempfilename1 = $CHR[$cnt] . "_temp.0";
+    $tempfilename2 = $CHR[$cnt] . "_temp.1";
+    $tempfilename3 = $CHR[$cnt] . "_temp.2";
+    open(TEMPMERGEDOUT, ">$tempfilename3");
+    open(TEMPIN1, $tempfilename1);
+    open(TEMPIN2, $tempfilename2);
+    $mergeFLAG = 0;
+    getNext1();
+    getNext2();
+    while($mergeFLAG < 2) {
+	chomp($out1);
+	chomp($out2);
+	if($start1 < $start2) {
+	    if($out1 =~ /\S/) {
+		print TEMPMERGEDOUT "$out1\n";
+	    }
+	    getNext1();
+	} elsif($start1 == $start2) {
+	    if($end1 <= $end2) {
+		if($out1 =~ /\S/) {
+		    print TEMPMERGEDOUT "$out1\n";
+		}
+		getNext1();
+	    } else {
+		if($out2 =~ /\S/) {
+		    print TEMPMERGEDOUT "$out2\n";
+		}
+		getNext2();
+	    }
+	} else {
+	    if($out2 =~ /\S/) {
+		print TEMPMERGEDOUT "$out2\n";
+	    }
+	    getNext2();
+	}
+    }
+    close(TEMPMERGEDOUT);
+    `mv $tempfilename3 $tempfilename1`;
+    unlink($tempfilename2);
+}
+
+sub getNext1 () {
+    $line1 = <TEMPIN1>;
+    chomp($line1);
+    if($line1 eq '') {
+	$mergeFLAG++;
+	$start1 = 1000000000000;  # effectively infinity, no chromosome should be this large;
+	return "";
+    }
+    @a = split(/\t/,$line1);
+    $a[2] =~ /^(\d+)-/;
+    $start1 = $1;
+    if($a[0] =~ /a/ && $separate eq "false") {
+	$a[0] =~ /(\d+)/;
+	$seqnum1 = $1;
+	$line2 = <TEMPIN1>;
+	chomp($line2);
+	@b = split(/\t/,$line2);
+	$b[0] =~ /(\d+)/;
+	$seqnum2 = $1;
+	if($seqnum1 == $seqnum2 && $b[0] =~ /b/) {
+	    if($a[3] eq "+") {
+		$b[2] =~ /-(\d+)$/;
+		$end1 = $1;
+	    } else {
+		$b[2] =~ /^(\d+)-/;
+		$start1 = $1;
+		$a[2] =~ /-(\d+)$/;
+		$end1 = $1;
+	    }
+	    $out1 = $line1 . "\n" . $line2;
+	} else {
+	    $a[2] =~ /-(\d+)$/;
+	    $end1 = $1;
+	    # reset the file handle so the last line read will be read again
+	    $len = -1 * (1 + length($line2));
+	    seek(TEMPIN1, $len, 1);
+	    $out1 = $line1;
 	}
     } else {
-	$firstbowtie_lastmodified =(stat ($output_dir/X.$CHUNK))[9];
-	if($firstbowtie_lastmodified - $started_at > 600) {
+	$a[2] =~ /-(\d+)$/;
+	$end1 = $1;
+	$out1 = $line1;
+    }
+}
 
+sub getNext2 () {
+    $line1 = <TEMPIN2>;
+    chomp($line1);
+    if($line1 eq '') {
+	$mergeFLAG++;
+	$start2 = 1000000000000;  # effectively infinity, no chromosome should be this large;
+	return "";
+    }
+    @a = split(/\t/,$line1);
+    $a[2] =~ /^(\d+)-/;
+    $start2 = $1;
+    if($a[0] =~ /a/ && $separate eq "false") {
+	$a[0] =~ /(\d+)/;
+	$seqnum1 = $1;
+	$line2 = <TEMPIN2>;
+	chomp($line2);
+	@b = split(/\t/,$line2);
+	$b[0] =~ /(\d+)/;
+	$seqnum2 = $1;
+	if($seqnum1 == $seqnum2 && $b[0] =~ /b/) {
+	    if($a[3] eq "+") {
+		$b[2] =~ /-(\d+)$/;
+		$end2 = $1;
+	    } else {
+		$b[2] =~ /^(\d+)-/;
+		$start2 = $1;
+		$a[2] =~ /-(\d+)$/;
+		$end2 = $1;
+	    }
+	    $out2 = $line1 . "\n" . $line2;
+	} else {
+	    $a[2] =~ /-(\d+)$/;
+	    $end2 = $1;
+	    # reset the file handle so the last line read will be read again
+	    $len = -1 * (1 + length($line2));
+	    seek(TEMPIN2, $len, 1);
+	    $out2 = $line1;
+	}
+    } else {
+	$a[2] =~ /-(\d+)$/;
+	$end2 = $1;
+	$out2 = $line1;
+    }
+}
+
+sub format_large_int () {
+    ($int) = @_;
+    @a = split(//,"$int");
+    $j=0;
+    $newint = "";
+    $n = @a;
+    for($i=$n-1;$i>=0;$i--) {
+	$j++;
+	$newint = $a[$i] . $newint;
+	if($j % 3 == 0) {
+	    $newint = "," . $newint;
 	}
     }
-    if($log =~ /finished parsing genome bowtie run/s) {
-	$LOG[3] =~ /(\d+)$/;
-	$firstbowtie_at = $1;
-	$firstbowtie_filesize = -s "$output_dir/X.$CHUNK";
-	if($firstbowtie_filesize == 0) {
-	    print STDERR "Warning: genome bowtie outfile for chunk $CHUNK is empty.\n";
+    $newint =~ s/^,//;
+    return $newint;
+}
+
+sub cmpChrs () {
+    $a2_c = lc($b);
+    $b2_c = lc($a);
+    if($a2_c =~ /^\d+$/ && !($b2_c =~ /^\d+$/)) {
+        return 1;
+    }
+    if($b2_c =~ /^\d+$/ && !($a2_c =~ /^\d+$/)) {
+        return -1;
+    }
+    if($a2_c =~ /^[ivxym]+$/ && !($b2_c =~ /^[ivxym]+$/)) {
+        return 1;
+    }
+    if($b2_c =~ /^[ivxym]+$/ && !($a2_c =~ /^[ivxym]+$/)) {
+        return -1;
+    }
+    if($a2_c eq 'm' && ($b2_c eq 'y' || $b2_c eq 'x')) {
+        return -1;
+    }
+    if($b2_c eq 'm' && ($a2_c eq 'y' || $a2_c eq 'x')) {
+        return 1;
+    }
+    if($a2_c =~ /^[ivx]+$/ && $b2_c =~ /^[ivx]+$/) {
+        $a2_c = "chr" . $a2_c;
+         $b2_c = "chr" . $b2_c;
+    }
+    if($a2_c =~ /$b2_c/) {
+	return -1;
+    }
+    if($b2_c =~ /$a2_c/) {
+	return 1;
+    }
+    # dealing with roman numerals starts here
+    if($a2_c =~ /chr([ivx]+)/ && $b2_c =~ /chr([ivx]+)/) {
+	$a2_c =~ /chr([ivx]+)/;
+	$a2_roman = $1;
+	$b2_c =~ /chr([ivx]+)/;
+	$b2_roman = $1;
+	$a2_arabic = arabic($a2_roman);
+    	$b2_arabic = arabic($b2_roman);
+	if($a2_arabic > $b2_arabic) {
+	    return -1;
+	}
+	if($a2_arabic < $b2_arabic) {
+	    return 1;
+	}
+	if($a2_arabic == $b2_arabic) {
+	    $tempa = $a2_c;
+	    $tempb = $b2_c;
+	    $tempa =~ s/chr([ivx]+)//;
+	    $tempb =~ s/chr([ivx]+)//;
+	    undef %temphash;
+	    $temphash{$tempa}=1;
+	    $temphash{$tempb}=1;
+	    foreach $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
+		if($tempkey eq $tempa) {
+		    return 1;
+		} else {
+		    return -1;
+		}
+	    }
 	}
     }
+    if($b2_c =~ /chr([ivx]+)/ && !($a2_c =~ /chr([a-z]+)/) && !($a2_c =~ /chr(\d+)/)) {
+	return -1;
+    }
+    if($a2_c =~ /chr([ivx]+)/ && !($b2_c =~ /chr([a-z]+)/) && !($b2_c =~ /chr(\d+)/)) {
+	return 1;
+    }
+    if($b2_c =~ /chr([ivx]+)/ && ($a2_c =~ /chrm/)) {
+	return -1;
+    }
+    if($a2_c =~ /chr([ivx]+)/ && ($b2_c =~ /chrm/)) {
+	return 1;
+    }
+    if($b2_c =~ /m$/ && $a2_c =~ /vi+/) {
+	return 1;
+    }
+    if($a2_c =~ /m$/ && $b2_c =~ /vi+/) {
+	return -1;
+    }
 
+    # roman numerals ends here
+    if($a2_c =~ /chr(\d+)$/ && $b2_c =~ /chr.*_/) {
+        return 1;
+    }
+    if($b2_c =~ /chr(\d+)$/ && $a2_c =~ /chr.*_/) {
+        return -1;
+    }
+    if($a2_c =~ /chr([a-z])$/ && $b2_c =~ /chr.*_/) {
+        return 1;
+    }
+    if($b2_c =~ /chr([a-z])$/ && $a2_c =~ /chr.*_/) {
+        return -1;
+    }
+    if($a2_c =~ /chr(\d+)/) {
+        $numa = $1;
+        if($b2_c =~ /chr(\d+)/) {
+            $numb = $1;
+            if($numa < $numb) {return 1;}
+	    if($numa > $numb) {return -1;}
+	    if($numa == $numb) {
+		$tempa = $a2_c;
+		$tempb = $b2_c;
+		$tempa =~ s/chr\d+//;
+		$tempb =~ s/chr\d+//;
+		undef %temphash;
+		$temphash{$tempa}=1;
+		$temphash{$tempb}=1;
+		foreach $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
+		    if($tempkey eq $tempa) {
+			return 1;
+		    } else {
+			return -1;
+		    }
+		}
+	    }
+        } else {
+            return 1;
+        }
+    }
+    if($a2_c =~ /chrx(.*)/ && ($b2_c =~ /chr(y|m)$1/)) {
+	return 1;
+    }
+    if($b2_c =~ /chrx(.*)/ && ($a2_c =~ /chr(y|m)$1/)) {
+	return -1;
+    }
+    if($a2_c =~ /chry(.*)/ && ($b2_c =~ /chrm$1/)) {
+	return 1;
+    }
+    if($b2_c =~ /chry(.*)/ && ($a2_c =~ /chrm$1/)) {
+	return -1;
+    }
+    if($a2_c =~ /chr\d/ && !($b2_c =~ /chr[^\d]/)) {
+	return 1;
+    }
+    if($b2_c =~ /chr\d/ && !($a2_c =~ /chr[^\d]/)) {
+	return -1;
+    }
+    if($a2_c =~ /chr[^xy\d]/ && (($b2_c =~ /chrx/) || ($b2_c =~ /chry/))) {
+        return -1;
+    }
+    if($b2_c =~ /chr[^xy\d]/ && (($a2_c =~ /chrx/) || ($a2_c =~ /chry/))) {
+        return 1;
+    }
+    if($a2_c =~ /chr(\d+)/ && !($b2_c =~ /chr(\d+)/)) {
+        return 1;
+    }
+    if($b2_c =~ /chr(\d+)/ && !($a2_c =~ /chr(\d+)/)) {
+        return -1;
+    }
+    if($a2_c =~ /chr([a-z])/ && !($b2_c =~ /chr(\d+)/) && !($b2_c =~ /chr[a-z]+/)) {
+        return 1;
+    }
+    if($b2_c =~ /chr([a-z])/ && !($a2_c =~ /chr(\d+)/) && !($a2_c =~ /chr[a-z]+/)) {
+        return -1;
+    }
+    if($a2_c =~ /chr([a-z]+)/) {
+        $letter_a = $1;
+        if($b2_c =~ /chr([a-z]+)/) {
+            $letter_b = $1;
+            if($letter_a lt $letter_b) {return 1;}
+	    if($letter_a gt $letter_b) {return -1;}
+        } else {
+            return -1;
+        }
+    }
+    $flag_c = 0;
+    while($flag_c == 0) {
+        $flag_c = 1;
+        if($a2_c =~ /^([^\d]*)(\d+)/) {
+            $stem1_c = $1;
+            $num1_c = $2;
+            if($b2_c =~ /^([^\d]*)(\d+)/) {
+                $stem2_c = $1;
+                $num2_c = $2;
+                if($stem1_c eq $stem2_c && $num1_c < $num2_c) {
+                    return 1;
+                }
+                if($stem1_c eq $stem2_c && $num1_c > $num2_c) {
+                    return -1;
+                }
+                if($stem1_c eq $stem2_c && $num1_c == $num2_c) {
+                    $a2_c =~ s/^$stem1_c$num1_c//;
+                    $b2_c =~ s/^$stem2_c$num2_c//;
+                    $flag_c = 0;
+                }
+            }
+        }
+    }
+    if($a2_c le $b2_c) {
+	return 1;
+    }
+    if($b2_c le $a2_c) {
+	return -1;
+    }
+
+
+    return 1;
+}
+
+sub isroman($) {
+    $arg = shift;
+    $arg ne '' and
+      $arg =~ /^(?: M{0,3})
+                (?: D?C{0,3} | C[DM])
+                (?: L?X{0,3} | X[LC])
+                (?: V?I{0,3} | I[VX])$/ix;
+}
+
+sub arabic($) {
+    $arg = shift;
+    %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
+    %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
+    @figure = reverse sort keys %roman_digit;
+    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
+    isroman $arg or return undef;
+    ($last_digit) = 1000;
+    $arabic = 0;
+    ($arabic);
+    foreach (split(//, uc $arg)) {
+        ($digit) = $roman2arabic{$_};
+        $arabic -= 2 * $last_digit if $last_digit < $digit;
+        $arabic += ($last_digit = $digit);
+    }
+    $arabic;
+}
+
+sub Roman($) {
+    $arg = shift;
+    %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
+    %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
+    @figure = reverse sort keys %roman_digit;
+    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
+    0 < $arg and $arg < 4000 or return undef;
+    $roman = "";
+    ($x, $roman);
+    foreach (@figure) {
+        ($digit, $i, $v) = (int($arg / $_), @{$roman_digit{$_}});
+        if (1 <= $digit and $digit <= 3) {
+            $roman .= $i x $digit;
+        } elsif ($digit == 4) {
+            $roman .= "$i$v";
+        } elsif ($digit == 5) {
+            $roman .= $v;
+        } elsif (6 <= $digit and $digit <= 8) {
+            $roman .= $v . $i x ($digit - 5);
+        } elsif ($digit == 9) {
+            $roman .= "$i$x";
+        }
+        $arg -= $digit * $_;
+        $x = $i;
+    }
+    $roman;
+}
+
+sub roman($) {
+    lc Roman shift;
+}
+
+sub deletefiles () {
+    ($dir, $suffix, $leave_last_log) = @_;
+
+    $dir =~ s!/$!!;
+    $suffix =~ s/^\.//;
+
+    $file[0] = "BlatNU.XXX";
+    $file[1] = "BlatUnique.XXX";
+    $file[2] = "BowtieNU.XXX";
+    $file[3] = "BowtieUnique.XXX";
+    $file[4] = "chr_counts_nu.XXX";
+    $file[5] = "chr_counts_u.XXX";
+    $file[6] = "CNU.XXX";
+    $file[7] = "GNU.XXX";
+    $file[8] = "GU.XXX";
+    $file[9] = "quant.XXX";
+    $file[10] = "R.XXX";
+    $file[11] = "R.mdust.XXX";
+    $file[12] = "rum.log_chunk.XXX";
+    $file[13] = "RUM_NU.XXX";
+    $file[14] = "RUM_NU_idsorted.XXX";
+    $file[15] = "RUM_NU.sorted.XXX";
+    $file[16] = "RUM_NU_temp.XXX";
+    $file[17] = "RUM_NU_temp2.XXX";
+    $file[18] = "RUM_NU_temp3.XXX";
+    $file[19] = "RUM.sam.XXX";
+    $file[20] = "R.XXX.blat";
+    $file[21] = "RUM_Unique.XXX";
+    $file[22] = "RUM_Unique.sorted.XXX";
+    $file[23] = "RUM_Unique_temp.XXX";
+    $file[24] = "RUM_Unique_temp2.XXX";
+    $file[25] = "sam_header.XXX";
+    $file[26] = "TNU.XXX";
+    $file[27] = "TU.XXX";
+    $file[28] = "X.XXX";
+    $file[29] = "Y.XXX";
+    $file[30] = "nu_stats.XXX";
+    $file[31] = "quant.ps.XXX";
+    $file[32] = "quant.ms.XXX";
+    $file[33] = "quant.pa.XXX";
+    $file[34] = "quant.ma.XXX";
+
+    for($i_d=0; $i_d<@file; $i_d++) {
+	if($i_d == 12 && $leave_last_log eq "true") {
+	    next;
+	}
+	$F = $dir . "/" . $file[$i_d];
+	$F =~ s/XXX/$suffix/;
+	if(-e $F) {
+	    `yes|rm $F`;
+	}
+    }
+    return "";
 }

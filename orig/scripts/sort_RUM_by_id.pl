@@ -12,10 +12,10 @@ consistent pairs together.
 ";
 }
 
-print STDERR "Sorting '$ARGV[0]'\n";
+# print "Sorting '$ARGV[0]'\n";
 
 $|=1;
-open(INFILE, $ARGV[0]);
+open(INFILE, $ARGV[0]) or die "ERROR: in script sort_RUM_by_id.pl: cannot open file '$ARGV[0]' for reading.\n\n";
 $seqnum_prev = 0;
 $temp1sortedfile = $ARGV[0] . "_sorted_temp1";
 $temp1unsortedfile = $ARGV[0] . "_unsorted_temp1";
@@ -24,8 +24,8 @@ $temp2unsortedfile = $ARGV[0] . "_unsorted_temp2";
 $temp3sortedfile = $ARGV[0] . "_sorted_temp3";
 $temp3unsortedfile = $ARGV[0] . "_unsorted_temp3";
 
-open(OUTFILE1, ">$temp1sortedfile");
-open(OUTFILE2, ">$temp1unsortedfile");
+open(OUTFILE1, ">$temp1sortedfile") or die "ERROR: in script sort_RUM_by_id.pl: cannot open file '$temp1sortedfile' for writing.\n\n";;
+open(OUTFILE2, ">$temp1unsortedfile") or die "ERROR: in script sort_RUM_by_id.pl: cannot open file '$temp1unsortedfile' for writing.\n\n";
 $still_unsorted_flag = 0;
 while($line = <INFILE>) {
     $line =~ /^seq.(\d+)/;
@@ -47,10 +47,10 @@ $num_merges = 0;
 $still_unsorted_flag = 1;
 while($still_unsorted_flag == 1) {
     $still_unsorted_flag = 0;
-    open(INFILE, "$temp1unsortedfile");
+    open(INFILE, "$temp1unsortedfile") or die "ERROR: in script sort_RUM_by_id.pl: cannot open file '$temp1unsortedfile' for reading.\n\n";
     $seqnum_prev = 0;
-    open(OUTFILE1, ">$temp2sortedfile");
-    open(OUTFILE2, ">$temp2unsortedfile");
+    open(OUTFILE1, ">$temp2sortedfile") or die "ERROR: in script sort_RUM_by_id.pl: cannot open file '$temp2sortedfile' for writing.\n\n";
+    open(OUTFILE2, ">$temp2unsortedfile") or die "ERROR: in script sort_RUM_by_id.pl: cannot open file '$temp2unsortedfile' for writing.\n\n";
     while($line = <INFILE>) {
 	$line =~ /^seq.(\d+)/;
 	$seqnum = $1;
@@ -73,12 +73,12 @@ $sortedfile = $ARGV[1];
 `mv $temp1sortedfile $sortedfile`;
 unlink("$temp1unsortedfile");
 # print "number of merges required to sort '$ARGV[0]': $num_merges\n";
-print STDERR "Done sorting '$ARGV[0]'\n";
+# print "Done sorting '$ARGV[0]'\n";
 
 sub merge () {
-    open(INFILE1, "$temp1sortedfile");
-    open(INFILE2, "$temp2sortedfile");
-    open(OUTFILE, ">$temp3sortedfile");
+    open(INFILE1, "$temp1sortedfile") or die "ERROR: in script sort_RUM_by_id.pl: cannot open file '$temp1sortedfile' for reading.\n\n";
+    open(INFILE2, "$temp2sortedfile") or die "ERROR: in script sort_RUM_by_id.pl: cannot open file '$temp2sortedfile' for reading.\n\n";
+    open(OUTFILE, ">$temp3sortedfile") or die "ERROR: in script sort_RUM_by_id.pl: cannot open file '$temp3sortedfile' for writing.\n\n";
     $flag = 0;
     $line1 = <INFILE1>;
     chomp($line1);
@@ -91,6 +91,7 @@ sub merge () {
     if($line2 eq '') {
 	$flag = 1;
 	unlink("$temp2sortedfile");
+	unlink("$temp3sortedfile");
     } else {
 	while($flag == 0) {
 	    while($seqnum1 <= $seqnum2 && $line1 ne '') {

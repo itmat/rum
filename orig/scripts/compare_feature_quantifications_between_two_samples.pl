@@ -57,13 +57,16 @@ for($i=3; $i<@ARGV; $i++) {
 	$optionrecognized = 1;
     }
     if($optionrecognized == 0) {
-	print STDERR "\nError: option \'$ARGV[$i]\' is not recognized\n\n";
+	print STDERR "\nError: in script compare_feature_quantifications_between_two_samples.pl: option \'$ARGV[$i]\' is not recognized\n\n";
 	exit(0);
     }
 }
 
 if($annot_exists eq "true") {
-    open(INFILE, $annotfile) or die "Error: Cannot open file '$annotfile' for reading.\n\n";
+    if(!(open(INFILE, $annotfile))) {
+	print STDERR "Error: Cannot open file '$annotfile' for reading.\n\n";
+	die "Error: Cannot open file '$annotfile' for reading.\n\n";
+    }
     while($line = <INFILE>) {
 	chomp($line);
 	@a = split(/\t/,$line);

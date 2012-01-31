@@ -14,3 +14,6 @@
    e.g. indexes/mm9_genome_sequence_single-line-seqs.fa
 8) perl scripts directory, can be relative path to where the RUM_runner.pl script is, or absolute path
    e.g.: scripts
+9) lib directory, this directory holds the config files and the pipeline_template.sh file.  It can
+   be relative path to where the RUM_runner.pl script is, or absolute path
+   e.g.: lib

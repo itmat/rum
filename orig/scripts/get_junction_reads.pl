@@ -4,6 +4,8 @@ if(@ARGV < 2) {
 Usage: perl get_junction_reads.pl <rum file> <chr:start-end> [option]
    or: perl get_junction_reads.pl <rum file> <chr> <start> <end> [option]
 
+<rum file>: a RUM_Unique file output by the RUM pipeline (see NOTE 2 below)
+
 Options: -i : intron coords        (see below for more info)
          -b : bedfile ucsc coords  (see below for more info)
 

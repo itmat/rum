@@ -1,0 +1,9 @@
+indexes/mm9_refseq_ucsc_vega_gene_info.txt
+bin/bowtie
+bin/blat
+bin/mdust
+indexes/mm9_genome
+indexes/mm9_genes
+indexes/mm9_genome_one-line-seqs.fa
+scripts
+lib

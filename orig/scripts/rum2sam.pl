@@ -16,6 +16,9 @@ Options:
    -suppress1  : Don't report records if neither forward nor reverse map
    -suppress2  : Don't report records of non-mapper, even if their pair mapped
    -suppress3  : Don't report records unless both forward and reverse mapped
+   -name_mapping F  : If set will use a file <F> mapping names in the rum file
+                      to names to use in the sam file
+
 
 If you don't have the qualities just put 'none' for the <quals file> argument.
 
@@ -29,6 +32,7 @@ If you don't have the rum nu file, just put 'none' for the <rum nu file> argumen
 $suppress1 = "false";
 $suppress2 = "false";
 $suppress3 = "false";
+$map_names = "false";
 
 for($i=5; $i<@ARGV; $i++) {
     $optionrecognized = 0;
@@ -44,8 +48,21 @@ for($i=5; $i<@ARGV; $i++) {
 	$suppress3 = "true";
 	$optionrecognized = 1;
     }
+    if($ARGV[$i] eq "-name_mapping") {
+	$map_names = "true";
+	$i++;
+	$name_mapping_file = $ARGV[$i];
+	open(NAMEMAPPING, $name_mapping_file) or die "ERROR: in script parsefastq.pl, cannot open \"$name_mapping_file\" for reading.\n\n";
+	while($line = <NAMEMAPPING>) {
+	    chomp($line);
+	    @a = split(/\t/,$line);
+	    $namemapping{$a[0]} = $a[1];
+	}
+	close(NAMEMAPPING);
+	$optionrecognized = 1;
+    }
     if($optionrecognized == 0) {
-	die "\nERROR: option '$ARGV[$i]' not recognized\n";
+	die "\nERROR: in script rum2sam.pl: option '$ARGV[$i]' not recognized\n";
     }
 }
 
@@ -79,10 +96,7 @@ $line = <INFILE>;
 chomp($line);
 $readlength = length($line);
 if($quals eq "false") {
-    $QUAL{$readlength} = "";
-    for($i=0; $i<$readlength; $i++) {
-	$QUAL{$readlength} = $QUAL{$readlength} . "I";
-    }
+    $QUAL{$readlength} = ".";
 }
 $line = <INFILE>;
 chomp($line);
@@ -111,12 +125,12 @@ $bitflag[9] = "the read fails platform/vendor quality checks";
 $bitflag[10] = "the read is either a PCR duplicate or an optical duplicate";
 
 if($uniquers eq "true") {
-    open(RUMU, $rum_unique_file) or die "\nError: cannot open the file '$rum_unique_file' for reading\n\n";
+    open(RUMU, $rum_unique_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_unique_file' for reading\n\n";
 }
 if($non_uniquers eq "true") {
-    open(RUMNU, $rum_nu_file) or die "\nError: cannot open the file '$rum_nu_file' for reading\n\n";
+    open(RUMNU, $rum_nu_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_nu_file' for reading\n\n";
 }
-open(READS, $reads_file) or die "\nError: cannot open the file '$reads_file' for reading\n\n";
+open(READS, $reads_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$reads_file' for reading\n\n";
 
 # checking that the first line in RUMU really looks like it should:
 
@@ -138,9 +152,9 @@ if($uniquers eq "true") {
 	$flag = 1;
     }
     if($flag == 1) {
-	die "\nError: the first line of the file '$rum_unique_file' is misformatted,\nit does not look like a RUM output file.\n";
+	die "\nERROR: in script rum2sam.pl: the first line of the file '$rum_unique_file' is misformatted,\nit does not look like a RUM output file.\n";
     }
-    open(RUMU, $rum_unique_file) or die "\nError: cannot open the file '$rum_unique_file' for reading\n\n";
+    open(RUMU, $rum_unique_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_unique_file' for reading\n\n";
 }
 if($non_uniquers eq "true") {
     $line = <RUMNU>;
@@ -160,9 +174,9 @@ if($non_uniquers eq "true") {
 	$flag = 1;
     }
     if($flag == 1) {
-	die "\nError: the first line of the file '$rum_unique_file' is misformatted,\nit does not look like a RUM output file.\n";
+	die "\nERROR: in script rum2sam.pl: the first line of the file '$rum_nu_file' is misformatted,\nit does not look like a RUM output file.\n";
     }
-    open(RUMNU, $rum_nu_file) or die "\nError: cannot open the file '$rum_unique_file' for reading\n\n";
+    open(RUMNU, $rum_nu_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_nu_file' for reading\n\n";
 }
 
 if($quals eq "true") {
@@ -183,10 +197,7 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
     $forward_read_hold = $forward_read;
     $readlength_forward = length($forward_read);
     if($quals eq "false" && !($QUAL{$readlength_forward} =~ /\S/)) {
-	$QUAL{$readlength_forward} = "";
-	for($i=0; $i<$readlength_forward; $i++) {
-	    $QUAL{$readlength_forward} = $QUAL{$readlength_forward} . "I";
-	}
+	$QUAL{$readlength_forward} = ".";
     }
     if($paired eq "true") {
 	$reverse_read = <READS>;
@@ -195,10 +206,7 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 	$reverse_read_hold = $reverse_read;
 	$readlength_reverse = length($reverse_read);
 	if($quals eq "false" && !($QUAL{$readlength_reverse} =~ /\S/)) {
-	    $QUAL{$readlength_reverse} = "";
-	    for($i=0; $i<$readlength_reverse; $i++) {
-		$QUAL{$readlength_reverse} = $QUAL{$readlength_reverse} . "I";
-	    }
+	    $QUAL{$readlength_reverse} = ".";
 	}
     }
 
@@ -364,7 +372,6 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 	    if($rum_u_joined =~ /\S/) {
 		# FORWARD AND REVERSE MAPPED, AND THEY ARE JOINED, GATHER INFO
 		$joined = "true";
-# 		print "rum_u_joined = $rum_u_joined\n";
 		undef @piecelength;
 		@ruj = split(/\t/,$rum_u_joined);
 		$ruj[4] =~ s/://g;
@@ -572,20 +579,6 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 		}
 		$plen = $readlength_downstream - $prefix_offset_downstream - $suffix_offset_downstream;
 		
-#		print "\n$upstream_read\n\n";
-#		print $P;
-#		print "$UR\n";
-#		print $P;
-#		for($i=0; $i<$prefix_offset_upstream; $i++) {
-#		    print " ";
-#		}
-#		print "$ruj[4]\n";
-#		for($i=0; $i<$offset; $i++) {
-#		    print " ";
-#		}
-#		print "$DR\n";
-#		print "\n$downstream_read\n\n";
-		
 		$RC = 0;
 		$pl=0;
 
@@ -643,8 +636,6 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 	    if($rum_u_forward =~ /\S/) {
 		# COLLECT INFO FROM FORWARD RUM RECORD
 		# note: this might be a joined read for which the surrogate forward was created above
-		
-#		print "rum_u_forward = $rum_u_forward\n\n";
 		
 		@ruf = split(/\t/,$rum_u_forward);
 		@SEQ = split(/:/, $ruf[4]);
@@ -754,9 +745,6 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 		# COLLECT INFO FROM REVERSE RUM RECORD
 		# note: this might be a joined read for which the surrogate forward was created above
 		
-
-#		print "rum_u_reverse = $rum_u_reverse\n\n";
-		
 		@rur = split(/\t/,$rum_u_reverse);
 		@SEQ = split(/:/, $rur[4]);
 		
@@ -776,7 +764,6 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 		    $reverse_read = $reverse_read_hold;
 		}
 		
-#	    print "$reverse_read\n";
 		if($rum_u_joined =~ /\S/) {
 		    if($ruf[3] eq "+") {
 			$prefix_offset_reverse = $prefix_offset_downstream;
@@ -801,12 +788,10 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 				    $x = reversecomplement($reverse_read);
 				    $prefix_offset_reverse = 0;
 				}
-#				print " ";
 			    }
 			}
 		    }
 		}
-#	    print "$rur[4]\n\n";
 		
 		$CIGAR_r = "";
 		if($prefix_offset_reverse > 0) {
@@ -914,8 +899,13 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 # FORWARD:
 	    
 	    $forward_record = "";
-	    $forward_record = $forward_record . "seq.$seqnum";
-	    $forward_record = $forward_record . "a\t$bitscore_f";
+	    if($map_names eq "true") {
+		$tmp = "seq.$seqnum" . "a";
+		$forward_record = $forward_record . $namemapping{$tmp};
+	    } else {
+		$forward_record = $forward_record . "seq.$seqnum";
+	    }
+	    $forward_record = $forward_record . "\t$bitscore_f";
 	    
 	    if(!($rum_u_forward =~ /\S/) && $rum_u_reverse =~ /\S/) { # forward unmapped, reverse mapped
 		$forward_record = $forward_record . "\t$rur[1]\t$start_reverse\t255\t*\t=\t$start_reverse\t0\t$forward_read\t$forward_qual";
@@ -948,15 +938,19 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 		# do nothing
 	    } else {
 		print SAM $forward_record;
-#		print $forward_record;
 	    }
 	    
 # REVERSE
 	    
 	    if($paired eq "true") {
 		$reverse_record = "";
-		$reverse_record = $reverse_record . "seq.$seqnum";
-		$reverse_record = $reverse_record . "b\t$bitscore_r";
+		if($map_names eq "true") {
+		    $tmp = "seq.$seqnum" . "b";
+		    $reverse_record = $reverse_record . $namemapping{$tmp};
+		} else {
+		    $reverse_record = $reverse_record . "seq.$seqnum";
+		}
+		$reverse_record = $reverse_record . "\t$bitscore_r";
 		if(!($rum_u_reverse =~ /\S/) && $rum_u_forward =~ /\S/) {  # reverse unmapped, forward mapped
 		    $reverse_record = $reverse_record . "\t$ruf[1]\t$start_forward\t255\t*\t=\t$start_forward\t0\t$reverse_read\t$reverse_qual";
 		}
@@ -983,8 +977,6 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 		    # do nothing
 		} else {
 		    print SAM $reverse_record;
-#		    print $reverse_record;
-#		    print "-----------\n";
 		}
 	    }
 	}
@@ -993,21 +985,33 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
     if($unique_mapper_found eq "false" && $non_unique_mappers_found eq "false") {
 	# neither forward nor reverse map
 	if($paired eq "false") {
-	    $record = "seq.$seqnum";
-	    $record = $record . "a\t4\t*\t0\t255\t*\t*\t0\t0\t$forward_read\t$forward_qual\n";
+	    if($map_names eq "true") {
+		$tmp = "seq.$seqnum" . "a";
+		$record = $namemapping{$tmp};
+	    } else {
+		$record = "seq.$seqnum";
+	    }
+	    $record = $record . "\t4\t*\t0\t255\t*\t*\t0\t0\t$forward_read\t$forward_qual\n";
 	    if($suppress1 eq "false" && $suppress2 eq "false" && $suppress3 eq "false") {
 		print SAM $record;
-#		print $record;
 	    }
 	} else {
-	    $record = "seq.$seqnum";
-	    $record = $record . "a\t77\t*\t0\t255\t*\t*\t0\t0\t$forward_read\t$forward_qual\n";
-	    $record = $record . "seq.$seqnum";
-	    $record = $record . "b\t141\t*\t0\t255\t*\t*\t0\t0\t$reverse_read\t$reverse_qual\n";
+	    if($map_names eq "true") {
+		$tmp = "seq.$seqnum" . "a";
+		$record = $namemapping{$tmp};
+	    } else {
+		$record = "seq.$seqnum";
+	    }
+	    $record = $record . "\t77\t*\t0\t255\t*\t*\t0\t0\t$forward_read\t$forward_qual\n";
+	    if($map_names eq "true") {
+		$tmp = "seq.$seqnum" . "b";
+		$record = $record . $namemapping{$tmp};
+	    } else {
+		$record = $record . "seq.$seqnum";
+	    }
+	    $record = $record . "\t141\t*\t0\t255\t*\t*\t0\t0\t$reverse_read\t$reverse_qual\n";
 	    if($suppress1 eq "false" && $suppress2 eq "false" && $suppress3 eq "false") {
 		print SAM $record;
-#		print $record;
-#		print "-----------\n";
 	    }
 	}
     }

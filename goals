@@ -19,4 +19,10 @@
 * There are a few different scripts for sorting based on
   chromosome. Can we unify them?
 
+* It seems like we could create temp directories for all the
+  intermediate files, so we don't have to depend on the user running
+  the script in a separate directory.
+
 Need to install Log::Log4perl
+
+Make mock blat and bowtie, to make testing easier?

@@ -33,13 +33,13 @@ for(my $i=2; $i<@ARGV; $i++) {
     }
 
     if($optionrecognized == 0) {
-	die "\nERROR: option '$ARGV[$i]' not recognized\n";
+	die "\nERROR: in script sort_blat.pl: option '$ARGV[$i]' not recognized\n";
     }
 }
 
-open(INFILE, $infile);
+open(INFILE, $infile) or die "ERROR: in script sort_blat.pl: cannot open file '$infile' for reading.\n\n";
 my $tempfilename = $infile . "_temp1";
-open(OUTFILE, ">$tempfilename");
+open(OUTFILE, ">$tempfilename") or die "ERROR: in script sort_blat.pl: cannot open file '$tempfilename' for writing.\n\n";
 while(my $line = <INFILE>) {
     chomp($line);
     my @a = split(/\t/, $line);
@@ -53,8 +53,8 @@ close(INFILE);
 my $tempfilename2 = $infile . "_temp2";
 my $x = `sort -T . -n $tempfilename > $tempfilename2`;
 $x = `rm $tempfilename`;
-open(INFILE, $tempfilename2);
-open(OUTFILE, ">$outfile");
+open(INFILE, $tempfilename2) or die "ERROR: in script sort_blat.pl: cannot open file '$tempfilename2' for reading.\n\n";
+open(OUTFILE, ">$outfile") or die "ERROR: in script sort_blat.pl: cannot open file '$outfile' for writing.\n\n";
 while(my $line = <INFILE>) {
     chomp($line);
     $line =~ s/^(\d+)\t(.)\t//;
@@ -66,7 +66,7 @@ $x = `rm $tempfilename2`;
 my $N = -s $infile;
 my  $M = -s $outfile;
 if($N != $M) {
-    die "\nERROR: The sorted file is not the same size as the infile.\n\n";
+    die "\nERROR: in script sort_blat.pl: The sorted file is not the same size as the infile.\n\n";
 }
 
 if($remove eq "true") {

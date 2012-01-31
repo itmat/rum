@@ -18,11 +18,11 @@ Where:  <GNU infile> is the file of non-unique mappers from the script make_GU_a
 }
 
 $infile1 = $ARGV[0];
-open(INFILE1, $infile1) or die "\nERROR: Cannot open file '$infile1' for reading\n";
+open(INFILE1, $infile1) or die "\nERROR: in script merge_GNU_and_TNU_and_CNU.pl: Cannot open file '$infile1' for reading\n";
 $infile2 = $ARGV[1];
-open(INFILE2, $infile2) or die "\nERROR: Cannot open file '$infile2' for reading\n";
+open(INFILE2, $infile2) or die "\nERROR: in script merge_GNU_and_TNU_and_CNU.pl: Cannot open file '$infile2' for reading\n";
 $infile3 = $ARGV[2];
-open(INFILE3, $infile3) or die "\nERROR: Cannot open file '$infile3' for reading\n";
+open(INFILE3, $infile3) or die "\nERROR: in script merge_GNU_and_TNU_and_CNU.pl: Cannot open file '$infile3' for reading\n";
 $x1 = `tail -1 $infile1`;
 $x2 = `tail -1 $infile2`;
 $x3 = `tail -1 $infile3`;
@@ -46,7 +46,8 @@ chomp($line1);
 chomp($line2);
 chomp($line3);
 $outfile = $ARGV[3];
-open(OUTFILE, ">$outfile") or die "\nERROR: Cannot open file '$outfile' for writing\n";
+open(OUTFILE, ">$outfile") or die "\nERROR: in script merge_GNU_and_TNU_and_CNU.pl: Cannot open file '$outfile' for writing\n";
+
 for($s=1; $s<=$M; $s++) {
     undef %hash;
     $line1 =~ /seq.(\d+)([^\d])/;

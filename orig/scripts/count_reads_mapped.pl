@@ -1,32 +1,100 @@
+#!/usr/bin/perl
+
+# Written by Gregory R Grant
+# University of Pennsylvania, 2010
+
+$|=1;
+
 open(INFILE, $ARGV[0]);
-if(!($ARGV[0]=~/\S/)) {
-    print "\nUsage: count_reads_mapped.pl <filename of unique mappers> <filename of non-unique mappers>\n\nFile lines should look like this:\nseq.6b  chr19   44086924-44086960, 44088066-44088143    CGTCCAATCACACGATCAAGTTCTTCATGAACTTTGG:CTTGCACCTCTGGATGCTTGACAAGGAGCAGAAGCCCGAATCTCAGGGTGGTGCTGGTTGTCTCTGTGACTGCCGTAA\n\n";
-    exit();
+if(@ARGV<2) {
+    die "
+Usage: count_reads_mapped.pl <RUM Unique file> <RUM NU file> [options]
+
+Options: -maxseq n : specify the max sequence id, otherwise
+          will just use the max seq id found in the two files.
+
+         -minseq n : specify the min sequences id, otherwise
+          will just use the min seq id found in the two files.
+
+File lines should look like this:
+seq.6b  chr19   44086924-44086960, 44088066-44088143    CGTCCAATCACACGATCAAGTTCTTCATGAACTTTGG:CTTGCACCTCTGGATGCTTGACAAGGAGCAGAAGCCCGAATCTCAGGGTGGTGCTGGTTGTCTCTGTGACTGCCGTAA
+
+";
 }
+
 $max_seq_num = 0;
+$max_num_seqs_specified = "false";
+$min_num_seqs_specified = "false";
+for($i=2; $i<@ARGV; $i++) {
+    $optionrecognized = 0;
+    if($ARGV[$i] eq "-maxseq") {
+	$max_seq_num = $ARGV[$i+1];
+	$max_num_seqs_specified = "true";
+	if(!($max_seq_num =~ /^\d+$/)) {
+	    $x = $ARGV[$i+1];
+	    die "\nError: in script count_reads_mapped.pl: option $ARGV[$i] $x is not recognized, you need a number here, not '$x'...\n\n";
+	}
+	$optionrecognized = 1;
+	$i++;
+    }
+    if($ARGV[$i] eq "-minseq") {
+	$min_seq_num = $ARGV[$i+1];
+	$min_num_seqs_specified = "true";
+	if(!($min_seq_num =~ /^\d+$/)) {
+	    $x = $ARGV[$i+1];
+	    die "\nError: in script count_reads_mapped.pl: option $ARGV[$i] $x is not recognized, you need a number here, not '$x'...\n\n";
+	}
+	$optionrecognized = 1;
+	$i++;
+    }
+    if($optionrecognized == 0) {
+	die "\nError: in script count_reads_mapped.pl: option $ARGV[$i] is not recognized\n\n";
+    }
+}
+
 $flag = 0;
 $num_areads = 0;
 $num_breads = 0;
+$current_seqnum = 0;
+$previous_seqnum = 0;
 while($line = <INFILE>) {
     chomp($line);
     $line =~ /seq.(\d+)([^\d])/;
     $seqnum = $1;
-    if($flag == 0) {
+    $type = $2;
+    $current_seqnum = $seqnum;
+    if($current_seqnum > $previous_seqnum) {
+	foreach $key (keys %typea) {
+	    if($typeb{$key} == 0) {
+		$num_a_only++;
+	    }
+	}
+	foreach $key (keys %typeb) {
+	    if($typea{$key} == 0) {
+		$num_b_only++;
+	    }
+	}
+	undef %typea;
+	undef %typeb;
+	undef %joined;
+	undef %unjoined;
+	$previous_seqnum = $current_seqnum;
+    }
+    if($flag == 0 && $min_num_seqs_specified eq "false") {
 	$flag = 1;
 	$min_seq_num = $seqnum;
     }
-    if($seqnum > $max_seq_num) {
+    if($seqnum > $max_seq_num && $max_num_seqs_specified eq "false") {
 	$max_seq_num = $seqnum;
     }
-    if($seqnum < $min_seq_num) {
+    if($seqnum < $min_seq_num && $min_num_seqs_specified eq "false") {
 	$min_seq_num = $seqnum;
     }
-    $type = $2;
     if($type eq "\t") {
 	$joined{$seqnum}++;
 	$numjoined++;
 	if($joined{$seqnum} > 1) {
-	    print "SOMETHING IS WRONG: $seqnum ($joined{$seqnum}) $line\n";
+	    print STDERR "in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($joined{$seqnum}) $line\n";
 	}
     }
     if($type eq "a" || $type eq "b") {
@@ -35,24 +103,23 @@ while($line = <INFILE>) {
 	    $num_unjoined_consistent++;
 	}
 	if($unjoined{$seqnum} > 2) {
-	    print "SOMETHING IS WRONG: $seqnum ($unjoined{$seqnum}) $line\n";
+	    print STDERR "in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($unjoined{$seqnum}) $line\n";
 	}
     }
     if($type eq "a") {
 	$typea{$seqnum}++;
 	$num_areads++;
 	if($typea{$seqnum} > 1) {
-	    print "SOMETHING IS WRONG: $seqnum ($typea{$seqnum}) $line\n";
+	    print STDERR "in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($typea{$seqnum}) $line\n";
 	}
     }
     if($type eq "b") {
 	$typeb{$seqnum}++;
 	$num_breads++;
 	if($typeb{$seqnum} > 1) {
-	    print "SOMETHING IS WRONG: $seqnum ($typeb{$seqnum}) $line\n";
+	    print STDERR "in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($typeb{$seqnum}) $line\n";
 	}
     }
-    $prev_line = $line;
 }
 close(INFILE);
 foreach $key (keys %typea) {
@@ -65,6 +132,10 @@ foreach $key (keys %typeb) {
 	$num_b_only++;
     }
 }
+undef %typea;
+undef %typeb;
+undef %joined;
+undef %unjoined;
 
 $f = format_large_int($seqnum);
 $total=$max_seq_num - $min_seq_num + 1;
@@ -95,7 +166,7 @@ if($num_breads > 0) {
     print "Num forward total: $f ($percent_a_mapped%)\n";
 }
 else {
-    print "UNIQUE MAPPERS: $f ($percent_a_mapped%)\n";
+    print "------\nUNIQUE MAPPERS: $f ($percent_a_mapped%)\n";
 }
 $f = format_large_int($num_b_total);
 $percent_b_mapped = int($num_b_total / $total * 10000) / 100;
@@ -110,12 +181,36 @@ if($num_breads > 0) {
     print "\n";
 }
 
+$current_seqnum = 0;
+$previous_seqnum = 0;
+$num_ambig_consistent=0;
+$num_ambig_a_only=0;
+$num_ambig_b_only=0;
 open(INFILE, $ARGV[1]);
+print "------\n";
 while($line = <INFILE>) {
     chomp($line);
     $line =~ /seq.(\d+)(.)/;
     $seqnum = $1;
     $type = $2;
+    $current_seqnum = $seqnum;
+    if($current_seqnum > $previous_seqnum) {
+	foreach $seqnum (keys %allids) {
+	    if($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 > 0) {
+		$num_ambig_consistent++;	
+	    }
+	    if($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 == 0) {
+		$num_ambig_a++;
+	    }
+	    if($ambiga{$seqnum}+0 == 0 && $ambigb{$seqnum}+0 > 0) {
+		$num_ambig_b++;
+	    }
+	}
+	undef %allids;
+	undef %ambiga;
+	undef %ambigb;
+	$previous_seqnum = $current_seqnum;
+    }
     if($type eq "a") {
 	$ambiga{$seqnum}++;
     }
@@ -129,10 +224,6 @@ while($line = <INFILE>) {
     $allids{$seqnum}++;
 }
 close(INFILE);
-
-$num_ambig_consistent=0;
-$num_ambig_a_only=0;
-$num_ambig_b_only=0;
 foreach $seqnum (keys %allids) {
     if($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 > 0) {
 	$num_ambig_consistent++;	
@@ -144,6 +235,10 @@ foreach $seqnum (keys %allids) {
 	$num_ambig_b++;
     }
 }
+undef %allids;
+undef %ambiga;
+undef %ambigb;
+
 $f = format_large_int($num_ambig_a);
 $p = int($num_ambig_a/$total * 1000) / 10;
 if($num_breads > 0) {
@@ -175,7 +270,7 @@ if($num_breads > 0) {
     print "Total number forward: $f ($p%)\n";
 }
 else {
-    print "TOTAL: $f ($p%)\n";
+    print "-----\nTOTAL: $f ($p%)\n-----\n";
 }
 $f = format_large_int($num_reverse_total);
 $p = int($num_reverse_total/$total * 1000) / 10;

@@ -1,9 +1,0 @@
-indexes/mm9_refseq_ucsc_gene_info.txt
-bin/bowtie
-bin/blat
-bin/mdust
-indexes/mm9_genome
-indexes/mm9_refseq_ucsc_genes
-indexes/mm9_genome_sequence_one-line-seqs.fa
-scripts
-indexes/mm9_sam_header.txt

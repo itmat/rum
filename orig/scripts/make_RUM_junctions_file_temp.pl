@@ -100,7 +100,7 @@ specified by -signal) are colored a shade lighter.
 ";
 }
 
-# print "\nMaking junctions files...\n";
+print "\nMaking junctions files...\n";
 
 $allowable_overlap = 8;
 $rumU = $ARGV[0];
@@ -184,19 +184,13 @@ for($i=7; $i<@ARGV; $i++) {
     }
 }
 
-if($strandspecified eq 'true') {
+if($strandspecified eq 'true' && $strand eq "+") {
     print OUTFILE1 "intron\tstrand\tscore\tknown\tstandard_splice_signal\tsignal_not_canonical\tambiguous\tlong_overlap_unique_reads\tshort_overlap_unique_reads\tlong_overlap_nu_reads\tshort_overlap_nu_reads\n";
-    if($strand eq "+") {
-	print OUTFILE2 "track\tname=rum_junctions_pos-strand_all\tvisibility=3\tdescription=\"RUM junctions pos strand (all)\" itemRgb=\"On\"\n";
-	print OUTFILE3 "track\tname=rum_junctions_pos-strand_hq\tvisibility=3\tdescription=\"RUM high quality junctions pos strand\" itemRgb=\"On\"\n";
-    }
-    if($strand eq "-") {
-	print OUTFILE2 "track\tname=rum_junctions_neg-strand_all\tvisibility=3\tdescription=\"RUM junctions neg strand (all)\" itemRgb=\"On\"\n";
-	print OUTFILE3 "track\tname=rum_junctions_neg-strand_hq\tvisibility=3\tdescription=\"RUM high quality junctions neg strand\" itemRgb=\"On\"\n";
-    }
-}
-if($strandspecified eq 'false') {
+} else {
     print OUTFILE1 "intron\tscore\tknown\tstandard_splice_signal\tsignal_not_canonical\tambiguous\tlong_overlap_unique_reads\tshort_overlap_unique_reads\tlong_overlap_nu_reads\tshort_overlap_nu_reads\n";
+}
+
+if($strand eq "+") {
     print OUTFILE2 "track\tname=rum_junctions_all\tvisibility=3\tdescription=\"RUM junctions (all)\" itemRgb=\"On\"\n";
     print OUTFILE3 "track\tname=rum_junctions_hq\tvisibility=3\tdescription=\"RUM high quality junctions\" itemRgb=\"On\"\n";
 }
@@ -274,7 +268,7 @@ while($FLAG == 0) {
 	    $line =~ />(.*)/;
 	    $chr = $1;
 	    $chr =~ s/:[^:]*$//;
-#	    print "chr=$chr\n";
+	    print "chr=$chr\n";
 	    $ref_seq = <GENOMESEQ>;
 	    chomp($ref_seq);
 	    $CHR2SEQ{$chr} = $ref_seq;
@@ -340,7 +334,6 @@ sub printjunctions () {
 	}
 	$known_noncanonical_signal{$intron} = $known_noncanonical_signal{$intron} + 0;
 	if($goodoverlapU{$intron} > 0 && $goodsplicesignal{$intron} == 1) {
-	    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 0;
 	    $N = $goodoverlapU{$intron} + $goodsplicesignal{$intron} - 1;
 	    if($strandspecified eq 'true') {
 		print OUTFILE1 "$intron\t$strand\t$N\t$knownintron{$intron}\t$goodsplicesignal{$intron}\t$known_noncanonical_signal{$intron}\t$amb{$intron}\t$goodoverlapU{$intron}\t$badoverlapU{$intron}\t$goodoverlapNU{$intron}\t$badoverlapNU{$intron}\n";
@@ -363,10 +356,8 @@ sub printjunctions () {
 	    }
 	} else {
 	    if($strandspecified eq 'true') {
-		$goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 0;
 		print OUTFILE1 "$intron\t$strand\t0\t$knownintron{$intron}\t$goodsplicesignal{$intron}\t$known_noncanonical_signal{$intron}\t$amb{$intron}\t$goodoverlapU{$intron}\t$badoverlapU{$intron}\t$goodoverlapNU{$intron}\t$badoverlapNU{$intron}\n";
 	    } else {
-		$goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 0;
 		print OUTFILE1 "$intron\t0\t$knownintron{$intron}\t$goodsplicesignal{$intron}\t$known_noncanonical_signal{$intron}\t$amb{$intron}\t$goodoverlapU{$intron}\t$badoverlapU{$intron}\t$goodoverlapNU{$intron}\t$badoverlapNU{$intron}\n";
 	    }
 	    $NN = $goodoverlapU{$intron} + $goodoverlapNU{$intron} + $badoverlapU{$intron} + $badoverlapNU{$intron};
@@ -381,7 +372,7 @@ sub printjunctions () {
 
 sub getjunctions () {
     open(INFILE, $rumU) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$rumU' for reading\n\n";
-#    print "please wait...\n";
+    print "please wait...\n";
     while($line = <INFILE>) {
 	if(!($line =~ /, /)) {
 	    next;
@@ -391,7 +382,7 @@ sub getjunctions () {
 	if($strand eq "-" && $a[3] eq "+") {
 	    next;
 	}
-	if($strand eq "+" && $a[3] eq "-" && $strandspecified eq 'true') {
+	if($strand eq "+" && $a[3] eq "-") {
 	    next;
 	}
 	$chr = $a[1];
@@ -399,6 +390,9 @@ sub getjunctions () {
 	    next;
 	}
 	$seq = $a[4];
+	$snt = $a[0];
+	$snt =~ s/seq.//;
+#	print STDERR "1:seq.$snt\n";
 	while($seq =~ /^([^+]*)\+/) {  # removing the insertions
 	    $pref = $1;
 	    $seq =~ s/^$pref\+[^+]+\+/$pref/;
@@ -426,7 +420,6 @@ sub getjunctions () {
 		    $intron_lastbase = substr($CHR2SEQ{$chr}, $iend-1, 1);
 		    $splice_signal_upstream = substr($CHR2SEQ{$chr}, $istart-1, 2);
 		    $splice_signal_downstream = substr($CHR2SEQ{$chr}, $iend-2, 2);
-		    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 0;
 		    for($sig=0; $sig<@donor; $sig++) {
 			if(($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig]) || ($splice_signal_upstream eq $acceptor_rev[$sig] && $splice_signal_downstream eq $donor_rev[$sig])) {
 			    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 1;
@@ -454,7 +447,7 @@ sub getjunctions () {
 			$allintrons{$altintron} = 1;
 		    }
 		}
-		if($elen1 < $allowable_overlap || $elen2 < $allowable_overlap) {
+		if($elen1 <= $allowable_overlap || $elen2 <= $allowable_overlap) {
 		    $badoverlapU{$intron}++;
 		    if($altintron =~ /\S/) {
 			$badoverlapU{$altintron}++;			    
@@ -469,8 +462,8 @@ sub getjunctions () {
 	}
     }
     close(INFILE);
-#    print STDERR "finished Unique\n";
-#    print "please wait some more...\n";
+    print STDERR "finished Unique\n";
+    print "please wait some more...\n";
     open(INFILE, $rumNU) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$rumNU' for reading\n\n";
     while($line = <INFILE>) {
 	if(!($line =~ /, /)) {
@@ -481,7 +474,7 @@ sub getjunctions () {
 	if($strand eq "-" && $a[3] eq "+") {
 	    next;
 	}
-	if($strand eq "+" && $a[3] eq "-" && $strandspecified eq 'true') {
+	if($strand eq "+" && $a[3] eq "-") {
 	    next;
 	}
 	if(!(defined $CHR2SEQ{$a[1]})) {
@@ -495,6 +488,9 @@ sub getjunctions () {
 	$chr = $a[1];
 	@SPANS = split(/, /,$a[2]);
 	@SEQ = split(/:/, $seq);
+	$snt = $a[0];
+	$snt =~ s/seq.//;
+#	print STDERR "2:seq.$snt\n";
 	for($i=0; $i<@SPANS-1; $i++) {
 	    @c1 = split(/-/,$SPANS[$i]);
 	    @c2 = split(/-/,$SPANS[$i+1]);
@@ -516,7 +512,6 @@ sub getjunctions () {
 		    $intron_lastbase = substr($CHR2SEQ{$chr}, $iend-1, 1);
 		    $splice_signal_upstream = substr($CHR2SEQ{$chr}, $istart-1, 2);
 		    $splice_signal_downstream = substr($CHR2SEQ{$chr}, $iend-2, 2);
-		    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 0;
 		    for($sig=0; $sig<@donor; $sig++) {
 			if(($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig]) || ($splice_signal_upstream eq $acceptor_rev[$sig] && $splice_signal_downstream eq $donor_rev[$sig])) {
 			    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 1;
@@ -544,7 +539,7 @@ sub getjunctions () {
 		}
 #		    print "elen1 = $elen1\n";
 #		    print "elen2 = $elen2\n";
-		if($elen1 < $allowable_overlap || $elen2 < $allowable_overlap) {
+		if($elen1 <=$allowable_overlap || $elen2 <= $allowable_overlap) {
 		    $badoverlapNU{$intron}++;
 		    if($altintron =~ /\S/) {
 			$badoverlapNU{$altintron}++;			    
@@ -559,7 +554,7 @@ sub getjunctions () {
 	}
     }
     close(INFILE);
-#    print STDERR "finished NU\n";
+    print STDERR "finished NU\n";
 }
 
 sub reversesignal () {

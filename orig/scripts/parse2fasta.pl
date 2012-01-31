@@ -14,8 +14,10 @@ if(@ARGV < 1) {
     print "\nUsage: parse2fasta.pl <infile1> [infile2] [options]\n\n";
     print "infile1 are the foward reads and infile2 are the reverse (if there are\nreverse reads).\n\n";
     print "Options:\n";
-    print "     -firstrow n  : n is the first row that has sequence on it.\n";
-    print "     -secondrow n : n is the second row that has sequence on it.\n\n";
+    print "     -firstrow n      : n is the first row that has sequence on it.\n";
+    print "     -secondrow n     : n is the second row that has sequence on it.\n";
+    print "     -name_mapping F  : If set will write a file <F> mapping modified names to\n";
+    print "                        original names.\n\n";
     print "Note: these parameters are inferred automatically, the options are given\n";
     print "just in case you need to do it by hand for any reason.\n\n";
     print "PURPOSE: ";
@@ -39,6 +41,8 @@ if(-e $ARGV[1]) {
 my $firstNArow = 0;
 my $secondNArow = 0;
 my $userparamsgiven = 0;
+my $map_names = "false";
+my $name_mapping_file;
 for(my $i=$optionsstart; $i<@ARGV; $i++) {
     my $optionrecognized = 1;
     if($ARGV[$i] eq "-firstrow") {
@@ -52,12 +56,19 @@ for(my $i=$optionsstart; $i<@ARGV; $i++) {
 	$optionrecognized = 0;
 	$i++;
     }
+    if($ARGV[$i] eq "-name_mapping") {
+	$map_names = "true";
+	$i++;
+	$name_mapping_file = $ARGV[$i];
+	open(NAMEMAPPINGALL, ">$name_mapping_file") or die "ERROR: in script parsefastq.pl, cannot open \"$name_mapping_file\" for writing.\n\n";
+	$optionrecognized = 0;
+    }
     if($optionrecognized == 1) {
-	die "\nERROR: option '$ARGV[$i-1]' not recognized.  Must be 'single' or 'paired'.\n";
+	die "\nERROR: in script parse2fasta.pl: option '$ARGV[$i-1]' not recognized.  Must be 'single' or 'paired'.\n";
     }
 }
 if(($firstNArow =~ /\S/ && !($secondNArow =~ /\S/)) && ($secondNArow =~ /\S/ && !($firstNArow =~ /\S/))) {
-    die "\nERROR: you must set *both* -firstrow and -secondrow, or neither\n";
+    die "\nERROR: in script parse2fasta.pl: you must set *both* -firstrow and -secondrow, or neither\n";
 }
 
 open(INFILE1, $ARGV[0]);
@@ -71,9 +82,8 @@ if($userparamsgiven == 0) {  # the following figures out how many rows per block
 	    last;
 	}
 	chomp($line);
-	$line =~ s/\^M$//;
 	$line =~ s/[^ACGTN.]$//;
-	if($line =~ /^(A|C|G|T|N|\.){10}(A|C|G|T|N|\.)+$/) {
+	if($line =~ /^(A|C|G|T|N|\.){5}(A|C|G|T|N|\.)+$/) {
 	    $linearray[$cnt] = 1;
 	} else {
 	    $linearray[$cnt] = 0;
@@ -101,29 +111,37 @@ if($userparamsgiven == 0) {  # the following figures out how many rows per block
     if($num_lines_seq == 1) {
 	print ">seq.1a\n";
 	open(INFILE, $ARGV[0]);
+	my $i=0;
 	$line = <INFILE>;
+	until($linearray[$i] == 1) {
+	    $line = <INFILE>;
+	    $i++;
+	}
 	chomp($line);
-	$line =~ s/\^M$//;
 	$line =~ s/[^ACGTN.]$//;
 	if($line =~ /^(A|C|G|T|N|\.){10}(A|C|G|T|N|\.)+$/) {
 	    $line =~ s/\./N/g;
 	    print "$line\n";
 	} else {
-	    die "Error: There's only one line in the file '$ARGV[0]' and it doesn't\nlook like sequence.";
+	    die "ERROR: in script parse2fasta.pl: There's only one line in the file '$ARGV[0]' and it doesn't\nlook like sequence.";
 	}
 	close(INFILE);
 	if($paired eq 'true') {
 	    print ">seq.1b\n";
 	    open(INFILE, $ARGV[1]);
+	    my $i=0;
 	    $line = <INFILE>;
+	    until($linearray[$i] == 1) {
+		$line = <INFILE>;
+		$i++;
+	    }
 	    chomp($line);
-	    $line =~ s/\^M$//;
 	    $line =~ s/[^ACGTN.]$//;
 	    if($line =~ /^(A|C|G|T|N|\.){10}(A|C|G|T|N|\.)+$/) {
 		$line =~ s/\./N/g;
 		print "$line\n";
 	    } else {
-		die "Error: There's only one line in the file '$ARGV[1]' and it doesn't\nlook like sequence.";
+		die "ERROR: in script parse2fasta.pl: There's only one line in the file '$ARGV[1]' and it doesn't\nlook like sequence.";
 	    }
 	    close(INFILE);
 	}
@@ -160,7 +178,7 @@ if($userparamsgiven == 0) {  # the following figures out how many rows per block
 	    }
 	}
 	if($k==9 && $flag == 0) {
-	    die "\nError: canont determine which lines have the sequence.  Consider using\nthe command line options -firstrow and -secondrow.\n\n";
+	    die "\nERROR: in script parse2fasta.pl: canont determine which lines have the sequence.  Consider using\nthe command line options -firstrow and -secondrow.\n\n";
 	}
     }
 }
@@ -199,10 +217,9 @@ while($line = <INFILE1>) {    # this loop writes out the fasta file
 	print "a\n";
 	chomp($line);
 	my $line_hold = $line;
-	$line =~ s/\^M$//;
 	$line =~ s/[^ACGTN.]$//;
 	if($line =~ /[^ACGTN.]/ || !($line =~ /\S/)) {
-	    print STDERR "\nERROR: There's something wrong with line $linecnt in file $ARGV[0]\nIt should be a line of sequence but it is:\n$line_hold\n\n";
+	    print STDERR "\nERROR: in script parse2fasta.pl: There's something wrong with line $linecnt in file $ARGV[0]\nIt should be a line of sequence but it is:\n$line_hold\n\n";
 	    exit();
 	}
 	$line =~ s/\./N/g;
@@ -212,10 +229,9 @@ while($line = <INFILE1>) {    # this loop writes out the fasta file
 	    print ".$cnt2";
 	    print "b\n";
 	    $line_hold = $line2;
-	    $line2 =~ s/\^M$//;
 	    $line2 =~ s/[^ACGTN.]$//;
 	    if($line2 =~ /[^ACGTN.]/ || !($line2 =~ /\S/)) {
-		print STDERR "\nERROR: There's something wrong with line $linecnt in file $ARGV[1]\nIt should be a line of sequence but it is:\n$line_hold\n\n";
+		print STDERR "\nERROR: in script parse2fasta.pl: There's something wrong with line $linecnt in file $ARGV[1]\nIt should be a line of sequence but it is:\n$line_hold\n\n";
 		exit();
 	    }
 	    $line2 =~ s/\./N/g;
@@ -262,7 +278,7 @@ sub try_to_see_if_part_of_each_line_is_seq () {
 		}
 	    }
 	    if($flag == 0) {
-		die "\nSorry, can't figure this file out, maybe it's corrupt or you might have to write a custom parser.\n";
+		die "\nERROR: in script parse2fasta.pl: Sorry, can't figure this file out, maybe it's corrupt or you might have to write a custom parser.\n";
 	    }
 	}
     } else {
@@ -308,7 +324,7 @@ sub try_to_see_if_part_of_each_line_is_seq () {
 		}
 	    }
 	    if($flag1 == 0 || $flag2 == 0) {
-		die "\nSorry, can't figure these files out, maybe they're corrupt\nor you might have to write a custom parser.\n";
+		die "\nERROR: in script parse2fasta.pl: Sorry, can't figure these files out, maybe they're corrupt\nor you might have to write a custom parser.\n";
 	    }
 	}
     }

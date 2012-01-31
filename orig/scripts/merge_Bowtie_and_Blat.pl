@@ -35,6 +35,9 @@ Where:
                           but if there aren't enough well mapped reads I might not get
                           it right.  If there are variable read lengths, set n=v.
 
+         -minoverlap n  : The minimum overlap required to report the intersection of
+                          two otherwise disagreeing alignments of the same read.
+
          -maxpairdist N : N is an integer greater than zero representing
                           the furthest apart the forward and reverse reads
                           can be.  They could be separated by an exon/exon
@@ -46,7 +49,7 @@ Where:
 
 # get readlength from bowtie unique/nu, if both empty then get max in blat unique/nu
 
-open(INFILE, $ARGV[0]) or die "\nError: unable to open file '$ARGV[0]' for reading\n\n";
+open(INFILE, $ARGV[0]) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$ARGV[0]' for reading\n\n";
 
 
 $type = $ARGV[6];
@@ -60,11 +63,12 @@ if($type eq "paired") {
     $typerecognized = 0;
 }
 if($typerecognized == 1) {
-    die "\nERROR: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
+    die "\nERROR: in script merge_Bowtie_and_Blat.pl: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
 }
 
 $max_distance_between_paired_reads = 500000;
 $readlength = 0;
+$user_min_overlap = 0;
 for($i=7; $i<@ARGV; $i++) {
     $optionrecognized = 0;
     if($ARGV[$i] eq "-maxpairdist") {
@@ -77,9 +81,17 @@ for($i=7; $i<@ARGV; $i++) {
 	$readlength = $ARGV[$i];
 	$optionrecognized = 1;
     }
+    if($ARGV[$i] eq "-minoverlap") {
+	$i++;
+	$user_min_overlap = $ARGV[$i];
+	if(!($user_min_overlap =~ /^\d+$/) || $user_min_overlap < 5) {
+	    die "\nERROR: in script merge_Bowtie_and_Blat.pl: -minoverlap must be a positive integer > 4, '$ARGV[$i]' not recognized\n";
+	}
+	$optionrecognized = 1;
+    }
 
     if($optionrecognized == 0) {
-	die "\nERROR: option '$ARGV[$i-1] $ARGV[$i]' not recognized\n";
+	die "\nERROR: in script merge_Bowtie_and_Blat.pl: option '$ARGV[$i-1] $ARGV[$i]' not recognized\n";
     }
 }
 
@@ -109,7 +121,7 @@ if($readlength == 0) {
 	}
     }
     close(INFILE);
-    open(INFILE, $ARGV[1]) or die "\nError: unable to open file '$ARGV[1]' for reading\n\n";
+    open(INFILE, $ARGV[1]) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$ARGV[1]' for reading\n\n";
     $cnt = 0;
     while($line = <INFILE>) {
 	$length = 0;
@@ -134,7 +146,7 @@ if($readlength == 0) {
     }
     close(INFILE);
     
-    open(INFILE, $ARGV[2]) or die "\nError: unable to open file '$ARGV[2]' for reading\n\n";
+    open(INFILE, $ARGV[2]) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$ARGV[2]' for reading\n\n";
     $cnt = 0;
     while($line = <INFILE>) {
 	$length = 0;
@@ -158,7 +170,7 @@ if($readlength == 0) {
 	}
     }
     close(INFILE);
-    open(INFILE, $ARGV[3]) or die "\nError: unable to open file '$ARGV[3]' for reading\n\n";
+    open(INFILE, $ARGV[3]) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$ARGV[3]' for reading\n\n";
     $cnt = 0;
     while($line = <INFILE>) {
 	$length = 0;
@@ -197,9 +209,12 @@ if(!($readlength eq "v")) {
 	$min_overlap = int(.6 * $readlength);
     }
 }
+if($user_min_overlap > 0) {
+    $min_overlap = $user_min_overlap;
+}
 
 $f0 = $ARGV[3];
-open(INFILE, $f0) or die "\nError: unable to open file '$f0' for reading\n\n";
+open(INFILE, $f0) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f0' for reading\n\n";
 
 while($line = <INFILE>) {
     $line =~ /^seq.(\d+)/;
@@ -217,13 +232,13 @@ while($line = <INFILE>) {
 }
 close(INFILE);
 
-open(OUTFILE2, ">>$f0") or die "\nError: unable to open file '$f0' for writing\n\n";
+open(OUTFILE2, ">>$f0") or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f0' for writing\n\n";
                           # The only things we're going to add to BlatNU.chunk are the reads that
                           # are single direction only mappers in BowtieUnique that are also single
                           # direction only mappers in BlatNU, but the two mappings disagree.
                           # Also, do not write these to RUM_Unique.
 $f1 = $ARGV[2];
-open(INFILE, $f1) or die "\nError: unable to open file '$f1' for reading\n\n";
+open(INFILE, $f1) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f1' for reading\n\n";
 while($line = <INFILE>) {
     if($line =~ /^seq.(\d+)/) {
 	$bowtie_ambiguous_mappers{$1}++;
@@ -231,11 +246,11 @@ while($line = <INFILE>) {
 }
 close(INFILE);
 $f2 = $ARGV[0];
-open(INFILE1, $f2) or die "\nError: unable to open file '$f2' for reading\n\n";
+open(INFILE1, $f2) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f2' for reading\n\n";
 $f3 = $ARGV[1];
-open(INFILE2, $f3) or die "\nError: unable to open file '$f3' for reading\n\n";
+open(INFILE2, $f3) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f3' for reading\n\n";
 $f4 = $ARGV[4];
-open(OUTFILE1, ">$f4") or die "\nError: unable to open file '$f4' for writing\n\n";
+open(OUTFILE1, ">$f4") or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f4' for writing\n\n";
 
 $max_distance_between_paired_reads = 500000;
 $num_lines_at_once = 10000;
@@ -488,6 +503,9 @@ while($FLAG == 1 || $FLAG2 == 1) {
 			    $min_overlap = int(.6 * $readlength_temp);
 			}
 		    }
+		    if($user_min_overlap > 0) {
+			$min_overlap = $user_min_overlap;
+		    }
 
 		    if(($length_overlap > $min_overlap) && ($a1[1] eq $a2[1])) {
 			print OUTFILE1 "$hash1{$id}[1]\n";  # preference bowtie (so no worries about insertions)
@@ -563,7 +581,7 @@ while($FLAG == 1 || $FLAG2 == 1) {
 		    $apost = $3;
 		    $aseq =~ s/\+.*\+//;
 		    if(!($a_insertion =~ /\S/)) {
-			print STDERR "Something is wrong, here 1.07\n";
+			print STDERR "ERROR: in script merge_Bowtie_and_Blat.pl: Something is wrong here, possible bug: code_id 0001\n";
 		    }
 		}
 		$bseq=~ s/://g;
@@ -574,7 +592,7 @@ while($FLAG == 1 || $FLAG2 == 1) {
 		    $bpost = $3;
 		    $bseq =~ s/\+.*\+//;
 		    if(!($b_insertion =~ /\S/)) {
-			print STDERR "Something is wrong, here 1.21\n";
+			print STDERR "ERROR: in script merge_Bowtie_and_Blat.pl: Something is wrong here, possible bug: code_id 0002\n";
 		    }
 		}
 		$dflag = 0;
@@ -681,8 +699,8 @@ close(OUTFILE2);
 
 # now need to remove the stuff in %remove_from_BlatNU from BlatNU
 $filename = $ARGV[5];
-open(INFILE, $f0) or die "\nError: unable to open file '$f0' for reading\n\n";
-open(OUTFILE, ">$filename") or die "\nError: unable to open file '$filename' for writing\n\n";
+open(INFILE, $f0) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f0' for reading\n\n";
+open(OUTFILE, ">$filename") or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$filename' for writing\n\n";
 while($line = <INFILE>) {
     $line =~ /seq.(\d+)/;
     if($remove_from_BlatNU{$1}+0==0) {
@@ -690,7 +708,7 @@ while($line = <INFILE>) {
     }
 }
 close(INFILE);
-open(INFILE, $f1) or die "\nError: unable to open file '$f1' for reading\n\n";
+open(INFILE, $f1) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f1' for reading\n\n";
                   # now append BowtieNU to get the full NU file
 while($line = <INFILE>) {
     print OUTFILE $line;

@@ -88,7 +88,7 @@ if($type eq "paired") {
     $typerecognized = 0;
 }
 if($typerecognized == 1) {
-    die "\nERROR: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
+    die "\nERROR: in script make_GU_and_GNU.pl: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
 }
 
 $max_distance_between_paired_reads = 500000;
@@ -101,19 +101,19 @@ for($i=4; $i<@ARGV; $i++) {
     }
 
     if($optionrecognized == 0) {
-	die "\nERROR: option '$ARGV[$i-1] $ARGV[$i]' not recognized\n";
+	die "\nERROR: in script make_GU_and_GNU.pl: option '$ARGV[$i-1] $ARGV[$i]' not recognized\n";
     }
 }
 
-open(INFILE, $infile) or die "\nERROR: Cannot open infile '$infile'\n";
+open(INFILE, $infile) or die "\nERROR: in script make_GU_and_GNU.pl: Cannot open infile '$infile'\n";
 $t = `tail -1 $infile`;
 $t =~ /seq.(\d+)/;
 $num_seqs = $1;
 $line = <INFILE>;
 chomp($line);
-open(OUTFILE1, ">$outfile1") or die "\nERROR: Cannot open file '$outfile1' for writing\n";
-open(OUTFILE2, ">$outfile2") or die "\nERROR: Cannot open file '$outfile2' for writing\n";
-print "num_seqs = $num_seqs\n";
+open(OUTFILE1, ">$outfile1") or die "\nERROR: in script make_GU_and_GNU.pl: Cannot open file '$outfile1' for writing\n";
+open(OUTFILE2, ">$outfile2") or die "\nERROR: in script make_GU_and_GNU.pl: Cannot open file '$outfile2' for writing\n";
+
 for($seqnum=1; $seqnum<=$num_seqs; $seqnum++) {
     $numa=0;
     $numb=0;
@@ -246,7 +246,6 @@ for($seqnum=1; $seqnum<=$num_seqs; $seqnum++) {
 	undef %consistent_mappers;
 	foreach $akey (keys %a_reads) {
 	    foreach $bkey (keys %b_reads) {
-
 		@a = split(/\t/,$akey);
 		$aid = $a[0];
 		$astrand = $a[1];
@@ -287,7 +286,11 @@ for($seqnum=1; $seqnum<=$num_seqs; $seqnum++) {
 				$joined_seq = $joined_seq . $sq[$i];
 			    }
 			    $aid =~ s/a//;
-			    $consistent_mappers{"$aid\t$achr\t$astart-$bend\t$joined_seq\t$astrand\n"}++;
+			    if($bend >= $aend) {
+				$consistent_mappers{"$aid\t$achr\t$astart-$bend\t$joined_seq\t$astrand\n"}++;
+			    } else {
+				$consistent_mappers{"$aid\t$achr\t$astart-$aend\t$joined_seq\t$astrand\n"}++;
+			    }
 			}
 		    }
 		}
@@ -319,7 +322,11 @@ for($seqnum=1; $seqnum<=$num_seqs; $seqnum++) {
 			    }
 			    $joined_seq = $joined_seq . $aseq;
 			    $aid =~ s/a//;
-			    $consistent_mappers{"$aid\t$achr\t$bstart-$aend\t$joined_seq\t$astrand\n"}++;
+			    if($bstart <= $astart) {
+				$consistent_mappers{"$aid\t$achr\t$bstart-$aend\t$joined_seq\t$astrand\n"}++;
+			    } else {
+				$consistent_mappers{"$aid\t$achr\t$astart-$aend\t$joined_seq\t$astrand\n"}++;
+			    }
 			}
 		    }
 		}

@@ -32,6 +32,9 @@ Where:   <GU infile> is the file of unique mappers that is output from the
                           but if there aren't enough well mapped reads I might not get
                           it right.  If there are variable read lengths, set n=v.
 
+         -minoverlap n  : The minimum overlap required to report the intersection of
+                          two otherwise disagreeing alignments of the same read.
+
          -maxpairdist N : N is an integer greater than zero representing
                           the furthest apart the forward and reverse reads
                           can be.  They could be separated by an exon/exon
@@ -58,12 +61,13 @@ if($type eq "paired") {
     $typerecognized = 0;
 }
 if($typerecognized == 1) {
-    die "\nERROR: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
+    die "\nERROR: in script merge_GU_and_TU.pl: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
 }
 
 $max_distance_between_paired_reads = 500000;
 
 $readlength = 0;
+$user_min_overlap = 0;
 for($i=7; $i<@ARGV; $i++) {
     $optionrecognized = 0;
     if($ARGV[$i] eq "-maxpairdist") {
@@ -75,20 +79,28 @@ for($i=7; $i<@ARGV; $i++) {
 	$i++;
 	$readlength = $ARGV[$i];
 	if(!($readlength =~ /^\d+$/) && !($readlength eq 'v')) {
-	    die "\nERROR: -readlength must be a positive integer > 4, or 'v', '$ARGV[$i]' not recognized\n";
+	    die "\nERROR: in script merge_GU_and_TU.pl: -readlength must be a positive integer > 4, or 'v', '$ARGV[$i]' not recognized\n";
 	}
 	if($readlength ne "v" && $readlength < 5) {
-	    die "\nERROR: -readlength cannot be that small, must be at least 5, or 'v', '$ARGV[$i]' not valid\n";
+	    die "\nERROR: in script merge_GU_and_TU.pl: -readlength cannot be that small, must be at least 5, or 'v', '$ARGV[$i]' not valid\n";
+	}
+	$optionrecognized = 1;
+    }
+    if($ARGV[$i] eq "-minoverlap") {
+	$i++;
+	$user_min_overlap = $ARGV[$i];
+	if(!($user_min_overlap =~ /^\d+$/) || $user_min_overlap < 5) {
+	    die "\nERROR: in script merge_GU_and_TU.pl: -minoverlap must be a positive integer > 4, '$ARGV[$i]' not recognized\n";
 	}
 	$optionrecognized = 1;
     }
 
     if($optionrecognized == 0) {
-	die "\nERROR: option '$ARGV[$i-1] $ARGV[$i]' not recognized\n";
+	die "\nERROR: in script merge_GU_and_TU.pl: option '$ARGV[$i-1] $ARGV[$i]' not recognized\n";
     }
 }
 
-open(INFILE, $infile4) or die "\nERROR: Cannot open file '$infile4' for reading\n";
+open(INFILE, $infile4) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile4' for reading\n";
 
 if($readlength == 0) {
     $cnt = 0;
@@ -114,7 +126,7 @@ if($readlength == 0) {
 	}
     }
     close(INFILE);
-    open(INFILE, $infile3) or die "\nERROR: Cannot open file '$infile3' for reading\n";
+    open(INFILE, $infile3) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile3' for reading\n";
     $cnt = 0;
     while($line = <INFILE>) {
 	$length = 0;
@@ -139,7 +151,7 @@ if($readlength == 0) {
     }
     close(INFILE);
     $cnt = 0;
-    open(INFILE, $infile1) or die "\nERROR: Cannot open file '$infile1' for reading\n";
+    open(INFILE, $infile1) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile1' for reading\n";
     while($line = <INFILE>) {
 	if($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
 	    chomp($line);
@@ -163,7 +175,7 @@ if($readlength == 0) {
     }
     close(INFILE);
     $cnt = 0;
-    open(INFILE, $infile2) or die "\nERROR: Cannot open file '$infile3' for reading\n";
+    open(INFILE, $infile2) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile3' for reading\n";
     while($line = <INFILE>) {
 	if($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
 	    chomp($line);
@@ -204,22 +216,27 @@ if(!($readlength eq "v")) {
     $min_overlap1 = $min_overlap;
     $min_overlap2 = $min_overlap;
 }
-open(INFILE, $infile1) or die "\nERROR: Cannot open file '$infile1' for reading\n";
+if($user_min_overlap > 0) {
+    $min_overlap = $user_min_overlap;
+    $min_overlap1 = $user_min_overlap;
+    $min_overlap2 = $user_min_overlap;
+}
+open(INFILE, $infile1) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile1' for reading\n";
 while($line = <INFILE>) {
     $line =~ /^seq.(\d+)/;
     $ambiguous_mappers{$1}++;
 }
 close(INFILE);
-open(INFILE, $infile2) or die "\nERROR: Cannot open file '$infile2' for reading\n";
+open(INFILE, $infile2) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile2' for reading\n";
 while($line = <INFILE>) {
     $line =~ /^seq.(\d+)/;
     $ambiguous_mappers{$1}++;
 }
 close(INFILE);
-open(INFILE1, $infile3) or die "\nERROR: Cannot open file '$infile3' for reading\n";
-open(INFILE2, $infile4) or die "\nERROR: Cannot open file '$infile4' for reading\n";
-open(OUTFILE1, ">$outfile1") or die "\nERROR: Cannot open file '$outfile1' for writing\n";
-open(OUTFILE2, ">$outfile2") or die "\nERROR: Cannot open file '$outfile2' for writing\n";
+open(INFILE1, $infile3) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile3' for reading\n";
+open(INFILE2, $infile4) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile4' for reading\n";
+open(OUTFILE1, ">$outfile1") or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$outfile1' for writing\n";
+open(OUTFILE2, ">$outfile2") or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$outfile2' for writing\n";
 
 $num_lines_at_once = 10000;
 $linecount = 0;
@@ -254,7 +271,7 @@ while($FLAG == 1) {
 	    }
 	    if($paired_end eq "true") {
 		# this makes sure we have read in both a and b reads, this approach might cause a problem
-		# for paired end data if no, or very few, b reads mapped at all.
+ 		# for paired end data if no, or very few, b reads mapped at all.
 		if( (($linecount == ($num_lines_at_once - 1)) && !($a[0] =~ /a$/)) || ($linecount < ($num_lines_at_once - 1)) ) {
 		    $linecount++;
 		}
@@ -356,6 +373,9 @@ while($FLAG == 1) {
 		    $min_overlap = int(.6 * $readlength_temp);
 		}
 	    }
+	    if($user_min_overlap > 0) {
+		$min_overlap = $user_min_overlap;
+	    }
 	    if(($length_overlap > $min_overlap) && ($a1[1] eq $a2[1])) {
 		print OUTFILE1 "$hash2{$id}[1]\n";
 	    }
@@ -392,6 +412,9 @@ while($FLAG == 1) {
 		    if($min_overlap >= .8 * $readlength_temp) {
 			$min_overlap = int(.6 * $readlength_temp);
 		    }
+		}
+		if($user_min_overlap > 0) {
+		    $min_overlap = $user_min_overlap;
 		}
 		
 		if(($length_overlap > $min_overlap) && ($a1[1] eq $a2[1])) {
@@ -689,7 +712,9 @@ while($FLAG == 1) {
 		    $min_overlap1 = int(.6 * $readlength_temp);
 		}
 	    }
-
+	    if($user_min_overlap > 0) {
+		$min_overlap1 = $user_min_overlap;
+	    }
 	    @a = split(/\t/,$hash2{$id}[2]);
 	    $spansb[1] = $a[2];
 
@@ -706,6 +731,9 @@ while($FLAG == 1) {
 		if($min_overlap2 >= .8 * $readlength_temp) {
 		    $min_overlap2 = int(.6 * $readlength_temp);
 		}
+	    }
+	    if($user_min_overlap > 0) {
+		$min_overlap2 = $user_min_overlap;
 	    }
 
 	    $str = intersect(\@spansa, $seqa);
@@ -757,6 +785,10 @@ while($FLAG == 1) {
 			$min_overlap1 = int(.6 * $readlength_temp);
 		    }
 		}
+		if($user_min_overlap > 0) {
+		    $min_overlap1 = $user_min_overlap;
+		}
+
 		$str = intersect(\@spans, $seq);
 		$str =~ /^(\d+)/;
 		$overlap1 = $1;
@@ -774,6 +806,9 @@ while($FLAG == 1) {
 		    if($min_overlap2 >= .8 * $readlength_temp) {
 			$min_overlap2 = int(.6 * $readlength_temp);
 		    }
+		}
+		if($user_min_overlap > 0) {
+		    $min_overlap2 = $user_min_overlap;
 		}
 		$spans[0] = $a[2];
 		$str = intersect(\@spans, $seq);

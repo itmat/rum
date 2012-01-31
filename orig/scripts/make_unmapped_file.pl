@@ -38,10 +38,10 @@ if($type eq "paired") {
     $typerecognized = 0;
 }
 if($typerecognized == 1) {
-    die "\nERROR: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
+    die "\nERROR: in script make_unmapped.pl: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
 }
 
-open(INFILE, $infile1) or die "\nERROR: Cannot open file '$infile1' for reading\n";
+open(INFILE, $infile1) or die "\nERROR: in script make_unmapped.pl: Cannot open file '$infile1' for reading\n";
 while($line = <INFILE>) {
     chomp($line);
     $line =~ s/\t.*//;
@@ -55,7 +55,7 @@ while($line = <INFILE>) {
 }
 close(INFILE);
 
-open(INFILE, $infile2) or die "\nERROR: Cannot open file '$infile2' for reading\n";
+open(INFILE, $infile2) or die "\nERROR: in script make_unmapped.pl: Cannot open file '$infile2' for reading\n";
 while($line = <INFILE>) {
     chomp($line);
     $line =~ s/\t.*//;
@@ -64,9 +64,9 @@ while($line = <INFILE>) {
 }
 close(INFILE);
 
-open(INFILE, $infile) or die "\nERROR: Cannot open file '$infile' for reading\n";
+open(INFILE, $infile) or die "\nERROR: in script make_unmapped.pl: Cannot open file '$infile' for reading\n";
 
-open(OUTFILE, ">$outfile") or die "\nERROR: Cannot open file '$outfile' for writing\n";
+open(OUTFILE, ">$outfile") or die "\nERROR: in script make_unmapped.pl: Cannot open file '$outfile' for writing\n";
 
 while($line = <INFILE>) {
     chomp($line);
@@ -74,20 +74,26 @@ while($line = <INFILE>) {
 	$seq = $1;
 	if($paired_end eq "true") {
 	    if($bu{$seq}+0 < 2 && !($bnu{$seq} =~ /\S/)) {
+		$line_hold = $line;
+		$line = <INFILE>;
+		chomp($line);
+		print OUTFILE "$line_hold\n";
 		print OUTFILE "$line\n";
+		$line_hold = <INFILE>;
+		chomp($line_hold);
 		$line = <INFILE>;
-		print OUTFILE $line;
-		$line = <INFILE>;
-		print OUTFILE $line;
-		$line = <INFILE>;
-		print OUTFILE $line;
+		chomp($line);
+		print OUTFILE "$line_hold\n";
+		print OUTFILE "$line\n";
 	    }
 	}
 	else {
 	    if($bu{$seq}+0 < 1 && !($bnu{$seq} =~ /\S/)) {
-		print OUTFILE "$line\n";
+		$line_hold = $line;
 		$line = <INFILE>;
-		print OUTFILE $line;
+		chomp($line);
+		print OUTFILE "$line_hold\n";
+		print OUTFILE "$line\n";
 	    }
 	}
     }
@@ -95,4 +101,4 @@ while($line = <INFILE>) {
 close(INFILE);
 close(OUTFILE);
 
-print STDERR "Starting BLAT on '$outfile'.\n";
+print "Starting BLAT on '$outfile'.\n";
