@@ -198,7 +198,6 @@ sub _parse_organism {
         chomp;
 
         if (my ($latin, $build, $common, $start_or_end) = /$re/g) {
-            warn "$_: $latin, $build, $common, $start_or_end\n";
 
             if ($start_or_end eq 'start') {
                 $started = 1;
@@ -231,7 +230,6 @@ sub parse_organisms {
     while (my $org = _parse_organism($in)) {
         push @orgs, $org;
     }
-    warn "Returning ".scalar(@orgs)." orgs";
     return @orgs;
 }
 

@@ -10,7 +10,7 @@ use lib "$Bin/..";
 use RUM::Config qw(parse_organisms format_config);
 use subs qw(satisfied_when satisfy task children is_satisfied plan download report);
 
-our $FOR_REAL = 0;
+our $FOR_REAL = 1;
 
 my $mouse_config_file_name = "test-data/rum.config_mm9";
 my $TEST_INDEX_DIR  = "test-data/indexes";
@@ -38,7 +38,7 @@ sub satisfied_when (&) {
 =item satisfy CODE
 
 Marker for a sub that should be called to satisfy a task, assuming all
-of its prerequisites are satisfied.
+of its dependencies are satisfied.
 
 =cut
 
@@ -89,18 +89,18 @@ An iterator over the dependencies of this task.
 =cut
 
 sub task {
-    my ($name, $is_satisfied, $satisfy, $children) = @_;
+    my ($name, $is_satisfied, $satisfy, $deps) = @_;
     croak "First arg must be name" if ref $name;
     croak "Second arg must be code" unless ref($is_satisfied) =~ /CODE/;
     croak "Third arg must be code" unless ref($satisfy) =~ /CODE/;
     
-    $children = sub { } unless defined $children;
-    croak "Fourth arg must be code" unless ref($children) =~ /CODE/;
+    $deps = sub { } unless defined $deps;
+    croak "Fourth arg must be code" unless ref($deps) =~ /CODE/;
     return {
         name => $name,
         satisfied_when => $is_satisfied,
         satisfy => $satisfy,
-        children => $children };
+        deps => $deps };
 }
 
 
@@ -142,8 +142,8 @@ sub iterator {
 }
 
 sub depends_on {
-    my @children = @_;
-    return iterator(@children);
+    my @deps = @_;
+    return iterator(@deps);
 }
 
 sub download {
@@ -155,12 +155,12 @@ sub download {
 }
 
 sub copy_file {
-    my ($src, $dst, $children) = @_;
+    my ($src, $dst, $deps) = @_;
     return task(
         "Copy $src to $dst",
         satisfied_when { -f $dst },
         satisfy_with_command("cp", $src, $dst),
-        $children);
+        $deps);
 }
 
 sub build {
@@ -170,7 +170,8 @@ sub build {
 
     while (@queue) {
         my $task = pop(@queue);
-        if (my $pre = $task->{children}->()) {
+        print "Looking at task $task->{name}\n";
+        if (my $pre = $task->{deps}->()) {
             push(@queue, $task);
             push(@queue, $pre);
         }
@@ -180,7 +181,7 @@ sub build {
             }
             else {
                 report "Building task '$task->{name}'";
-                $task->{satisfy}->(1);
+                $task->{satisfy}->($FOR_REAL);
             }
         }
     }
@@ -188,30 +189,41 @@ sub build {
 }
 
 
+sub ftp_rule {
+    my ($remote, $local) = @_;
+    return task(
+        "Download $remote to $local",
+        satisfied_when { -f "organisms.txt" },
+        satisfy_with_command("ftp", "-o", $local, $remote));
+}
+
+sub chain {
+    my @subs = @_;
+    return sub {
+        my @args = @_;
+        for my $sub (@subs) {
+            $sub->(@args);
+        }
+    }
+}
+
 sub get_download_indexes_task {
 
     my @organisms;
 
-    my $download_organisims_txt = task(
-        "Download organisms.txt",
-        satisfied_when { -f "organisms.txt" },
-        satisfy_with_command("ftp", "http://itmat.rum.s3.amazonaws.com/organisms.txt"));
+    my $download_organisims_txt = ftp_rule(
+        "http://itmat.rum.s3.amazonaws.com/organisms.txt",
+        "organisms.txt");
 
     my $parse_organisms = task(
         "Parse organisms file",
         satisfied_when { @organisms },
         satisfy {
-            my $forreal = shift;
-            if ($forreal) {
-                report "Parsing organisms file";
-                open my $orgs, "<", "organisms.txt";
-                @organisms = parse_organisms($orgs);
-                for my $org (@organisms) {
-                    report "  got $org->{common}";
-                }
-            }
-            else {
-                report "Parse organisms file";
+            report "Parsing organisms file";
+            open my $orgs, "<", "organisms.txt";
+            @organisms = parse_organisms($orgs);
+            for my $org (@organisms) {
+                report "  got $org->{common}";
             }
         },
         depends_on($download_organisims_txt));
@@ -235,13 +247,21 @@ sub get_download_indexes_task {
                             for my $url (@{ $org->{files} }) {
                                 my $file = $TEST_INDEX_DIR . "/" .
                                     substr($url, rindex($url, "/") + 1);
-                                
-                                push @queue, task(
-                                    "Download $file",
-                                    satisfied_when { -f $file },
-                                    satisfy_with_command("ftp", "-o", $file, $url),
-                                    depends_on(),
-                                );
+                                print "Got a file: $file\n";
+                                if ($file =~ /^(.*)\.gz$/) {
+                                    my $unzipped = $1;
+                                    push @queue, task(
+                                        "Download and unzip $file",
+                                        satisfied_when { 
+                                            print "Looking for $unzipped\n";
+                                            -f $unzipped },
+                                        chain(
+                                            satisfy_with_command("ftp", "-o", $file, $url),
+                                            satisfy_with_command("gunzip", $file)));
+                                }
+                                else {
+                                    push @queue, ftp_rule($url, $file);
+                                }
                             }
                         }
                     }
@@ -272,6 +292,7 @@ my $make_config = task(
             "lib-dir" => $TEST_LIB_DIR);
         print $out $config;
     });
+
 
 build $make_config;
 build get_download_indexes_task();
