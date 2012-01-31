@@ -10,7 +10,8 @@ RUM::Config - Utilities for parsing and formatting Rum config file
   use RUM::Config qw(parse_config
                      format_config
                      config_fields
-                     config_defaults);
+                     config_defaults
+                     parse_organisims);
 
   # Parse a config file
   open my $in, "<", "rum.config_zebrafish";
@@ -29,6 +30,16 @@ RUM::Config - Utilities for parsing and formatting Rum config file
   }
 
   my $default_config_hashref = config_defaults();
+
+  # Parse an organisms file
+  my @orgs = parse_organisims("organisms.txt");
+  for my $org (@orgs) {
+    my $latin_name = $org->{latin};
+    my $common = $org->{common};
+    my $build = $org->{build};
+    my @files = @{ $org->{files} };
+    ...
+  }
 
 =head1 DESCRIPTION
 
@@ -51,7 +62,11 @@ use Log::Log4perl qw(:easy);
 use Carp;
 
 use Exporter 'import';
-our @EXPORT_OK = qw(config_fields config_defaults parse_config format_config);
+our @EXPORT_OK = qw(config_fields 
+                    config_defaults
+                    parse_config
+                    format_config
+                    parse_organisms);
 
 our @FIELDS = qw(gene-annotation-file
                  bowtie-bin
@@ -132,6 +147,92 @@ Return an array of the fields that should be in a configuration file.
 
 sub config_fields {
     return @FIELDS;
+}
+
+
+=item parse_organisms IN
+
+Parse the given organisms file and return a list of organisms, each
+one as a hash ref with the following fields:
+
+=over 4
+
+=item latin
+
+The latin name of the organism.
+
+=item common
+
+The common name of the organism.
+
+=item build
+
+The build identifier.
+
+=item files
+
+An array ref of the index files for this organism.
+
+=back
+
+=cut
+
+sub _parse_organism {
+    my ($in) = @_;
+    my %org;
+    
+    # Matches lines like the following:
+    #   -- Homo sapiens [build hg19] (human) start --
+    #   -- Homo sapiens [build hg19] (human) end --
+    my $re = qr{-- \s+
+                (.*) \s+ 
+                \[ build \s+ (.*)\] \s+
+                \((.*)\) \s+
+                (start|end) \s+
+                --
+           }x;
+
+    my $started = 0;
+
+    while (defined (local $_ = <$in>)) {
+        chomp;
+
+        if (my ($latin, $build, $common, $start_or_end) = /$re/g) {
+            warn "$_: $latin, $build, $common, $start_or_end\n";
+
+            if ($start_or_end eq 'start') {
+                $started = 1;
+                $org{latin} = $latin;
+                $org{build} = $build;
+                $org{common} = $common;
+                $org{files} = [];
+            }
+            
+            # If we're at the end, add the org we just built up to the list
+            if ($start_or_end eq 'end') {
+                croak "Saw end tag before start tag" unless $started;
+                return \%org;
+            }
+        }
+
+        elsif ($started) {
+            push @{ $org{files} }, $_;
+        }
+    }
+    
+    return;
+    
+}
+
+sub parse_organisms {
+    my ($in) = @_;
+    my @orgs;
+
+    while (my $org = _parse_organism($in)) {
+        push @orgs, $org;
+    }
+    warn "Returning ".scalar(@orgs)." orgs";
+    return @orgs;
 }
 
 =item _missing_fields
