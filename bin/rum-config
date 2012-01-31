@@ -2,6 +2,7 @@
 
 # -*- cperl -*-
 
+
 use strict;
 use warnings;
 
@@ -11,11 +12,75 @@ use lib "$Bin/../lib";
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init($WARN);
 use RUM::Config qw(config_defaults config_fields format_config);
+use RUM::Script qw(show_usage);
 
 my %options = %{ config_defaults() };
 
 my @options = map("--$_=s", config_fields());
-
+push @options, "--help|h";
 GetOptions(\%options, @options);
 
+show_usage() if $options{help};
+
 print format_config(%options);
+
+__END__
+
+=head1 NAME
+
+rum-config - Generate a Rum config file
+
+=head2 SYNOPSIS
+
+  rum-config \
+    --gene-annotation-file  indexes/mm9_refseq_ucsc_vega_gene_info.txt \
+    --bowtie-bin            bin/bowtie   \
+    --blat-bin              bin/blat \
+    --mdust-bin             bin/mdust \
+    --bowtie-genome-index   indexes/mm9_genome \
+    --bowtie-gene-index     indexes/mm9_genes \
+    --blat-genome-index     indexes/mm9_genome_one-line-seqs.fa \
+    --script-dir            scripts \
+    --lib-dir               lib
+
+=head1 DESCRIPTION
+
+Simple utility to take configuration parameters on the command line
+and print out a Rum configuration file.
+
+=head1 OPTIONS
+
+Aside from --help|-h, all the options correspond to the values in the
+Rum config file:
+
+=over 4
+
+=item --gene-annotation-file F<arg>
+
+=item --bowtie-bin F<arg>
+
+=item --blat-bin F<arg>
+
+=item --mdust-bin F<arg>
+
+=item --bowtie-genome-index F<arg>
+
+=item --bowtie-gene-index F<arg>
+
+=item --blat-genome-index F<arg>
+
+=item --script-dir F<arg>
+
+=back
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+=cut
+
+=cut
