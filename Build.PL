@@ -7,7 +7,7 @@ my $builder = Module::Build->new(
     module_name         => 'RUM::Index',
     license             => 'perl',
     dist_author         => q{Mike DeLaurentis <delaurentis@gmail.com>},
-    dist_version_from   => 'lib/RUM/Index.pm',
+    dist_version_from   => 'lib/RUM/Script.pm',
     build_requires => {
         'Test::More' => 0,
     },
