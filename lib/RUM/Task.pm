@@ -1,5 +1,17 @@
 package RUM::Task;
 
+=head1 NAME
+
+RUM::Task - Task and dependency framework
+
+=head1 DESCRIPTION
+
+=head2 Subroutines
+
+=over 4
+
+=cut
+
 use strict;
 use warnings;
 use Carp;
@@ -7,13 +19,20 @@ use Carp;
 use FindBin qw($Bin);
 
 use Exporter 'import';
-use File::Path qw(make_path);
+use File::Path qw(make_path rmtree);
 use Log::Log4perl qw(:easy);
-our @EXPORT_OK = qw(@QUEUE report make_path_rule target action task ftp_rule satisfy_with_command build chain);
 
-use subs qw(target satisfy task children is_satisfied plan download report);
+our @EXPORT_OK = qw(@QUEUE report make_path_rule target action task ftp_rule 
+                    satisfy_with_command build chain);
+
+use subs qw(action target satisfy task children is_satisfied plan
+            download report);
 
 our @QUEUE;
+
+=item RUM::Task->new(NAME, TARGET, ACTION, DEPS)
+
+=cut
 
 sub new {
     my ($class, $name, $target, $action, $deps) = @_;
@@ -34,9 +53,66 @@ sub new {
         deps => $deps }, $class;
 }
 
+
+
+=item task NAME, TARGET, ACTION, DEPS
+
+Return a task object.
+
+=over 4
+
+=item NAME
+
+A string that describes the task.
+
+=item TARGET
+
+A code ref that takes no arguments and returns true when the task is
+satisfied.
+
+=item ACTION
+
+A code ref that can be called to satisfy the task. It is called with
+one arg; a true value indicates that it should actually do the work,
+while a false value indicates that it should only report on what work
+it would do (think "make -n").
+
+=item DEPS
+
+Either an ref to an array of tasks that must be run before this task
+can be run, or a code ref that will return such a list when called.
+
+=back
+
+=cut
+
+sub task {
+    my ($name, $target, $action, $deps) = @_;
+    return new RUM::Task($name, $target, $action, $deps);
+}
+
+=back
+
+=head3 RUM::Task methods
+
+=over 4
+
+=item $task->name()
+
+Return the name of the task.
+
+=cut
+
 sub name {
     return $_[0]->{name};
 }
+
+=item $task->deps()
+
+Return a list of the tasks that must be run before this task can be
+run.
+
+=cut
 
 sub deps {
     my ($self) = @_;
@@ -44,6 +120,12 @@ sub deps {
     return @{ $deps } if ref($deps) =~ /ARRAY/;
     return @{ $deps->() };
 }
+
+=item $task->queue_deps()
+
+Add the dependencies of this task to the @QUEUE.
+
+=cut
 
 sub queue_deps {
     my ($self) = @_;
@@ -57,6 +139,22 @@ sub queue_deps {
     }
     return undef;
 }
+
+=item $task->is_satisfied()
+
+Returns true if the TASK is already satisfied, false otherwise.
+
+=cut
+
+sub is_satisfied {
+    return $_[0]->{target}->();
+}
+
+=item report ARGS
+
+Print ARGS as a message prefixed with a "#" character.
+
+=cut
 
 sub report {
     my @args = @_;
@@ -85,62 +183,20 @@ sub action (&) {
     return $_[0];
 }
 
-=item shell CMD
-
-Execute cmd with system and croak if it fails.
-
-=cut
-
-sub shell {
-    my @cmd = @_;
-    system(@cmd) == 0 or croak "Can't execute @cmd: $!";
-}
 
 
-=item task NAME, IS_SATISFIED, ACTION, DEPS
 
-Return a task hash ref.
-
-=over 4
-
-=item NAME
-
-A string that describes the task.
-
-=item IS_SATISFIED
-
-A code ref that takes no arguments and returns true when the task is satisfied.
-
-=item ACTION
-
-A code ref that can be called to satisfy the task. It is called with
-one arg; a true value indicates that it should actually do the work,
-while a false value indicates that it should only report on what work
-it would do (think "make -n").
-
-=item DEPS
-
-An iterator over the dependencies of this task.
 
 =back
 
-=cut
+=head3 Canned actions
 
-sub task {
-    my ($name, $target, $action, $deps) = @_;
-    return new RUM::Task($name, $target, $action, $deps);
-}
+Each of these subs return an anonymous sub that can be used as an
+action in a call to task().
 
-
-=item is_satisfied TASK
-
-Returns true if the TASK is already satisfied, false otherwise.
+=over 4
 
 =cut
-
-sub is_satisfied {
-    return $_[0]->{target}->();
-}
 
 =item satisfy_with_command CMD
 
@@ -154,7 +210,7 @@ sub satisfy_with_command {
     return sub {
         my ($for_real) = @_;
         if ($for_real) {
-            return shell(@cmd);
+            system(@cmd) == 0 or croak "Can't execute @cmd: $!";
         }
         else {
             print "@cmd\n";
@@ -162,13 +218,51 @@ sub satisfy_with_command {
     }
 }
 
-sub download {
+
+=item chain ACTIONS
+
+Chain together some actions: return an action that when executed
+simply executes all of the given ACTIONs in order.
+
+=cut
+
+sub chain {
+    my @actions = @_;
+    return sub {
+        my @args = @_;
+        for my $action (@actions) {
+            $action->(@args);
+        }
+    }
+}
+
+=back
+
+=head3 Canned Tasks
+
+=over 4
+
+=item ftp_rule REMOTE, LOCAL
+
+A task that does nothing if LOCAL exists, otherwise downloads a file
+identified by REMOTE and saves it to LOCAL.
+
+=cut
+
+sub ftp_rule {
     my ($remote, $local) = @_;
     return task(
-        "Download $local to $remote",
+        "Download $remote to $local",
         target { -f $local },
-        satisfy_with_command("scp", $remote, $local));
+        satisfy_with_command("ftp", "-o", $local, $remote));
 }
+
+=item copy_file SOURCE, DEST
+
+A task that does nothing if LOCAL exists, otherwise copies a file
+identified by SOURCE and saves it to DEST.
+
+=cut
 
 sub copy_file {
     my ($src, $dst, $deps) = @_;
@@ -179,45 +273,12 @@ sub copy_file {
         $deps);
 }
 
-sub build {
-    my ($for_real, $verbose) = @_;
 
-    while (@QUEUE) {
-        my $task = pop @QUEUE;
-        my $name = $task->name;
-        DEBUG "Looking at task $name\n";
-        if ($task->queue_deps) {
-            DEBUG "Queued deps for $name\n";
-        }
-        
-        else {
-            DEBUG "Doing work for $name\n";
-            my $name = $task->name;
-            if (is_satisfied($task)) {
-                report "Task '$name' is satisfied" if $verbose;
-            }
-            else {
-                report "Building task '$name'";
-                $task->{action}->($for_real);
-            }
-        }
-    }
-}
+=item make_path_rule PATH
 
-sub enqueue {
-    while (my $task = shift()) {
-        unshift @QUEUE, $task;
-    }
-}
+A task that creates a path on the filesystem if it doesn't already exist.
 
-
-sub ftp_rule {
-    my ($remote, $local) = @_;
-    return task(
-        "Download $remote to $local",
-        target { -f $local },
-        satisfy_with_command("ftp", "-o", $local, $remote));
-}
+=cut
 
 sub make_path_rule {
     my ($path) = @_;
@@ -234,14 +295,67 @@ sub make_path_rule {
         });
 }
 
-sub chain {
-    my @subs = @_;
-    return sub {
-        my @args = @_;
-        for my $sub (@subs) {
-            $sub->(@args);
+=item rmtree_rule PATH
+
+A task that removes an entire directory tree if it exists. I<USE WITH
+CAUTION!!!>
+
+=cut
+
+sub rmtree_task {
+    my ($path) = @_;
+    return task(
+        "Remove $path",
+        target { not -d $path },
+        action { 
+            my ($for_real) = @_;
+            if ($for_real) {
+                rmtree($path);
+            }
+            else {
+                print "rm -rf $path";
+            }
+        });
+}
+
+
+
+sub build {
+    my ($for_real, $verbose) = @_;
+
+    while (@QUEUE) {
+        my $task = pop @QUEUE;
+        my $name = $task->name;
+        DEBUG "Looking at task $name\n";
+        if ($task->queue_deps) {
+            DEBUG "Queued deps for $name\n";
+        }
+        
+        else {
+            DEBUG "Doing work for $name\n";
+            my $name = $task->name;
+            if ($task->is_satisfied) {
+                report "Task '$name' is satisfied" if $verbose;
+            }
+            else {
+                report "Building task '$name'";
+                $task->{action}->($for_real);
+            }
         }
     }
 }
+
+=item enqueue TASKS
+
+Add all the given TASKS to the queue in order.
+
+=cut
+
+sub enqueue {
+    while (my $task = shift()) {
+        unshift @QUEUE, $task;
+    }
+}
+
 
 return 1;
