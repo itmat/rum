@@ -23,7 +23,7 @@ use File::Path qw(make_path rmtree);
 use Log::Log4perl qw(:easy);
 
 our @EXPORT_OK = qw(@QUEUE report make_path_rule target action task ftp_rule 
-                    satisfy_with_command build chain);
+                    satisfy_with_command build chain enqueue);
 
 use subs qw(action target satisfy task children is_satisfied plan
             download report);
@@ -295,7 +295,7 @@ sub make_path_rule {
         });
 }
 
-=item rmtree_rule PATH
+=item rmtree_task PATH
 
 A task that removes an entire directory tree if it exists. I<USE WITH
 CAUTION!!!>
@@ -318,7 +318,13 @@ sub rmtree_task {
         });
 }
 
+=item build FOR_REAL, VERBOSE
 
+Build any tasks currently in the @QUEUE. If FOR_REAL is a true value,
+actually run the tasks; otherwise just print out some diagnostic
+information. If VERBOSE is true, print out extra information.
+
+=cut
 
 sub build {
     my ($for_real, $verbose) = @_;

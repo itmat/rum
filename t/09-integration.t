@@ -10,7 +10,7 @@ use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init($WARN);
 use RUM::Config qw(parse_organisms format_config);
 use RUM::Task qw(report @QUEUE make_path_rule target action task ftp_rule 
-                 satisfy_with_command build chain);
+                 satisfy_with_command build chain enqueue);
 use Carp;
 
 use Getopt::Long;
@@ -220,25 +220,35 @@ our %TARGETS = (
 );
 
 sub main {
+
+    if ($ENV{RUM_INTEGRATION_TESTING}) {
+        enqueue($TARGETS{"mouse-test"});
+        build(1);
+        return;
+    }
+    else {
+        skip "Not running integration tests", 1;
+    }
+    
+
+
     GetOptions(
         "dry-run|n" => \(my $dry_run),
         "verbose|v" => \(my $verbose));
-    
+
     my @targets = @ARGV;
 
     unless (@targets) {
-        die "Usage: $0 [OPTIONS] TARGETS\n";
+        print "Usage: $0 [OPTIONS] TARGETS\n";
+        done_testing();
+        return;
     }
 
     for my $name (@targets) {
         my $target = $TARGETS{$name} 
             or die "I don't have a target named $name";
         enqueue $target;
-    }
-
-    SKIP : {
-        skip "Skipping integration tests", 1 unless $ENV{RUM_INTEGRATION_TESTING};
-        build(not($dry_run), $verbose);
+        build;
     }
 
 }
