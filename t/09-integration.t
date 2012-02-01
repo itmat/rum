@@ -27,7 +27,6 @@ my $TEST_DATA_GIT_SOURCE    = "/Users/mike/src/rum-integration-tests";
 
 # Locations of input files and dirs
 my $CONFIG_FILE         = "$ROOT/rum.config_mm9";
-my $OUTPUT_DATA_DIR     = "$ROOT/data/Lane1";
 my $TEST_INDEX_DIR      = "$ROOT/indexes";
 my $RESOURCES_DIR       = "$ROOT/resources";
 my $ORGANISMS_FILE      = "$ROOT/organisms.txt";
@@ -38,7 +37,6 @@ my $TEST_LIB_DIR        = "orig/lib";
 # some expected output files, and the executables for bowtie, blat,
 # and mdust.
 my $INPUT_DATA          = "$RESOURCES_DIR/test_mouse/s_1_1.baby";
-my $EXPECTED_OUTPUT_DIR = "$RESOURCES_DIR/mouse-expected";
 my $BIN_DIR             = "$RESOURCES_DIR/bin-$^O";
 
 # These files are produced by Rum
@@ -59,12 +57,23 @@ my @RUM_OUTPUT_FILES = qw(PostProcessing-errorlog
                           junctions_all.bed
                      );
 
+sub expected_output_dir {
+    my ($test_name) = @_;
+    return "$RESOURCES_DIR/${test_name}-expected";
+}
+
+sub output_data_dir {
+    my ($test_name) = @_;
+    return "$ROOT/data/$test_name/Lane1";
+}
+
 # Rum produces these files too, but we don't compare them to the
 # expected output because they're too variable.
 my @IGNORED_RUM_OUTPUT_FILES = qw(rum.log_chunk.1
                                   rum.error-log
                                   postprocessing_Lane1.log
                                   rum.log_master);
+
 
 my %CONFIG = (
     "bowtie-bin" => "$BIN_DIR/bowtie",
@@ -77,13 +86,18 @@ my %CONFIG = (
     "script-dir" => $TEST_SCRIPT_DIR,
     "lib-dir" => $TEST_LIB_DIR);
 
-# This task makes whatever directories are required for the tests
-my $make_paths = task "Make paths",
-    target { undef },
-    action { },
-    [make_path_rule($TEST_INDEX_DIR),
-     make_path_rule($EXPECTED_OUTPUT_DIR),
-     make_path_rule($OUTPUT_DATA_DIR)];
+sub make_paths_task {
+    my ($run_name) = @_;
+    # This task makes whatever directories are required for the tests
+    return task(
+        "Make paths",
+        target { undef },
+        action { },
+        [make_path_rule(expected_output_dir($run_name)),
+         make_path_rule(output_data_dir($run_name))]);
+}
+
+my $make_paths = make_paths_task("mouse");
 
 # This task downloads the organisms text file to the current directory
 my $download_organisims_txt = ftp_rule(
@@ -105,6 +119,7 @@ sub download_indexes_task {
             
             # Filter the organisms to include only mouse
             @organisms = grep {$_->{build} eq $build_name} @organisms;
+
             # Get all the URLs listed for any orgs we're interested in
             my @urls = map { @{ $_->{files} } } @organisms;
 
@@ -126,7 +141,8 @@ sub download_indexes_task {
                 }
             }
         },
-        [$make_paths, $download_organisims_txt]);
+        [make_path_rule($TEST_INDEX_DIR),
+         $download_organisims_txt]);
     return $download_indexes;
 }
 
@@ -153,19 +169,26 @@ sub all_output_files_exist_in_dir {
 
 my $run_rum_task = task(
     "Rum",
-    target { return all_output_files_exist_in_dir($OUTPUT_DATA_DIR) },
+    target { return all_output_files_exist_in_dir(output_data_dir("mouse")) },
     satisfy_with_command("perl", "orig/RUM_runner.pl",
                          $CONFIG_FILE,
-                         $INPUT_DATA, $OUTPUT_DATA_DIR, "1", "Lane1"),
+                         $INPUT_DATA, output_data_dir("mouse"), "1", "Lane1"),
     [$download_indexes_task,
      $make_config_file_task,
      $get_test_input_data_task]);
 
 my $untar_expected_output_task = task(
     "Untar expected output data",
-    target { all_output_files_exist_in_dir($EXPECTED_OUTPUT_DIR) },
+    target { all_output_files_exist_in_dir(expected_output_dir("mouse")) },
     satisfy_with_command("git", "clone", $TEST_DATA_GIT_SOURCE, $RESOURCES_DIR));
 
+
+sub diff_cmd {
+    my ($test_name, $file) = @_;
+    my $expected_dir = expected_output_dir($test_name);
+    my $output_dir   = output_data_dir($test_name);
+    return "diff $expected_dir/$file $output_dir/$file";
+}
 
 my $compare_output_to_expected = task(
     "Compare Rum output to expected output",
@@ -174,7 +197,7 @@ my $compare_output_to_expected = task(
         my ($for_real) = @_;
         local $_;
         for my $file (@RUM_OUTPUT_FILES) {
-            my $cmd = "diff $EXPECTED_OUTPUT_DIR/$file $OUTPUT_DATA_DIR/$file";
+            my $cmd = diff_cmd("mouse", $file);
             if ($for_real) {
                 open my $pipe, "$cmd |" or croak "Couldn't open $cmd";
                 my $diffs = 0;
