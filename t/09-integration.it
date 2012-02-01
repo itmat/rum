@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More;
+use Test::More tests => 15;
 
 use lib "lib";
 use Log::Log4perl qw(:easy);
@@ -216,42 +216,28 @@ my $compare_output_to_expected = task(
      $run_rum_task]);
 
 our %TARGETS = (
-    "mouse-test" => $compare_output_to_expected
+    "mouse-test" => $compare_output_to_expected,
+    "all" => task(
+        "All integration tests",
+        target { undef },
+        action { },
+        [$compare_output_to_expected])
 );
 
 sub main {
-
-    if ($ENV{RUM_INTEGRATION_TESTING}) {
-        enqueue($TARGETS{"mouse-test"});
-        build(1);
-        return;
-    }
-    else {
-        skip "Not running integration tests", 1;
-    }
-    
-
 
     GetOptions(
         "dry-run|n" => \(my $dry_run),
         "verbose|v" => \(my $verbose));
 
-    my @targets = @ARGV;
-
-    unless (@targets) {
-        print "Usage: $0 [OPTIONS] TARGETS\n";
-        done_testing();
-        return;
-    }
-
+    my @targets = @ARGV || ("all");
+    diag "Building targets @targets";
     for my $name (@targets) {
         my $target = $TARGETS{$name} 
             or die "I don't have a target named $name";
         enqueue $target;
-        build;
     }
-
+    build(not($dry_run), $verbose);
 }
-
 
 main();

@@ -3,7 +3,11 @@ use strict;
 use warnings;
 use Module::Build;
 
-my $builder = Module::Build->new(
+my $builder = Module::Build->subclass(
+    code => q(
+      sub ACTION_testintegration { shift->generic_test(type => 'integration'); }
+    )
+)->new(
     module_name         => 'RUM::Index',
     license             => 'perl',
     dist_author         => q{Mike DeLaurentis <delaurentis@gmail.com>},
@@ -16,6 +20,9 @@ my $builder = Module::Build->new(
     },
     add_to_cleanup      => [ 'RUM-Index-*' ],
     create_makefile_pl => 'traditional',
+    test_types => {
+        integration => 'it'
+    }
 );
 
 $builder->create_build_script();
