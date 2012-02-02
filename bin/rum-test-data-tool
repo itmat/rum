@@ -1,0 +1,147 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use Carp;
+use Amazon::S3;
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use RUM::Script qw(get_options);
+
+our $BUCKET_NAME = "pgfi.rum";
+our $DEFAULT_KEY = "rum-test-data.tgz";
+our $DEFAULT_ACL = "public-read";
+
+get_options(
+      "access-key-id=s"  => \(my $access_key_id),
+   "secret-access-key=s" => \(my $secret_access_key),
+    
+           "list-keys|l" => \(my $do_list_keys),
+              "upload|u" => \(my $do_upload),
+          "delete-key|d" => \(my $do_delete_key),
+           
+                 "key=s" => \(my $key = $DEFAULT_KEY),
+                "file=s" => \(my $file),
+   );
+
+croak "All requests require a --access-key-id and --secret-access-key"
+    unless $access_key_id && $secret_access_key;
+
+my $s3 = Amazon::S3->new(
+    {   aws_access_key_id     => $access_key_id,
+        aws_secret_access_key => $secret_access_key,
+        retry                 => 1
+    });
+
+my $bucket = $s3->bucket($BUCKET_NAME);
+
+if ($do_list_keys) {
+    my $result = $s3->list_bucket( { bucket => $BUCKET_NAME });
+    for my $key (@{ $result->{keys} }) {
+        print "$key->{key}\n";
+    }
+}
+
+if ($do_delete_key) {
+    print "Deleting key $key\n";
+    $bucket->delete_key($key);
+}
+
+if ($do_upload) {
+    croak "--upload|u requires --file argument"
+        unless $key && $file;
+    
+    print "Uploading $file to key $key\n";
+
+    open my $in, "<", $file 
+        or croak "Couldn't open $file: $!";
+    my $data = "";
+    while (read($in, my $chunk, 1000)) {
+        $data .= $chunk;
+    }
+    $bucket->add_key($key, $data);
+    $bucket->set_acl({acl_short => "public-read",
+                      key => $key});
+}
+
+__END__
+
+#print "Ensuring bucket '$BUCKET_NAME' exists\n";
+#$BUCKET = $s3->add_bucket( { bucket => $BUCKET_NAME })
+#    or croak sprintf("%s: %s", $s3->err, $s3->err_str);
+
+=head1 NAME
+
+rum-test-data-tool - Utility for managing test data stored on S3
+
+=head1 SYNOPSIS
+
+  # All requests require an access key id and secret access key.
+  aki=asdfadfsasdfad
+  sak=aasdf7asdh23fasdf23ewfdasdf
+  
+  # List keys in the pgfi.rum bucket
+  rum-test-data-tool --access-key-id $aki --secret-access-key $sac \
+    -l
+
+  # Upload a file to the rum-test-data.tgz key
+  rum-test-data-tool --access-key-id $aki --secret-access-key $sac \
+    -u --file rum-test-data.tgz
+
+  # Upload a file to some other key
+  rum-test-data-tool --access-key-id $aki --secret-access-key $sac \
+    -u --file rum-test-data.tgz --key some-other-key
+
+  # Delete a key
+  rum-test-data-tool --access-key-id $aki --secret-access-key $sac \
+    -d --key some-other-key
+
+=head1 DESCRIPTION
+
+You can use this tool to manage test data for RUM stored on S3.
+
+=head2 Options
+
+=over 4
+
+=item B<--access-key-id> I<id>
+
+The access key id issued by AWS.
+
+=item B<--secret-access-key> I<key>
+
+The secret access key issued by AWS.
+
+=item B<-l>, B<--list-keys>
+
+List the keys in the pgfi.ru bucket.
+
+=item B<-u>, B<--upload>
+
+Upload a file specified by the B<--file> argument to a key specified
+by the B<--key> argument, or to rum-test-data.tgz if no --key is
+specified.
+
+=item B<-d>, B<--delete-key>
+
+Delete the key specified by the B<--key> argument.
+
+=item B<--key> I<key>
+
+The key to use.
+
+=item B<--file> I<file>
+
+The file to upload.        
+
+=back
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright University of Pennsylvania, 2012.
+
+=cut
