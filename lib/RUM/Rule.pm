@@ -1,8 +1,8 @@
-package RUM::Task;
+package RUM::Rule;
 
 =head1 NAME
 
-RUM::Task - Task and dependency framework
+RUM::Rule - Rule and dependency framework
 
 =head1 DESCRIPTION
 
@@ -22,26 +22,26 @@ use Exporter 'import';
 use File::Path qw(mkpath rmtree);
 use Log::Log4perl qw(:easy);
 
-our @EXPORT_OK = qw(@QUEUE report make_path_rule target action task ftp_rule 
+our @EXPORT_OK = qw(@QUEUE report make_path_rule target action rule ftp_rule 
                     satisfy_with_command build chain enqueue rule);
 
-use subs qw(action target satisfy task children is_satisfied plan
+use subs qw(action target satisfy rule children is_satisfied plan
             download report);
 
 our @QUEUE;
 
-=item RUM::Task->new(NAME, TARGET, ACTION, DEPS)
+=item RUM::Rule->new(NAME, TARGET, ACTION, DEPS)
 
 =cut
 
 sub new {
     my ($class, $name, $target, $action, $deps) = @_;
     $deps = [] unless defined $deps;
-#    croak "First argument of Task must be a name" 
+#    croak "First argument of Rule must be a name" 
 #        if ref($name) ;
-    croak "Second argument of Task must be a targetition test" 
+    croak "Second argument of Rule must be a targetition test" 
         unless ref($target) =~ /CODE/;
-    croak "Third argument of Task must be a precondition" 
+    croak "Third argument of Rule must be a precondition" 
         unless ref($action) =~ /CODE/;
     croak "Fourth arg must be code or an array ref" 
         unless (ref($deps) =~ /CODE/ or ref($deps) =~ /ARRAY/);
@@ -57,7 +57,7 @@ sub new {
 
 =item rule OPTIONS
 
-Return a task object. Options are:
+Return a rule object. Options are:
 
 =over 4
 
@@ -92,7 +92,7 @@ sub rule {
     my (@args) = @_;
     croak "Odd number of options to rule" unless @args % 2 == 0;
     my (%options) = @_;
-    return task($options{name} || "",
+    return rule($options{name} || "",
                 $options{target} || sub { undef },
                 $options{action} || sub { },
                 $options{depends_on} || [ ]);
@@ -100,13 +100,13 @@ sub rule {
 
 =back
 
-=head3 RUM::Task methods
+=head3 RUM::Rule methods
 
 =over 4
 
-=item $task->name()
+=item $rule->name()
 
-Return the name of the task.
+Return the name of the rule.
 
 =cut
 
@@ -119,9 +119,9 @@ sub name {
     return $name;
 }
 
-=item $task->deps(OPTIONS, ARGS)
+=item $rule->deps(OPTIONS, ARGS)
 
-Return a list of the tasks that must be run before this task can be
+Return a list of the rules that must be run before this rule can be
 run.
 
 =cut
@@ -133,9 +133,9 @@ sub deps {
     return @{ $deps->($options, @args) };
 }
 
-=item $task->queue_deps()
+=item $rule->queue_deps()
 
-Add the dependencies of this task to the @QUEUE.
+Add the dependencies of this rule to the @QUEUE.
 
 =cut
 
@@ -152,9 +152,9 @@ sub queue_deps {
     return undef;
 }
 
-=item $task->is_satisfied()
+=item $rule->is_satisfied()
 
-Returns true if the TASK is already satisfied, false otherwise.
+Returns true if the RULE is already satisfied, false otherwise.
 
 =cut
 
@@ -176,7 +176,7 @@ sub report {
 
 =item target CODE
 
-Marker for a sub that should return true when the task is considered
+Marker for a sub that should return true when the rule is considered
 satisfied and false otherwise.
 
 =cut
@@ -187,7 +187,7 @@ sub target (&) {
 
 =item action CODE
 
-Marker for a sub that should be called to satisfy a task, assuming all
+Marker for a sub that should be called to satisfy a rule, assuming all
 of its dependencies are satisfied.
 
 =cut
@@ -205,7 +205,7 @@ sub action (&) {
 =head3 Canned actions
 
 Each of these subs return an anonymous sub that can be used as an
-action in a call to task().
+action in a call to rule().
 
 =over 4
 
@@ -251,20 +251,20 @@ sub chain {
 
 =back
 
-=head3 Canned Tasks
+=head3 Canned Rules
 
 =over 4
 
 =item ftp_rule REMOTE, LOCAL
 
-A task that does nothing if LOCAL exists, otherwise downloads a file
+A rule that does nothing if LOCAL exists, otherwise downloads a file
 identified by REMOTE and saves it to LOCAL.
 
 =cut
 
 sub ftp_rule {
     my ($remote, $local) = @_;
-    return task(
+    return rule(
         "Download $remote to $local",
         target { -f $local },
         satisfy_with_command("ftp", "-o", $local, $remote));
@@ -272,14 +272,14 @@ sub ftp_rule {
 
 =item copy_file SOURCE, DEST
 
-A task that does nothing if LOCAL exists, otherwise copies a file
+A rule that does nothing if LOCAL exists, otherwise copies a file
 identified by SOURCE and saves it to DEST.
 
 =cut
 
 sub copy_file {
     my ($src, $dst, $deps) = @_;
-    return task(
+    return rule(
         "Copy $src to $dst",
         target { -f $dst },
         satisfy_with_command("cp", $src, $dst),
@@ -289,13 +289,13 @@ sub copy_file {
 
 =item make_path_rule PATH
 
-A task that creates a path on the filesystem if it doesn't already exist.
+A rule that creates a path on the filesystem if it doesn't already exist.
 
 =cut
 
 sub make_path_rule {
     my ($path) = @_;
-    return task(
+    return rule(
         "Make path $path",
         target { -d $path },
         action { 
@@ -308,16 +308,16 @@ sub make_path_rule {
         });
 }
 
-=item rmtree_task PATH
+=item rmtree_rule PATH
 
-A task that removes an entire directory tree if it exists. I<USE WITH
+A rule that removes an entire directory tree if it exists. I<USE WITH
 CAUTION!!!>
 
 =cut
 
-sub rmtree_task {
+sub rmtree_rule {
     my ($path) = @_;
-    return task(
+    return rule(
         "Remove $path",
         target { not -d $path },
         action { 
@@ -333,8 +333,8 @@ sub rmtree_task {
 
 =item build FOR_REAL, VERBOSE
 
-Build any tasks currently in the @QUEUE. If FOR_REAL is a true value,
-actually run the tasks; otherwise just print out some diagnostic
+Build any rules currently in the @QUEUE. If FOR_REAL is a true value,
+actually run the rules; otherwise just print out some diagnostic
 information. If VERBOSE is true, print out extra information.
 
 =cut
@@ -343,36 +343,36 @@ sub build {
     my ($options, @args) = @_;
 
     while (@QUEUE) {
-        my $task = pop @QUEUE;
-        my $name = $task->name($options, @args);
-        DEBUG "Looking at task $name\n";
-        if ($task->queue_deps($options, @args)) {
+        my $rule = pop @QUEUE;
+        my $name = $rule->name($options, @args);
+        DEBUG "Looking at rule $name\n";
+        if ($rule->queue_deps($options, @args)) {
             DEBUG "Queued deps for $name\n";
         }
         
         else {
             DEBUG "Doing work for $name\n";
-            my $name = $task->name($options, @args);
-            if ($task->is_satisfied($options, @args)) {
-                report "Task '$name' is satisfied" if $options->{verbose};
+            my $name = $rule->name($options, @args);
+            if ($rule->is_satisfied($options, @args)) {
+                report "Rule '$name' is satisfied" if $options->{verbose};
             }
             else {
-                report "Building task '$name'";
-                $task->{action}->($options, @args);
+                report "Building rule '$name'";
+                $rule->{action}->($options, @args);
             }
         }
     }
 }
 
-=item enqueue TASKS
+=item enqueue RULES
 
-Add all the given TASKS to the queue in order.
+Add all the given RULES to the queue in order.
 
 =cut
 
 sub enqueue {
-    while (my $task = shift()) {
-        unshift @QUEUE, $task;
+    while (my $rule = shift()) {
+        unshift @QUEUE, $rule;
     }
 }
 

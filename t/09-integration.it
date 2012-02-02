@@ -9,7 +9,7 @@ use lib "lib";
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init($WARN);
 use RUM::Config qw(parse_organisms format_config);
-use RUM::Task qw(report @QUEUE make_path_rule target action rule ftp_rule 
+use RUM::Rule qw(report @QUEUE make_path_rule target action rule ftp_rule 
                  satisfy_with_command build chain enqueue);
 use Carp;
 
@@ -131,7 +131,7 @@ my $paths_exist = rule(
                 make_path_rule(output_data_dir($run_name))]
     });
 
-# This task downloads the organisms text file to the current directory
+# This rule downloads the organisms text file to the current directory
 my $have_organisms_txt = ftp_rule($ORGANISMS_URL, $ORGANISMS_FILE);
 
 my $have_indexes = rule(
@@ -153,7 +153,7 @@ my $have_indexes = rule(
         # Get all the URLs listed for any orgs we're interested in
         my @urls = map { @{ $_->{files} } } @organisms;
         
-        # For each of the URLs, enqueue a task that will download it
+        # For each of the URLs, enqueue a rule that will download it
         for my $url (@urls) {
             my $file = $TEST_INDEX_DIR . "/" .
                 substr($url, rindex($url, "/") + 1);
