@@ -19,7 +19,7 @@ use Carp;
 use FindBin qw($Bin);
 
 use Exporter 'import';
-use File::Path qw(make_path rmtree);
+use File::Path qw(mkpath rmtree);
 use Log::Log4perl qw(:easy);
 
 our @EXPORT_OK = qw(@QUEUE report make_path_rule target action task ftp_rule 
