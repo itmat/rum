@@ -23,7 +23,7 @@ use File::Path qw(make_path rmtree);
 use Log::Log4perl qw(:easy);
 
 our @EXPORT_OK = qw(@QUEUE report make_path_rule target action task ftp_rule 
-                    satisfy_with_command build chain enqueue);
+                    satisfy_with_command build chain enqueue rule);
 
 use subs qw(action target satisfy task children is_satisfied plan
             download report);
@@ -91,6 +91,16 @@ sub task {
     return new RUM::Task($name, $target, $action, $deps);
 }
 
+sub rule {
+    my (@args) = @_;
+    croak "Odd number of options to rule" unless @args % 2 == 0;
+    my (%options) = @_;
+    return task($options{name} || "",
+                $options{target} || sub { undef },
+                $options{action} || sub { },
+                $options{depends_on} || [ ]);
+}
+
 =back
 
 =head3 RUM::Task methods
@@ -107,7 +117,7 @@ sub name {
     return $_[0]->{name};
 }
 
-=item $task->deps()
+=item $task->deps(OPTIONS, ARGS)
 
 Return a list of the tasks that must be run before this task can be
 run.
@@ -115,10 +125,10 @@ run.
 =cut
 
 sub deps {
-    my ($self) = @_;
+    my ($self, $options, @args) = @_;
     my $deps = $self->{deps};
     return @{ $deps } if ref($deps) =~ /ARRAY/;
-    return @{ $deps->() };
+    return @{ $deps->($options, @args) };
 }
 
 =item $task->queue_deps()
@@ -128,10 +138,10 @@ Add the dependencies of this task to the @QUEUE.
 =cut
 
 sub queue_deps {
-    my ($self) = @_;
+    my ($self, $options, @args) = @_;
     DEBUG "Getting deps for $self->{name}\n";
     return undef if $self->{queued_deps}++;
-    if (my @deps = $self->deps) {
+    if (my @deps = $self->deps($options, @args)) {
         DEBUG "My deps are @deps\n";
         push @QUEUE, $self;
         push @QUEUE, @deps;
@@ -208,12 +218,12 @@ when called with a false argument just prints the cmd.
 sub satisfy_with_command {
     my @cmd = @_;
     return sub {
-        my ($for_real) = @_;
-        if ($for_real) {
-            system(@cmd) == 0 or croak "Can't execute @cmd: $!";
+        my ($options) = @_;
+        if ($options->{dry_run}) {
+            print "@cmd\n";
         }
         else {
-            print "@cmd\n";
+            system(@cmd) == 0 or croak "Can't execute @cmd: $!";
         }
     }
 }
@@ -308,12 +318,12 @@ sub rmtree_task {
         "Remove $path",
         target { not -d $path },
         action { 
-            my ($for_real) = @_;
-            if ($for_real) {
-                rmtree($path);
+            my ($options) = @_;
+            if ($options->{dry_run}) {
+                print "rm -rf $path";
             }
             else {
-                print "rm -rf $path";
+                rmtree($path);
             }
         });
 }
@@ -327,13 +337,13 @@ information. If VERBOSE is true, print out extra information.
 =cut
 
 sub build {
-    my ($for_real, $verbose) = @_;
+    my ($options, @args) = @_;
 
     while (@QUEUE) {
         my $task = pop @QUEUE;
         my $name = $task->name;
         DEBUG "Looking at task $name\n";
-        if ($task->queue_deps) {
+        if ($task->queue_deps($options, @args)) {
             DEBUG "Queued deps for $name\n";
         }
         
@@ -341,11 +351,11 @@ sub build {
             DEBUG "Doing work for $name\n";
             my $name = $task->name;
             if ($task->is_satisfied) {
-                report "Task '$name' is satisfied" if $verbose;
+                report "Task '$name' is satisfied" if $options->{verbose};
             }
             else {
                 report "Building task '$name'";
-                $task->{action}->($for_real);
+                $task->{action}->($options, @args);
             }
         }
     }
@@ -365,3 +375,4 @@ sub enqueue {
 
 
 return 1;
+

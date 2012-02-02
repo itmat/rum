@@ -24,5 +24,7 @@
   the script in a separate directory.
 
 Need to install Log::Log4perl
+Need to install Test::Exception, Test::More
+
 
 Make mock blat and bowtie, to make testing easier?
