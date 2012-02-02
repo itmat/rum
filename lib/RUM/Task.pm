@@ -37,8 +37,8 @@ our @QUEUE;
 sub new {
     my ($class, $name, $target, $action, $deps) = @_;
     $deps = [] unless defined $deps;
-    croak "First argument of Task must be a name" 
-        if ref $name;
+#    croak "First argument of Task must be a name" 
+#        if ref($name) ;
     croak "Second argument of Task must be a targetition test" 
         unless ref($target) =~ /CODE/;
     croak "Third argument of Task must be a precondition" 
@@ -114,7 +114,12 @@ Return the name of the task.
 =cut
 
 sub name {
-    return $_[0]->{name};
+    my ($self, $options, @args) = @_;;
+    my $name = $self->{name};
+    if (ref($name) =~ /CODE/) {
+        return $name->($options, @args);
+    }
+    return $name;
 }
 
 =item $task->deps(OPTIONS, ARGS)
@@ -157,7 +162,8 @@ Returns true if the TASK is already satisfied, false otherwise.
 =cut
 
 sub is_satisfied {
-    return $_[0]->{target}->();
+    my ($self, $options, @args) = @_;
+    return $self->{target}->($options, @args);
 }
 
 =item report ARGS
@@ -341,7 +347,7 @@ sub build {
 
     while (@QUEUE) {
         my $task = pop @QUEUE;
-        my $name = $task->name;
+        my $name = $task->name($options, @args);
         DEBUG "Looking at task $name\n";
         if ($task->queue_deps($options, @args)) {
             DEBUG "Queued deps for $name\n";
@@ -349,8 +355,8 @@ sub build {
         
         else {
             DEBUG "Doing work for $name\n";
-            my $name = $task->name;
-            if ($task->is_satisfied) {
+            my $name = $task->name($options, @args);
+            if ($task->is_satisfied($options, @args)) {
                 report "Task '$name' is satisfied" if $options->{verbose};
             }
             else {

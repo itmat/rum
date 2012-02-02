@@ -17,7 +17,7 @@ use Getopt::Long;
 
 ################################################################################
 ###
-### Config
+### Configuration
 ###
 
 my $ROOT = "_testing";
@@ -26,7 +26,6 @@ my $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tgz";
 my $ORGANISMS_URL = "http://itmat.rum.s3.amazonaws.com/organisms.txt",
 
 # Locations of input files and dirs
-my $CONFIG_FILE         = "$ROOT/rum.config_mm9";
 my $TEST_INDEX_DIR      = "$ROOT/indexes";
 my $TEST_DATA_TARBALL   = "$ROOT/rum-test-data.tgz";
 my $RESOURCES_DIR       = "$ROOT/rum-test-data";
@@ -37,7 +36,6 @@ my $TEST_LIB_DIR        = "orig/lib";
 # The test data tarball gives us a set of input files for Rum, some
 # expected output files, and the executables for bowtie, blat, and
 # mdust.
-my $INPUT_DATA          = "$RESOURCES_DIR/test_mouse/s_1_1.baby";
 my $BIN_DIR             = "$RESOURCES_DIR/bin-$^O";
 
 # These files are produced by Rum
@@ -57,16 +55,6 @@ my @RUM_OUTPUT_FILES = qw(PostProcessing-errorlog
                           feature_quantifications_Lane1
                           junctions_all.bed
                      );
-
-sub expected_output_dir {
-    my ($test_name) = @_;
-    return "$RESOURCES_DIR/${test_name}-expected";
-}
-
-sub output_data_dir {
-    my ($test_name) = @_;
-    return "$ROOT/data/$test_name/Lane1";
-}
 
 # Rum produces these files too, but we don't compare them to the
 # expected output because they're too variable.
@@ -91,9 +79,48 @@ my %CONFIGS = (
             "bowtie-gene-index"    => "$TEST_INDEX_DIR/mm9_genes",
             "blat-genome-index"    => "$TEST_INDEX_DIR/mm9_genome_one-line-seqs.fa"},
 
-        genome_build => "mm9" 
+        genome_build => "mm9" ,
+        input_file => "$RESOURCES_DIR/test_mouse/s_1_1.baby",
+        rum_config_file => "$ROOT/rum.config_mm9"
     }
 );
+
+################################################################################
+###
+### Helper functions for getting configuration settings
+###
+
+sub expected_output_dir {
+    my ($test_name) = @_;
+    return "$RESOURCES_DIR/${test_name}-expected";
+}
+
+sub output_data_dir {
+    my ($test_name) = @_;
+    return "$ROOT/data/$test_name/Lane1";
+}
+
+sub config {
+    my $test_name = shift 
+        or croak "I need a test name to get the config";
+    my $config = $CONFIGS{$test_name} 
+        or croak "I don't have a configuration for $test_name";
+}
+
+sub input_file {
+    my ($test_name) = @_;
+    return config($test_name)->{input_file};
+}
+
+sub rum_config_file {
+    my ($test_name) = @_;
+    return config(test_name)->{input_file};
+}
+
+################################################################################
+###
+### Rules
+###
 
 my $paths_exist = rule(
     name => "Make paths",
@@ -105,14 +132,14 @@ my $paths_exist = rule(
     });
 
 # This task downloads the organisms text file to the current directory
-my $download_organisims_txt = ftp_rule($ORGANISMS_URL, $ORGANISMS_FILE);
+my $have_organisms_txt = ftp_rule($ORGANISMS_URL, $ORGANISMS_FILE);
 
 my $have_indexes = rule(
     name => "Download indexes",
     action => sub {
         my ($options, $run_name) = @_;
 
-        my $build_name = $CONFIGS{$run_name}->{genome_build}
+        my $build_name = config($run_name)->{genome_build}
             or croak "I don't have a genome build id for run name $run_name";
 
         report "Parsing organisms file";
@@ -145,18 +172,19 @@ my $have_indexes = rule(
         }
     },
     depends_on => [make_path_rule($TEST_INDEX_DIR),
-                   $download_organisims_txt]);
+                   $have_organisms_txt]);
 
 my $have_config_file = rule(
     name => "Make config file",
-    target => sub { -f $CONFIG_FILE },
+    target => sub { 
+        my ($options, $run_name) = @_;
+        -f rum_config_file($run_name)
+    },
     action => sub {
         my ($options, $run_name) = @_;
-        open my $out, ">", $CONFIG_FILE;
+        open my $out, ">", rum_config_file($run_name);
         my %config = %CONFIG_DEFAULTS;
-        my $custom = $CONFIGS{$run_name}
-            or croak "I don't have a configuration for build name $run_name";
-        my %custom = %{ $custom->{rum_config} };
+        my %custom = %{ config($run_name)->{rum_config} };
         @config{keys(%custom)} = values(%custom);
         print $out format_config(%config);
     },
@@ -166,7 +194,11 @@ my $have_test_data_tarball = ftp_rule($TEST_DATA_URL, $TEST_DATA_TARBALL);
 
 my $have_test_data = rule(
     name => "Untar test data",
-    target => sub { -f $INPUT_DATA },
+    target => sub { 
+        my ($options, $run_name) = @_;
+        print "Got run name $run_name\n";
+        -f $CONFIGS{$run_name}->{input_file} 
+    },
     action => satisfy_with_command("tar", "-zxvf", $TEST_DATA_TARBALL, "-C", $ROOT),
     depends_on => [$have_test_data_tarball]);
 
@@ -174,16 +206,27 @@ sub all_output_files_exist_in_dir {
     return not grep { not -f "$_[0]/$_" } @RUM_OUTPUT_FILES;
 }
 
-my $run_rum_task = rule(
-    name => "Rum",
+my $have_rum_output = rule(
+    name => sub { "Run RUM for $_[1]" },
     target => sub { 
-        return all_output_files_exist_in_dir(output_data_dir("mouse")) 
+        my ($options, $run_name) = @_;
+        return all_output_files_exist_in_dir(output_data_dir($run_name)) 
     },
-    action => satisfy_with_command("perl", "orig/RUM_runner.pl",
-                                   $CONFIG_FILE,
-                                   $INPUT_DATA, output_data_dir("mouse"),
-                                   "1", 
-                                   "Lane1"),
+    action => sub {
+        my ($options, $run_name) = @_;
+        my @cmd = ("perl", "orig/RUM_runner.pl",
+                   rum_config_file($run_name),
+                   input_file($run_name),
+                   output_data_dir($run_name),
+                   "1", 
+                   "Lane1");
+        if ($options->{dry_run}) {
+            print "@cmd\n";
+        }
+        else {
+            system(@cmd) == 0 or croak "Can't execute @cmd: $!";
+        }
+    },
     depends_on => [$have_indexes,
                    $have_config_file,
                    $have_test_data]);
@@ -218,7 +261,7 @@ my $compare_output_to_expected = rule(
             }
         }
     },
-    depends_on => [$have_test_data, $run_rum_task]);
+    depends_on => [$have_test_data, $have_rum_output]);
 
 sub main {
 
@@ -236,6 +279,3 @@ sub main {
 }
 
 main();
-
-
-
