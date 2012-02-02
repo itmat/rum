@@ -9,7 +9,7 @@ use lib "$Bin/../lib";
 use RUM::Script qw(get_options);
 
 our $BUCKET_NAME = "pgfi.rum";
-our $DEFAULT_KEY = "rum-test-data.tgz";
+our $DEFAULT_KEY = "rum-test-data.tar.gz";
 our $DEFAULT_ACL = "public-read";
 
 get_options(

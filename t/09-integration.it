@@ -22,12 +22,12 @@ use Getopt::Long;
 
 my $ROOT = "_testing";
 
-my $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tgz";
+my $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tar.gz";
 my $ORGANISMS_URL = "http://itmat.rum.s3.amazonaws.com/organisms.txt",
 
 # Locations of input files and dirs
 my $TEST_INDEX_DIR      = "$ROOT/indexes";
-my $TEST_DATA_TARBALL   = "$ROOT/rum-test-data.tgz";
+my $TEST_DATA_TARBALL   = "$ROOT/rum-test-data.tar.gz";
 my $RESOURCES_DIR       = "$ROOT/rum-test-data";
 my $ORGANISMS_FILE      = "$ROOT/organisms.txt";
 my $TEST_SCRIPT_DIR     = "orig/scripts";
