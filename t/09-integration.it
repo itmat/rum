@@ -114,7 +114,7 @@ sub input_file {
 
 sub rum_config_file {
     my ($test_name) = @_;
-    return config(test_name)->{input_file};
+    return config($test_name)->{input_file};
 }
 
 ################################################################################
@@ -190,7 +190,9 @@ my $have_config_file = rule(
     },
     depends_on => [$paths_exist]);
 
-my $have_test_data_tarball = ftp_rule($TEST_DATA_URL, $TEST_DATA_TARBALL);
+my $have_test_data_tarball = ftp_rule(
+    $TEST_DATA_URL, $TEST_DATA_TARBALL,
+    depends_on => [$paths_exist]);
 
 my $have_test_data = rule(
     name => "Untar test data",

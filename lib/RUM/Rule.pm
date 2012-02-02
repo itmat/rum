@@ -92,10 +92,10 @@ sub rule {
     my (@args) = @_;
     croak "Odd number of options to rule" unless @args % 2 == 0;
     my (%options) = @_;
-    return rule($options{name} || "",
-                $options{target} || sub { undef },
-                $options{action} || sub { },
-                $options{depends_on} || [ ]);
+    return new RUM::Rule($options{name} || "",
+                         $options{target} || sub { undef },
+                         $options{action} || sub { },
+                         $options{depends_on} || [ ]);
 }
 
 =back
@@ -263,29 +263,12 @@ identified by REMOTE and saves it to LOCAL.
 =cut
 
 sub ftp_rule {
-    my ($remote, $local) = @_;
-    return rule(
-        "Download $remote to $local",
-        target { -f $local },
-        satisfy_with_command("ftp", "-o", $local, $remote));
+    my ($remote, $local, %options) = @_;
+    $options{name}   ||= "Download $remote to $local";
+    $options{target} ||= sub { -f $local };
+    $options{action} ||= satisfy_with_command("ftp", "-o", $local, $remote);
+    return rule(%options);
 }
-
-=item copy_file SOURCE, DEST
-
-A rule that does nothing if LOCAL exists, otherwise copies a file
-identified by SOURCE and saves it to DEST.
-
-=cut
-
-sub copy_file {
-    my ($src, $dst, $deps) = @_;
-    return rule(
-        "Copy $src to $dst",
-        target { -f $dst },
-        satisfy_with_command("cp", $src, $dst),
-        $deps);
-}
-
 
 =item make_path_rule PATH
 
@@ -296,11 +279,11 @@ A rule that creates a path on the filesystem if it doesn't already exist.
 sub make_path_rule {
     my ($path) = @_;
     return rule(
-        "Make path $path",
-        target { -d $path },
-        action { 
+        name => "Make path $path",
+        target => sub { -d $path },
+        action => sub { 
             if ($_[0]) {
-                make_path($path);
+                mkpath($path);
             }
             else {
                 print "mkdir -p $path\n";
@@ -318,9 +301,9 @@ CAUTION!!!>
 sub rmtree_rule {
     my ($path) = @_;
     return rule(
-        "Remove $path",
-        target { not -d $path },
-        action { 
+        name => "Remove $path",
+        target => sub { not -d $path },
+        action => sub { 
             my ($options) = @_;
             if ($options->{dry_run}) {
                 print "rm -rf $path";
