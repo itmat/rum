@@ -55,41 +55,38 @@ sub new {
 
 
 
-=item task NAME, TARGET, ACTION, DEPS
+=item rule OPTIONS
 
-Return a task object.
+Return a task object. Options are:
 
 =over 4
 
-=item NAME
+=item name
 
-A string that describes the task.
+Either the name of the rule as a string or a code ref that will return
+the name. It will be called with whatever arguments are passed to
+I<build()>.
 
 =item TARGET
 
-A code ref that takes no arguments and returns true when the task is
-satisfied.
+A code ref that returns true when the rule is satisfied. It will be
+called with whatever arguments are passed to I<build()>.
 
 =item ACTION
 
-A code ref that can be called to satisfy the task. It is called with
-one arg; a true value indicates that it should actually do the work,
-while a false value indicates that it should only report on what work
-it would do (think "make -n").
+A code ref that can be called to satisfy the rule. It will be called
+with whatever arguments are passed to I<build()>.
 
 =item DEPS
 
-Either an ref to an array of tasks that must be run before this task
-can be run, or a code ref that will return such a list when called.
+Either an ref to an array of rules that must be run before this rule
+can be run, or a code ref that will return such a list when called. If
+it's a code ref, it will be called with whatever arguments are passed
+to I<build()>.
 
 =back
 
 =cut
-
-sub task {
-    my ($name, $target, $action, $deps) = @_;
-    return new RUM::Task($name, $target, $action, $deps);
-}
 
 sub rule {
     my (@args) = @_;

@@ -6,4 +6,4 @@ BEGIN {
     use_ok( 'RUM::Script' ) || print "Bail out!\n";
 }
 
-diag( "Testing RUM::Index $RUM::Index::VERSION, Perl $], $^X" );
+diag( "Testing RUM $RUM::Script::VERSION, Perl $], $^X" );

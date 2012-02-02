@@ -498,7 +498,7 @@ sub fix_geneinfofile_for_neg_introns {
     if(!($ends =~ /\S/)) {
       croak "ERROR: the 'ends' column has empty entries\n";
     }
-    if(!($row[$exon_count_col] =~ /\S/)) {
+    if(!(($row[$exon_count_col]||"") =~ /\S/)) {
       croak "ERROR: the 'exon counts' column has empty entries\n";
     }
 
