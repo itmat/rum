@@ -9,7 +9,7 @@ use lib "lib";
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init($WARN);
 use RUM::Config qw(parse_organisms format_config);
-use RUM::Rule qw(report @QUEUE make_path_rule target action rule ftp_rule 
+use RUM::Rule qw(report @QUEUE make_path_rule target action rule download_rule 
                  satisfy_with_command build chain enqueue);
 use Carp;
 
@@ -114,7 +114,7 @@ sub input_file {
 
 sub rum_config_file {
     my ($test_name) = @_;
-    return config($test_name)->{input_file};
+    return config($test_name)->{rum_config_file};
 }
 
 ################################################################################
@@ -132,7 +132,7 @@ my $paths_exist = rule(
     });
 
 # This rule downloads the organisms text file to the current directory
-my $have_organisms_txt = ftp_rule($ORGANISMS_URL, $ORGANISMS_FILE);
+my $have_organisms_txt = download_rule($ORGANISMS_URL, $ORGANISMS_FILE);
 
 my $have_indexes = rule(
     name => "Download indexes",
@@ -163,11 +163,14 @@ my $have_indexes = rule(
                     name => "Download and unzip $file",
                     target => sub { -f $unzipped },
                     action => chain(
-                        satisfy_with_command("ftp", "-o", $file, $url),
+                        sub {
+                            my $ua = LWP::UserAgent->new;
+                            $ua->get($url, ":content_file" => $file);
+                        },
                         satisfy_with_command("gunzip", $file)));
             }
             else {
-                push @QUEUE, ftp_rule($url, $file);
+                push @QUEUE, download_rule($url, $file);
             }
         }
     },
@@ -178,11 +181,15 @@ my $have_config_file = rule(
     name => "Make config file",
     target => sub { 
         my ($options, $run_name) = @_;
-        -f rum_config_file($run_name)
+        my $filename = rum_config_file($run_name);
+        report "Looking for config file $filename";
+        -f $filename;
     },
     action => sub {
         my ($options, $run_name) = @_;
-        open my $out, ">", rum_config_file($run_name);
+        my $filename = rum_config_file($run_name);
+        report "Writing config file to $filename";
+        open my $out, ">", $filename;
         my %config = %CONFIG_DEFAULTS;
         my %custom = %{ config($run_name)->{rum_config} };
         @config{keys(%custom)} = values(%custom);
@@ -190,7 +197,7 @@ my $have_config_file = rule(
     },
     depends_on => [$paths_exist]);
 
-my $have_test_data_tarball = ftp_rule(
+my $have_test_data_tarball = download_rule(
     $TEST_DATA_URL, $TEST_DATA_TARBALL,
     depends_on => [$paths_exist]);
 

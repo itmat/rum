@@ -21,8 +21,9 @@ use FindBin qw($Bin);
 use Exporter 'import';
 use File::Path qw(mkpath rmtree);
 use Log::Log4perl qw(:easy);
+use LWP::UserAgent;
 
-our @EXPORT_OK = qw(@QUEUE report make_path_rule target action rule ftp_rule 
+our @EXPORT_OK = qw(@QUEUE report make_path_rule target action rule download_rule 
                     satisfy_with_command build chain enqueue rule);
 
 use subs qw(action target satisfy rule children is_satisfied plan
@@ -255,18 +256,21 @@ sub chain {
 
 =over 4
 
-=item ftp_rule REMOTE, LOCAL
+=item download_rule REMOTE, LOCAL
 
 A rule that does nothing if LOCAL exists, otherwise downloads a file
 identified by REMOTE and saves it to LOCAL.
 
 =cut
 
-sub ftp_rule {
-    my ($remote, $local, %options) = @_;
-    $options{name}   ||= "Download $remote to $local";
+sub download_rule {
+    my ($url, $local, %options) = @_;
+    $options{name}   ||= "Download $url to $local";
     $options{target} ||= sub { -f $local };
-    $options{action} ||= satisfy_with_command("ftp", "-o", $local, $remote);
+    $options{action} ||= sub {
+        my $ua = LWP::UserAgent->new;
+        $ua->get($url, ":content_file" => $local);
+    };
     return rule(%options);
 }
 
