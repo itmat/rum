@@ -95,7 +95,8 @@ sub rule {
     croak "Odd number of options to rule" unless @args % 2 == 0;
     my (%options) = @args;
     my $rule = new RUM::Rule($options{name} || "",
-                             $options{target} || sub { undef },
+                             $options{produces} || [],
+                             $options{target},
                              $options{action} || sub { },
                              $options{depends_on} || [ ]);
     push @{ $self->{rules} }, $rule;
@@ -210,7 +211,7 @@ identified by REMOTE and saves it to LOCAL.
 sub download_rule {
     my ($self, $url, $local, %options) = @_;
     $options{name}   ||= "Download $url to $local";
-    $options{target} ||= sub { -f $local };
+    $options{produces} ||= $local;
     $options{action} ||= sub {
         my $ua = LWP::UserAgent->new;
         $ua->get($url, ":content_file" => $local);
@@ -228,7 +229,7 @@ sub make_path_rule {
     my ($self, $path) = @_;
     return $self->rule(
         name => "Make path $path",
-        target => sub { -d $path },
+        produces => $path,
         action => sub { 
             if ($_[0]) {
                 mkpath($path);

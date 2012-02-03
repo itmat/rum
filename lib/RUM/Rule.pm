@@ -33,19 +33,20 @@ use subs qw(action target satisfy rule children is_satisfied plan
 =cut
 
 sub new {
-    my ($class, $name, $target, $action, $deps) = @_;
+    my ($class, $name, $products, $target, $action, $deps) = @_;
     $deps = [] unless defined $deps;
-#    croak "First argument of Rule must be a name" 
-#        if ref($name) ;
-    croak "Second argument of Rule must be a targetition test" 
-        unless ref($target) =~ /CODE/;
-    croak "Third argument of Rule must be a precondition" 
-        unless ref($action) =~ /CODE/;
-    croak "Fourth arg must be code or an array ref" 
-        unless (ref($deps) =~ /CODE/ or ref($deps) =~ /ARRAY/);
+#    croak "First argument of Rule must be a name or a sub that returns a name" 
+#        if ref($name) && ref($name) !~ /CODE/;
+##    croak "Second argument of Rule must be a targetition test" 
+ #       unless ref($target) =~ /CODE/;
+ #   croak "Third argument of Rule must be a precondition" 
+ #       unless ref($action) =~ /CODE/;
+ #   croak "Fourth arg must be code or an array ref" 
+ #       unless (ref($deps) =~ /CODE/ or ref($deps) =~ /ARRAY/);
     
     return bless {
         name => $name,
+        products => $products,
         target => $target,
         action => $action,
         deps => $deps }, $class;
@@ -105,6 +106,23 @@ sub queue_deps {
     return undef;
 }
 
+sub products {
+    my ($self, $engine, @args) = @_;
+    my $products = $self->{products};
+    if (!$products ) {
+        return ();
+    }
+    elsif (not ref($products)) {
+        return ($products);
+    }
+    elsif (ref($products) =~ /ARRAY/) {
+        return @{ $products };
+    }
+    elsif (ref($products) =~ /CODE/) {
+        return $products->($engine, @args);
+    }
+}
+
 =item $rule->is_satisfied()
 
 Returns true if the RULE is already satisfied, false otherwise.
@@ -113,7 +131,14 @@ Returns true if the RULE is already satisfied, false otherwise.
 
 sub is_satisfied {
     my ($self, $engine, @args) = @_;
-    return $self->{target}->($engine, @args);
+    my $target = $self->{target};
+    if ($target) {
+        return $target->($engine, @args);
+    }
+    else {
+        return not grep { not -e $_ } $self->products($engine, @args);
+    }
+
 }
 
 =back

@@ -106,9 +106,9 @@ sub output_data_dir {
 
 sub config {
     my $test_name = shift 
-        or croak "I need a test name to get the config";
+        or confess "I need a test name to get the config";
     my $config = $CONFIGS{$test_name} 
-        or croak "I don't have a configuration for $test_name";
+        or confess "I don't have a configuration for $test_name";
 }
 
 sub input_file {
@@ -142,6 +142,7 @@ my $have_organisms_txt = $engine->download_rule($ORGANISMS_URL, $ORGANISMS_FILE)
 
 my $have_indexes = $engine->rule(
     name => "Download indexes",
+    target => sub { undef },
     action => sub {
         my ($options, $run_name) = @_;
 
@@ -167,7 +168,7 @@ my $have_indexes = $engine->rule(
                 my $unzipped = $1;
                 push @{ $engine->queue }, ($engine->rule(
                     name => "Download and unzip $file",
-                    target => sub { -f $unzipped },
+                    produces => $unzipped,
                     action => chain(
                         sub {
                             my $ua = LWP::UserAgent->new;
@@ -185,11 +186,9 @@ my $have_indexes = $engine->rule(
 
 my $have_config_file = $engine->rule(
     name => "Make config file",
-    target => sub { 
+    produces => sub { 
         my ($options, $run_name) = @_;
-        my $filename = rum_config_file($run_name);
-        report "Looking for config file $filename";
-        -f $filename;
+        return rum_config_file($run_name);
     },
     action => sub {
         my ($options, $run_name) = @_;
@@ -213,32 +212,28 @@ my $have_bin_tarball = $engine->download_rule(
 
 my $have_bins = $engine->rule(
     name => "Untar binaries",
-    target => sub {
-        my @bins = @CONFIG_DEFAULTS{qw(bowtie-bin blat-bin mdust-bin)};
-        not grep { not -f $_ } @bins;
-    },
+    produces => [@CONFIG_DEFAULTS{qw(bowtie-bin blat-bin mdust-bin)}],
     action => satisfy_with_command("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT),
     depends_on => [$have_bin_tarball]);
 
 my $have_test_data = $engine->rule(
     name => "Untar test data",
-    target => sub { 
+    produces => sub { 
         my ($options, $run_name) = @_;
-        print "Got run name $run_name\n";
-        -f $CONFIGS{$run_name}->{input_file} 
+        return $CONFIGS{$run_name}->{input_file} 
     },
     action => satisfy_with_command("tar", "-zxvf", $TEST_DATA_TARBALL, "-C", $ROOT),
     depends_on => [$have_test_data_tarball]);
 
-sub all_output_files_exist_in_dir {
-    return not grep { not -f "$_[0]/$_" } @RUM_OUTPUT_FILES;
+sub output_files_in_dir {
+    return map { "$_[0]/$_" } @RUM_OUTPUT_FILES;
 }
 
 my $have_rum_output = $engine->rule(
     name => sub { "Run RUM for $_[1]" },
-    target => sub { 
+    produces => sub { 
         my ($options, $run_name) = @_;
-        return all_output_files_exist_in_dir(output_data_dir($run_name)) 
+        return output_files_in_dir(output_data_dir($run_name)) 
     },
     action => sub {
         my ($options, $run_name) = @_;
@@ -269,7 +264,7 @@ sub diff_cmd {
 
 my $compare_output_to_expected = $engine->rule(
     name   => "Compare Rum output to expected output",
-    target => sub { -f "diff.out" },
+    produces => "diff.out",
     action => sub {
         my ($options, $run_name) = @_;
         print "Run name is $run_name\n";
