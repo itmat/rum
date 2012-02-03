@@ -109,7 +109,14 @@ my $master_list_of_exons = "master_list_of_exons.txt";
 
 # Strip extra characters off the headers, join adjacent sequence lines
 # together, and sort the genome by chromosome.
-modify_fasta_header_for_genome_seq_database($infile, $genome_fa);
+
+$engine->rule(
+    produces => $genome_fa,
+    depends_on => $infile,
+    action => {
+        modify_fasta_header_for_genome_seq_database($infile, $genome_fa);
+});
+
 modify_fa_to_have_seq_on_one_line($genome_fa, $genome_one_line_seqs_temp);
 sort_genome_fa_by_chr($genome_one_line_seqs_temp, $genome_one_line_seqs);
 unlink_temp_files($genome_fa, $genome_one_line_seqs_temp);

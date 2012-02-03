@@ -2,11 +2,14 @@ package RUM::Rule;
 
 =head1 NAME
 
-RUM::Rule - Rule and dependency framework
+RUM::Rule
 
 =head1 DESCRIPTION
 
-=head2 Subroutines
+You probably don't want to use this package directly. Please see
+L<RUM:Rule::Engine>.
+
+=head2 Methods
 
 =over 4
 
@@ -28,21 +31,13 @@ our @EXPORT_OK = qw(@QUEUE report  satisfy_with_command chain);
 use subs qw(action target satisfy rule children is_satisfied plan
             download report);
 
-=item RUM::Rule->new(NAME, TARGET, ACTION, DEPS)
+=item RUM::Rule->new(NAME, PRODUCTS, TARGET, ACTION, DEPS)
 
 =cut
 
 sub new {
     my ($class, $name, $products, $target, $action, $deps) = @_;
     $deps = [] unless defined $deps;
-#    croak "First argument of Rule must be a name or a sub that returns a name" 
-#        if ref($name) && ref($name) !~ /CODE/;
-##    croak "Second argument of Rule must be a targetition test" 
- #       unless ref($target) =~ /CODE/;
- #   croak "Third argument of Rule must be a precondition" 
- #       unless ref($action) =~ /CODE/;
- #   croak "Fourth arg must be code or an array ref" 
- #       unless (ref($deps) =~ /CODE/ or ref($deps) =~ /ARRAY/);
     
     return bless {
         name => $name,
@@ -54,11 +49,11 @@ sub new {
 
 =back
 
-=head3 RUM::Rule methods
+=head3 Methods
 
 =over 4
 
-=item $rule->name()
+=item $rule->name(ENGINE, ARGS)
 
 Return the name of the rule.
 
@@ -73,7 +68,7 @@ sub name {
     return $name;
 }
 
-=item $rule->deps(OPTIONS, ARGS)
+=item $rule->deps(ENGINE, ARGS)
 
 Return a list of the rules that must be run before this rule can be
 run.
@@ -88,7 +83,7 @@ sub deps {
     return ($deps);
 }
 
-=item $rule->queue_deps()
+=item $rule->queue_deps(ENGINE, ARGS)
 
 Add the dependencies of this rule to the engine's queue.
 
@@ -106,6 +101,12 @@ sub queue_deps {
     }
     return undef;
 }
+
+=item $rule->products(ENGINE, ARGS)
+
+Return a list of targets that this rule produces.
+
+=cut
 
 sub products {
     my ($self, $engine, @args) = @_;

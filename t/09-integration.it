@@ -75,7 +75,7 @@ my %CONFIG_DEFAULTS = (
     "lib-dir"    => $TEST_LIB_DIR);
 our @BINARIES = @CONFIG_DEFAULTS{qw(bowtie-bin blat-bin mdust-bin)},
 my %CONFIGS = (
-    "mouse" => {
+    "mouse-baby" => {
         
         "rum_config" => {
             "gene-annotation-file" => "$TEST_INDEX_DIR/mm9_refseq_ucsc_vega_gene_info.txt",
@@ -84,8 +84,9 @@ my %CONFIGS = (
             "blat-genome-index"    => "$TEST_INDEX_DIR/mm9_genome_one-line-seqs.fa"},
 
         genome_build => "mm9" ,
-        input_file => "$RESOURCES_DIR/test_mouse/s_1_1.baby",
-        rum_config_file => "$ROOT/rum.config_mm9"
+        rum_config_file => "$ROOT/rum.config_mm9",
+        input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
+                        "$RESOURCES_DIR/test_mouse/s_1_2.baby"]
     }
 );
 
@@ -96,7 +97,7 @@ my %CONFIGS = (
 
 sub expected_output_dir {
     my ($test_name) = @_;
-    return "$RESOURCES_DIR/${test_name}-expected";
+    return "$RESOURCES_DIR/${test_name}";
 }
 
 sub output_data_dir {
@@ -111,9 +112,9 @@ sub config {
         or confess "I don't have a configuration for $test_name";
 }
 
-sub input_file {
+sub input_files {
     my ($test_name) = @_;
-    return config($test_name)->{input_file};
+    return @{ config($test_name)->{input_files} };
 }
 
 sub rum_config_file {
@@ -137,7 +138,7 @@ sub my_paths {
 
 sub my_test_data {
     my ($engine, $run_name) = @_;
-    return $CONFIGS{$run_name}->{input_file};
+    return @{ config($run_name)->{input_files} };
 }
 
 sub my_rum_output {
@@ -256,7 +257,7 @@ $engine->rule(
         my ($engine, $run_name) = @_;
         my @cmd = ("perl", "orig/RUM_runner.pl",
                    rum_config_file($run_name),
-                   input_file($run_name),
+                   join(",,,", input_files($run_name)),
                    output_data_dir($run_name),
                    "1", 
                    "Lane1");
@@ -320,9 +321,9 @@ sub main {
         $engine->enqueue(@targets);
     }
     else {
-        $engine->enqueue("mouse.diff");
+        $engine->enqueue("mouse-baby.diff");
     }
-    $engine->build("mouse");
+    $engine->build("mouse-baby");
 }
 
 main();

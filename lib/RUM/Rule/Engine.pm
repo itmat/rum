@@ -6,9 +6,14 @@ RUM::Rule - Rule and dependency framework
 
 =head1 DESCRIPTION
 
-=head2 Subroutines
-
-=over 4
+This is a rule engine, somewhat like GNU make but in Perl. You can use
+it to tie together tasks that are dependent on each other. If you ask
+it to run a task, it will only run the other tasks that the main goal
+depends on. It will only run tasks that produce files if those files
+don't already exists. The intent is that this can be used to simplify
+the interaction between scripts that depend on output produced by
+other scripts. Please see t/09-integration.it for an example of its
+usage.
 
 =cut
 
@@ -27,6 +32,29 @@ use RUM::Rule;
 
 use subs qw(report);
 
+=head2 Constructors
+
+=over 4
+
+=item new(OPTIONS)
+
+Create a new RUM::Rule::Engine with the given options:
+
+=over 4
+
+=item B<dry_run>
+
+Indicate that this engine should only do dry runs, and not actually
+execute actions.
+
+=item B<verbose>
+
+Indicate that this engine should print verbose output.
+
+=back
+
+=cut
+
 sub new {
     my ($class, %options) = @_;
     my $dry_run = delete $options{dry_run};
@@ -41,11 +69,31 @@ sub new {
     }
 }
 
+=back
+
+=head2 Methods
+
+=over 4
+
+=item verbose([FLAG])
+
+With out FLAG, just returns whether this engine is verbose; with flag,
+sets the verbose flag.
+
+=cut
+
 sub verbose { 
-    my ($self, $flag);
+    my ($self, $flag) = @_;
     $self->{verbose} = $flag if defined($flag);
     return $self->{verbose};
 }
+
+=item dry_run([FLAG])
+
+Without FLAG, just returns whether this engine will do a dry run (as
+opposed to actually running tasks); with flag, sets the dry_run flag.
+
+=cut
 
 sub dry_run { 
     my ($self, $flag) = @_;
@@ -54,36 +102,63 @@ sub dry_run {
     $_[0]->{dry_run} 
 }
 
+=item queue
+
+Returns the work queue for this engine.
+
+=cut
+
 sub queue { $_[0]->{queue} }
 
 =item rule OPTIONS
 
-Return a rule object. Options are:
+Add a rule to this engine and return it. The options are:
 
 =over 4
 
-=item name
+=item B<name>
 
 Either the name of the rule as a string or a code ref that will return
-the name. It will be called with whatever arguments are passed to
-I<build()>.
+the name. It will be called with the engine and whatever extra
+arguments are passed to I<build()>.
 
-=item TARGET
+=item B<targets>
 
 A code ref that returns true when the rule is satisfied. It will be
-called with whatever arguments are passed to I<build()>.
+called with the engine and whatever extra arguments are passed to
+I<build()>.
 
-=item ACTION
+=item B<action>
 
 A code ref that can be called to satisfy the rule. It will be called
-with whatever arguments are passed to I<build()>.
+with the engine and whatever extra arguments are passed to I<build()>.
 
-=item DEPS
+=item B<depends_on>
 
-Either an ref to an array of rules that must be run before this rule
-can be run, or a code ref that will return such a list when called. If
-it's a code ref, it will be called with whatever arguments are passed
-to I<build()>.
+Either:
+
+=over 4
+
+=item *
+
+an ref to an array of rules that must be run before this rule
+can be run
+
+=item *
+
+the name of a target that should be produced by another rule
+
+=item *
+
+a ref to an array of named targets that should be produced by other rules
+
+=item *
+
+a code ref that will return one of the types described above. It will
+be called with the engine and whatever arguments are passed to
+I<build()>.
+
+=back
 
 =back
 
@@ -102,17 +177,18 @@ sub rule {
     return $rule;
 }
 
-=item build FOR_REAL, VERBOSE
+=item build ARGS
 
-Build any rules currently in the @QUEUE. If FOR_REAL is a true value,
-actually run the rules; otherwise just print out some diagnostic
-information. If VERBOSE is true, print out extra information.
+Build any rules currently in the @QUEUE. ARGS can be any extra
+arguments, and will be paseed to all of the Rule methods that are
+called as part of this build. This is a good way to parameterize a set
+of rules.
 
 =cut
 
 sub build {
     my ($self, @args) = @_;
-
+    report "My verbose is " . $self->verbose;
     while (@{ $self->queue }) {
         my $rule = pop @{ $self->queue };
         #print "Looking at rule $rule\n";
@@ -121,15 +197,21 @@ sub build {
          #   print "It's a string; looking for a rule for it\n";
             my @rules;
             for my $other (@{ $self->{rules} }) {
-                if (grep { $rule eq $_ } $other->products($self, @args)) {
-                    push @rules, $other;
+                my @products = $other->products($self, @args);
+                for my $product (@products) {
+                    warn "Rule ". $other->name . " gave an undefined product; ".
+                        "its products are @products"
+                        unless defined($product);
+                    
+                    push @rules, $other if $product eq $rule;
                 }
             }
             croak "I can't find a rule to produce $rule" unless @rules;
           #  print "I found @rules\n";
             $rule = $rules[0];
         }
-
+        
+        croak "I can't find a rule to produce $rule" unless $rule;
         my $name = $rule->name($self, @args);
         DEBUG "Looking at rule $name\n";
         if ($rule->queue_deps($self, @args)) {
@@ -144,6 +226,7 @@ sub build {
             }
             else {
                 report $name;
+                report "I should get " . join(", ", $rule->products($self, @args)) if $self->verbose;
                 $rule->{action}->($self, @args);
             }
         }
@@ -152,7 +235,7 @@ sub build {
 
 =item enqueue RULES
 
-Add all the given RULES to the queue in order.
+Add all the given RULES to the back of the queue in order.
 
 =cut
 
@@ -162,6 +245,8 @@ sub enqueue {
         unshift @{ $self->queue }, $rule;
     }
 }
+
+=back
 
 =head3 Canned actions
 
@@ -229,43 +314,8 @@ sub download_rule {
     $options{action} ||= sub {
         my $ua = LWP::UserAgent->new;
         $ua->get($url, ":content_file" => $local);
-#        system("ftp", $url, "-o", $local) == 0
-#            or croak "Can't use ftp";
     };
     return $self->rule(%options);
-}
-
-=item make_path_rule PATH
-
-A rule that creates a path on the filesystem if it doesn't already exist.
-
-=cut
-
-sub make_paths {
-    my ($self, @paths) = @_;
-    for my $path (@paths) {
-        if ($self->dry_run) {
-            print "mkdir -p $path\n";
-        }
-        else {
-            mkpath($path) unless -e $path;
-        }
-    }
-}
-
-sub make_path_rule {
-    my ($self, $path) = @_;
-    return $self->rule(
-        name => "Make path $path",
-        produces => $path,
-        action => sub { 
-            if ($_[0]) {
-     
-            }
-            else {
-                print "mkdir -p $path\n";
-            }
-        });
 }
 
 =item rmtree_rule PATH
@@ -301,6 +351,26 @@ sub report {
     my @args = @_;
     print "# @args\n";
 }
+
+=item make_paths PATHS
+
+Make any of the PATHS that don't already exist.
+
+=cut
+
+sub make_paths {
+    my ($self, @paths) = @_;
+    for my $path (@paths) {
+        if ($self->dry_run) {
+            print "mkdir -p $path\n";
+        }
+        else {
+            mkpath($path) unless -e $path;
+        }
+    }
+}
+
+
 
 
 return 1;
