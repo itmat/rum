@@ -9,8 +9,7 @@ use lib "lib";
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init($WARN);
 use RUM::Config qw(parse_organisms format_config);
-use RUM::Rule qw(report @QUEUE make_path_rule target action rule download_rule 
-                 satisfy_with_command build chain enqueue);
+use RUM::Rule::Engine qw(report satisfy_with_command chain);
 use Carp;
 
 use Getopt::Long;
@@ -127,19 +126,21 @@ sub rum_config_file {
 ### Rules
 ###
 
-my $paths_exist = rule(
+my $engine = RUM::Rule::Engine->new;
+
+my $paths_exist = $engine->rule(
     name => "Make paths",
     depends_on => sub {
         my ($options, $run_name) = @_;
         print "Run name is $run_name\n";
-        return [make_path_rule(expected_output_dir($run_name)),
-                make_path_rule(output_data_dir($run_name))]
+        return [$engine->make_path_rule(expected_output_dir($run_name)),
+                $engine->make_path_rule(output_data_dir($run_name))]
     });
 
 # This rule downloads the organisms text file to the current directory
-my $have_organisms_txt = download_rule($ORGANISMS_URL, $ORGANISMS_FILE);
+my $have_organisms_txt = $engine->download_rule($ORGANISMS_URL, $ORGANISMS_FILE);
 
-my $have_indexes = rule(
+my $have_indexes = $engine->rule(
     name => "Download indexes",
     action => sub {
         my ($options, $run_name) = @_;
@@ -164,7 +165,7 @@ my $have_indexes = rule(
                 substr($url, rindex($url, "/") + 1);
             if ($file =~ /^(.*)\.gz$/) {
                 my $unzipped = $1;
-                push @QUEUE, rule(
+                push @{ $engine->queue }, ($engine->rule(
                     name => "Download and unzip $file",
                     target => sub { -f $unzipped },
                     action => chain(
@@ -172,17 +173,17 @@ my $have_indexes = rule(
                             my $ua = LWP::UserAgent->new;
                             $ua->get($url, ":content_file" => $file);
                         },
-                        satisfy_with_command("gunzip", $file)));
+                        satisfy_with_command("gunzip", $file))));
             }
             else {
-                push @QUEUE, download_rule($url, $file);
+                push @{ $engine->queue }, $engine->download_rule($url, $file);
             }
         }
     },
-    depends_on => [make_path_rule($TEST_INDEX_DIR),
+    depends_on => [$engine->make_path_rule($TEST_INDEX_DIR),
                    $have_organisms_txt]);
 
-my $have_config_file = rule(
+my $have_config_file = $engine->rule(
     name => "Make config file",
     target => sub { 
         my ($options, $run_name) = @_;
@@ -202,15 +203,15 @@ my $have_config_file = rule(
     },
     depends_on => [$paths_exist]);
 
-my $have_test_data_tarball = download_rule(
+my $have_test_data_tarball = $engine->download_rule(
     $TEST_DATA_URL, $TEST_DATA_TARBALL,
     depends_on => [$paths_exist]);
 
-my $have_bin_tarball = download_rule(
+my $have_bin_tarball = $engine->download_rule(
     $BIN_TARBALL_URL, $BIN_TARBALL,
     depends_on => [$paths_exist]);
 
-my $have_bins = rule(
+my $have_bins = $engine->rule(
     name => "Untar binaries",
     target => sub {
         my @bins = @CONFIG_DEFAULTS{qw(bowtie-bin blat-bin mdust-bin)};
@@ -219,7 +220,7 @@ my $have_bins = rule(
     action => satisfy_with_command("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT),
     depends_on => [$have_bin_tarball]);
 
-my $have_test_data = rule(
+my $have_test_data = $engine->rule(
     name => "Untar test data",
     target => sub { 
         my ($options, $run_name) = @_;
@@ -233,7 +234,7 @@ sub all_output_files_exist_in_dir {
     return not grep { not -f "$_[0]/$_" } @RUM_OUTPUT_FILES;
 }
 
-my $have_rum_output = rule(
+my $have_rum_output = $engine->rule(
     name => sub { "Run RUM for $_[1]" },
     target => sub { 
         my ($options, $run_name) = @_;
@@ -266,10 +267,10 @@ sub diff_cmd {
     return "diff $expected_dir/$file $output_dir/$file";
 }
 
-my $compare_output_to_expected = rule(
+my $compare_output_to_expected = $engine->rule(
     name   => "Compare Rum output to expected output",
-    target => target { -f "diff.out" },
-    action => action {
+    target => sub { -f "diff.out" },
+    action => sub {
         my ($options, $run_name) = @_;
         print "Run name is $run_name\n";
         local $_;
@@ -296,14 +297,11 @@ sub main {
     GetOptions(
         "dry-run|n" => \(my $dry_run),
         "verbose|v" => \(my $verbose));
-    
-    my $build_options = {
-        dry_run => $dry_run,
-        verbose => $verbose
-    };
 
-    enqueue $compare_output_to_expected;
-    build($build_options, "mouse");
+    $engine->verbose($verbose);
+    $engine->dry_run($dry_run);
+    $engine->enqueue($compare_output_to_expected);
+    $engine->build("mouse");
 }
 
 main();
