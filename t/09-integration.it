@@ -20,6 +20,11 @@ use Getopt::Long;
 ### Configuration
 ###
 
+my %BIN_TARBALLS = (
+    "linux" =>  "http://itmat.rum.s3.amazonaws.com/bin_linux64.tar",
+    "darwin" => "http://itmat.rum.s3.amazonaws.com/bin_mac1.5.tar"
+);
+
 my $ROOT = "_testing";
 
 my $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tar.gz";
@@ -33,10 +38,10 @@ my $ORGANISMS_FILE      = "$ROOT/organisms.txt";
 my $TEST_SCRIPT_DIR     = "orig/scripts";
 my $TEST_LIB_DIR        = "orig/lib";
 
-# The test data tarball gives us a set of input files for Rum, some
-# expected output files, and the executables for bowtie, blat, and
-# mdust.
-my $BIN_DIR             = "$RESOURCES_DIR/bin-$^O";
+my $BIN_TARBALL         = "$ROOT/bin_tarball.tar";
+my $BIN_TARBALL_URL     = $BIN_TARBALLS{$^O}
+    or die "I don't have a tarball of binaries for OS $^O";
+my $BIN_DIR             = "$ROOT/bin";
 
 # These files are produced by Rum
 my @RUM_OUTPUT_FILES = qw(PostProcessing-errorlog        
@@ -201,6 +206,19 @@ my $have_test_data_tarball = download_rule(
     $TEST_DATA_URL, $TEST_DATA_TARBALL,
     depends_on => [$paths_exist]);
 
+my $have_bin_tarball = download_rule(
+    $BIN_TARBALL_URL, $BIN_TARBALL,
+    depends_on => [$paths_exist]);
+
+my $have_bins = rule(
+    name => "Untar binaries",
+    target => sub {
+        my @bins = @CONFIG_DEFAULTS{qw(bowtie-bin blat-bin mdust-bin)};
+        not grep { not -f $_ } @bins;
+    },
+    action => satisfy_with_command("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT),
+    depends_on => [$have_bin_tarball]);
+
 my $have_test_data = rule(
     name => "Untar test data",
     target => sub { 
@@ -238,7 +256,8 @@ my $have_rum_output = rule(
     },
     depends_on => [$have_indexes,
                    $have_config_file,
-                   $have_test_data]);
+                   $have_test_data,
+                   $have_bins]);
 
 sub diff_cmd {
     my ($test_name, $file) = @_;
