@@ -73,7 +73,7 @@ my %CONFIG_DEFAULTS = (
     "mdust-bin"  => "$BIN_DIR/mdust",
     "script-dir" => $TEST_SCRIPT_DIR,
     "lib-dir"    => $TEST_LIB_DIR);
-
+our @BINARIES = @CONFIG_DEFAULTS{qw(bowtie-bin blat-bin mdust-bin)},
 my %CONFIGS = (
     "mouse" => {
         
@@ -128,18 +128,40 @@ sub rum_config_file {
 
 my $engine = RUM::Rule::Engine->new;
 
-my $paths_exist = $engine->rule(
-    name => "Make paths",
-    depends_on => sub {
-        my ($options, $run_name) = @_;
-        print "Run name is $run_name\n";
-        return [$engine->make_path_rule(expected_output_dir($run_name)),
-                $engine->make_path_rule(output_data_dir($run_name))]
+sub my_paths {
+    my ($engine, $run_name) = @_;
+    return (expected_output_dir($run_name),
+            output_data_dir($run_name),
+            $TEST_INDEX_DIR);
+}
+
+sub my_test_data {
+    my ($engine, $run_name) = @_;
+    return $CONFIGS{$run_name}->{input_file};
+}
+
+sub my_rum_output {
+    my ($engine, $run_name) = @_;
+    map { output_data_dir($run_name) . "/$_" } @RUM_OUTPUT_FILES;
+}
+
+sub my_expected_output {
+    my ($engine, $run_name) = @_;
+    map { expected_output_dir($run_name) . "/$_" } @RUM_OUTPUT_FILES;
+}
+
+# Add a rule to make whatever paths are required for a given test run
+$engine->rule(
+    produces => \&my_paths,
+    action => sub {
+        $engine->make_paths(my_paths(@_));
     });
 
-# This rule downloads the organisms text file to the current directory
-my $have_organisms_txt = $engine->download_rule($ORGANISMS_URL, $ORGANISMS_FILE);
+# Add a rule to download the organisms text file to the current directory
+$engine->download_rule($ORGANISMS_URL, $ORGANISMS_FILE);
 
+# Add a rule to parse the organisms.txt file and download all the
+# index files listed inside it.
 my $have_indexes = $engine->rule(
     name => "Download indexes",
     target => sub { undef },
@@ -149,7 +171,7 @@ my $have_indexes = $engine->rule(
         my $build_name = config($run_name)->{genome_build}
             or croak "I don't have a genome build id for run name $run_name";
 
-        report "Parsing organisms file";
+        report "Parse organisms file";
         open my $orgs, "<", $ORGANISMS_FILE;
         my @organisms = parse_organisms($orgs) 
             or croak "I can't parse the organisms file";
@@ -181,10 +203,10 @@ my $have_indexes = $engine->rule(
             }
         }
     },
-    depends_on => [$engine->make_path_rule($TEST_INDEX_DIR),
-                   $have_organisms_txt]);
+    depends_on => [$ORGANISMS_FILE, $TEST_INDEX_DIR]);
 
-my $have_config_file = $engine->rule(
+# Add a rule to generate the config file
+$engine->rule(
     name => "Make config file",
     produces => sub { 
         my ($options, $run_name) = @_;
@@ -193,67 +215,62 @@ my $have_config_file = $engine->rule(
     action => sub {
         my ($options, $run_name) = @_;
         my $filename = rum_config_file($run_name);
-        report "Writing config file to $filename";
+        report "Write config file to $filename";
         open my $out, ">", $filename;
         my %config = %CONFIG_DEFAULTS;
         my %custom = %{ config($run_name)->{rum_config} };
         @config{keys(%custom)} = values(%custom);
         print $out format_config(%config);
     },
-    depends_on => [$paths_exist]);
+    depends_on => \&my_paths);
 
-my $have_test_data_tarball = $engine->download_rule(
+# Download the test data tarball
+$engine->download_rule(
     $TEST_DATA_URL, $TEST_DATA_TARBALL,
-    depends_on => [$paths_exist]);
+    depends_on => \&my_paths);
 
-my $have_bin_tarball = $engine->download_rule(
+# Download the binary tarball
+$engine->download_rule(
     $BIN_TARBALL_URL, $BIN_TARBALL,
-    depends_on => [$paths_exist]);
+    depends_on => \&my_paths);
 
-my $have_bins = $engine->rule(
+# Unpack the binary tarball
+$engine->rule(
     name => "Untar binaries",
-    produces => [@CONFIG_DEFAULTS{qw(bowtie-bin blat-bin mdust-bin)}],
+    produces => [@BINARIES],
     action => satisfy_with_command("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT),
-    depends_on => [$have_bin_tarball]);
+    depends_on => $BIN_TARBALL);
 
-my $have_test_data = $engine->rule(
+# Unpack the test data tarball
+$engine->rule(
     name => "Untar test data",
-    produces => sub { 
-        my ($options, $run_name) = @_;
-        return $CONFIGS{$run_name}->{input_file} 
-    },
+    produces => sub { (my_test_data(@_), my_expected_output(@_)) },
     action => satisfy_with_command("tar", "-zxvf", $TEST_DATA_TARBALL, "-C", $ROOT),
-    depends_on => [$have_test_data_tarball]);
+    depends_on => $TEST_DATA_TARBALL);
 
-sub output_files_in_dir {
-    return map { "$_[0]/$_" } @RUM_OUTPUT_FILES;
-}
-
-my $have_rum_output = $engine->rule(
+# Add a rule to run rum
+$engine->rule(
     name => sub { "Run RUM for $_[1]" },
-    produces => sub { 
-        my ($options, $run_name) = @_;
-        return output_files_in_dir(output_data_dir($run_name)) 
-    },
+    produces => \&my_rum_output,
     action => sub {
-        my ($options, $run_name) = @_;
+        my ($engine, $run_name) = @_;
         my @cmd = ("perl", "orig/RUM_runner.pl",
                    rum_config_file($run_name),
                    input_file($run_name),
                    output_data_dir($run_name),
                    "1", 
                    "Lane1");
-        if ($options->{dry_run}) {
-            print "@cmd\n";
-        }
-        else {
-            system(@cmd) == 0 or croak "Can't execute @cmd: $!";
-        }
+        print "@cmd\n";
+        (system(@cmd) == 0 or croak "Can't execute @cmd: $!")
+            unless $engine->dry_run;
     },
-    depends_on => [$have_indexes,
-                   $have_config_file,
-                   $have_test_data,
-                   $have_bins]);
+    depends_on => sub {
+        my ($engine, $run_name) = @_;
+        return ($have_indexes,
+                rum_config_file($run_name),
+                my_test_data($engine, $run_name),
+                @BINARIES);
+        });
 
 sub diff_cmd {
     my ($test_name, $file) = @_;
@@ -262,30 +279,32 @@ sub diff_cmd {
     return "diff $expected_dir/$file $output_dir/$file";
 }
 
-my $compare_output_to_expected = $engine->rule(
+$engine->rule(
     name   => "Compare Rum output to expected output",
-    produces => "diff.out",
+    produces => sub { "$_[1].diff" },
     action => sub {
-        my ($options, $run_name) = @_;
-        print "Run name is $run_name\n";
-        local $_;
+        my ($engine, $run_name) = @_;
+        open my $out, "$run_name.diff";
         for my $file (@RUM_OUTPUT_FILES) {
             my $cmd = diff_cmd($run_name, $file);
-            if ($options->{dry_run}) {
-                print "$cmd\n";
-            }
-            else {
+            print "$cmd\n";
+            unless ($engine->dry_run) {
                 open my $pipe, "$cmd |" or croak "Couldn't open $cmd";
                 my $diffs = 0;
                 while (defined (local $_ = <$pipe>)) {
                     $diffs++;
-                    print;
+                    print $out $_;
                 }
                 is($diffs, 0, "No diffs for $file");
             }
         }
     },
-    depends_on => [$have_test_data, $have_rum_output]);
+    depends_on => sub {
+        return (
+            my_test_data(@_),
+            my_rum_output(@_),
+            my_expected_output(@_));
+    });
 
 sub main {
 
@@ -293,9 +312,16 @@ sub main {
         "dry-run|n" => \(my $dry_run),
         "verbose|v" => \(my $verbose));
 
+    my @targets = @ARGV;
+
     $engine->verbose($verbose);
     $engine->dry_run($dry_run);
-    $engine->enqueue($compare_output_to_expected);
+    if (@targets) {
+        $engine->enqueue(@targets);
+    }
+    else {
+        $engine->enqueue("mouse.diff");
+    }
     $engine->build("mouse");
 }
 

@@ -84,7 +84,8 @@ sub deps {
     my ($self, $engine, @args) = @_;
     my $deps = $self->{deps};
     return @{ $deps } if ref($deps) =~ /ARRAY/;
-    return @{ $deps->($engine, @args) };
+    return $deps->($engine, @args) if ref($deps) =~ /CODE/;
+    return ($deps);
 }
 
 =item $rule->queue_deps()

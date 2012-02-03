@@ -37,8 +37,7 @@ sub new {
         dry_run => $dry_run,
         verbose => $verbose,
         queue => [],
-        rules => [],
-        file_rules => {},
+        rules => []
     }
 }
 
@@ -116,6 +115,21 @@ sub build {
 
     while (@{ $self->queue }) {
         my $rule = pop @{ $self->queue };
+        #print "Looking at rule $rule\n";
+
+        if (not ref $rule) {
+         #   print "It's a string; looking for a rule for it\n";
+            my @rules;
+            for my $other (@{ $self->{rules} }) {
+                if (grep { $rule eq $_ } $other->products($self, @args)) {
+                    push @rules, $other;
+                }
+            }
+            croak "I can't find a rule to produce $rule" unless @rules;
+          #  print "I found @rules\n";
+            $rule = $rules[0];
+        }
+
         my $name = $rule->name($self, @args);
         DEBUG "Looking at rule $name\n";
         if ($rule->queue_deps($self, @args)) {
@@ -129,7 +143,7 @@ sub build {
                 report "Rule '$name' is satisfied" if $self->verbose;
             }
             else {
-                report "Building rule '$name'";
+                report $name;
                 $rule->{action}->($self, @args);
             }
         }
@@ -215,6 +229,8 @@ sub download_rule {
     $options{action} ||= sub {
         my $ua = LWP::UserAgent->new;
         $ua->get($url, ":content_file" => $local);
+#        system("ftp", $url, "-o", $local) == 0
+#            or croak "Can't use ftp";
     };
     return $self->rule(%options);
 }
@@ -225,6 +241,18 @@ A rule that creates a path on the filesystem if it doesn't already exist.
 
 =cut
 
+sub make_paths {
+    my ($self, @paths) = @_;
+    for my $path (@paths) {
+        if ($self->dry_run) {
+            print "mkdir -p $path\n";
+        }
+        else {
+            mkpath($path) unless -e $path;
+        }
+    }
+}
+
 sub make_path_rule {
     my ($self, $path) = @_;
     return $self->rule(
@@ -232,7 +260,7 @@ sub make_path_rule {
         produces => $path,
         action => sub { 
             if ($_[0]) {
-                mkpath($path);
+     
             }
             else {
                 print "mkdir -p $path\n";
