@@ -239,7 +239,7 @@ $output_dir = $ARGV[2];
 $output_dir =~ s!/$!!;
 if(!(-d $output_dir)) {
     mkdir($output_dir) or die
-        die "\nERROR: The directory '$output_dir' does not seem to exist, and I can't create it.";
+        die "\nERROR: The directory '$output_dir' does not seem to exist, and I can't create it\n\n";
 }
 
 $kill = "false";
