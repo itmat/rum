@@ -200,7 +200,7 @@ exists or $DRY_RUN is set.
 sub download_test_data {
     download_file($TEST_DATA_URL, $TEST_DATA_TARBALL);
     report "Unpack test tarball";
-    shell("tar", "-zxvf", $TEST_DATA_TARBALL, "-C", $ROOT) unless is_dry_run;
+    shell("tar", "-zxvf", $TEST_DATA_TARBALL, "-C", $ROOT);
 }
 
 =item download_test_data
@@ -213,7 +213,7 @@ exists or $DRY_RUN is set.
 sub download_bin_tarball {
     download_file($BIN_TARBALL_URL, $BIN_TARBALL);
     report "Untar binaries";
-    shell("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT) unless is_dry_run;
+    shell("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT);
 }
 
 =item get_indexes RUN_NAME
@@ -253,7 +253,7 @@ sub get_indexes {
             }
             else {
                 download_file($url, $file) unless -e $unzipped;
-                shell("gunzip", $file) unless is_dry_run;
+                shell("gunzip", $file);
             }
         }
         else {
@@ -309,14 +309,12 @@ sub run_rum {
     download_bin_tarball($run_name);
     download_test_data($run_name);
 
-    my @cmd = ("perl", "orig/RUM_runner.pl",
-               rum_config_file($run_name),
-               join(",,,", input_files($run_name)),
-               output_data_dir($run_name),
-               "1", 
-               "Lane1", @{ rum_options($run_name) });
-    (system(@cmd) == 0 or croak "Can't execute @cmd: $!")
-        unless is_dry_run
+    shell("perl", "orig/RUM_runner.pl",
+          rum_config_file($run_name),
+          join(",,,", input_files($run_name)),
+          output_data_dir($run_name),
+          "1", 
+          "Lane1", @{ rum_options($run_name) });
 }
 
 =item compare_rum_output RUN_NAME
