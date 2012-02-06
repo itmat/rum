@@ -188,7 +188,7 @@ of rules.
 
 sub build {
     my ($self, @args) = @_;
-    my $last_rule;
+    my $last_rule = "";
   RULE: while (@{ $self->queue }) {
         my $rule = pop @{ $self->queue };
 

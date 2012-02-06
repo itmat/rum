@@ -696,7 +696,9 @@ if($qsub eq "true") {
      $mastername = $clusterID . "master";
      print KF "qdel $mastername\n";
      close(KF);
-     `qsub -V -cwd -N $mastername -j y -b y perl $0 $argstring`;
+     my @cmd = "qsub -V -cwd -N $mastername -j y -b y perl $0 $argstring";
+     system(@cmd) == 0
+         or die "Error running @cmd: $!";
      exit(0);
 }
 
