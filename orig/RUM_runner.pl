@@ -238,7 +238,8 @@ $readsfile = $ARGV[1];
 $output_dir = $ARGV[2];
 $output_dir =~ s!/$!!;
 if(!(-d $output_dir)) {
-    die "\nERROR: The directory '$output_dir' does not seem to exists...\n\n";
+    mkdir($output_dir) or die
+        die "\nERROR: The directory '$output_dir' does not seem to exist, and I can't create it\n\n";
 }
 
 $kill = "false";
