@@ -9,17 +9,14 @@ use lib "$Bin/../lib";
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init($WARN);
 use RUM::Config qw(parse_organisms format_config);
-use RUM::Rule::Engine qw(report satisfy_with_command chain);
+use RUM::Workflow qw(make_paths shell report is_dry_run with_settings);
 use Carp;
-use File::Path qw(mkpath);
 use Getopt::Long;
 
 ################################################################################
 ###
 ### Configuration
 ###
-
-our $DRY_RUN;
 
 my %BIN_TARBALLS = (
     "linux" =>  "http://itmat.rum.s3.amazonaws.com/bin_linux64.tar",
@@ -157,41 +154,17 @@ sub rum_options {
 All these functions should respect the $DRY_RUN flag and not perform
 any actions if it is set to a true value.
 
-=item shell CMD, ARGS
-
-Execute "$CMD @ARGS" using system unless $DRY_RUN is set. Check the
-output status and croak if it fails.
-
 =cut
 
-sub shell {
-    my @cmd = @_;
-    if ($DRY_RUN) {
-        print "@cmd\n";
-    }
-    else {
-        system(@cmd) == 0 or croak "Can't execute @cmd: $!";
-    }
-}
-
-=item make_paths RUN_NAME
-
-Recursively make all the paths required for the given test run name,
-unless $DRY_RUN is set.
-
-=cut
-
-sub make_paths {
+sub make_test_paths {
     my ($run_name) = @_;
     my @paths = (expected_output_dir($run_name),
                  output_data_dir($run_name),
                  $TEST_INDEX_DIR);
-    my @missing = grep { not -e } @paths;
-    for my $path (@missing) {
-        print "mkdir -p $path\n";
-        mkpath($path) or die "Can't make path $path: $!" unless $DRY_RUN;
-    }
+    make_paths(@paths);
 }
+
+
 
 =item download_file URL, LOCAL
 
@@ -207,7 +180,7 @@ sub download_file {
         return;
     }
     report "Download $url to $local";
-    unless ($DRY_RUN) {
+    unless (is_dry_run) {
         my $ua = LWP::UserAgent->new;
         $ua->get($url, ":content_file" => $local);
     }
@@ -223,7 +196,7 @@ exists or $DRY_RUN is set.
 sub download_test_data {
     download_file($TEST_DATA_URL, $TEST_DATA_TARBALL);
     report "Unpack test tarball";
-    shell("tar", "-zxvf", $TEST_DATA_TARBALL, "-C", $ROOT) unless $DRY_RUN;
+    shell("tar", "-zxvf", $TEST_DATA_TARBALL, "-C", $ROOT) unless is_dry_run;
 }
 
 =item download_test_data
@@ -236,7 +209,7 @@ exists or $DRY_RUN is set.
 sub download_bin_tarball {
     download_file($BIN_TARBALL_URL, $BIN_TARBALL);
     report "Untar binaries";
-    shell("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT) unless $DRY_RUN;
+    shell("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT) unless is_dry_run;
 }
 
 =item get_indexes RUN_NAME
@@ -276,7 +249,7 @@ sub get_indexes {
             }
             else {
                 download_file($url, $file) unless -e $unzipped;
-                shell("gunzip", $file) unless $DRY_RUN;
+                shell("gunzip", $file) unless is_dry_run;
             }
         }
         else {
@@ -301,7 +274,7 @@ sub make_config_file {
         report "$filename exists, skipping";
     }
     report "Write config file to $filename";
-    return if $DRY_RUN;
+    return if is_dry_run;
     open my $out, ">", $filename;
     my %config = %CONFIG_DEFAULTS;
     my %custom = %{ config($run_name)->{rum_config} };
@@ -326,7 +299,7 @@ sub run_rum {
         return;
     }
 
-    make_paths($run_name);
+    make_test_paths($run_name);
     get_indexes($run_name);
     make_config_file($run_name);
     download_bin_tarball($run_name);
@@ -339,7 +312,7 @@ sub run_rum {
                "1", 
                "Lane1", @{ rum_options($run_name) });
     (system(@cmd) == 0 or croak "Can't execute @cmd: $!")
-        unless $DRY_RUN
+        unless is_dry_run
 }
 
 =item compare_rum_output RUN_NAME
@@ -359,7 +332,7 @@ sub compare_rum_output {
     for my $file (@RUM_OUTPUT_FILES) {
         my $cmd = "diff $expected_dir/$file $output_dir/$file";
         print "$cmd\n";
-        unless ($DRY_RUN) {
+        unless (is_dry_run) {
             open my $pipe, "$cmd |" or croak "Couldn't open $cmd";
             my $diffs = 0;
             while (defined (local $_ = <$pipe>)) {
@@ -374,14 +347,16 @@ sub compare_rum_output {
 sub main {
 
     GetOptions(
-        "dry-run|n" => \$DRY_RUN,
+        "dry-run|n" => \(my $dry_run),
         "verbose|v" => \(my $verbose));
 
     my (@run_names) = @ARGV;
 
     for my $run_name (@run_names) {
-        compare_rum_output($run_name);
+        with_settings({dry_run => $dry_run},
+                      sub {
+                          compare_rum_output($run_name)
+                      });
     }
 }
-
 main();
