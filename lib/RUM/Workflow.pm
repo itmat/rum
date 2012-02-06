@@ -20,7 +20,7 @@ use Carp;
 use Exporter qw(import);
 
 our @EXPORT_OK = qw(is_dry_run shell make_paths report with_dry_run 
-                    with_settings is_executable_in_path);
+                    with_settings is_executable_in_path is_on_cluster);
 
 our $DRY_RUN;
 

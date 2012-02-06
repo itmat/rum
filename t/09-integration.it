@@ -7,11 +7,13 @@ use Test::More tests => 15;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Log::Log4perl qw(:easy);
-Log::Log4perl->easy_init($WARN);
+use LWP::UserAgent;
 use RUM::Config qw(parse_organisms format_config);
-use RUM::Workflow qw(make_paths shell report is_dry_run with_settings);
+use RUM::Workflow qw(make_paths shell report is_dry_run with_settings is_on_cluster);
 use Carp;
 use Getopt::Long;
+
+Log::Log4perl->easy_init($WARN);
 
 ################################################################################
 ###
@@ -88,7 +90,8 @@ my %CONFIGS = (
         rum_config_file => "$ROOT/rum.config_mm9",
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
-        expected_output_dir => "$RESOURCES_DIR/mouse-baby"
+        expected_output_dir => "$RESOURCES_DIR/mouse-baby",
+        needs_cluster => 0
     },
 
     "mouse-baby-grid" => {
@@ -105,7 +108,8 @@ my %CONFIGS = (
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
 
         rum_options => ["-qsub"],
-        expected_output_dir => "$RESOURCES_DIR/mouse-baby"
+        expected_output_dir => "$RESOURCES_DIR/mouse-baby",
+        needs_cluster => 1
     }
 );
 
@@ -358,10 +362,15 @@ sub main {
     }
 
     for my $run_name (@run_names) {
-        with_settings({dry_run => $dry_run},
-                      sub {
-                          compare_rum_output($run_name)
-                      });
+        if (config($run_name)->{needs_cluster} && !is_on_cluster) {
+            skip "Not on the cluster";
+        }
+        else {
+            with_settings({dry_run => $dry_run},
+                          sub {
+                              compare_rum_output($run_name)
+                          });
+        }
     }
 }
 main();
