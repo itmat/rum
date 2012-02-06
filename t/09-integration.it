@@ -92,7 +92,7 @@ my %CONFIGS = (
         expected_output_dir => "$RESOURCES_DIR/mouse-baby"
     },
 
-    "mouse-baby-qsub" => {
+    "mouse-baby-grid" => {
         
         "rum_config" => {
             "gene-annotation-file" => "$TEST_INDEX_DIR/mm9_refseq_ucsc_vega_gene_info.txt",
@@ -328,7 +328,7 @@ $engine->rule(
             my_expected_output(@_));
     });
 
-our @TEST_RUN_NAMES = qw(mouse-baby mouse-baby-qsub);
+our @TEST_RUN_NAMES = qw(mouse-baby mouse-baby-grid);
 
 $engine->rule(
     produces => [map("clean-$_", @TEST_RUN_NAMES)],
