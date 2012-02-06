@@ -94,7 +94,6 @@ sub queue_deps {
     DEBUG "Getting deps for $self->{name}\n";
     return undef if $self->{queued_deps}++;
     if (my @deps = $self->deps($engine, @args)) {
-        DEBUG "My deps are @deps\n";
         push @{ $engine->queue}, $self;
         push @{ $engine->queue}, @deps;
         return 1;

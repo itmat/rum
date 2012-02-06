@@ -88,7 +88,25 @@ my %CONFIGS = (
         genome_build => "mm9" ,
         rum_config_file => "$ROOT/rum.config_mm9",
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
-                        "$RESOURCES_DIR/test_mouse/s_1_2.baby"]
+                        "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
+        expected_output_dir => "$RESOURCES_DIR/mouse-baby"
+    },
+
+    "mouse-baby-qsub" => {
+        
+        "rum_config" => {
+            "gene-annotation-file" => "$TEST_INDEX_DIR/mm9_refseq_ucsc_vega_gene_info.txt",
+            "bowtie-genome-index"  => "$TEST_INDEX_DIR/mm9_genome",
+            "bowtie-gene-index"    => "$TEST_INDEX_DIR/mm9_genes",
+            "blat-genome-index"    => "$TEST_INDEX_DIR/mm9_genome_one-line-seqs.fa"},
+
+        genome_build => "mm9" ,
+        rum_config_file => "$ROOT/rum.config_mm9",
+        input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
+                        "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
+
+        rum_options => ["-qsub"],
+        expected_output_dir => "$RESOURCES_DIR/mouse-baby"
     }
 );
 
@@ -99,7 +117,7 @@ my %CONFIGS = (
 
 sub expected_output_dir {
     my ($test_name) = @_;
-    return "$RESOURCES_DIR/${test_name}";
+    return config($test_name)->{expected_output_dir};
 }
 
 sub output_data_dir {
@@ -122,6 +140,11 @@ sub input_files {
 sub rum_config_file {
     my ($test_name) = @_;
     return config($test_name)->{rum_config_file};
+}
+
+sub rum_options {
+    my ($test_name) = @_;
+    return config($test_name)->{rum_options} || [];
 }
 
 ################################################################################
@@ -263,7 +286,7 @@ $engine->rule(
                    join(",,,", input_files($run_name)),
                    output_data_dir($run_name),
                    "1", 
-                   "Lane1");
+                   "Lane1", @{ rum_options($run_name) });
         print "@cmd\n";
         (system(@cmd) == 0 or croak "Can't execute @cmd: $!")
             unless $engine->dry_run;
@@ -305,11 +328,7 @@ $engine->rule(
             my_expected_output(@_));
     });
 
-for my $run (qw(mouse-baby)) {
-
-}
-
-our @TEST_RUN_NAMES = qw(mouse-baby);
+our @TEST_RUN_NAMES = qw(mouse-baby mouse-baby-qsub);
 
 $engine->rule(
     produces => [map("clean-$_", @TEST_RUN_NAMES)],
@@ -330,7 +349,6 @@ $engine->rule(
         rmtree($ROOT) unless $engine->dry_run;
     });
     
-
 sub main {
 
     GetOptions(
@@ -338,32 +356,28 @@ sub main {
         "verbose|v" => \(my $verbose),
         "list|l"    => \(my $list_rules));
 
-    my @targets = @ARGV;
+    my ($run_name, @targets) = @ARGV;
 
+    @targets = ("$run_name.diff") unless @targets;
+    
     if ($list_rules) {
-        for my $run_name (@TEST_RUN_NAMES) {
-            for my $rule (@{ $engine->{rules} }) {
-                print "Name: ", $rule->name($engine, $run_name), "\n";
-                print "Produces:\n";
-                for my $product ($rule->products($engine, $run_name)) {
-                    print "  $product\n";
-                }
-                print "\n";
+        for my $rule (@{ $engine->{rules} }) {
+            print "Name: ", $rule->name($engine, $run_name), "\n";
+            print "Produces:\n";
+            for my $product ($rule->products($engine, $run_name)) {
+                print "  $product\n";
             }
+            print "\n";
         }
         return;
     }
     
-
     $engine->verbose($verbose);
     $engine->dry_run($dry_run);
-    if (@targets) {
-        $engine->enqueue(@targets);
+    $engine->enqueue(@targets);
+    for my $t (@targets) {
+        $engine->build($run_name);
     }
-    else {
-        $engine->enqueue("mouse-baby.diff");
-    }
-    $engine->build("mouse-baby");
 }
 
 main();

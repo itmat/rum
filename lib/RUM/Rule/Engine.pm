@@ -188,12 +188,12 @@ of rules.
 
 sub build {
     my ($self, @args) = @_;
-    while (@{ $self->queue }) {
+    my $last_rule;
+  RULE: while (@{ $self->queue }) {
         my $rule = pop @{ $self->queue };
-        #print "Looking at rule $rule\n";
+
 
         if (not ref $rule) {
-         #   print "It's a string; looking for a rule for it\n";
             my @rules;
             for my $other (@{ $self->{rules} }) {
                 my @products = $other->products($self, @args);
@@ -206,10 +206,13 @@ sub build {
                 }
             }
             croak "I can't find a rule to produce $rule" unless @rules;
-          #  print "I found @rules\n";
             $rule = $rules[0];
         }
-        
+
+        next RULE if $rule eq $last_rule;
+
+        $last_rule = $rule;
+
         croak "I can't find a rule to produce $rule" unless $rule;
         my $name = $rule->name($self, @args);
         DEBUG "Looking at rule $name\n";
