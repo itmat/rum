@@ -352,6 +352,11 @@ sub main {
 
     my (@run_names) = @ARGV;
 
+    unless (@run_names) {
+        @run_names = qw(mouse-baby
+                        mouse-baby-grid);
+    }
+
     for my $run_name (@run_names) {
         with_settings({dry_run => $dry_run},
                       sub {

@@ -1,5 +1,15 @@
 package RUM::Workflow;
 
+=pod
+
+=head1 NAME
+
+RUM::Script - Common utilities for running other tasks using the shell or qsub
+
+=head1 FUNCTIONS 
+
+=cut
+
 use strict;
 use warnings;
 
@@ -7,7 +17,8 @@ use File::Path qw(mkpath);
 use Carp;
 use Exporter qw(import);
 
-our @EXPORT_OK = qw(is_dry_run shell make_paths report with_dry_run with_settings);
+our @EXPORT_OK = qw(is_dry_run shell make_paths report with_dry_run 
+                    with_settings is_executable_in_path);
 
 our $DRY_RUN;
 
@@ -74,4 +85,30 @@ sub make_paths {
 
     }
 }
+
+
+=item is_executable_in_path BIN_NAME
+
+Return true if the given filename is in the path and is executable.
+
+=cut
+sub is_executable_in_path {
+    my ($bin_name) = @_;
+    local $_ = `which $bin_name`;
+    chomp;
+    return undef unless $_;
+    return -x;
+}
+
+=item is_on_cluster
+
+Return true if I appear to be running on the cluster.
+
+=cut
+
+sub is_on_cluster {
+    return is_executable_in_path("qsub");
+}
+
 1;
+
