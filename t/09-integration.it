@@ -155,6 +155,7 @@ sub my_expected_output {
 
 # Add a rule to make whatever paths are required for a given test run
 $engine->rule(
+    name => "Make paths for test data",
     produces => \&my_paths,
     action => sub {
         $engine->make_paths(my_paths(@_));
@@ -304,13 +305,55 @@ $engine->rule(
             my_expected_output(@_));
     });
 
+for my $run (qw(mouse-baby)) {
+
+}
+
+our @TEST_RUN_NAMES = qw(mouse-baby);
+
+$engine->rule(
+    produces => [map("clean-$_", @TEST_RUN_NAMES)],
+    name => sub { "Remove the RUM output data for $_[1]" },
+    action => sub {
+        my ($engine, $run_name) = @_;
+        my $dir = output_data_dir($run_name);
+        print "rm -r $dir\n";
+        rmtree($dir) unless $engine->dry_run;
+    });
+
+$engine->rule(
+    produces => "veryclean",
+    name => "Remove all the integration test data",
+    action => sub {
+        my ($engine, $run_name) = @_;
+        print "rm -r $ROOT";
+        rmtree($ROOT) unless $engine->dry_run;
+    });
+    
+
 sub main {
 
     GetOptions(
         "dry-run|n" => \(my $dry_run),
-        "verbose|v" => \(my $verbose));
+        "verbose|v" => \(my $verbose),
+        "list|l"    => \(my $list_rules));
 
     my @targets = @ARGV;
+
+    if ($list_rules) {
+        for my $run_name (@TEST_RUN_NAMES) {
+            for my $rule (@{ $engine->{rules} }) {
+                print "Name: ", $rule->name($engine, $run_name), "\n";
+                print "Produces:\n";
+                for my $product ($rule->products($engine, $run_name)) {
+                    print "  $product\n";
+                }
+                print "\n";
+            }
+        }
+        return;
+    }
+    
 
     $engine->verbose($verbose);
     $engine->dry_run($dry_run);

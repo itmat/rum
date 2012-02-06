@@ -188,7 +188,6 @@ of rules.
 
 sub build {
     my ($self, @args) = @_;
-    report "My verbose is " . $self->verbose;
     while (@{ $self->queue }) {
         my $rule = pop @{ $self->queue };
         #print "Looking at rule $rule\n";
