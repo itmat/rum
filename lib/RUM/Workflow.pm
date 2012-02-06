@@ -8,6 +8,8 @@ RUM::Script - Common utilities for running other tasks using the shell or qsub
 
 =head1 FUNCTIONS 
 
+=over
+
 =cut
 
 use strict;
@@ -33,6 +35,14 @@ sub report {
     print "# @args\n";
 }
 
+=item with_settings SETTINGS, CODE
+
+Set the DRY_RUN flag to whatever the value of "dry_run" is in the
+SETTINGS hash, then run CODE, then restore DRY_RUN to its previous
+value.
+
+=cut
+
 sub with_settings {
     my ($settings, $code) = @_;
     my $old = $DRY_RUN;
@@ -41,6 +51,13 @@ sub with_settings {
     $DRY_RUN = $old;
     return $result;
 }
+
+=item is_dry_run
+
+Return true if we're in a dry run (meaning that you shouldn't actually
+execute any tasks).
+
+=cut
 
 sub is_dry_run {
     return $DRY_RUN;
@@ -109,6 +126,10 @@ Return true if I appear to be running on the cluster.
 sub is_on_cluster {
     return is_executable_in_path("qsub");
 }
+
+=back
+
+=cut
 
 1;
 
