@@ -697,6 +697,7 @@ if($qsub eq "true") {
      print KF "qdel $mastername\n";
      close(KF);
      my @cmd = "qsub -V -cwd -N $mastername -j y -b y perl $0 $argstring";
+     print "Submitting job: @cmd\n";
      system(@cmd) == 0
          or die "Error running @cmd: $!";
      exit(0);
