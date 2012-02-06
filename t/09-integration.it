@@ -4,8 +4,8 @@ use strict;
 use warnings;
 
 use Test::More tests => 15;
-
-use lib "lib";
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init($WARN);
 use RUM::Config qw(parse_organisms format_config);
@@ -24,7 +24,7 @@ my %BIN_TARBALLS = (
     "darwin" => "http://itmat.rum.s3.amazonaws.com/bin_mac1.5.tar"
 );
 
-my $ROOT = "_testing";
+my $ROOT = "$Bin/../_testing";
 
 my $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tar.gz";
 my $ORGANISMS_URL = "http://itmat.rum.s3.amazonaws.com/organisms.txt",
@@ -34,8 +34,8 @@ my $TEST_INDEX_DIR      = "$ROOT/indexes";
 my $TEST_DATA_TARBALL   = "$ROOT/rum-test-data.tar.gz";
 my $RESOURCES_DIR       = "$ROOT/rum-test-data";
 my $ORGANISMS_FILE      = "$ROOT/organisms.txt";
-my $TEST_SCRIPT_DIR     = "orig/scripts";
-my $TEST_LIB_DIR        = "orig/lib";
+my $TEST_SCRIPT_DIR     = "$Bin/../orig/scripts";
+my $TEST_LIB_DIR        = "$Bin/../orig/lib";
 
 my $BIN_TARBALL         = "$ROOT/bin_tarball.tar";
 my $BIN_TARBALL_URL     = $BIN_TARBALLS{$^O}
@@ -73,7 +73,9 @@ my %CONFIG_DEFAULTS = (
     "mdust-bin"  => "$BIN_DIR/mdust",
     "script-dir" => $TEST_SCRIPT_DIR,
     "lib-dir"    => $TEST_LIB_DIR);
+
 our @BINARIES = @CONFIG_DEFAULTS{qw(bowtie-bin blat-bin mdust-bin)},
+
 my %CONFIGS = (
     "mouse-baby" => {
         
@@ -273,21 +275,16 @@ $engine->rule(
                 @BINARIES);
         });
 
-sub diff_cmd {
-    my ($test_name, $file) = @_;
-    my $expected_dir = expected_output_dir($test_name);
-    my $output_dir   = output_data_dir($test_name);
-    return "diff $expected_dir/$file $output_dir/$file";
-}
-
 $engine->rule(
     name   => "Compare Rum output to expected output",
     produces => sub { "$_[1].diff" },
     action => sub {
         my ($engine, $run_name) = @_;
+        my $expected_dir = expected_output_dir($run_name);
+        my $output_dir   = output_data_dir($run_name);
         open my $out, "$run_name.diff";
         for my $file (@RUM_OUTPUT_FILES) {
-            my $cmd = diff_cmd($run_name, $file);
+            my $cmd = "diff $expected_dir/$file $output_dir/$file";
             print "$cmd\n";
             unless ($engine->dry_run) {
                 open my $pipe, "$cmd |" or croak "Couldn't open $cmd";
