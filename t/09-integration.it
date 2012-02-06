@@ -11,13 +11,15 @@ Log::Log4perl->easy_init($WARN);
 use RUM::Config qw(parse_organisms format_config);
 use RUM::Rule::Engine qw(report satisfy_with_command chain);
 use Carp;
-
+use File::Path qw(mkpath);
 use Getopt::Long;
 
 ################################################################################
 ###
 ### Configuration
 ###
+
+our $DRY_RUN;
 
 my %BIN_TARBALLS = (
     "linux" =>  "http://itmat.rum.s3.amazonaws.com/bin_linux64.tar",
@@ -110,6 +112,7 @@ my %CONFIGS = (
     }
 );
 
+
 ################################################################################
 ###
 ### Helper functions for getting configuration settings
@@ -122,6 +125,7 @@ sub expected_output_dir {
 
 sub output_data_dir {
     my ($test_name) = @_;
+    croak "Can't get output data dir without test name" unless $test_name;
     return "$ROOT/data/$test_name/Lane1";
 }
 
@@ -147,236 +151,236 @@ sub rum_options {
     return config($test_name)->{rum_options} || [];
 }
 
-################################################################################
-###
-### Rules
-###
 
-my $engine = RUM::Rule::Engine->new;
+=head2 Actions
 
-sub my_paths {
-    my ($engine, $run_name) = @_;
-    return (expected_output_dir($run_name),
-            output_data_dir($run_name),
-            $TEST_INDEX_DIR);
+All these functions should respect the $DRY_RUN flag and not perform
+any actions if it is set to a true value.
+
+=item shell CMD, ARGS
+
+Execute "$CMD @ARGS" using system unless $DRY_RUN is set. Check the
+output status and croak if it fails.
+
+=cut
+
+sub shell {
+    my @cmd = @_;
+    if ($DRY_RUN) {
+        print "@cmd\n";
+    }
+    else {
+        system(@cmd) == 0 or croak "Can't execute @cmd: $!";
+    }
 }
 
-sub my_test_data {
-    my ($engine, $run_name) = @_;
-    return @{ config($run_name)->{input_files} };
+=item make_paths RUN_NAME
+
+Recursively make all the paths required for the given test run name,
+unless $DRY_RUN is set.
+
+=cut
+
+sub make_paths {
+    my ($run_name) = @_;
+    my @paths = (expected_output_dir($run_name),
+                 output_data_dir($run_name),
+                 $TEST_INDEX_DIR);
+    my @missing = grep { not -e } @paths;
+    for my $path (@missing) {
+        print "mkdir -p $path\n";
+        mkpath($path) or die "Can't make path $path: $!" unless $DRY_RUN;
+    }
 }
 
-sub my_rum_output {
-    my ($engine, $run_name) = @_;
-    map { output_data_dir($run_name) . "/$_" } @RUM_OUTPUT_FILES;
+=item download_file URL, LOCAL
+
+Download URL and save it with the given LOCAL filename, unless LOCAL
+already exists or $DRY_RUN is set.
+
+=cut
+
+sub download_file {
+    my ($url, $local) = @_;
+    if (-e $local) {
+        print "$local exists, skipping\n";
+        return;
+    }
+    report "Download $url to $local";
+    unless ($DRY_RUN) {
+        my $ua = LWP::UserAgent->new;
+        $ua->get($url, ":content_file" => $local);
+    }
 }
 
-sub my_expected_output {
-    my ($engine, $run_name) = @_;
-    map { expected_output_dir($run_name) . "/$_" } @RUM_OUTPUT_FILES;
+=item download_test_data
+
+Download the test data tarball and unpack it, unless it already
+exists or $DRY_RUN is set.
+
+=cut
+
+sub download_test_data {
+    download_file($TEST_DATA_URL, $TEST_DATA_TARBALL);
+    report "Unpack test tarball";
+    shell("tar", "-zxvf", $TEST_DATA_TARBALL, "-C", $ROOT) unless $DRY_RUN;
 }
 
-# Add a rule to make whatever paths are required for a given test run
-$engine->rule(
-    name => "Make paths for test data",
-    produces => \&my_paths,
-    action => sub {
-        $engine->make_paths(my_paths(@_));
-    });
+=item download_test_data
 
-# Add a rule to download the organisms text file to the current directory
-$engine->download_rule($ORGANISMS_URL, $ORGANISMS_FILE);
+Download the binary tarball and unpack it, unless it already
+exists or $DRY_RUN is set.
 
-# Add a rule to parse the organisms.txt file and download all the
-# index files listed inside it.
-my $have_indexes = $engine->rule(
-    name => "Download indexes",
-    target => sub { undef },
-    action => sub {
-        my ($options, $run_name) = @_;
+=cut
 
-        my $build_name = config($run_name)->{genome_build}
-            or croak "I don't have a genome build id for run name $run_name";
+sub download_bin_tarball {
+    download_file($BIN_TARBALL_URL, $BIN_TARBALL);
+    report "Untar binaries";
+    shell("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT) unless $DRY_RUN;
+}
 
-        report "Parse organisms file";
-        open my $orgs, "<", $ORGANISMS_FILE;
-        my @organisms = parse_organisms($orgs) 
-            or croak "I can't parse the organisms file";
-        
-        # Filter the organisms to include only mouse
-        @organisms = grep {$_->{build} eq $build_name} @organisms;
-        
-        # Get all the URLs listed for any orgs we're interested in
-        my @urls = map { @{ $_->{files} } } @organisms;
-        
-        # For each of the URLs, enqueue a rule that will download it
-        for my $url (@urls) {
-            my $file = $TEST_INDEX_DIR . "/" .
-                substr($url, rindex($url, "/") + 1);
-            if ($file =~ /^(.*)\.gz$/) {
-                my $unzipped = $1;
-                push @{ $engine->queue }, ($engine->rule(
-                    name => "Download and unzip $file",
-                    produces => $unzipped,
-                    action => chain(
-                        sub {
-                            my $ua = LWP::UserAgent->new;
-                            $ua->get($url, ":content_file" => $file);
-                        },
-                        satisfy_with_command("gunzip", $file))));
+=item get_indexes RUN_NAME
+
+Get all the indexes required for RUN_NAME, unless we already have them
+or $DRY_RUN is set.
+
+=cut
+
+sub get_indexes {
+    my ($run_name) = @_;
+
+    download_file($ORGANISMS_URL, $ORGANISMS_FILE);
+
+    my $build_name = config($run_name)->{genome_build}
+        or croak "I don't have a genome build id for run name $run_name";
+    
+    report "Parse organisms file";
+    open my $orgs, "<", $ORGANISMS_FILE;
+    my @organisms = parse_organisms($orgs) 
+        or croak "I can't parse the organisms file";
+    
+    # Filter the organisms to include only mouse
+    @organisms = grep {$_->{build} eq $build_name} @organisms;
+    
+    # Get all the URLs listed for any orgs we're interested in
+    my @urls = map { @{ $_->{files} } } @organisms;
+    
+    # For each of the URLs, enqueue a rule that will download it
+    for my $url (@urls) {
+        my $file = $TEST_INDEX_DIR . "/" .
+            substr($url, rindex($url, "/") + 1);
+        if ($file =~ /^(.*)\.gz$/) {
+            my $unzipped = $1;
+            if (-e $unzipped) {
+                report "$unzipped exists; not downloading or unzipping";
             }
             else {
-                push @{ $engine->queue }, $engine->download_rule($url, $file);
+                download_file($url, $file) unless -e $unzipped;
+                shell("gunzip", $file) unless $DRY_RUN;
             }
         }
-    },
-    depends_on => [$ORGANISMS_FILE, $TEST_INDEX_DIR]);
-
-# Add a rule to generate the config file
-$engine->rule(
-    name => "Make config file",
-    produces => sub { 
-        my ($options, $run_name) = @_;
-        return rum_config_file($run_name);
-    },
-    action => sub {
-        my ($options, $run_name) = @_;
-        my $filename = rum_config_file($run_name);
-        report "Write config file to $filename";
-        open my $out, ">", $filename;
-        my %config = %CONFIG_DEFAULTS;
-        my %custom = %{ config($run_name)->{rum_config} };
-        @config{keys(%custom)} = values(%custom);
-        print $out format_config(%config);
-    },
-    depends_on => \&my_paths);
-
-# Download the test data tarball
-$engine->download_rule(
-    $TEST_DATA_URL, $TEST_DATA_TARBALL,
-    depends_on => \&my_paths);
-
-# Download the binary tarball
-$engine->download_rule(
-    $BIN_TARBALL_URL, $BIN_TARBALL,
-    depends_on => \&my_paths);
-
-# Unpack the binary tarball
-$engine->rule(
-    name => "Untar binaries",
-    produces => [@BINARIES],
-    action => satisfy_with_command("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT),
-    depends_on => $BIN_TARBALL);
-
-# Unpack the test data tarball
-$engine->rule(
-    name => "Untar test data",
-    produces => sub { (my_test_data(@_), my_expected_output(@_)) },
-    action => satisfy_with_command("tar", "-zxvf", $TEST_DATA_TARBALL, "-C", $ROOT),
-    depends_on => $TEST_DATA_TARBALL);
-
-# Add a rule to run rum
-$engine->rule(
-    name => sub { "Run RUM for $_[1]" },
-    produces => \&my_rum_output,
-    action => sub {
-        my ($engine, $run_name) = @_;
-        my @cmd = ("perl", "orig/RUM_runner.pl",
-                   rum_config_file($run_name),
-                   join(",,,", input_files($run_name)),
-                   output_data_dir($run_name),
-                   "1", 
-                   "Lane1", @{ rum_options($run_name) });
-        print "@cmd\n";
-        (system(@cmd) == 0 or croak "Can't execute @cmd: $!")
-            unless $engine->dry_run;
-    },
-    depends_on => sub {
-        my ($engine, $run_name) = @_;
-        return ($have_indexes,
-                rum_config_file($run_name),
-                my_test_data($engine, $run_name),
-                @BINARIES);
-        });
-
-$engine->rule(
-    name   => "Compare Rum output to expected output",
-    produces => sub { "$_[1].diff" },
-    action => sub {
-        my ($engine, $run_name) = @_;
-        my $expected_dir = expected_output_dir($run_name);
-        my $output_dir   = output_data_dir($run_name);
-        open my $out, "$run_name.diff";
-        for my $file (@RUM_OUTPUT_FILES) {
-            my $cmd = "diff $expected_dir/$file $output_dir/$file";
-            print "$cmd\n";
-            unless ($engine->dry_run) {
-                open my $pipe, "$cmd |" or croak "Couldn't open $cmd";
-                my $diffs = 0;
-                while (defined (local $_ = <$pipe>)) {
-                    $diffs++;
-                    print $out $_;
-                }
-                is($diffs, 0, "No diffs for $file");
-            }
+        else {
+            download_file($url, $file);
         }
-    },
-    depends_on => sub {
-        return (
-            my_test_data(@_),
-            my_rum_output(@_),
-            my_expected_output(@_));
-    });
+    }
+}
 
-our @TEST_RUN_NAMES = qw(mouse-baby mouse-baby-grid);
 
-$engine->rule(
-    produces => [map("clean-$_", @TEST_RUN_NAMES)],
-    name => sub { "Remove the RUM output data for $_[1]" },
-    action => sub {
-        my ($engine, $run_name) = @_;
-        my $dir = output_data_dir($run_name);
-        print "rm -r $dir\n";
-        rmtree($dir) unless $engine->dry_run;
-    });
+=item MAKE_CONFIG_FILE
 
-$engine->rule(
-    produces => "veryclean",
-    name => "Remove all the integration test data",
-    action => sub {
-        my ($engine, $run_name) = @_;
-        print "rm -r $ROOT";
-        rmtree($ROOT) unless $engine->dry_run;
-    });
-    
+Make the RUM config file for the given run name unless it already
+exists or $DRY_RUN is set.
+
+=cut
+
+sub make_config_file { 
+    my ($run_name) = @_;
+    my $filename = rum_config_file($run_name);
+
+    if (-e $filename) {
+        report "$filename exists, skipping";
+    }
+    report "Write config file to $filename";
+    return if $DRY_RUN;
+    open my $out, ">", $filename;
+    my %config = %CONFIG_DEFAULTS;
+    my %custom = %{ config($run_name)->{rum_config} };
+    @config{keys(%custom)} = values(%custom);
+    print $out format_config(%config);   
+}
+
+=item run_rum RUN_NAME
+
+Run RUM with the appropriate parameters for the given RUN_NAME, unless
+all the run output already exists or $DRY_RUN is set.
+
+=cut
+
+sub run_rum {
+    my ($run_name) = @_;
+
+    my $output_dir = output_data_dir($run_name);
+    my @output = map "$output_dir/$_", @RUM_OUTPUT_FILES;
+    unless (grep { not -e } @output) {
+        report "All RUM output exists, skipping";
+        return;
+    }
+
+    make_paths($run_name);
+    get_indexes($run_name);
+    make_config_file($run_name);
+    download_bin_tarball($run_name);
+    download_test_data($run_name);
+
+    my @cmd = ("perl", "orig/RUM_runner.pl",
+               rum_config_file($run_name),
+               join(",,,", input_files($run_name)),
+               output_data_dir($run_name),
+               "1", 
+               "Lane1", @{ rum_options($run_name) });
+    (system(@cmd) == 0 or croak "Can't execute @cmd: $!")
+        unless $DRY_RUN
+}
+
+=item compare_rum_output RUN_NAME
+
+Compare the RUM output for the given test run name against what we
+expect. This will cause the tests to fail if there are any
+differences.
+
+=cut
+
+sub compare_rum_output {
+    my ($run_name) = @_;
+    run_rum($run_name);
+    my $expected_dir = expected_output_dir($run_name);
+    my $output_dir   = output_data_dir($run_name);
+    open my $out, "$run_name.diff";
+    for my $file (@RUM_OUTPUT_FILES) {
+        my $cmd = "diff $expected_dir/$file $output_dir/$file";
+        print "$cmd\n";
+        unless ($DRY_RUN) {
+            open my $pipe, "$cmd |" or croak "Couldn't open $cmd";
+            my $diffs = 0;
+            while (defined (local $_ = <$pipe>)) {
+                $diffs++;
+                print $out $_;
+            }
+            is($diffs, 0, "No diffs for $file");
+        }
+    }
+}
+
 sub main {
 
     GetOptions(
-        "dry-run|n" => \(my $dry_run),
-        "verbose|v" => \(my $verbose),
-        "list|l"    => \(my $list_rules));
+        "dry-run|n" => \$DRY_RUN,
+        "verbose|v" => \(my $verbose));
 
-    my ($run_name, @targets) = @ARGV;
+    my (@run_names) = @ARGV;
 
-    @targets = ("$run_name.diff") unless @targets;
-    
-    if ($list_rules) {
-        for my $rule (@{ $engine->{rules} }) {
-            print "Name: ", $rule->name($engine, $run_name), "\n";
-            print "Produces:\n";
-            for my $product ($rule->products($engine, $run_name)) {
-                print "  $product\n";
-            }
-            print "\n";
-        }
-        return;
-    }
-    
-    $engine->verbose($verbose);
-    $engine->dry_run($dry_run);
-    $engine->enqueue(@targets);
-    for my $t (@targets) {
-        $engine->build($run_name);
+    for my $run_name (@run_names) {
+        compare_rum_output($run_name);
     }
 }
 
