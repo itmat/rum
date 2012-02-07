@@ -3,6 +3,9 @@ package RUM::Common;
 use strict;
 use warnings;
 
+use Exporter qw(import);
+our @EXPORT_OK = qw(getave);
+
 =head1 FUNCTIONS
 
 =over 4
@@ -13,7 +16,7 @@ TODO: Document me
 
 =cut 
 
-sub getave () {
+sub getave {
     my ($spans_x) = @_;
 
     my @SS3 = split(/, /, $spans_x);

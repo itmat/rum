@@ -6,6 +6,8 @@
 use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
+use RUM::Common qw(getave);
+
 $| = 1;
 # blat run on forward/reverse reads separately, reported in order
 # first make hash 'blathits' which is all alignments of the read that we would accept (indexed by t=0,1 for forward/reverse)
