@@ -3,6 +3,9 @@
 # Written by Gregory R Grant 
 # University of Pennsylvania, 2010
 
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
 $| = 1;
 # blat run on forward/reverse reads separately, reported in order
 # first make hash 'blathits' which is all alignments of the read that we would accept (indexed by t=0,1 for forward/reverse)
@@ -1488,18 +1491,3 @@ sub addJunctionsToSeq () {
     return $seq_out;
 }
 
-sub getave () {
-    ($spans_x) = @_;
-
-    @SS3 = split(/, /, $spans_x);
-    $spanave = 0;
-    $spanlen = 0;
-    for($ss3=0; $ss3<@SS3; $ss3++) {
-	@SS4 = split(/-/, $SS3[$ss3]);
-	$spanave = $spanave + $SS4[1]*($SS4[1]+1)/2 - $SS4[0]*($SS4[0]-1)/2;
-	$spanlen = $spanlen + $SS4[1] - $SS4[0] + 1;
-    }
-    $spanave = $spanave / $spanlen;
-
-    return $spanave;
-}
