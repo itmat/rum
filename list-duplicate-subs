@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+# -*- python -*-
+
+# Prints out a list of subroutines that are defined in multiple
+# places.
+
+import os
+import re
+from itertools import dropwhile, takewhile
+
+perl_re = re.compile(".*\.pl")    
+sub_start = re.compile("sub\s+(\w+).*")
+
+def extract_subs(path):
+    subs = {}
+    name = None
+
+    with open(path) as lines:
+        for line in lines:
+            m = sub_start.match(line)
+            if m is not None:
+                name = m.group(1)
+                subs[name] = ""
+            elif line.startswith("}"):
+                name = None
+            if name is not None:
+                subs[name] += line
+    lines.close()
+
+    return subs
+
+def extract_all_subs():
+    subs = {}
+    for dir,subdirs,filenames in os.walk("."):
+        for filename in filenames:
+            if perl_re.match(filename):
+                path = dir + "/" + filename
+                subs[path] = extract_subs(path)
+    return subs
+
+def invert_subs(subs):
+    out = {}
+    for path in subs:
+        for sub in subs[path]:
+            if sub not in out:
+                out[sub] = {}
+            out[sub][path] = subs[path][sub]
+    return out
+
+def main():
+
+    # Map from sub name to map from script to text definition of the
+    # sub
+    subs = invert_subs(extract_all_subs())
+    for sub in sorted(subs):
+
+        # Don't worry about any subs that are only defined in one
+        # place
+        if len(subs[sub]) == 1:
+            continue
+
+        # Build a map from the text of this sub to a list of scripts
+        # that contain that version of the sub
+        versions = {}
+        for script in subs[sub]:
+            text = subs[sub][script]
+            if text not in versions:
+                versions[text] = []
+            versions[text].append(script)
+        version_num = 0
+
+        print sub
+        for version in versions:
+            version_num += 1
+            print "  version %d (len = %d)" % (version_num, len(version))
+            for script in versions[version]:
+                print "    ", script
+        print
+
+main()
