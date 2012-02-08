@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use RUM::Common qw(reversecomplement);
+use RUM::Workflow qw(report);
 
 =pod
 
@@ -985,17 +986,6 @@ sub _open_in_and_out {
   my ($in, $out, @args) = @_;
   return (_open_in($in), _open_out($out), @args);
 }
-
-=item report MSG
-
-Log the given message at the info level with indentation.
-
-=cut
-
-sub report {
-  INFO "  @_";
-}
-
 
 =back
 

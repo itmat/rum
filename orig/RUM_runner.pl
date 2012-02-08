@@ -7,7 +7,7 @@ $| = 1;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use Common qw(Roman roman isroman arabic);
+use Common qw(Roman roman isroman arabic format_large_int);
 
 if($ARGV[0] eq '-version' || $ARGV[0] eq '-v' || $ARGV[0] eq '--version' || $ARGV[0] eq '--v') {
     die "RUM version: $version\n";
