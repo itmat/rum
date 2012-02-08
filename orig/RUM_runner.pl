@@ -5,6 +5,10 @@ $version = "1.11.beta.  Released XXX";
 
 $| = 1;
 
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use Common qw(Roman roman isroman arabic);
+
 if($ARGV[0] eq '-version' || $ARGV[0] eq '-v' || $ARGV[0] eq '--version' || $ARGV[0] eq '--v') {
     die "RUM version: $version\n";
 }
@@ -3280,65 +3284,6 @@ sub cmpChrs () {
 
 
     return 1;
-}
-
-sub isroman($) {
-    $arg = shift;
-    $arg ne '' and
-      $arg =~ /^(?: M{0,3})
-                (?: D?C{0,3} | C[DM])
-                (?: L?X{0,3} | X[LC])
-                (?: V?I{0,3} | I[VX])$/ix;
-}
-
-sub arabic($) {
-    $arg = shift;
-    %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
-    %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
-    @figure = reverse sort keys %roman_digit;
-    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    isroman $arg or return undef;
-    ($last_digit) = 1000;
-    $arabic = 0;
-    ($arabic);
-    foreach (split(//, uc $arg)) {
-        ($digit) = $roman2arabic{$_};
-        $arabic -= 2 * $last_digit if $last_digit < $digit;
-        $arabic += ($last_digit = $digit);
-    }
-    $arabic;
-}
-
-sub Roman($) {
-    $arg = shift;
-    %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
-    %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
-    @figure = reverse sort keys %roman_digit;
-    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    0 < $arg and $arg < 4000 or return undef;
-    $roman = "";
-    ($x, $roman);
-    foreach (@figure) {
-        ($digit, $i, $v) = (int($arg / $_), @{$roman_digit{$_}});
-        if (1 <= $digit and $digit <= 3) {
-            $roman .= $i x $digit;
-        } elsif ($digit == 4) {
-            $roman .= "$i$v";
-        } elsif ($digit == 5) {
-            $roman .= $v;
-        } elsif (6 <= $digit and $digit <= 8) {
-            $roman .= $v . $i x ($digit - 5);
-        } elsif ($digit == 9) {
-            $roman .= "$i$x";
-        }
-        $arg -= $digit * $_;
-        $x = $i;
-    }
-    $roman;
-}
-
-sub roman($) {
-    lc Roman shift;
 }
 
 sub deletefiles () {
