@@ -772,32 +772,3 @@ sub arabic($) {
     }
     $arabic;
 }
-
-sub Roman($) {
-    $arg = shift;
-    %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
-    %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
-    @figure = reverse sort keys %roman_digit;
-    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    0 < $arg and $arg < 4000 or return undef;
-    $roman = "";
-    ($x, $roman);
-    foreach (@figure) {
-        ($digit, $i, $v) = (int($arg / $_), @{$roman_digit{$_}});
-        if (1 <= $digit and $digit <= 3) {
-            $roman .= $i x $digit;
-        } elsif ($digit == 4) {
-            $roman .= "$i$v";
-        } elsif ($digit == 5) {
-            $roman .= $v;
-        } elsif (6 <= $digit and $digit <= 8) {
-            $roman .= $v . $i x ($digit - 5);
-        } elsif ($digit == 9) {
-            $roman .= "$i$x";
-        }
-        $arg -= $digit * $_;
-        $x = $i;
-    }
-    $roman;
-}
-
