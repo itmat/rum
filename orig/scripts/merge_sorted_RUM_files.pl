@@ -363,15 +363,6 @@ sub cmpChrs2 () {
     return 1;
 }
 
-sub isroman($) {
-    $arg = shift;
-    $arg ne '' and
-      $arg =~ /^(?: M{0,3})
-                (?: D?C{0,3} | C[DM])
-                (?: L?X{0,3} | X[LC])
-                (?: V?I{0,3} | I[VX])$/ix;
-}
-
 sub arabic($) {
     $arg = shift;
     %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
