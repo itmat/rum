@@ -4,7 +4,8 @@ use strict;
 use warnings;
 
 use Exporter qw(import);
-our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic);
+our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
+                    reversecomplement);
 
 =head1 FUNCTIONS
 
@@ -149,17 +150,43 @@ sub Roman($) {
     $roman;
 }
 
+=item reversecomplement SEQUENCE
+
+Return the reverse complement of SEQUENCE.
+
+=cut
+
+sub reversecomplement {
+
+  my ($sq) = @_;
+  my @A = split(//,$sq);
+  my $rev = "";
+  my $flag;
+  for (my $i=@A-1; $i>=0; $i--) {
+    $flag = 0;
+    if($A[$i] eq 'A') {
+      $rev = $rev . "T";
+      $flag = 1;
+    }
+    if($A[$i] eq 'T') {
+      $rev = $rev . "A";
+      $flag = 1;
+    }
+    if($A[$i] eq 'C') {
+      $rev = $rev . "G";
+      $flag = 1;
+    }
+    if($A[$i] eq 'G') {
+      $rev = $rev . "C";
+      $flag = 1;
+    }
+    if($flag == 0) {
+      $rev = $rev . $A[$i];
+    }
+  }
+  return $rev;
+}
+
 
 
 1;
-
-
-
-
-
-
-
-
-
-
-

@@ -8,7 +8,7 @@ $|=1;
 use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
-use RUM::Common qw(addJunctionsToSeq);
+use RUM::Common qw(addJunctionsToSeq reversecomplement);
 
 if(@ARGV < 5) {
     die "
@@ -1087,34 +1087,4 @@ sub spansTotalLength () {
     }
     return $length;
 }
-
-sub reversecomplement () {
-    ($sq) = @_;
-    @A = split(//,$sq);
-    $rev = "";
-    for($i=@A-1; $i>=0; $i--) {
-	$flag = 0;
-	if($A[$i] eq 'A') {
-	    $rev = $rev . "T";
-	    $flag = 1;
-	}
-	if($A[$i] eq 'T') {
-	    $rev = $rev . "A";
-	    $flag = 1;
-	}
-	if($A[$i] eq 'C') {
-	    $rev = $rev . "G";
-	    $flag = 1;
-	}
-	if($A[$i] eq 'G') {
-	    $rev = $rev . "C";
-	    $flag = 1;
-	}
-	if($flag == 0) {
-	    $rev = $rev . $A[$i];
-	}
-    }
-    return $rev;
-}
-
 
