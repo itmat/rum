@@ -1,5 +1,10 @@
 #!/usr/bin/perl
 
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(roman Roman isroman arabic);
+
 if(@ARGV<2) {
     die "Usage: merge_chr_counts.pl <outfile> <infile1> <infile2> [<infile3> ... <infileN>] [option]
 
@@ -331,6 +336,3 @@ sub Roman($) {
     $roman;
 }
 
-sub roman($) {
-    lc Roman shift;
-}

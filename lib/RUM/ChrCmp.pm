@@ -5,6 +5,7 @@ use warnings;
 
 use Exporter 'import';
 our @EXPORT_OK = qw(cmpChrs by_chromosome);
+use RUM::Common qw(roman Roman isroman arabic);
 
 =pod
 
@@ -234,84 +235,6 @@ sub cmpChrs ($$) {
 
 
     return 1;
-}
-
-=item isroman(N)
-
-Return a true value if N is a roman numeral, false otherwise.
-
-=cut
-sub isroman($) {
-    my $arg = shift;
-    return $arg ne '' and
-        $arg =~ /^(?: M{0,3})
-                 (?: D?C{0,3} | C[DM])
-                 (?: L?X{0,3} | X[LC])
-                 (?: V?I{0,3} | I[VX])$/ix;
-}
-
-=item arabic(N)
-
-Return the arabic number for the given roman numeral.
-
-=cut
-sub arabic($) {
-    my $arg = shift;
-    my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
-    my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
-    my  @figure = reverse sort keys %roman_digit;
-    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    isroman $arg or return undef;
-    my ($last_digit) = 1000;
-    my $arabic=0;
-    foreach (split(//, uc $arg)) {
-        my ($digit) = $roman2arabic{$_};
-        $arabic -= 2 * $last_digit if $last_digit < $digit;
-        $arabic += ($last_digit = $digit);
-    }
-    $arabic;
-}
-
-=item Roman(N)
-
-Return the roman numeral for N.
-
-=cut
-sub Roman($) {
-    my $arg = shift;
-    my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
-    my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
-    my @figure = reverse sort keys %roman_digit;
-    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    0 < $arg and $arg < 4000 or return undef;
-    my $roman = "";
-    my $x;
-    foreach (@figure) {
-        my ($digit, $i, $v) = (int($arg / $_), @{$roman_digit{$_}});
-        if (1 <= $digit and $digit <= 3) {
-            $roman .= $i x $digit;
-        } elsif ($digit == 4) {
-            $roman .= "$i$v";
-        } elsif ($digit == 5) {
-            $roman .= $v;
-        } elsif (6 <= $digit and $digit <= 8) {
-            $roman .= $v . $i x ($digit - 5);
-        } elsif ($digit == 9) {
-            $roman .= "$i$x";
-        }
-        $arg -= $digit * $_;
-        $x = $i;
-    }
-    $roman;
-}
-
-=item roman(N)
-
-Return the lower case roman numeral for N.
-
-=cut
-sub roman($) {
-    lc Roman shift;
 }
 
 =item by_chromosome A, B

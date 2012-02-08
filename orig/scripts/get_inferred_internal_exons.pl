@@ -1,5 +1,11 @@
 use strict;
+
 $|=1;
+
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(roman Roman isroman arabic);
 
 if(@ARGV<4) {
     die "
@@ -945,6 +951,3 @@ sub Roman($) {
     $roman;
 }
 
-sub roman($) {
-    lc Roman shift;
-}

@@ -4,6 +4,11 @@
 
 use strict;
 
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(roman Roman isroman arabic);
+
 my $name="Coverage";
 use Getopt::Long;
 my $result;
@@ -608,10 +613,6 @@ sub Roman($) {
 	$x = $i;
     }
     $roman;
-}
-
-sub roman($) {
-    lc Roman shift;
 }
 
 ######################################################

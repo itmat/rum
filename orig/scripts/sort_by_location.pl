@@ -1,6 +1,12 @@
 #!/usr/bin/perl
 
 $|=1;
+
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(roman Roman isroman arabic);
+
 if(@ARGV < 4) {
     die "
 Usage: sort_by_location.pl <in file> <out file> [options]
@@ -494,6 +500,3 @@ sub Roman($) {
     $roman;
 }
 
-sub roman($) {
-    lc Roman shift;
-}

@@ -5,6 +5,11 @@
 
 $|=1;
 
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(roman Roman isroman arabic);
+
 if(@ARGV<1 || $ARGV[0] eq "/help/") {
     print "\nUsage: featurequant2geneprofiles.pl <outfile> <feature_quantification_files> [options]\n\n";
     print "Profiles are output for all genes/exons/introns, by default.  To change this use the options below.\n\n";
@@ -1578,6 +1583,3 @@ sub Roman($) {
     $roman;
 }
 
-sub roman($) {
-    lc Roman shift;
-}

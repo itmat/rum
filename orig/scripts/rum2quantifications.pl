@@ -4,6 +4,12 @@
 # University of Pennsylvania, 2010
 
 $|=1;
+
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(roman Roman isroman arabic);
+
 use strict;
 
 if(@ARGV < 4) {
@@ -721,9 +727,6 @@ sub Roman($) {
     $roman;
 }
 
-sub roman($) {
-    lc Roman shift;
-}
 
 sub cmpChrs () {
     my $a2_c = lc($b);
