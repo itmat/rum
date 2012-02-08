@@ -3069,23 +3069,6 @@ sub getNext2 () {
     }
 }
 
-sub format_large_int () {
-    ($int) = @_;
-    @a = split(//,"$int");
-    $j=0;
-    $newint = "";
-    $n = @a;
-    for($i=$n-1;$i>=0;$i--) {
-	$j++;
-	$newint = $a[$i] . $newint;
-	if($j % 3 == 0) {
-	    $newint = "," . $newint;
-	}
-    }
-    $newint =~ s/^,//;
-    return $newint;
-}
-
 sub cmpChrs () {
     $a2_c = lc($b);
     $b2_c = lc($a);

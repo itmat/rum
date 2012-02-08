@@ -5,6 +5,11 @@
 
 $|=1;
 
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(format_large_int);
+
 open(INFILE, $ARGV[0]);
 if(@ARGV<2) {
     die "
@@ -289,19 +294,3 @@ if($num_breads > 0) {
     print "At least one of forward or reverse mapped: $f ($p%)\n";
 }
 
-sub format_large_int () {
-    ($int) = @_;
-    @a = split(//,"$int");
-    $j=0;
-    $newint = "";
-    $n = @a;
-    for($i=$n-1;$i>=0;$i--) {
-	$j++;
-	$newint = $a[$i] . $newint;
-	if($j % 3 == 0) {
-	    $newint = "," . $newint;
-	}
-    }
-    $newint =~ s/^,//;
-    return $newint;
-}

@@ -5,7 +5,7 @@ use warnings;
 
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
-                    reversecomplement);
+                    reversecomplement format_large_int);
 
 =head1 FUNCTIONS
 
@@ -187,6 +187,27 @@ sub reversecomplement {
   return $rev;
 }
 
+=item format_large_int X
 
+Return X formatted with commas between every triplet of digits.
+
+=cut
+
+sub format_large_int {
+    my ($int) = @_;
+    my @a = split(//,"$int");
+    my $j = 0;
+    my $newint = "";
+    my $n = @a;
+    for (my $i = $n - 1; $i >=0; $i--) {
+	$j++;
+	$newint = $a[$i] . $newint;
+	if($j % 3 == 0) {
+	    $newint = "," . $newint;
+	}
+    }
+    $newint =~ s/^,//;
+    return $newint;
+}
 
 1;
