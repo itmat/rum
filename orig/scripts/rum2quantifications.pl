@@ -673,23 +673,6 @@ sub do_they_overlap() {
     }
 }
 
-sub arabic($) {
-    my $arg = shift;
-    my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
-    my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
-    my @figure = reverse sort keys %roman_digit;
-    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    isroman $arg or return undef;
-    my $last_digit = 1000;
-    my $arabic=0;
-    foreach (split(//, uc $arg)) {
-        my ($digit) = $roman2arabic{$_};
-        $arabic -= 2 * $last_digit if $last_digit < $digit;
-        $arabic += ($last_digit = $digit);
-    }
-    $arabic;
-}
-
 sub cmpChrs () {
     my $a2_c = lc($b);
     my $b2_c = lc($a);
