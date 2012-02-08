@@ -7,8 +7,9 @@
 import os
 import re
 from itertools import dropwhile, takewhile
+import sys
 
-perl_re = re.compile(".*\.pl")    
+perl_re = re.compile(".*\.(pl|pm)")    
 sub_start = re.compile("sub\s+(\w+).*")
 
 def extract_subs(path):
@@ -33,7 +34,7 @@ def extract_all_subs():
     subs = {}
     for dir,subdirs,filenames in os.walk("."):
         for filename in filenames:
-            if perl_re.match(filename):
+            if perl_re.match(filename) and not re.search("blib", dir):
                 path = dir + "/" + filename
                 subs[path] = extract_subs(path)
     return subs
@@ -47,12 +48,15 @@ def invert_subs(subs):
             out[sub][path] = subs[path][sub]
     return out
 
-def main():
+def main(names=[]):
 
     # Map from sub name to map from script to text definition of the
     # sub
     subs = invert_subs(extract_all_subs())
-    for sub in sorted(subs):
+
+    sub_names = names if len(names) > 0 else sorted(subs.keys())
+    
+    for sub in sub_names:
 
         # Don't worry about any subs that are only defined in one
         # place
@@ -70,11 +74,15 @@ def main():
         version_num = 0
 
         print sub
-        for version in versions:
+        for version in sorted(versions):
             version_num += 1
             print "  version %d (len = %d)" % (version_num, len(version))
             for script in versions[version]:
                 print "    ", script
+            filename = "subs/%s.%d" % (sub, version_num)
+            with open(filename, "w") as f:
+                f.write(version)
+            f.close()
         print
 
-main()
+main(sys.argv[1:])
