@@ -32,6 +32,12 @@ sub getave {
     return $ave;
 }
 
+=item addJunctionsToSeq
+
+TODO: Document me
+
+=cut
+
 sub addJunctionsToSeq {
     my ($seq, $spans) = @_;
     $seq =~ s/://g;
@@ -71,7 +77,7 @@ Return the lower case roman numeral for N.
 
 =cut
 sub roman($) {
-    lc Roman shift;
+    return lc(Roman(shift()));
 }
 
 =item isroman(N)
