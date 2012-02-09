@@ -5,6 +5,11 @@ $version = "1.11.beta.  Released XXX";
 
 $| = 1;
 
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+
+use RUM::Spawn qw(spawn check);
+
 if($ARGV[0] eq '-version' || $ARGV[0] eq '-v' || $ARGV[0] eq '--version' || $ARGV[0] eq '--v') {
     die "RUM version: $version\n";
 }
@@ -1762,10 +1767,8 @@ if($postprocess eq "false") {
            $Q =~ /Your job (\d+)/;
            $jobid{$i} = $1;
         } else {
-    	   system("/bin/bash $output_dir/$outfile &");
-           $Q = `ps a | grep $output_dir/$outfile | grep -v "ps a" | grep -v "grep "`;
-           $Q =~ /^\s*(\d+)/;
-           $PID = $1;
+          my $child_pid = spawn("/bin/bash", "$output_dir/$outfile");
+          $PID = $child_pid;
            $jobid{$i} = $PID;
         }
         print "Chunk $i initiated\n";
@@ -1929,9 +1932,8 @@ if($postprocess eq "false") {
                             }
                        } else {
                             $PID = $jobid{$i};
-                            $Q = `ps a | grep -w $PID | grep -v grep`;
-                            if(!($Q =~ /^\s*$PID\s/)) {
-                                 $DIED = "true";
+                            if (my $child_status = check($PID)) {
+                                $DIED = "true";
                                  foreach $CID (keys %{$child{$i}}) {
                                        $G = `ps a | grep $CID`;
                                        $x = `kill -9 $CID`;
@@ -2306,6 +2308,14 @@ if($postprocess eq "false") {
                                  if($Q =~ /pipeline complete/) {
                                      $Dflag = 1;
                                  }
+                            if($qsub2 eq "true") {
+                                 $Q = `qsub -l mem_free=$MEM -o $ofile -e $efile $output_dir/$outfile`;
+                                 $Q =~ /Your job (\d+)/;
+                                 $jobid{$i} = $1;
+                            } else {
+                                my $child_pid = spawn("/bin/bash", "$output_dir/$outfile");
+                                $PID = $child_pid;
+                                $jobid{$i} = $PID;
                             }
                             if($Dflag == 0) {
                                 if($qsub2 eq "true") {
@@ -2573,8 +2583,7 @@ while($doneflag == 0) {
                      $X = `qdel $Jobid`;
                    }
              } else {
-                 $Q = `ps a | grep -w $Jobid | grep -v grep`;
-                 if(!($Q =~ /^\s*$Jobid\s/)) {
+                 if (my $child_status = check($Jobid)) {
                      $DIED = "true";
                      foreach $CID (keys %child) {
                          $G = `ps a | grep $CID`;
@@ -2704,11 +2713,9 @@ while($doneflag == 0) {
                  $Q =~ /Your job (\d+)/;
                  $jobid{$numchunks} = $1;
             } else {
-               	  system("/bin/bash $output_dir/$outfile &");
-                   $Q = `ps a | grep $output_dir/$outfile | grep -v "ps a" | grep -v "grep "`;
-                  $Q =~ /^\s*(\d+)/;
-                  $PID = $1;
-                  $jobid{$numchunks} = $PID;
+                my $child_pid = spawn("/bin/bash", "$output_dir/$outfile");
+                $PID = $child_pid;
+                $jobid{$numchunks} = $PID;
             }
             if($FILE =~ /perl/s) {
                  if($jobid{$numchunks} =~ /^\d+$/) {
