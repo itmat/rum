@@ -8,7 +8,7 @@ $| = 1;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
-use RUM::Spawn qw(spawn check);
+use RUM::Subproc qw(spawn check);
 
 if($ARGV[0] eq '-version' || $ARGV[0] eq '-v' || $ARGV[0] eq '--version' || $ARGV[0] eq '--v') {
     die "RUM version: $version\n";
