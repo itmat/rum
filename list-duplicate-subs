@@ -76,7 +76,7 @@ def main(names=[]):
         print sub
         for version in sorted(versions):
             version_num += 1
-            print "  version %d (len = %d)" % (version_num, len(version))
+            print "  version %d (len = %d)" % (version_num, len(version.splitlines()))
             for script in versions[version]:
                 print "    ", script
             filename = "subs/%s.%d" % (sub, version_num)
