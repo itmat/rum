@@ -1767,10 +1767,8 @@ if($postprocess eq "false") {
            $Q =~ /Your job (\d+)/;
            $jobid{$i} = $1;
         } else {
-          my $child_pid = spawn("/bin/bash", "$output_dir/$outfile");
-          $PID = $child_pid;
-           $jobid{$i} = $PID;
-        }
+           $jobid{$i} = spawn("/bin/bash", "$output_dir/$outfile");
+      }
         print "Chunk $i initiated\n";
         $status{$i} = 1;
     }
@@ -2304,30 +2302,19 @@ if($postprocess eq "false") {
                             $MEM = $ram . "G";
                             $Dflag = 0;
                             if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
-                                 $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
-                                 if($Q =~ /pipeline complete/) {
-                                     $Dflag = 1;
-                                 }
-                            if($qsub2 eq "true") {
-                                 $Q = `qsub -l mem_free=$MEM -o $ofile -e $efile $output_dir/$outfile`;
-                                 $Q =~ /Your job (\d+)/;
-                                 $jobid{$i} = $1;
-                            } else {
-                                my $child_pid = spawn("/bin/bash", "$output_dir/$outfile");
-                                $PID = $child_pid;
-                                $jobid{$i} = $PID;
+                                $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
+                                if($Q =~ /pipeline complete/) {
+                                    $Dflag = 1;
+                                }
                             }
                             if($Dflag == 0) {
                                 if($qsub2 eq "true") {
-                                     $Q = `qsub -l mem_free=$MEM,h_vmem=$MEM -o $ofile -e $efile $output_dir/$outfile`;
-                                     $Q =~ /Your job (\d+)/;
-                                     $jobid{$i} = $1;
+                                    $Q = `qsub -l mem_free=$MEM,h_vmem=$MEM -o $ofile -e $efile $output_dir/$outfile`;
+                                    $Q =~ /Your job (\d+)/;
+                                    $jobid{$i} = $1;
                                 } else {
-                             	  system("/bin/bash $output_dir/$outfile &");
-                                      $Q = `ps a | grep $output_dir/$outfile | grep -v "ps a" | grep -v "grep "`;
-                                      $Q =~ /^\s*(\d+)/;
-                                      $PID = $1;
-                                      $jobid{$i} = $PID;
+                                    $jobid{$i} = spawn("/bin/bash", "$output_dir/$outfile");
+                                    
                                 }
                             }
                             sleep(3);
@@ -2713,9 +2700,7 @@ while($doneflag == 0) {
                  $Q =~ /Your job (\d+)/;
                  $jobid{$numchunks} = $1;
             } else {
-                my $child_pid = spawn("/bin/bash", "$output_dir/$outfile");
-                $PID = $child_pid;
-                $jobid{$numchunks} = $PID;
+                $jobid{$numchunks} = spawn("/bin/bash", "$output_dir/$outfile");
             }
             if($FILE =~ /perl/s) {
                  if($jobid{$numchunks} =~ /^\d+$/) {
@@ -3521,3 +3506,4 @@ sub deletefiles () {
     }
     return "";
 }
+
