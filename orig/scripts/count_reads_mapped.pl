@@ -140,7 +140,7 @@ undef %unjoined;
 $f = format_large_int($seqnum);
 $total=$max_seq_num - $min_seq_num + 1;
 $f = format_large_int($total);
-print "Num reads total: $f\n";
+print "Number of reads total: $f\n";
 if($num_breads > 0) {
     print "\nUNIQUE MAPPERS\n--------------\n";
     $num_bothmapped = $numjoined + $num_unjoined_consistent;
@@ -152,18 +152,18 @@ if($num_breads > 0) {
     $f = format_large_int($num_unjoined_consistent);
     print "   - don't overlap: $f\n";
     $f = format_large_int($num_a_only);
-    print "Num forward mapped only: $f\n";
+    print "Number of forward mapped only: $f\n";
 }
 $f = format_large_int($num_b_only);
 if($num_breads > 0) {
-    print "Num reverse mapped only: $f\n";
+    print "Number of reverse mapped only: $f\n";
 }
 $num_a_total = $num_a_only + $num_bothmapped;
 $num_b_total = $num_b_only + $num_bothmapped;
 $f = format_large_int($num_a_total);
 $percent_a_mapped = int($num_a_total / $total * 10000) / 100;
 if($num_breads > 0) {
-    print "Num forward total: $f ($percent_a_mapped%)\n";
+    print "Number of forward total: $f ($percent_a_mapped%)\n";
 }
 else {
     print "------\nUNIQUE MAPPERS: $f ($percent_a_mapped%)\n";
@@ -171,7 +171,7 @@ else {
 $f = format_large_int($num_b_total);
 $percent_b_mapped = int($num_b_total / $total * 10000) / 100;
 if($num_breads > 0) {
-    print "Num reverse total: $f ($percent_b_mapped%)\n";
+    print "Number of reverse total: $f ($percent_b_mapped%)\n";
 }
 $at_least_one_of_forward_or_reverse_mapped = $num_bothmapped + $num_a_only + $num_b_only;
 $f = format_large_int($at_least_one_of_forward_or_reverse_mapped);

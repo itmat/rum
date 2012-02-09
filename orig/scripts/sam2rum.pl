@@ -90,7 +90,7 @@ if($ARGV[2] =~ /none/ || $ARGV[2] =~ /.none./) {
 until($line eq '') {
     chomp($line);
     @a = split(/\t/,$line);
-    if($line =~ /OL:A:T/) {
+    if($line =~ /XO:A:T/) {
 	$joined = "true";
     } else {
 	$joined = "false";

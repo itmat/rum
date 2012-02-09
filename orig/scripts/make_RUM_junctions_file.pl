@@ -274,7 +274,6 @@ while($FLAG == 0) {
 	    $line =~ />(.*)/;
 	    $chr = $1;
 	    $chr =~ s/:[^:]*$//;
-#	    print "chr=$chr\n";
 	    $ref_seq = <GENOMESEQ>;
 	    chomp($ref_seq);
 	    $CHR2SEQ{$chr} = $ref_seq;
@@ -542,8 +541,6 @@ sub getjunctions () {
 			$allintrons{$intron} = 1;
 		    }
 		}
-#		    print "elen1 = $elen1\n";
-#		    print "elen2 = $elen2\n";
 		if($elen1 < $allowable_overlap || $elen2 < $allowable_overlap) {
 		    $badoverlapNU{$intron}++;
 		    if($altintron =~ /\S/) {
@@ -559,7 +556,6 @@ sub getjunctions () {
 	}
     }
     close(INFILE);
-#    print STDERR "finished NU\n";
 }
 
 sub reversesignal () {
