@@ -242,8 +242,7 @@ $readsfile = $ARGV[1];
 $output_dir = $ARGV[2];
 $output_dir =~ s!/$!!;
 if(!(-d $output_dir)) {
-    mkdir($output_dir) or die
-        die "\nERROR: The directory '$output_dir' does not seem to exist, and I can't create it\n\n";
+    die "\nERROR: The directory '$output_dir' does not seem to exists...\n\n";
 }
 
 $kill = "false";
@@ -701,10 +700,7 @@ if($qsub eq "true") {
      $mastername = $clusterID . "master";
      print KF "qdel $mastername\n";
      close(KF);
-     my @cmd = "qsub -V -cwd -N $mastername -j y -b y perl $0 $argstring";
-     print "Submitting job: @cmd\n";
-     system(@cmd) == 0
-         or die "Error running @cmd: $!";
+     `qsub -V -cwd -N $mastername -j y -b y perl $0 $argstring`;
      exit(0);
 }
 
@@ -839,7 +835,7 @@ if($kill eq "false") {
     sleep(1);
     print "\nChecking for phantom processes from prior runs that might need to be killed.\n\n";
     $outdir = $output_dir;
-    $str = `ps a | grep $outdir | grep -v RUM_runner.pl`;
+    $str = `ps a | grep $outdir | grep -v RUM_runner.pl | grep -v test_RUM_restart`;
     @candidates = split(/\n/,$str);
     $cleanedflag = 0;
     for($i=0; $i<@candidates; $i++) {
@@ -1413,6 +1409,11 @@ if($postprocess eq "false") {
         print LOGFILE "limitNU: $limitNUhard\n";
     }
     print LOGFILE "dna: $dna\n";
+    print LOGFILE "output junctions: $junctions\n";
+    print LOGFILE "output quantified values: $quantify\n";
+    print LOGFILE "strand specific: $strandspecific\n";
+    print LOGFILE "number of insertions allowed per read: $num_insertions_allowed\n";
+    print LOGFILE "count mismatches: $countmismatches\n";
     print LOGFILE "genome only: $genomeonly\n";
     print LOGFILE "qsub: $qsub2\n";
     print LOGFILE "blat minidentity: $minidentity\n";
@@ -1420,11 +1421,6 @@ if($postprocess eq "false") {
     print LOGFILE "blat stepSize: $stepSize\n";
     print LOGFILE "blat repMatch: $repMatch\n";
     print LOGFILE "blat maxIntron: $maxIntron\n";
-    print LOGFILE "output junctions: $junctions\n";
-    print LOGFILE "output quantified values: $quantify\n";
-    print LOGFILE "strand specific: $strandspecific\n";
-    print LOGFILE "number of insertions allowed per read: $num_insertions_allowed\n";
-    print LOGFILE "count mismatches: $countmismatches\n";
 
     print ERRORLOG "\nNOTE: I am going to report alginments of length $match_length_cutoff.\n";
     print ERRORLOG "  *** If you want to change the min size of alignment reported, use the -minlength option.\n\n";
@@ -1766,7 +1762,7 @@ if($postprocess eq "false") {
            $ofile = $output_dir . "/chunk.$i" . ".o";
            $efile = $output_dir . "/errorlog.$i";
            $MEM = $ram . "G";
-    	   $Q = `qsub -l mem_free=$MEM -o $ofile -e $efile $output_dir/$outfile`;
+    	   $Q = `qsub -l mem_free=$MEM,h_vmem=$MEM -o $ofile -e $efile $output_dir/$outfile`;
            $Q =~ /Your job (\d+)/;
            $jobid{$i} = $1;
         } else {
@@ -1805,7 +1801,6 @@ if($postprocess eq "false") {
         sleep(3);
 
         if($qsub2 eq "false") {
-#            print "------\n";
             for($i=1; $i<=$numchunks; $i++) {
                  $PID = $jobid{$i};
                  if(!($PID =~ /\S/)) {
@@ -1832,11 +1827,6 @@ if($postprocess eq "false") {
                    }
                }
             }
-#            for($i=1; $i<=$numchunks; $i++) {
-#               foreach $K (keys %{$child{$i}}) {
-#                  print "child{$i}{$K} = $child{$i}{$K}\n";
-#               }
-#            }
         }
 
         $doneflag = 1;
@@ -1966,6 +1956,48 @@ if($postprocess eq "false") {
                             $DATE =~ s/\s+$//;
                             print ERRORLOG "\n *** Chunk $i seems to have failed sometime around $DATE!  Trying to restart it...\n";
                             print "\n *** Chunk $i seems to have failed sometime around $DATE!\nDon't panic, I'm going to try to restart it.\n";
+                            # check that didn't run out of disk space
+                            $mcheck = `df -h $output_dir | grep -vi Avai`;
+                            chomp($mcheck);
+                            $mcheck =~ s/^\s*//;
+                            @mc = split(/\s+/,$mcheck);
+                            $mc[3] =~ /(\d+)/;
+                            $mfree = $1 + 0;
+                            if($mfree == 0) {
+                                  print ERRORLOG "\n *** You seem to have run out of disk space: exiting.\n";
+                                  print "\n *** You seem to have run out of disk space: exiting.\n";
+                                  if(-e "$output_dir/kill_command") {
+                                      $K = `cat "$output_dir/kill_command"`;
+                                      @a = split(/\n/,$K);
+                                      $A = $a[0] . "\n";
+                                      $R = `$A`;
+                                      print "$R\n";
+                                      $A = $a[1] . "\n";
+                                      $R = `$A`;
+                                      print "$R\n";
+                                      exit(0);
+                                  }
+                                  $outdir = $output_dir;
+                                  $str = `ps a | grep $outdir`;
+                                  @candidates = split(/\n/,$str);
+                                  for($i=0; $i<@candidates; $i++) {
+                                      if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
+                                          $pid = $1;
+                                           print "killing $pid\n";
+                                           `kill -9 $pid`;
+                                      }
+                                   }
+                                   for($i=0; $i<@candidates; $i++) {
+                                        if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
+                                             if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
+                                   		$pid = $1;
+                                     		print "killing $pid\n";
+                                       		`kill -9 $pid`;
+                                      	     }
+                                        }
+                                   }
+                                   exit(0);
+                            }
                             $ofile = $output_dir . "/chunk.restart.$i" . ".o";
                             $efile = $output_dir . "/chunk.restart.$i" . ".e";
                             $outfile = "$name" . "." . $starttime . "." . $i . ".sh";
@@ -2270,20 +2302,30 @@ if($postprocess eq "false") {
                             # remove the old files...
                             &deletefiles($output_dir, $J3, $leave_last_chunk_log);
 
+                            sleep(3);
                             $MEM = $ram . "G";
-                            if($qsub2 eq "true") {
-                                 $Q = `qsub -l mem_free=$MEM -o $ofile -e $efile $output_dir/$outfile`;
-                                 $Q =~ /Your job (\d+)/;
-                                 $jobid{$i} = $1;
-                            } else {
-                         	  system("/bin/bash $output_dir/$outfile &");
-                                  $Q = `ps a | grep $output_dir/$outfile | grep -v "ps a" | grep -v "grep "`;
-                                  $Q =~ /^\s*(\d+)/;
-                                  $PID = $1;
-                                  $jobid{$i} = $PID;
+                            $Dflag = 0;
+                            if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
+                                 $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
+                                 if($Q =~ /pipeline complete/) {
+                                     $Dflag = 1;
+                                 }
                             }
-                            sleep(5);
-                            if($jobid{$i} =~ /^\d+$/) {
+                            if($Dflag == 0) {
+                                if($qsub2 eq "true") {
+                                     $Q = `qsub -l mem_free=$MEM,h_vmem=$MEM -o $ofile -e $efile $output_dir/$outfile`;
+                                     $Q =~ /Your job (\d+)/;
+                                     $jobid{$i} = $1;
+                                } else {
+                             	  system("/bin/bash $output_dir/$outfile &");
+                                      $Q = `ps a | grep $output_dir/$outfile | grep -v "ps a" | grep -v "grep "`;
+                                      $Q =~ /^\s*(\d+)/;
+                                      $PID = $1;
+                                      $jobid{$i} = $PID;
+                                }
+                            }
+                            sleep(3);
+                            if($jobid{$i} =~ /^\d+$/ && $Dflag == 0) {
                                   $DATE = `date`;
                                   $DATE =~ s/^\s+//;
                                   $DATE =~ s/\s+$//;
@@ -2294,8 +2336,8 @@ if($postprocess eq "false") {
                                   if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
                                        $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
                                        if($Q =~ /pipeline complete/) {
-                                            print ERRORLOG " *** Well, there was realy nothing to do, chunk $i seems to have finished.\n\n";
-                                            print " *** Well, there was realy nothing to do, chunk $i seems to have finished.\n\n";
+                                            print ERRORLOG " *** Well, there was really nothing to do, chunk $i seems to have finished.\n\n";
+                                            print " *** Well, there was really nothing to do, chunk $i seems to have finished.\n\n";
                                             $doneflag = 1;
                                        }
                                   } else {
@@ -2454,6 +2496,7 @@ $doneflag = 0;
 undef %child;
 
 $finished = 0;
+$number_consecutive_restarts_pp = 0;
 while($doneflag == 0) {
     $doneflag = 1;
     $x = "";
@@ -2551,6 +2594,49 @@ while($doneflag == 0) {
             $DATE =~ s/\s+$//;
             print ERRORLOG "\n *** The post-processing node seems to have failed during post-processing, sometime around $DATE!\nI'm going to try to restart it.\n";
             print "\n *** The post-processing node seems to have failed during post-processing, sometime around $DATE!\nDon't panic, I'm going to try to restart it.\n";
+
+            # check that didn't run out of disk space
+            $mcheck = `df -h $output_dir | grep -vi Avai`;
+            chomp($mcheck);
+            $mcheck =~ s/^\s*//;
+            @mc = split(/\s+/,$mcheck);
+            $mc[3] =~ /(\d+)/;
+            $mfree = $1 + 0;
+            if($mfree == 0) {
+               print ERRORLOG "\n *** You seem to have run out of disk space: exiting.\n";
+               print "\n *** You seem to have run out of disk space: exiting.\n";
+               if(-e "$output_dir/kill_command") {
+                   $K = `cat "$output_dir/kill_command"`;
+                   @a = split(/\n/,$K);
+                   $A = $a[0] . "\n";
+                   $R = `$A`;
+                   print "$R\n";
+                   $A = $a[1] . "\n";
+                   $R = `$A`;
+                   print "$R\n";
+                   exit(0);
+               }
+               $outdir = $output_dir;
+               $str = `ps a | grep $outdir`;
+               @candidates = split(/\n/,$str);
+               for($i=0; $i<@candidates; $i++) {
+                   if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
+                       $pid = $1;
+                        print "killing $pid\n";
+                        `kill -9 $pid`;
+                   }
+                }
+                for($i=0; $i<@candidates; $i++) {
+                     if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
+                          if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
+                		$pid = $1;
+                  		print "killing $pid\n";
+                    		`kill -9 $pid`;
+                   	     }
+                     }
+                }
+                exit(0);
+            }
             $X = `qdel $Jobid`;
             $ofile = $output_dir . "/chunk.restart.$numchunks" . ".o";
             $efile = $output_dir . "/errorlog.restart.$numchunks";
@@ -2568,10 +2654,6 @@ while($doneflag == 0) {
                 $PPlog_contents = "";
             }
             $PPlog_contents =~ s/.*Post Processing Restarted At This Point[^\n]*\n//s;
-
-#            print "==================== PPlog_contents start ====================\n";
-#            print $PPlog_contents;
-#            print "==================== PPlog_contents end ======================\n";
 
             open(POUT, ">>$output_dir/$PPlog");
             print POUT "------- Post Processing Restarted At This Point ------\n";
@@ -2622,7 +2704,7 @@ while($doneflag == 0) {
 
             $MEM = $ram . "G";
             if($qsub2 eq "true") {
-                 $Q = `qsub -l mem_free=$MEM -o $ofile -e $efile $output_dir/$outfile`;
+                 $Q = `qsub -l mem_free=$MEM,h_vmem=$MEM -o $ofile -e $efile $output_dir/$outfile`;
                  $Q =~ /Your job (\d+)/;
                  $jobid{$numchunks} = $1;
             } else {
@@ -2638,6 +2720,43 @@ while($doneflag == 0) {
                        print ERRORLOG " *** OK, post-processing seems to have restarted.\n\n";
                        print " *** OK, post-processing seems to have restarted.\n\n";
                  } else {
+                       $number_consecutive_restarts_pp++;
+                       if($number_consecutive_restarts_pp > 20) {
+                           print ERRORLOG " *** Hmph, I tried 20 times, I'm going to give up because I'm afraid I'm caught in an infinite loop.  Could be a bug.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
+                           print " *** Hmph, I tried 20 times, I'm going to give up because I'm afraid I'm caught in an infinite loop.  Could be a bug.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
+                           if(-e "$output_dir/kill_command") {
+                                $K = `cat "$output_dir/kill_command"`;
+                                @a = split(/\n/,$K);
+                                $A = $a[0] . "\n";
+                                $R = `$A`;
+                                print "$R\n";
+                                $A = $a[1] . "\n";
+                                $R = `$A`;
+                                print "$R\n";
+                                exit();
+                            }
+                            $outdir = $output_dir;
+                            $str = `ps a | grep $outdir`;
+                            @candidates = split(/\n/,$str);
+                            for($i=0; $i<@candidates; $i++) {
+                                if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
+                                    $pid = $1;
+                                    print "killing $pid\n";
+                                    `kill -9 $pid`;
+                                 }
+                             }
+                             for($i=0; $i<@candidates; $i++) {
+                                    if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
+                                        if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
+                               		    $pid = $1;
+                                  	    print "killing $pid\n";
+                                   	    `kill -9 $pid`;
+                             	        }
+                                    }
+                              }
+                              exit(0);
+                        }
+
                        print ERRORLOG " *** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
                        print " *** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
                  }

@@ -928,9 +928,9 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 		}
 	    }
 	    if($joined eq "true") {
-		$forward_record = $forward_record . "\tOL:A:T";
+		$forward_record = $forward_record . "\tXO:A:T";
 	    } else {
-		$forward_record = $forward_record . "\tOL:A:F";
+		$forward_record = $forward_record . "\tXO:A:F";
 	    }
 
 	    $MM = $mapper+1;
@@ -968,9 +968,9 @@ for($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 		    }
 		}
 		if($joined eq "true") {
-		    $reverse_record = $reverse_record . "\tOL:A:T";
+		    $reverse_record = $reverse_record . "\tXO:A:T";
 		} else {
-		    $reverse_record = $reverse_record . "\tOL:A:F";
+		    $reverse_record = $reverse_record . "\tXO:A:F";
 		}
 		$MM = $mapper+1;
 		$reverse_record = $reverse_record . "\tIH:i:$num_mappers\tHI:i:$MM";
