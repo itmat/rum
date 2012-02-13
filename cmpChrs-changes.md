@@ -58,8 +58,7 @@ Rather than make a whole other function for sorting in the opposite direction, w
 
 ```perl
 sub cmpChrsReverse ($$) {
-    my ($a, $b) = @_;
-    return cmpChrs($b, $a);
+    return cmpChrs($_[1], $_[0]);
 }
 ```
 
