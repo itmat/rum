@@ -330,7 +330,7 @@ sub compare_rum_output {
     run_rum($run_name);
     my $expected_dir = expected_output_dir($run_name);
     my $output_dir   = output_data_dir($run_name);
-    open my $out, "$run_name.diff";
+    open my $out, ">", "$run_name.diff";
     for my $file (@RUM_OUTPUT_FILES) {
         my $cmd = "diff $expected_dir/$file $output_dir/$file";
         INFO "$cmd";

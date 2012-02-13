@@ -9,6 +9,8 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::Common qw(Roman roman isroman arabic format_large_int);
 use RUM::ChrCmp qw(by_chromosome);
+use RUM::Subproc qw(spawn check pids_by_command_re kill_all procs
+                    child_pids can_kill);
 
 if($ARGV[0] eq '-version' || $ARGV[0] eq '-v' || $ARGV[0] eq '--version' || $ARGV[0] eq '--v') {
     die "RUM version: $version\n";
@@ -567,24 +569,18 @@ if($kill eq "true") {
         exit();
     }
 
-    $outdir = $output_dir;
-    $str = `ps a | grep $outdir`;
-    @candidates = split(/\n/,$str);
-    for($i=0; $i<@candidates; $i++) {
-	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
-	    $pid = $1;
-	    print "killing $pid\n";
-	    `kill -9 $pid`;
-	}
-    }
-    for($i=0; $i<@candidates; $i++) {
-	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
-	    if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
-		$pid = $1;
-		print "killing $pid\n";
-		`kill -9 $pid`;
-	    }
-	}
+    # Kill any running chunks
+    kill_all(pids_by_command_re(qr/$output_dir\/$name.$starttime.\d+.sh/));
+
+    # Kill any other scripts whose command includes the output dir,
+    # except for the pipeline....sh script and myself. TODO: I'm not
+    # sure why we wouldn't want to kill pipeline.\d+.sh here, but
+    # that's the way it was working before.
+    for my $proc (procs(fields=>[qw(pid command)])) {
+        local $_ = $proc->{command};
+        if (/$output_dir/ && not /pipeline.\d+.sh/ && $proc->{pid} != $$) {
+            kill_all($proc->{pid});
+        }
     }
     print "\nRUM Job $JID killed using -kill option at $DT\n";
     exit();
@@ -1767,12 +1763,8 @@ if($postprocess eq "false") {
            $Q =~ /Your job (\d+)/;
            $jobid{$i} = $1;
         } else {
-    	   system("/bin/bash $output_dir/$outfile &");
-           $Q = `ps a | grep $output_dir/$outfile | grep -v "ps a" | grep -v "grep "`;
-           $Q =~ /^\s*(\d+)/;
-           $PID = $1;
-           $jobid{$i} = $PID;
-        }
+           $jobid{$i} = spawn("/bin/bash", "$output_dir/$outfile");
+      }
         print "Chunk $i initiated\n";
         $status{$i} = 1;
     }
@@ -1802,30 +1794,27 @@ if($postprocess eq "false") {
         sleep(3);
 
         if($qsub2 eq "false") {
-            for($i=1; $i<=$numchunks; $i++) {
+
+            # For each chunk, get the PID if it is still running, find
+            # the pids of all child processes, and add them to the
+            # $child hash.
+            for my $i (1 .. $numchunks) {
                  $PID = $jobid{$i};
-                 if(!($PID =~ /\S/)) {
-                     next;
-                 }
-                 $Q1 = `ps -af | grep -w $PID`;
-                 @Q = split(/\n/,$Q1);
-                 for($j=0; $j<@Q; $j++) {
-                     if($Q[$j] =~ /^\s*[^\s]+\s+([^\s]+)\s+$PID\s/) {
-                         $CID = $1;
-                         $child{$i}{$CID}++;
-                     }
+                 next unless int($PID);
+                 for my $CID (child_pids($PID)) {
+                     $child{$i}{$CID}++;
                  }
             }
-            for($i=1; $i<=$numchunks; $i++) {
-               foreach $K (keys %{$child{$i}}) {
-                   if(!($K =~ /\S/)) {
-                       delete $child{$i}{$K};
-                       next;
-                   }
-                   $Q1 = `ps a | grep -v grep| grep $K | wc -l`;
-                   if($Q1 == 0) {
-                        delete $child{$i}{$K};
-                   }
+
+            # Now check each child to see if it is still running, and
+            # if not delete it from the hash.
+            for my $i (1 .. $numchunks) {
+                foreach $K (keys %{$child{$i}}) {
+
+                    # If the child pid isn't a pid or it's no longer
+                    # running, delete it from my
+                    # list.
+                    delete $child{$i}{$K} unless can_kill($K);
                }
             }
         }
@@ -1934,16 +1923,11 @@ if($postprocess eq "false") {
                             }
                        } else {
                             $PID = $jobid{$i};
-                            $Q = `ps a | grep -w $PID | grep -v grep`;
-                            if(!($Q =~ /^\s*$PID\s/)) {
-                                 $DIED = "true";
-                                 foreach $CID (keys %{$child{$i}}) {
-                                       $G = `ps a | grep $CID`;
-                                       $x = `kill -9 $CID`;
-#                                       print "-------\nKILLED: $CID\n$G\n$x\n-------\n";
-                                 }
+                            if (my $child_status = check($PID)) {
+                                $DIED = "true";
+                                kill_all(keys %{$child{$i}});
                             }
-                       }
+                        }
                        sleep(2);
                        if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
                             $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
@@ -2307,22 +2291,19 @@ if($postprocess eq "false") {
                             $MEM = $ram . "G";
                             $Dflag = 0;
                             if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
-                                 $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
-                                 if($Q =~ /pipeline complete/) {
-                                     $Dflag = 1;
-                                 }
+                                $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
+                                if($Q =~ /pipeline complete/) {
+                                    $Dflag = 1;
+                                }
                             }
                             if($Dflag == 0) {
                                 if($qsub2 eq "true") {
-                                     $Q = `qsub -l mem_free=$MEM,h_vmem=$MEM -o $ofile -e $efile $output_dir/$outfile`;
-                                     $Q =~ /Your job (\d+)/;
-                                     $jobid{$i} = $1;
+                                    $Q = `qsub -l mem_free=$MEM,h_vmem=$MEM -o $ofile -e $efile $output_dir/$outfile`;
+                                    $Q =~ /Your job (\d+)/;
+                                    $jobid{$i} = $1;
                                 } else {
-                             	  system("/bin/bash $output_dir/$outfile &");
-                                      $Q = `ps a | grep $output_dir/$outfile | grep -v "ps a" | grep -v "grep "`;
-                                      $Q =~ /^\s*(\d+)/;
-                                      $PID = $1;
-                                      $jobid{$i} = $PID;
+                                    $jobid{$i} = spawn("/bin/bash", "$output_dir/$outfile");
+                                    
                                 }
                             }
                             sleep(3);
@@ -2518,29 +2499,14 @@ while($doneflag == 0) {
         $Jobid = $jobid{$numchunks};
 
         if($qsub2 eq 'false') {
-          $Q1 = `ps -af | grep -w $Jobid`;
-          @Q = split(/\n/,$Q1);
-          for($j=0; $j<@Q; $j++) {
-              if($Q[$j] =~ /^\s*[^\s]+\s+([^\s]+)\s+$Jobid\s/) {
-                  $CID = $1;
-                  $child{$CID}++;
-              }
-           }
+            for my $CID (child_pids($Jobid)) {
+                $child{$CID}++;
+            }
         }
-
+        
         foreach $K (keys %child) {
-            if(!($K =~ /\S/)) {
-                delete $child{$K};
-                next;
-            }
-            $Q1 = `ps a | grep -v grep| grep $K | wc -l`;
-            if($Q1 == 0) {
-                 delete $child{$K};
-            }
+            delete $child{$K} unless can_kill($K);
         }
-#        foreach $K (keys %child) {
-#            print "child{$K} = $child{$K}\n";
-#        }
 
         if($doneflag == 0) {
            sleep(1);
@@ -2578,9 +2544,9 @@ while($doneflag == 0) {
                      $X = `qdel $Jobid`;
                    }
              } else {
-                 $Q = `ps a | grep -w $Jobid | grep -v grep`;
-                 if(!($Q =~ /^\s*$Jobid\s/)) {
+                 if (my $child_status = check($Jobid)) {
                      $DIED = "true";
+
                      foreach $CID (keys %child) {
                          $G = `ps a | grep $CID`;
                          $x = `kill -9 $CID`;
@@ -2709,11 +2675,7 @@ while($doneflag == 0) {
                  $Q =~ /Your job (\d+)/;
                  $jobid{$numchunks} = $1;
             } else {
-               	  system("/bin/bash $output_dir/$outfile &");
-                   $Q = `ps a | grep $output_dir/$outfile | grep -v "ps a" | grep -v "grep "`;
-                  $Q =~ /^\s*(\d+)/;
-                  $PID = $1;
-                  $jobid{$numchunks} = $PID;
+                $jobid{$numchunks} = spawn("/bin/bash", "$output_dir/$outfile");
             }
             if($FILE =~ /perl/s) {
                  if($jobid{$numchunks} =~ /^\d+$/) {
@@ -3244,3 +3206,4 @@ sub deletefiles () {
     }
     return "";
 }
+
