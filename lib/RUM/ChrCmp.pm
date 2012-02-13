@@ -44,6 +44,12 @@ Comparator that compares chromosome names.
 sub cmpChrs ($$) {
     my $a2_c = lc($_[1]);
     my $b2_c = lc($_[0]);
+    if($a2_c eq 'finished1234') {
+	return 1;
+    }
+    if($b2_c eq 'finished1234') {
+	return -1;
+    }
     if ($a2_c =~ /^\d+$/ && !($b2_c =~ /^\d+$/)) {
         return 1;
     }
