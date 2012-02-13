@@ -110,6 +110,13 @@ sub cmpChrs ($$) {
 	return 1;
     }
 
+    if ($b2_c =~ /m$/ && $a2_c =~ /vi+/) {
+	return 1;
+    }
+    if ($a2_c =~ /m$/ && $b2_c =~ /vi+/) {
+	return -1;
+    }
+
     # roman numerals ends here
     if ($a2_c =~ /chr(\d+)$/ && $b2_c =~ /chr.*_/) {
         return 1;
@@ -205,7 +212,7 @@ sub cmpChrs ($$) {
     }
     my $flag_c = 0;
     while ($flag_c == 0) {
-        my $flag_c = 1;
+        $flag_c = 1;
         if ($a2_c =~ /^([^\d]*)(\d+)/) {
             my $stem1_c = $1;
             my $num1_c = $2;
