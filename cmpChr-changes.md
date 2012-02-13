@@ -8,6 +8,7 @@ Function signature
 
 While using a function signature for Perl subroutines is generally not recommended, I think it would be good in this case to define `cmpChrs` as
 
+    perl
     sub cmpChrs ($$) {
         ...
     }
