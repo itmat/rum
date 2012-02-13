@@ -3,10 +3,10 @@ Chromosome Comparison Recommendations
 
 cmpChrs is defined in several different places, and there are small differences between some of the definitions. I would like to create a master version of cmpChrs. Here is a list of changes I would recommend making in order to create a single definition of cmpChrs. 
 
-Function signature
+Function Prototype
 ------------------
 
-While using a function signature for Perl subroutines is generally not recommended, I think it would be good in this case to define `cmpChrs` as
+While using a function prototype for Perl subroutines is generally not recommended, I think it would be good in this case to define `cmpChrs` as
 
 ```perl
 sub cmpChrs ($$) {
