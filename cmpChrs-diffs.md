@@ -1,107 +1,18 @@
-Differences Between cmpChrs
-===========================
+Chromosome Comparison Recommendations
+=====================================
 
-Rum runner and covmerge have this:
+cmpChrs is defined in several different places, and there are small differences between some of the definitions. I would like to create a master version of cmpChrs. Here is a list of changes I would recommend making in order to create a single definition of cmpChrs. 
 
-    if($b2_c =~ /chr([ivx]+)/ && ($a2_c =~ /chrm/)) {
-      return -1;
-    }
-    if($a2_c =~ /chr([ivx]+)/ && ($b2_c =~ /chrm/)) {
-      return 1;
-    }
-    if($b2_c =~ /m$/ && $a2_c =~ /vi+/) {
-      return 1;
-    }
-    if($a2_c =~ /m$/ && $b2_c =~ /vi+/) {
-      return -1;
+Function signature
+------------------
+
+While using a function signature for Perl subroutines is generally not recommended, I think it would be good in this case to define `cmpChrs` as
+
+    sub cmpChrs ($$) {
+        ...
     }
 
-get_inferred_internal_exons.pl, merge_sorted_rum_files.pl, and rum2quantifications have this:
-
-    if($b2_c =~ /m$/ && $a2_c =~ /vi+/) {
-      return 1;
-    }
-    if($a2_c =~ /m$/ && $b2_c =~ /vi+/) {
-      return -1;
-    }
-
-
-featurequant2geneprofiles.pl  has this:
-
-    $A2_c =~ /^(.*):(\d+)-(\d+)$/;
-    $a2_c = $1;
-    $startcoord_a = $2;
-    $endcoord_a = $3;
-
-    $B2_c =~ /^(.*):(\d+)-(\d+)$/;
-    $b2_c = $1;
-    $startcoord_b = $2;
-    $endcoord_b = $3;
-
-    if($a2_c eq $b2_c) {
-        if($startcoord_a < $startcoord_b) {
-            return 1;
-        }
-        if($startcoord_b < $startcoord_a) {
-            return -1;
-        }
-        if($startcoord_a == $startcoord_b) {
-            if($endcoord_a < $endcoord_b) {
-                return 1;
-            }
-            if($endcoord_b < $endcoord_a) {
-                return -1;
-            }
-            if($endcoord_a == $endcoord_b) {
-                return 1;
-            }
-        }
-    }
-
-
-... snip ...
-
-
-    if($b2_c =~ /m$/ && $a2_c =~ /vi+/) {
-        return 1;
-    }
-    if($a2_c =~ /m$/ && $b2_c =~ /vi+/) {
-        return -1;
-    }
-    
-cmpChrs.merge_chr_counts.pl has this:
-
-It sorts in the opposite order from all the other scripts:
-
-     ($a2_c, $b2_c) = @_;
-     my $a2_c = lc($a2_c);
-     my $b2_c = lc($b2_c);
-     
-(all the other ones reverse $a and $b). 
-
-It looks for a sentinel value 'finished1234', which is allways less than any other value.
-
-    if($a2_c eq 'finished1234') {
-        return -1;
-    }
-    if($b2_c eq 'finished1234') {
-        return 1;
-    }
-
-... snip ...
-
-    if($b2_c =~ /m$/ && $a2_c =~ /vi+/) {
-        return 1;
-    }
-    if($a2_c =~ /m$/ && $b2_c =~ /vi+/) {
-        return -1;
-    }
-
-
-
-By feature
-==========
-
+The `($$)` prototype forces Perl to pass the arguments in using `@_`, rather than just setting the `$a` and `$b` package global variables. This allows you to define a comparator function in one package and use it in another package.
 
 Comparing 'm' chromosomes to roman numerals
 -------------------------------------------
@@ -115,7 +26,7 @@ It looks like all of the scripts have some code that handles 'm' chromosomes dif
       return -1;
     }
 
-In addition to the above, RUM_runner and covmerge also have this:
+In addition to the above, `RUM_runner` and `covmerge` also have this:
 
     if($b2_c =~ /chr([ivx]+)/ && ($a2_c =~ /chrm/)) {
       return -1;
@@ -128,22 +39,23 @@ I think this extra check is redundant and can be safely removed.
 
 Sort Order
 ----------
-cmpChrs.merge_chr_counts.pl sorts in the opposite order of all the other scripts.
 
-     ($a2_c, $b2_c) = @_;
-     my $a2_c = lc($a2_c);
-     my $b2_c = lc($b2_c);
+`cmpChrs.merge_chr_counts.pl` sorts in the opposite order of all the other scripts.
+
+    ($a2_c, $b2_c) = @_;
+    my $a2_c = lc($a2_c);
+    my $b2_c = lc($b2_c);
      
 Rather than make a whole other function for sorting in the opposite direction, we could just use a little wrapper function:
 
-    sub cmpChrsReverse {
+    sub cmpChrsReverse ($$) {
         my ($a, $b) = @_;
         return cmpChrs($b, $a);
     }
 
-'finished1234'
+### 'finished1234'
 
-It looks for a sentinel value 'finished1234', which is always less than any other value.
+`merge_chr_counts.pl` looks for a sentinel value "finished1234", which is always less than any other value.
 
     if($a2_c eq 'finished1234') {
         return -1;
