@@ -8,10 +8,10 @@ Function signature
 
 While using a function signature for Perl subroutines is generally not recommended, I think it would be good in this case to define `cmpChrs` as
 
-    perl
-    sub cmpChrs ($$) {
-        ...
-    }
+```perl
+sub cmpChrs ($$) {
+    ...
+}```
 
 The `($$)` prototype forces Perl to pass the arguments in using `@_`, rather than just setting the `$a` and `$b` package global variables. This allows you to define a comparator function in one package and use it in another package.
 
