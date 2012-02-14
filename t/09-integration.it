@@ -77,6 +77,8 @@ my %CONFIG_DEFAULTS = (
 
 our @BINARIES = @CONFIG_DEFAULTS{qw(bowtie-bin blat-bin mdust-bin)},
 
+
+
 my %CONFIGS = (
     "mouse-baby" => {
         
@@ -91,6 +93,23 @@ my %CONFIGS = (
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
         expected_output_dir => "$RESOURCES_DIR/mouse-baby",
+        needs_cluster => 0
+    },
+
+    "mouse-baby-split" => {
+        
+        "rum_config" => {
+            "gene-annotation-file" => "$TEST_INDEX_DIR/mm9_refseq_ucsc_vega_gene_info.txt",
+            "bowtie-genome-index"  => "$TEST_INDEX_DIR/mm9_genome",
+            "bowtie-gene-index"    => "$TEST_INDEX_DIR/mm9_genes",
+            "blat-genome-index"    => "$TEST_INDEX_DIR/mm9_genome_one-line-seqs.fa"},
+
+        genome_build => "mm9" ,
+        rum_config_file => "$ROOT/rum.config_mm9",
+        input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
+                        "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
+        expected_output_dir => "$RESOURCES_DIR/mouse-baby",
+        chunks => 2,
         needs_cluster => 0
     },
 
@@ -152,6 +171,10 @@ sub rum_options {
     return config($test_name)->{rum_options} || [];
 }
 
+sub chunks {
+    my ($test_name) = @_;
+    return config($test_name)->{chunks} || 1;
+}
 
 =head2 Actions
 
@@ -313,7 +336,7 @@ sub run_rum {
           rum_config_file($run_name),
           join(",,,", input_files($run_name)),
           output_data_dir($run_name),
-          "1", 
+          chunks($run_name),
           "Lane1", @{ rum_options($run_name) });
 }
 
@@ -356,8 +379,9 @@ sub main {
     my (@run_names) = @ARGV;
 
     unless (@run_names) {
-        @run_names = qw(mouse-baby
-                        mouse-baby-grid);
+      @run_names = qw(mouse-baby
+                      mouse-baby-grid
+                      mouse-baby-split);
     }
 
     for my $run_name (@run_names) {
