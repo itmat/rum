@@ -327,6 +327,7 @@ differences.
 
 sub compare_rum_output {
     my ($run_name) = @_;
+    download_test_data($run_name);
     run_rum($run_name);
     my $expected_dir = expected_output_dir($run_name);
     my $output_dir   = output_data_dir($run_name);
