@@ -215,7 +215,7 @@ sub spansTotalLength {
     my ($spans) = @_;
     my @a = split(/, /,$spans);
     my $length = 0;
-    for($i=0; $i<@a; $i++) {
+    for(my $i=0; $i<@a; $i++) {
 	my @b = split(/-/,$a[$i]);
 	$length = $length + $b[1] - $b[0] + 1;
     }
@@ -228,7 +228,7 @@ sub reversesignal {
     my @base_r = ($1, $2);
 
     my $return_string = "";
-    for($rr=0; $rr<2; $rr++) {
+    for(my $rr=0; $rr<2; $rr++) {
 	if($base_r[$rr] eq "A") {
 	    $return_string = "T" . $return_string;
 	}
