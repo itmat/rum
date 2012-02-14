@@ -211,9 +211,16 @@ sub format_large_int {
     return $newint;
 }
 
+=item spansTotalLength(SPANS)
+
+Return the total length of a list of spans. Spans should be delimited
+by ", ", and each span should be start-end.
+
+=cut
+
 sub spansTotalLength {
     my ($spans) = @_;
-    my @a = split(/, /,$spans);
+    my @a = split(/, /, $spans);
     my $length = 0;
     for(my $i=0; $i<@a; $i++) {
 	my @b = split(/-/,$a[$i]);
@@ -221,6 +228,14 @@ sub spansTotalLength {
     }
     return $length;
 }
+
+=item reversesignal(SIGNAL)
+
+Return the reverse complement of a two-character string.
+
+  reversesignal("AC") -> "GT"
+
+=cut
 
 sub reversesignal {
     my ($it) = @_;
@@ -244,8 +259,6 @@ sub reversesignal {
     }
     return $return_string;
 }
-
-
 
 
 1;
