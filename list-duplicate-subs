@@ -13,6 +13,7 @@ import sys
 
 perl_re = re.compile(".*\.(pl|pm)$")    
 sub_start = re.compile("sub\s+(\w+).*")
+skip_re = re.compile("blib|subs")
 
 output_dir = "subs"
 
@@ -33,7 +34,7 @@ def extract_subs(path):
                 m = sub_start.match(line)
                 if m is not None:
                     name = m.group(1)
-                elif line.startswith("}"):
+                elif line.startswith("}") and name is not None:
                     subs.append(Sub(name, path, raw, trimmed))
                     name = None
                     raw = ""
@@ -52,7 +53,7 @@ def extract_all_subs():
     subs = []
     for dir,subdirs,filenames in os.walk("."):
         for filename in filenames:
-            if perl_re.match(filename) and not re.search("blib", dir):
+            if perl_re.match(filename) and not re.search(skip_re, dir):
                 path = dir + "/" + filename
                 subs += extract_subs(path)
     return subs
@@ -71,17 +72,21 @@ def main(names=[]):
 
     for name, subs in groupby(all_subs, lambda x: x.name):
         subs = sorted(subs, key=lambda x: x.trimmed)
+        if len(subs) == 1:
+            continue
         print "%s:" % name
         version = 0
         for trimmed, defs in groupby(subs, lambda x: x.trimmed):
+            defs = list(defs)
             version += 1
-            print "  %d" % version
+            print "  version %d, %d lines" % (version, 
+                                              len(defs[0].raw.splitlines()))
             for sub in defs:
                 print "    %s" % basename(sub.path)
                 filename = "subs/%s.%s" % (sub.name, basename(sub.path))
                 with open(filename, "w") as f:
                     f.write(sub.raw)
                 f.close()
-        print name
+        print
 
 main(sys.argv[1:])
