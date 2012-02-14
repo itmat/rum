@@ -76,7 +76,7 @@ for($i=0; $i<$numfiles; $i++) {
     close(INFILE);
 }
 
-foreach $chr (reverse sort by_chromosome keys %chrcnt) {
+foreach $chr (sort by_chromosome keys %chrcnt) {
     $cnt = $chrcnt{$chr};
     print OUTFILE "$chr\t$cnt\n";
 }
