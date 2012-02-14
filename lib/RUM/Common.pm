@@ -5,7 +5,8 @@ use warnings;
 
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
-                    reversecomplement format_large_int spansTotalLength);
+                    reversecomplement format_large_int spansTotalLength
+                    reversesignal);
 
 =head1 FUNCTIONS
 
@@ -220,6 +221,30 @@ sub spansTotalLength {
     }
     return $length;
 }
+
+sub reversesignal () {
+    ($IT) = @_;
+    $IT =~ /(.)(.)/;
+    $base_r[0] = $1;
+    $base_r[1] = $2;
+    $return_string = "";
+    for($rr=0; $rr<2; $rr++) {
+	if($base_r[$rr] eq "A") {
+	    $return_string = "T" . $return_string;
+	}
+	if($base_r[$rr] eq "T") {
+	    $return_string = "A" . $return_string;
+	}
+	if($base_r[$rr] eq "C") {
+	    $return_string = "G" . $return_string;
+	}
+	if($base_r[$rr] eq "G") {
+	    $return_string = "C" . $return_string;
+	}
+    }
+    return $return_string;
+}
+
 
 
 
