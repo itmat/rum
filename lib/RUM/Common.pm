@@ -222,12 +222,12 @@ sub spansTotalLength {
     return $length;
 }
 
-sub reversesignal () {
-    ($IT) = @_;
-    $IT =~ /(.)(.)/;
-    $base_r[0] = $1;
-    $base_r[1] = $2;
-    $return_string = "";
+sub reversesignal {
+    my ($it) = @_;
+    $it =~ /(.)(.)/;
+    my @base_r = ($1, $2);
+
+    my $return_string = "";
     for($rr=0; $rr<2; $rr++) {
 	if($base_r[$rr] eq "A") {
 	    $return_string = "T" . $return_string;
