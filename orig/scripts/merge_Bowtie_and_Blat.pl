@@ -8,7 +8,7 @@ $|=1;
 use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
-use RUM::Common qw(addJunctionsToSeq);
+use RUM::Common qw(addJunctionsToSeq spansTotalLength);
 
 if(@ARGV < 7) {
     die "
@@ -947,13 +947,4 @@ sub intersect () {
     }
 }
 
-sub spansTotalLength () {
-    ($spans) = @_;
-    @a_s = split(/, /,$spans);
-    $length_s = 0;
-    for($i_s=0; $i_s<@a_s; $i_s++) {
-	@b_s = split(/-/,$a_s[$i_s]);
-	$length_s = $length_s + $b_s[1] - $b_s[0] + 1;
-    }
-    return $length_s;
-}
+

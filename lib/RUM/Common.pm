@@ -5,7 +5,7 @@ use warnings;
 
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
-                    reversecomplement format_large_int);
+                    reversecomplement format_large_int spansTotalLength);
 
 =head1 FUNCTIONS
 
@@ -209,5 +209,18 @@ sub format_large_int {
     $newint =~ s/^,//;
     return $newint;
 }
+
+sub spansTotalLength {
+    my ($spans) = @_;
+    my @a = split(/, /,$spans);
+    my $length = 0;
+    for($i=0; $i<@a; $i++) {
+	my @b = split(/-/,$a[$i]);
+	$length = $length + $b[1] - $b[0] + 1;
+    }
+    return $length;
+}
+
+
 
 1;
