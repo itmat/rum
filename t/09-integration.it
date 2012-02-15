@@ -221,12 +221,14 @@ exists or $DRY_RUN is set.
 =cut
 
 sub download_test_data {
+    my ($run_name) = @_;
+    make_test_paths($run_name);
     download_file($TEST_DATA_URL, $TEST_DATA_TARBALL);
     report "Unpack test tarball";
     shell("tar", "-zxvf", $TEST_DATA_TARBALL, "-C", $ROOT);
 }
 
-=item download_test_data
+=item download_bin_tarball
 
 Download the binary tarball and unpack it, unless it already
 exists or $DRY_RUN is set.
