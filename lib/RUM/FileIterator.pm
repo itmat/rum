@@ -86,7 +86,7 @@ sub file_iterator {
         }
         elsif ($cmd eq "pop") {
             my $last = $next;
-            $next = read_record($in, %options);
+            $next = read_record($in, %options) if defined($last);
             return $last;
         }
     }
