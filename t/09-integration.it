@@ -10,6 +10,7 @@ use Log::Log4perl qw(:easy);
 use LWP::UserAgent;
 use RUM::Config qw(parse_organisms format_config);
 use RUM::Workflow qw(make_paths shell report is_dry_run with_settings is_on_cluster);
+use RUM::TestUtils qw(download_file download_test_data);
 use Carp;
 use Getopt::Long;
 
@@ -191,43 +192,6 @@ sub make_test_paths {
     make_paths(@paths);
 }
 
-
-
-=item download_file URL, LOCAL
-
-Download URL and save it with the given LOCAL filename, unless LOCAL
-already exists or $DRY_RUN is set.
-
-=cut
-
-sub download_file {
-    my ($url, $local) = @_;
-    if (-e $local) {
-        print "$local exists, skipping\n";
-        return;
-    }
-    report "Download $url to $local";
-    unless (is_dry_run) {
-        my $ua = LWP::UserAgent->new;
-        $ua->get($url, ":content_file" => $local);
-    }
-}
-
-=item download_test_data
-
-Download the test data tarball and unpack it, unless it already
-exists or $DRY_RUN is set.
-
-=cut
-
-sub download_test_data {
-    my ($run_name) = @_;
-    make_test_paths($run_name);
-    download_file($TEST_DATA_URL, $TEST_DATA_TARBALL);
-    report "Unpack test tarball";
-    shell("tar", "-zxvf", $TEST_DATA_TARBALL, "-C", $ROOT);
-}
-
 =item download_bin_tarball
 
 Download the binary tarball and unpack it, unless it already
@@ -332,7 +296,7 @@ sub run_rum {
     get_indexes($run_name);
     make_config_file($run_name);
     download_bin_tarball($run_name);
-    download_test_data($run_name);
+    download_test_data($TEST_DATA_TARBALL);
 
     shell("perl", "orig/RUM_runner.pl",
           rum_config_file($run_name),
@@ -352,7 +316,7 @@ differences.
 
 sub compare_rum_output {
     my ($run_name) = @_;
-    download_test_data($run_name);
+    download_test_data($TEST_DATA_TARBALL);
     run_rum($run_name);
     my $expected_dir = expected_output_dir($run_name);
     my $output_dir   = output_data_dir($run_name);
