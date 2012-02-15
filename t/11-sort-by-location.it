@@ -40,7 +40,7 @@ our $SCRIPT = "$Bin/../orig/scripts/sort_by_location.pl";
 
 {
     my $in = "$IN_DIR/junctions_all.rum";
-    my $out = "$OUT_DIR/all_bed";
+    my $out = "$OUT_DIR/all_rum";
     my $expected = "$IN_DIR/junctions_all.rum";
     my @args = ("-location_column", "1", "-skip", "1");
     system "perl", $SCRIPT, $in, $out, @args;
