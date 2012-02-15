@@ -5,7 +5,8 @@ use warnings;
 
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
-                    reversecomplement format_large_int);
+                    reversecomplement format_large_int spansTotalLength
+                    reversesignal);
 
 =head1 FUNCTIONS
 
@@ -209,5 +210,55 @@ sub format_large_int {
     $newint =~ s/^,//;
     return $newint;
 }
+
+=item spansTotalLength(SPANS)
+
+Return the total length of a list of spans. Spans should be delimited
+by ", ", and each span should be start-end.
+
+=cut
+
+sub spansTotalLength {
+    my ($spans) = @_;
+    my @a = split(/, /, $spans);
+    my $length = 0;
+    for(my $i=0; $i<@a; $i++) {
+	my @b = split(/-/,$a[$i]);
+	$length = $length + $b[1] - $b[0] + 1;
+    }
+    return $length;
+}
+
+=item reversesignal(SIGNAL)
+
+Return the reverse complement of a two-character string.
+
+  reversesignal("AC") -> "GT"
+
+=cut
+
+sub reversesignal {
+    my ($it) = @_;
+    $it =~ /(.)(.)/;
+    my @base_r = ($1, $2);
+
+    my $return_string = "";
+    for(my $rr=0; $rr<2; $rr++) {
+	if($base_r[$rr] eq "A") {
+	    $return_string = "T" . $return_string;
+	}
+	if($base_r[$rr] eq "T") {
+	    $return_string = "A" . $return_string;
+	}
+	if($base_r[$rr] eq "C") {
+	    $return_string = "G" . $return_string;
+	}
+	if($base_r[$rr] eq "G") {
+	    $return_string = "C" . $return_string;
+	}
+    }
+    return $return_string;
+}
+
 
 1;

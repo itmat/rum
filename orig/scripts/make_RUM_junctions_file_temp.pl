@@ -1,5 +1,10 @@
 #!/usr/bin/perl
 
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(reversesignal);
+
 # Written by Gregory R. Grant
 # University of Pennsylvania, 2010
 
@@ -557,25 +562,4 @@ sub getjunctions () {
     print STDERR "finished NU\n";
 }
 
-sub reversesignal () {
-    ($IT) = @_;
-    $IT =~ /(.)(.)/;
-    $base_r[0] = $1;
-    $base_r[1] = $2;
-    $return_string = "";
-    for($rr=0; $rr<2; $rr++) {
-	if($base_r[$rr] eq "A") {
-	    $return_string = "T" . $return_string;
-	}
-	if($base_r[$rr] eq "T") {
-	    $return_string = "A" . $return_string;
-	}
-	if($base_r[$rr] eq "C") {
-	    $return_string = "G" . $return_string;
-	}
-	if($base_r[$rr] eq "G") {
-	    $return_string = "C" . $return_string;
-	}
-    }
-    return $return_string;
-}
+

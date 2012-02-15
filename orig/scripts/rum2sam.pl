@@ -8,7 +8,7 @@ $|=1;
 use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
-use RUM::Common qw(addJunctionsToSeq reversecomplement);
+use RUM::Common qw(addJunctionsToSeq reversecomplement spansTotalLength);
 
 if(@ARGV < 5) {
     die "
@@ -1077,14 +1077,5 @@ sub getprefix () {
     }
 }
 
-sub spansTotalLength () {
-    ($spans) = @_;
-    @a = split(/, /,$spans);
-    $length = 0;
-    for($i=0; $i<@a; $i++) {
-	@b = split(/-/,$a[$i]);
-	$length = $length + $b[1] - $b[0] + 1;
-    }
-    return $length;
-}
+
 
