@@ -1,17 +1,20 @@
+
 package RUM::TestUtils;
 
 use strict;
 use warnings;
 
+use Test::More;
 use Exporter qw(import);
+use LWP::UserAgent;
 use File::Spec;
-our @EXPORT_OK = qw(download_file download_test_data);
-our %EXPORT_TAGS = (
-    all => [@EXPORT_OK]);
 use RUM::Workflow qw(make_paths shell report is_dry_run with_settings is_on_cluster);
 use Carp;
-use FindBin qw($Bin);
-FindBin::again();
+
+our @EXPORT_OK = qw(download_file download_test_data no_diffs);
+our %EXPORT_TAGS = (
+    all => [@EXPORT_OK]);
+
 
 our $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tar.gz";
 
@@ -25,7 +28,7 @@ already exists or $DRY_RUN is set.
 sub download_file {
     my ($url, $local) = @_;
     if (-e $local) {
-        print "$local exists, skipping\n";
+        report "$local exists, skipping\n";
         return;
     }
 
@@ -72,3 +75,10 @@ sub download_test_data {
     }
 }
 
+sub no_diffs {
+    my ($file1, $file2, $name) = @_;
+    my $diffs = `diff $file2 $file1 > $name.diff`;
+    my $status = $? >> 8;
+    ok($status == 0, $name);
+    print "Exit value was $?";
+}

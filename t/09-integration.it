@@ -7,7 +7,6 @@ use Test::More tests => 30;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Log::Log4perl qw(:easy);
-use LWP::UserAgent;
 use RUM::Config qw(parse_organisms format_config);
 use RUM::Workflow qw(make_paths shell report is_dry_run with_settings is_on_cluster);
 use RUM::TestUtils qw(download_file download_test_data);
