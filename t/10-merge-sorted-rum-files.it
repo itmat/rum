@@ -6,10 +6,8 @@ use warnings;
 use Test::More tests => 1;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Workflow qw(make_paths shell report is_dry_run with_settings is_on_cluster);
+use RUM::Workflow qw(make_paths report);
 use RUM::TestUtils qw(:all);
-use Carp;
-use Getopt::Long;
 
 our $ROOT = "$Bin/../_testing";
 our $TEST_DATA_TARBALL   = "$ROOT/rum-test-data.tar.gz";
@@ -26,3 +24,5 @@ our $SCRIPT = "$Bin/../orig/scripts/merge_sorted_RUM_files.pl";
     system "perl", $SCRIPT, $out, @in;
     no_diffs $out, $expected, "merge-sorted-rum-files-unique"
 }
+
+

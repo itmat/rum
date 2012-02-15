@@ -80,5 +80,4 @@ sub no_diffs {
     my $diffs = `diff $file2 $file1 > $name.diff`;
     my $status = $? >> 8;
     ok($status == 0, $name);
-    print "Exit value was $?";
 }
