@@ -72,11 +72,9 @@ sub read_record {
 }
 
 sub file_iterator {
-    my ($filename, %options) = @_;
+    my ($in, %options) = @_;
     my $separate = $options{separate};
     
-    open my $in, "<", $filename;
- 
     # Call $nextval immediately so that a call to peek_it will work right
     # away.
     my $next = read_record($in, %options);

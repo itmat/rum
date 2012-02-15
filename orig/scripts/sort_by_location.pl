@@ -129,6 +129,7 @@ sub merge() {
     open(TEMPIN1, $tempfilename1);
     open(TEMPIN2, $tempfilename2);
     $mergeFLAG = 0;
+
     getNext1();
     getNext2();
     while($mergeFLAG < 2) {

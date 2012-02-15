@@ -76,8 +76,12 @@ for (my $i=0; $i<$numfiles; $i++) {
     }
 }
 
-my @iters = map { file_iterator($_) } @file;
-my @iters = grep { peek_it($_) } @iters;
+my @iters;
+for my $filename (@file) {
+    open my $file, "<", $filename;
+    my $iter = file_iterator($file);
+    push @iters, $iter if peek_it($iter);
+}
 
 open my $out, ">", $outfile;
 
