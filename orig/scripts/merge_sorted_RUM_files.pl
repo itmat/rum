@@ -75,61 +75,63 @@ for (my $i=0; $i<$numfiles; $i++) {
         $file[$i] = $file[$i] . ".$j." . $chunk_ids_mapping{$j};
     }
 }
-open(OUTFILE, ">$outfile");
 
 my @iters = map { file_iterator($_) } @file;
 my @iters = grep { peek_it($_) } @iters;
 
-print "My its are @iters", scalar(@iters), "\n";
-    
-while (@iters) {
+open my $out, ">", $outfile;
+
+merge_iterators($out, @iters);
+
+sub merge_iterators {
+
+    my ($outfile, @iters) = @_;
+
+    while (@iters) {
         
-    my $argmin = 0;
-    my $min = peek_it($iters[$argmin]);
-    for (my $i = 1; $i < @iters; $i++) {
-
-        my $rec = peek_it($iters[$i]);
-
-        # Set $smaller to 1 if the next record from this iterator
-        # is smaller than the current minimum
-        my $smaller = 0;
-        if ($rec->{chr} eq $min->{chr}) {
-            if ($min->{start} > $rec->{start}) {
-                $smaller = 1;
-            } elsif ($min->{start} == $rec->{start}) {
-                if ($min->{end} > $rec->{end}) {
+        my $argmin = 0;
+        my $min = peek_it($iters[$argmin]);
+        for (my $i = 1; $i < @iters; $i++) {
+            
+            my $rec = peek_it($iters[$i]);
+            
+            # Set $smaller to 1 if the next record from this iterator
+            # is smaller than the current minimum
+            my $smaller = 0;
+            if ($rec->{chr} eq $min->{chr}) {
+                if ($min->{start} > $rec->{start}) {
+                    $smaller = 1;
+                } elsif ($min->{start} == $rec->{start}) {
+                    if ($min->{end} > $rec->{end}) {
+                        $smaller = 1;
+                    }
+                }
+            } else {
+                if (cmpChrs($rec->{chr}, $min->{chr}) < 0) {
                     $smaller = 1;
                 }
             }
-        } else {
-            if (cmpChrs($rec->{chr}, $min->{chr}) < 0) {
-                $smaller = 1;
+            
+            # If this one is smaller, set $argmin and $min
+            # appropriately
+            if ($smaller) {
+                $argmin = $i;
+                $min = peek_it($iters[$argmin]);
             }
         }
-
-        # If this one is smaller, set $argmin and $min
-        # appropriately
-        if ($smaller) {
-            $argmin = $i;
-            $min = peek_it($iters[$argmin]);
+        
+        if ($min->{entry} =~ /\S/) {
+            print $outfile "$min->{entry}\n";
+            
+        }
+        
+        # Pop the iterator that we just printed a record from; this
+        # way the next iteration will be looking at the next value. If
+        # this iterator doesn't have a next value, then we've
+        # exhausted it, so remove it from our list.
+        pop_it($iters[$argmin]);        
+        unless (peek_it($iters[$argmin])) {
+            splice @iters, $argmin, 1;
         }
     }
-        
-    if ($min->{entry} =~ /\S/) {
-        print OUTFILE "$min->{entry}\n";
-
-    }
-        
-    # Pop the iterator that we just printed a record from; this
-    # way the next iteration will be looking at the next value
-    pop_it($iters[$argmin]);
-
-    unless (peek_it($iters[$argmin])) {
-        print "I exhausted $argmin\n";
-        splice @iters, $argmin, 1;
-    }
 }
-close(OUTFILE);
-
-
-    
