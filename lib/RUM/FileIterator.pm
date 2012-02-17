@@ -17,7 +17,7 @@ sub read_record {
     # When we hit EOF, close the input and return undef for all
     # subsequent values. We're using undef to indicate the end of
     # the iterator.
-    unless (defined $line1) {
+    unless (defined($line1) and $line1 =~ /\S/) {
         close $in;
         return undef;
     }
@@ -33,15 +33,20 @@ sub read_record {
     $res{chr} = $a[1];
     $a[2] =~ /^(\d+)-/;
     $res{start} = $1;
+    $a[0] =~ /(\d+)/;
+    $res{seqnum} = $1;
     if ($a[0] =~ /a/ && !$separate) {
-        $a[0] =~ /(\d+)/;
-        my $seqnum1 = $1;
-        my $line2 = <$in>;
-        chomp($line2);
-        my @b = split(/\t/,$line2);
-        $b[0] =~ /(\d+)/;
-        my $seqnum2 = $1;
-        if($seqnum1 == $seqnum2 && $b[0] =~ /b/) {
+        my ($line2, @b, $seqnum2);
+
+        if (defined($line2 = <$in>)) {
+            chomp($line2);
+            @b = split(/\t/,$line2);
+            $b[0] =~ /(\d+)/;
+            $seqnum2 = $1;
+        }
+
+        if (defined($seqnum2) && $res{seqnum} == $seqnum2 && 
+            $b[0] =~ /b/) {
             if($a[3] eq "+") {
                 $b[2] =~ /-(\d+)$/;
                 $res{end} = $1;
@@ -78,7 +83,6 @@ sub file_iterator {
     # Call $nextval immediately so that a call to peek_it will work right
     # away.
     my $next = read_record($in, %options);
-    
     return sub {
         my $cmd = shift() || "pop";
         if ($cmd eq "peek") {

@@ -7,6 +7,7 @@ use lib "$Bin/../../lib";
 
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::ChrCmp qw(cmpChrs);
+use RUM::FileIterator qw(file_iterator pop_it peek_it);
 
 $timestart = time();
 if(@ARGV < 2) {
@@ -29,9 +30,12 @@ Options: -separate : Do not (necessarily) keep forward and reverse
                      If you have some millions of reads and not at
                      least 4Gb then this is probably not going to work.
 
+         -allowsmallchunks : Allow -maxchunksize to be less than 500,000.
+                             This may be useful for testing purposes.
 ";
 }
 
+my $allowsmallchunks = 0;
 
 $separate = "false";
 $ram = 6;
@@ -78,11 +82,17 @@ for($i=2; $i<@ARGV; $i++) {
 	$i++;
 	$optionrecognized = 1;
     }
+    if ($ARGV[$i] eq "-allowsmallchunks") {
+        $allowsmallchunks = 1;
+        $optionrecognized = 1;
+    }
     if($optionrecognized == 0) {
 	die "\nERROR: in script sort_RUM_by_location.pl: option '$ARGV[$i]' not recognized\n";
     }
 }
-if ($maxchunksize < 500000) {
+# We have a test that exercises the ability to merge chunks together,
+# so allow max chunk sizes smaller than 500000 if that flag is set.
+if ($maxchunksize < 500000 && !$allowsmallchunks) {
     die "ERROR: in script sort_RUM_by_location.pl: <max chunk size> must at least 500,000.\n\n";
 }
 
@@ -213,6 +223,7 @@ sub doEverything () {
     $chunk=0;
     
     while($cnt < @CHR) {
+
 	undef %chrs_current;
 	undef %hash;
 	$running_count = $chr_counts{$CHR[$cnt]};
@@ -224,6 +235,7 @@ sub doEverything () {
 	    $FLAG = 0;
 	    $chunk_num = 0;
 	    while($FLAG == 0) {
+                
 		$chunk_num++;
 		$number_so_far = 0;
 		undef %hash;
@@ -290,7 +302,10 @@ sub doEverything () {
 		}
 		
 		open(OUTFILE,">$tempfilename");
-		foreach $line (sort {$hash{$a}[0]<=>$hash{$b}[0] || ($hash{$a}[0]==$hash{$b}[0] && $hash{$a}[1]<=>$hash{$b}[1])} keys %hash) {
+		foreach $line (sort {
+                    $hash{$a}[0]<=>$hash{$b}[0] || 
+                    $hash{$a}[1]<=>$hash{$b}[1]
+                } keys %hash) {
 		    chomp($line);
 		    if($line =~ /\S/) {
 			print OUTFILE $line;
@@ -302,7 +317,12 @@ sub doEverything () {
 		# merge with previous chunk (if necessary):
 #	    print "chunk_num = $chunk_num\n";
 		if($chunk_num > 1) {
-		    &merge();
+                    $tempfilename1 = $CHR[$cnt] . "_temp.0";
+                    $tempfilename2 = $CHR[$cnt] . "_temp.1";
+                    $tempfilename3 = $CHR[$cnt] . "_temp.2";
+                    my $wc = `wc -l $tempfilename1 $tempfilename2`;
+		    &merge($tempfilename1, $tempfilename2, $tempfilename3);
+                    #warn "Merged\n$wc\ninto\n".`wc -l $tempfilename1`;
 		}
 	    }
 	    close(INFILE);
@@ -374,7 +394,10 @@ sub doEverything () {
 	}
 	close(INFILE);
 	foreach $chr (sort {cmpChrs($a,$b)} keys %hash) {
-	    foreach $line (sort {$hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1])} keys %{$hash{$chr}}) {
+	    foreach $line (sort {
+                $hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || 
+                $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1] 
+            } keys %{$hash{$chr}}) {
 		chomp($line);
 		if($line =~ /\S/) {
 		    print FINALOUT $line;
@@ -421,135 +444,44 @@ sub doEverything () {
     unlink($running_indicator_file);
 }
 
-sub merge() {
-    $tempfilename1 = $CHR[$cnt] . "_temp.0";
-    $tempfilename2 = $CHR[$cnt] . "_temp.1";
-    $tempfilename3 = $CHR[$cnt] . "_temp.2";
-    open(TEMPMERGEDOUT, ">$tempfilename3");
-    open(TEMPIN1, $tempfilename1);
-    open(TEMPIN2, $tempfilename2);
-    $mergeFLAG = 0;
-    getNext1();
-    getNext2();
-    while($mergeFLAG < 2) {
-	chomp($out1);
-	chomp($out2);
-	if($start1 < $start2) {
-	    if($out1 =~ /\S/) {
-		print TEMPMERGEDOUT "$out1\n";
-	    }
-	    getNext1();
-	} elsif($start1 == $start2) {
-	    if($end1 <= $end2) {
-		if($out1 =~ /\S/) {
-		    print TEMPMERGEDOUT "$out1\n";
-		}
-		getNext1();
-	    } else {
-		if($out2 =~ /\S/) {
-		    print TEMPMERGEDOUT "$out2\n";
-		}
-		getNext2();
-	    }
-	} else {
-	    if($out2 =~ /\S/) {
-		print TEMPMERGEDOUT "$out2\n";
-	    }
-	    getNext2();
-	}
-    }
-    close(TEMPMERGEDOUT);
-    `mv $tempfilename3 $tempfilename1`;
-    unlink($tempfilename2);
-}
+sub merge {
 
-sub getNext1 () {
-    $line1 = <TEMPIN1>;
-    chomp($line1);
-    if($line1 eq '') {
-	$mergeFLAG++;
-	$start1 = 1000000000000;  # effectively infinity, no chromosome should be this large;
-	return "";
-    }
-    @a = split(/\t/,$line1);
-    $a[2] =~ /^(\d+)-/;
-    $start1 = $1;
-    if($a[0] =~ /a/ && $separate eq "false") {
-	$a[0] =~ /(\d+)/;
-	$seqnum1 = $1;
-	$line2 = <TEMPIN1>;
-	chomp($line2);
-	@b = split(/\t/,$line2);
-	$b[0] =~ /(\d+)/;
-	$seqnum2 = $1;
-	if($seqnum1 == $seqnum2 && $b[0] =~ /b/) {
-	    if($a[3] eq "+") {
-		$b[2] =~ /-(\d+)$/;
-		$end1 = $1;
-	    } else {
-		$b[2] =~ /^(\d+)-/;
-		$start1 = $1;
-		$a[2] =~ /-(\d+)$/;
-		$end1 = $1;
-	    }
-	    $out1 = $line1 . "\n" . $line2;
-	} else {
-	    $a[2] =~ /-(\d+)$/;
-	    $end1 = $1;
-	    # reset the file handle so the last line read will be read again
-	    $len = -1 * (1 + length($line2));
-	    seek(TEMPIN1, $len, 1);
-	    $out1 = $line1;
-	}
-    } else {
-	$a[2] =~ /-(\d+)$/;
-	$end1 = $1;
-	$out1 = $line1;
-    }
-}
+    use strict;
 
-sub getNext2 () {
-    $line1 = <TEMPIN2>;
-    chomp($line1);
-    if($line1 eq '') {
-	$mergeFLAG++;
-	$start2 = 1000000000000;  # effectively infinity, no chromosome should be this large;
-	return "";
-    }
-    @a = split(/\t/,$line1);
-    $a[2] =~ /^(\d+)-/;
-    $start2 = $1;
-    if($a[0] =~ /a/ && $separate eq "false") {
-	$a[0] =~ /(\d+)/;
-	$seqnum1 = $1;
-	$line2 = <TEMPIN2>;
-	chomp($line2);
-	@b = split(/\t/,$line2);
-	$b[0] =~ /(\d+)/;
-	$seqnum2 = $1;
-	if($seqnum1 == $seqnum2 && $b[0] =~ /b/) {
-	    if($a[3] eq "+") {
-		$b[2] =~ /-(\d+)$/;
-		$end2 = $1;
-	    } else {
-		$b[2] =~ /^(\d+)-/;
-		$start2 = $1;
-		$a[2] =~ /-(\d+)$/;
-		$end2 = $1;
-	    }
-	    $out2 = $line1 . "\n" . $line2;
-	} else {
-	    $a[2] =~ /-(\d+)$/;
-	    $end2 = $1;
-	    # reset the file handle so the last line read will be read again
-	    $len = -1 * (1 + length($line2));
-	    seek(TEMPIN2, $len, 1);
-	    $out2 = $line1;
-	}
-    } else {
-	$a[2] =~ /-(\d+)$/;
-	$end2 = $1;
-	$out2 = $line1;
-    }
-}
+    my ($in1, $in2, $out) = @_;
 
+    open my $temp_merged_out, ">", $out;
+    my @iters;
+    for my $in_filename ($in1, $in2) {
+        open my $in, "<", $in_filename;
+        my $iter = file_iterator($in, separate => 0);
+        push @iters, $iter if peek_it($iter);
+    }
+
+    while (defined(my $rec1 = peek_it($iters[0])) &&
+           defined(my $rec2 = peek_it($iters[1]))) {
+
+        # Find the iterator whose next record is smaller (has smaller
+        # start or smaller end). Pop that iterator and print the
+        # record.
+        my $cmp = $rec1->{start} <=> $rec2->{start} || 
+                    $rec1->{end} <=> $rec2->{end}   ||
+                 $rec1->{seqnum} <=> $rec2->{seqnum};
+
+        my $iter = $cmp < 0 ? $iters[0] : $iters[1];
+        print $temp_merged_out pop_it($iter)->{entry}, "\n";
+    }
+    
+    # When we get here we must have exhausted one of the iterators, so
+    # drain the other one.
+    for my $iter (@iters) {
+        while (defined(my $rec = pop_it($iter))) {
+            print $temp_merged_out $rec->{entry}, "\n";
+        }
+    }
+
+    close($temp_merged_out);
+
+    `mv $out $in1`;
+    unlink($in2);
+}
