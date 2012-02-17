@@ -357,23 +357,7 @@ sub doEverything () {
 	}
 	$INFILE = $infile . "_sorting_tempfile." . $chunk;
 	open(my $foo_in, $INFILE);
-        populate_hash($foo_in, \%hash, $separate);
-	close($foo_in);
-	foreach $chr (sort {cmpChrs($a,$b)} keys %hash) {
-	    foreach $line (sort {
-                $hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || 
-                $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1] ||
-                $hash{$chr}{$a}[2]<=>$hash{$chr}{$b}[2]
-            } keys %{$hash{$chr}}) { 
-		chomp($line);
-		if($line =~ /\S/) {
-		    print FINALOUT $line;
-		    print FINALOUT "\n";
-		}
-	    }
-	    close(FINALOUT);
-	    open(FINALOUT, ">>$outfile"); # did this just to flush the buffer
-	}
+        sort_one_file($foo_in, *FINALOUT, $separate);
 	$chunk++;
     }
     close(FINALOUT);
@@ -409,6 +393,26 @@ sub doEverything () {
 #}
 
     unlink($running_indicator_file);
+}
+
+
+sub sort_one_file {
+    my ($in, $out, $separate) = @_;
+    use strict;
+    my %hash;
+    populate_hash($in, \%hash, $separate);
+    foreach my $chr (sort {cmpChrs($a,$b)} keys %hash) {
+        foreach my $line (sort {
+            $hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || 
+                $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1] ||
+                    $hash{$chr}{$a}[2]<=>$hash{$chr}{$b}[2]
+                } keys %{$hash{$chr}}) { 
+            chomp($line);
+            if($line =~ /\S/) {
+                print $out "$line\n";
+            }
+        }
+    }
 }
 
 sub populate_hash {
