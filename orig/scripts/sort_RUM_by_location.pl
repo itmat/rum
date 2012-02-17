@@ -246,6 +246,7 @@ sub doEverything () {
 		$chunk_num++;
 		$number_so_far = 0;
 		undef %hash;
+
 		$chunkFLAG = 0;
 		# read in one chunk:
 		while($chunkFLAG == 0) {
@@ -395,38 +396,27 @@ sub doEverything () {
     unlink($running_indicator_file);
 }
 
+sub by_location {
+    ($a->{chr} ne $b->{chr} ? cmpChrs($a->{chr}, $b->{chr}) : 0) ||
+        $a->{start}  <=> $b->{start} ||
+        $a->{end}    <=> $b->{end} ||
+        $a->{seqnum} <=> $b->{seqnum};
+}
 
 sub sort_one_file {
     my ($in, $out, $separate) = @_;
     use strict;
-    my %hash;
-    populate_hash($in, \%hash, $separate);
-    foreach my $chr (sort {cmpChrs($a,$b)} keys %hash) {
-        foreach my $line (sort {
-            $hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || 
-                $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1] ||
-                    $hash{$chr}{$a}[2]<=>$hash{$chr}{$b}[2]
-                } keys %{$hash{$chr}}) { 
-            chomp($line);
-            if($line =~ /\S/) {
-                print $out "$line\n";
-            }
-        }
-    }
-}
-
-sub populate_hash {
-    my ($in, $hash, $separate) = @_;
-    use strict;
-    use warnings;    
     my $it = file_iterator($in, separate => 0);
+    my @recs;
+    while (my $rec = pop_it($it)) {
+        warn "$rec->{chr} $rec->{start}";
+        push @recs, $rec;
+    }
+    warn "I have ".scalar(@recs)." recs";
 
-    while(my $row = pop_it($it)) {
-        my $chr = $row->{chr};
-        my $entry = $row->{entry};
-        $hash->{$chr}{$entry}[0] = $row->{start};
-        $hash->{$chr}{$entry}[1] = $row->{end};
-        $hash->{$chr}{$entry}[2] = $row->{seqnum};
+    for my $rec (sort by_location @recs) {
+        print STDERR "$rec->{chr}  $rec->{start}\n";
+        print $out "$rec->{entry}\n";
     }
 }
 
