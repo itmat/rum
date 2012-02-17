@@ -6,7 +6,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::ChrCmp qw(cmpChrs);
+use RUM::ChrCmp qw(cmpChrs by_chromosome);
 use RUM::FileIterator qw(file_iterator pop_it peek_it);
 
 use strict;
@@ -136,7 +136,7 @@ for(my $i=0; $i<2; $i++) {
 	$i = 2;
 	$clean = "true";
 	print "\n$infile reads per chromosome:\n\nchr_name\tnum_reads\n";
-	foreach my $chr (sort {cmpChrs($a,$b)} keys %chr_counts) {
+	foreach my $chr (sort by_chromosome keys %chr_counts) {
 	    print "$chr\t$chr_counts{$chr}\n";
 	}
     }
@@ -182,7 +182,7 @@ sub doEverything () {
     my (@CHR, %CHUNK);
 
     my $cnt=0;
-    foreach my $chr (sort {cmpChrs($a,$b)} keys %chr_counts) {
+    foreach my $chr (sort by_chromosome keys %chr_counts) {
 	$CHR[$cnt] = $chr;
 	$cnt++;
     }
