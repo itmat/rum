@@ -356,50 +356,9 @@ sub doEverything () {
 	    $cnt++;
 	}
 	$INFILE = $infile . "_sorting_tempfile." . $chunk;
-	open(INFILE, $INFILE);
-	while($line = <INFILE>) {
-	    chomp($line);
-	    @a = split(/\t/,$line);
-	    $chr = $a[1];
-	    $a[2] =~ /^(\d+)-/;
-	    $start = $1;
-	    if($a[0] =~ /a/ && $separate eq "false") {
-		$a[0] =~ /(\d+)/;
-		$seqnum1 = $1;
-		$line2 = <INFILE>;
-		chomp($line2);
-		@b = split(/\t/,$line2);
-		$b[0] =~ /(\d+)/;
-		$seqnum2 = $1;
-		if($seqnum1 == $seqnum2 && $b[0] =~ /b/) {
-		    if($a[3] eq "+") {
-			$b[2] =~ /-(\d+)$/;
-			$end = $1;
-		    } else {
-			$b[2] =~ /^(\d+)-/;
-			$start = $1;
-			$a[2] =~ /-(\d+)$/;
-			$end = $1;
-		    }
-		    $hash{$chr}{$line . "\n" . $line2}[0] = $start;
-		    $hash{$chr}{$line . "\n" . $line2}[1] = $end;
-		} else {
-		    $a[2] =~ /-(\d+)$/;
-		    $end = $1;
-		    # reset the file handle so the last line read will be read again
-		    $len = -1 * (1 + length($line2));
-		    seek(INFILE, $len, 1);
-		    $hash{$chr}{$line}[0] = $start;
-		    $hash{$chr}{$line}[1] = $end;
-		}
-	    } else {
-		$a[2] =~ /-(\d+)$/;
-		$end = $1;
-		$hash{$chr}{$line}[0] = $start;
-		$hash{$chr}{$line}[1] = $end;
-	    }
-	}
-	close(INFILE);
+	open(my $foo_in, $INFILE);
+        populate_hash($foo_in, \%hash, $separate);
+	close($foo_in);
 	foreach $chr (sort {cmpChrs($a,$b)} keys %hash) {
 	    foreach $line (sort {
                 $hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || 
@@ -449,6 +408,20 @@ sub doEverything () {
 #}
 
     unlink($running_indicator_file);
+}
+
+sub populate_hash {
+    my ($in, $hash, $separate) = @_;
+    use strict;
+    use warnings;    
+    my $it = file_iterator($in, separate => 0);
+
+    while(my $row = pop_it($it)) {
+        my $chr = $row->{chr};
+        my $entry = $row->{entry};
+        $hash->{$chr}{$entry}[0] = $row->{start};
+        $hash->{$chr}{$entry}[1] = $row->{end};
+    }
 }
 
 sub merge {

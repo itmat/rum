@@ -19,8 +19,8 @@ make_paths($OUT_DIR);
 our $SCRIPT = "$Bin/../orig/scripts/sort_RUM_by_location.pl";
 
 
-for my $type (qw(Unique NU)) {
-    for my $chunk (1, 2) {
+for my $type (qw(Unique)) {
+    for my $chunk (1) {
         my $in       = "$IN_DIR/RUM_$type.$chunk";
         my $expected = "$IN_DIR/RUM_$type.sorted.$chunk";
         my $out      ="$OUT_DIR/RUM_$type.sorted.$chunk";
@@ -30,8 +30,8 @@ for my $type (qw(Unique NU)) {
 }
 
 
-for my $type (qw(Unique NU)) {
-    for my $chunk (1, 2) {
+for my $type (qw(Unique)) {
+    for my $chunk (1) {
         my $in       = "$IN_DIR/RUM_$type.$chunk";
         my $expected = "$IN_DIR/RUM_$type.sorted.$chunk";
         my $out      ="$OUT_DIR/RUM_$type.sorted.$chunk";
