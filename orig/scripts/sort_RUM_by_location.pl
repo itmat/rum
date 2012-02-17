@@ -238,68 +238,28 @@ sub doEverything () {
 	if($chr_counts{$CHR[$cnt]} > $max_count_at_once) { # it's a monster chromosome, going to do it in
 	    # pieces for fear of running out of RAM.
 	    $INFILE = $infile . "_sorting_tempfile." . $CHUNK{$CHR[$cnt]};
-	    open my $in, "<", $INFILE;
+	    open my $foobar_in, "<", $INFILE;
+            my $it = file_iterator($foobar_in);
 	    $FLAG = 0;
 	    $chunk_num = 0;
 	    while($FLAG == 0) {
-                
 		$chunk_num++;
 		$number_so_far = 0;
-		undef %hash;
-
 		$chunkFLAG = 0;
+                my @recs;
 		# read in one chunk:
 		while($chunkFLAG == 0) {
-		    $line = <$in>;
-		    chomp($line);
-		    if($line eq '') {
+                    my $rec = pop_it($it);
+		    unless ($rec) {
 			$chunkFLAG = 1;
 			$FLAG = 1;
 			next;
 		    }
-		    @a = split(/\t/,$line);
-		    $chr = $a[1];
+                    push @recs, $rec;
+
 		    $number_so_far++;
 		    if($number_so_far>$max_count_at_once) {
 			$chunkFLAG=1;
-		    }
-		    $a[2] =~ /^(\d+)-/;
-		    $start = $1;
-		    if($a[0] =~ /a/ && $separate eq "false") {
-			$a[0] =~ /(\d+)/;
-			$seqnum1 = $1;
-			$line2 = <$in>;
-			chomp($line2);
-			@b = split(/\t/,$line2);
-			$b[0] =~ /(\d+)/;
-			$seqnum2 = $1;
-			if($seqnum1 == $seqnum2 && $b[0] =~ /b/) {
-			    if($a[3] eq "+") {
-				$b[2] =~ /-(\d+)$/;
-				$end = $1;
-			    } else {
-				$b[2] =~ /^(\d+)-/;
-				$start = $1;
-				$a[2] =~ /-(\d+)$/;
-				$end = $1;
-			    }
-			    $hash{$line . "\n" . $line2}[0] = $start;
-			    $hash{$line . "\n" . $line2}[1] = $end;
-			    $number_so_far++;
-			} else {
-			    $a[2] =~ /-(\d+)$/;
-			    $end = $1;
-			    # reset the file handle so the last line read will be read again
-			    $len = -1 * (1 + length($line2));
-			    seek($in, $len, 1);
-			    $hash{$line}[0] = $start;
-			    $hash{$line}[1] = $end;
-			}
-		    } else {
-			$a[2] =~ /-(\d+)$/;
-			$end = $1;
-			$hash{$line}[0] = $start;
-			$hash{$line}[1] = $end;
 		    }
 		}
 		# write out this chunk sorted:
@@ -310,15 +270,8 @@ sub doEverything () {
 		}
 		
 		open(OUTFILE,">$tempfilename");
-		foreach $line (sort {
-                    $hash{$a}[0]<=>$hash{$b}[0] || 
-                    $hash{$a}[1]<=>$hash{$b}[1]
-                } keys %hash) {
-		    chomp($line);
-		    if($line =~ /\S/) {
-			print OUTFILE $line;
-			print OUTFILE "\n";
-		    }
+		foreach $rec (sort by_location @recs) {
+		    print OUTFILE "$rec->{entry}\n";
 		}
 		close(OUTFILE);
 		
@@ -409,13 +362,10 @@ sub sort_one_file {
     my $it = file_iterator($in, separate => 0);
     my @recs;
     while (my $rec = pop_it($it)) {
-        warn "$rec->{chr} $rec->{start}";
         push @recs, $rec;
     }
-    warn "I have ".scalar(@recs)." recs";
 
     for my $rec (sort by_location @recs) {
-        print STDERR "$rec->{chr}  $rec->{start}\n";
         print $out "$rec->{entry}\n";
     }
 }
