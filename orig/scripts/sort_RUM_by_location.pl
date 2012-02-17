@@ -362,8 +362,9 @@ sub doEverything () {
 	foreach $chr (sort {cmpChrs($a,$b)} keys %hash) {
 	    foreach $line (sort {
                 $hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || 
-                $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1] 
-            } keys %{$hash{$chr}}) {
+                $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1] ||
+                $hash{$chr}{$a}[2]<=>$hash{$chr}{$b}[2]
+            } keys %{$hash{$chr}}) { 
 		chomp($line);
 		if($line =~ /\S/) {
 		    print FINALOUT $line;
@@ -421,6 +422,7 @@ sub populate_hash {
         my $entry = $row->{entry};
         $hash->{$chr}{$entry}[0] = $row->{start};
         $hash->{$chr}{$entry}[1] = $row->{end};
+        $hash->{$chr}{$entry}[2] = $row->{seqnum};
     }
 }
 
