@@ -28,3 +28,14 @@ for my $type (qw(Unique NU)) {
         no_diffs $out, $expected, "sort-rum-by-location-$type-$chunk";
     }
 }
+
+
+for my $type (qw(Unique NU)) {
+    for my $chunk (1, 2) {
+        my $in       = "$IN_DIR/RUM_$type.$chunk";
+        my $expected = "$IN_DIR/RUM_$type.sorted.$chunk";
+        my $out      ="$OUT_DIR/RUM_$type.sorted.$chunk";
+        my $output = `perl $SCRIPT $in $out`;
+        no_diffs $out, $expected, "sort-rum-by-location-nosplit-$type-$chunk";
+    }
+}

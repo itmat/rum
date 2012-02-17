@@ -141,36 +141,43 @@ if($clean eq "false") {
     print STDERR "ERROR: from script sort_RUM_by_location.pl on \"$infile\": the size of the unsorted input ($size_input) and sorted output\nfiles ($size_output) are not equal.  I tried three times and it failed every\ntime.  Must be something strange about the input file...\n\n";
 }
 
-sub doEverything () {
+sub get_chromosome_counts {
+    use strict;
+    my ($infile) = @_;
+    open my $in, "<", $infile;
 
-    open(INFILE, $infile);
-    open(FINALOUT, ">$outfile");
+    my %counts;
 
-    undef %chr_counts;
-    undef @CHR;
-    undef @CHUNK;
-    undef %hash;
-
-    $num_prev = "0";
-    $type_prev = "";
-    while($line = <INFILE>) {
+    my $num_prev = "0";
+    my $type_prev = "";
+    while(my $line = <$in>) {
 	chomp($line);
-	@a = split(/\t/,$line);
+	my @a = split(/\t/,$line);
 	$line =~ /^seq.(\d+)([^\d])/;
-	$num = $1;
-	$type = $2;
+	my $num = $1;
+	my $type = $2;
 	if($num eq $num_prev && $type_prev eq "a" && $type eq "b") {
 	    $type_prev = $type;
 	    next;
 	}
 	if($a[1] =~ /\S/) {
-	    $chr_counts{$a[1]}++;
+	    $counts{$a[1]}++;
 	}
 	$num_prev = $num;
 	$type_prev = $type;
     }
-    close(INFILE);
-    
+    return %counts;
+}
+
+sub doEverything () {
+
+    open(FINALOUT, ">$outfile");
+
+    my %chr_counts = get_chromosome_counts($infile);
+    undef @CHR;
+    undef @CHUNK;
+    undef %hash;
+
     $cnt=0;
     foreach $chr (sort {cmpChrs($a,$b)} keys %chr_counts) {
 	$CHR[$cnt] = $chr;
@@ -231,7 +238,7 @@ sub doEverything () {
 	if($chr_counts{$CHR[$cnt]} > $max_count_at_once) { # it's a monster chromosome, going to do it in
 	    # pieces for fear of running out of RAM.
 	    $INFILE = $infile . "_sorting_tempfile." . $CHUNK{$CHR[$cnt]};
-	    open(INFILE, $INFILE);
+	    open my $in, "<", $INFILE;
 	    $FLAG = 0;
 	    $chunk_num = 0;
 	    while($FLAG == 0) {
@@ -242,7 +249,7 @@ sub doEverything () {
 		$chunkFLAG = 0;
 		# read in one chunk:
 		while($chunkFLAG == 0) {
-		    $line = <INFILE>;
+		    $line = <$in>;
 		    chomp($line);
 		    if($line eq '') {
 			$chunkFLAG = 1;
@@ -260,7 +267,7 @@ sub doEverything () {
 		    if($a[0] =~ /a/ && $separate eq "false") {
 			$a[0] =~ /(\d+)/;
 			$seqnum1 = $1;
-			$line2 = <INFILE>;
+			$line2 = <$in>;
 			chomp($line2);
 			@b = split(/\t/,$line2);
 			$b[0] =~ /(\d+)/;
@@ -283,7 +290,7 @@ sub doEverything () {
 			    $end = $1;
 			    # reset the file handle so the last line read will be read again
 			    $len = -1 * (1 + length($line2));
-			    seek(INFILE, $len, 1);
+			    seek($in, $len, 1);
 			    $hash{$line}[0] = $start;
 			    $hash{$line}[1] = $end;
 			}
@@ -325,7 +332,7 @@ sub doEverything () {
                     #warn "Merged\n$wc\ninto\n".`wc -l $tempfilename1`;
 		}
 	    }
-	    close(INFILE);
+	    close($in);
 	    $tempfilename = $CHR[$cnt] . "_temp.0";
 	    close(FINALOUT);
 	    `cat $tempfilename >> $outfile`;
