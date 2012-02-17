@@ -39,7 +39,7 @@ Options: -separate : Do not (necessarily) keep forward and reverse
 
 my $allowsmallchunks = 0;
 
-my $separate = "false";
+my $separate = 0;
 my $ram = 6;
 my $infile = $ARGV[0];
 my $outfile = $ARGV[1];
@@ -57,7 +57,7 @@ my $allowsmallchunks;
 for(my $i=2; $i<@ARGV; $i++) {
     my $optionrecognized = 0;
     if($ARGV[$i] eq "-separate") {
-	$separate = "true";
+	$separate = 1;
 	$optionrecognized = 1;
     }
     if($ARGV[$i] eq "-ram") {
@@ -344,18 +344,19 @@ sub doEverything () {
     unlink($running_indicator_file);
 }
 
-sub by_location {
-    ($a->{chr} ne $b->{chr} ? cmpChrs($a->{chr}, $b->{chr}) : 0) ||
-        $a->{start}  <=> $b->{start} ||
-        $a->{end}    <=> $b->{end} ||
-        $a->{seqnum} <=> $b->{seqnum} ||
-        $a->{seq}    cmp $b->{seq};
+sub by_location ($$) {
+    my ($c, $d) = @_;
+    ($c->{chr} ne $d->{chr} ? cmpChrs($c->{chr}, $d->{chr}) : 0) ||
+        $c->{start}  <=> $d->{start} ||
+        $c->{end}    <=> $d->{end} ||
+        $c->{seqnum} <=> $d->{seqnum} ||
+        $c->{seq}    cmp $d->{seq};
 }
 
 sub sort_one_file {
     my ($in, $out, $separate) = @_;
     use strict;
-    my $it = file_iterator($in, separate => 0);
+    my $it = file_iterator($in, separate => $separate);
     my @recs;
     while (my $rec = pop_it($it)) {
         push @recs, $rec;
@@ -377,7 +378,7 @@ sub merge {
     for my $in_filename ($in1, $in2) {
         open my $in, "<", $in_filename;
         my $iter = file_iterator($in, separate => 0);
-        push @iters, $iter if peek_it($iter);
+        push @iters, $iter;
     }
 
     while (defined(my $rec1 = peek_it($iters[0])) &&
@@ -386,10 +387,7 @@ sub merge {
         # Find the iterator whose next record is smaller (has smaller
         # start or smaller end). Pop that iterator and print the
         # record.
-        my $cmp = $rec1->{start} <=> $rec2->{start} || 
-                    $rec1->{end} <=> $rec2->{end}   ||
-                 $rec1->{seqnum} <=> $rec2->{seqnum};
-
+        my $cmp = by_location($rec1, $rec2);
         my $iter = $cmp < 0 ? $iters[0] : $iters[1];
         print $temp_merged_out pop_it($iter)->{entry}, "\n";
     }
