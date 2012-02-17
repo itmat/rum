@@ -35,6 +35,7 @@ sub read_record {
     $res{start} = $1;
     $a[0] =~ /(\d+)/;
     $res{seqnum} = $1;
+    $res{seq} = $a[4];
     if ($a[0] =~ /a/ && !$separate) {
         my ($line2, @b, $seqnum2);
 

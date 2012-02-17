@@ -348,7 +348,8 @@ sub by_location {
     ($a->{chr} ne $b->{chr} ? cmpChrs($a->{chr}, $b->{chr}) : 0) ||
         $a->{start}  <=> $b->{start} ||
         $a->{end}    <=> $b->{end} ||
-        $a->{seqnum} <=> $b->{seqnum};
+        $a->{seqnum} <=> $b->{seqnum} ||
+        $a->{seq}    cmp $b->{seq};
 }
 
 sub sort_one_file {

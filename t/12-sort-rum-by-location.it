@@ -18,24 +18,25 @@ make_paths($OUT_DIR);
 
 our $SCRIPT = "$Bin/../orig/scripts/sort_RUM_by_location.pl";
 
+my @types = qw(Unique NU);
+my @chunks = (1, 2);
 
-for my $type (qw(Unique)) {
-    for my $chunk (1) {
+for my $type (@types) {
+    for my $chunk (@chunks) {
         my $in       = "$IN_DIR/RUM_$type.$chunk";
         my $expected = "$IN_DIR/RUM_$type.sorted.$chunk";
-        my $out      ="$OUT_DIR/RUM_$type.sorted.$chunk";
-        my $output = `perl $SCRIPT $in $out -maxchunksize 100 -allowsmallchunks`;
+        my $out      = "$OUT_DIR/RUM_$type.sorted.$chunk";
+        my $output   = `perl $SCRIPT $in $out -maxchunksize 100 -allowsmallchunks`;
         no_diffs $out, $expected, "sort-rum-by-location-$type-$chunk";
     }
 }
 
-
-for my $type (qw(Unique)) {
-    for my $chunk (1) {
+for my $type (@types) {
+    for my $chunk (@chunks) {
         my $in       = "$IN_DIR/RUM_$type.$chunk";
         my $expected = "$IN_DIR/RUM_$type.sorted.$chunk";
-        my $out      ="$OUT_DIR/RUM_$type.sorted.$chunk";
-        my $output = `perl $SCRIPT $in $out`;
+        my $out      = "$OUT_DIR/RUM_$type.sorted.$chunk-nosplit";
+        my $output   = `perl $SCRIPT $in $out`;
         no_diffs $out, $expected, "sort-rum-by-location-nosplit-$type-$chunk";
     }
 }
