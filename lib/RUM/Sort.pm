@@ -326,6 +326,8 @@ sub merge_iterators {
     }
     my @iters = @_;
 
+    @iters = grep { peek_it($_) } @iters;
+
     while (@iters) {
         
         my $argmin = 0;

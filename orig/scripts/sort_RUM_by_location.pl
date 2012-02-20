@@ -7,7 +7,7 @@ use lib "$Bin/../../lib";
 use Carp;
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::Sort qw(cmpChrs by_chromosome by_location);
+use RUM::Sort qw(merge_iterators cmpChrs by_chromosome by_location);
 use RUM::FileIterator qw(file_iterator pop_it peek_it);
 use File::Copy qw(mv cp);
 use strict;
@@ -291,7 +291,7 @@ sub doEverything () {
                     my @iters = (
                         file_iterator($in1, separate => $separate),
                         file_iterator($in2, separate => $separate));
-		    merge($temp_merged_out, @iters);
+		    merge_iterators($temp_merged_out, @iters);
                     close($temp_merged_out);
                     
                     mv $tempfiles[2], $tempfiles[0]
@@ -374,27 +374,4 @@ sub sort_one_file {
     }
 }
 
-sub merge {
 
-    my ($out, @iters) = @_;
-
-    while (defined(my $rec1 = peek_it($iters[0])) &&
-           defined(my $rec2 = peek_it($iters[1]))) {
-
-        # Find the iterator whose next record is smaller (has smaller
-        # start or smaller end). Pop that iterator and print the
-        # record.
-        my $cmp = by_location($rec1, $rec2);
-        my $iter = $cmp < 0 ? $iters[0] : $iters[1];
-        print $out pop_it($iter)->{entry}, "\n";
-    }
-    
-    # When we get here we must have exhausted one of the iterators, so
-    # drain the other one.
-    for my $iter (@iters) {
-        while (defined(my $rec = pop_it($iter))) {
-            print $out $rec->{entry}, "\n";
-        }
-    }
-
-}
