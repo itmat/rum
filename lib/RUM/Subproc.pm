@@ -66,9 +66,10 @@ use warnings;
 use POSIX qw(:sys_wait_h);
 use Exporter qw(import);
 use Carp;
+use File::Spec;
 
 our @EXPORT_OK = qw(spawn check await can_kill procs pids_by_command_re 
-                    kill_all child_pids);
+                    kill_all child_pids kill_runaway_procs);
 
 =item spawn(CMD)
 
@@ -267,6 +268,74 @@ sub _open_ps {
 }
 
 1;
+
+
+
+sub kill_runaway_procs {
+    my ($outdir, %options) = @_;
+
+    my $name      = delete $options{name}      || qr/\w+/;
+    my $starttime = delete $options{starttime} || qr/\d+/;
+    my $chunk     = delete $options{chunk}     || qr/\d+/;
+
+    if (my @unrecognized = keys %options) {
+        croak "Unrecognized options for kill_runaway_procs: @unrecognized";
+    }
+
+    # Make sure the caller didn't give us an empty path or a path that
+    # specifies something other than a directory, so we don't kill too
+    # many processes.
+    -d $outdir 
+        or croak "outdir must specify a directory: $outdir";
+    File::Spec->splitdir($outdir) > 0 
+        or croak("outdir must not be an empty path: $outdir");
+
+    my $kill_first_re = qr/\b$outdir\/$name\.$starttime\.$chunk\.sh\b/;
+    my $kill_later_re = qr/\b$outdir\b/;
+
+    #carp "Looking for processes to kill.";
+    #carp "Will kill these first: $kill_first_re";
+    #carp "Then kill these: $kill_later_re";
+
+    # Collect a list of processes that we want to kill.
+    my @kill;
+    for my $proc (procs(fields => [qw(pid command)])) {
+        local $_ = $proc->{command};
+
+        if ($proc->{pid} == $$) {
+            # Don't kill myself.
+        }
+
+        elsif (/$kill_first_re/) {
+            # Scripts that look like this are used to launch other
+            # scripts, so we should kill this one before the other
+            # ones. Unshift it onto the front of the kill list.
+            unshift @kill, $proc;
+        }
+
+        elsif (/pipeline.$chunk.sh/) {
+            # Don't kill it. TODO: Not sure why; this is how
+            # RUM_runner.pl was behaving.
+        }
+
+        elsif (/$kill_later_re/) {
+            # Any other scripts that are running in this directory should
+            # be killed at the end.
+            push @kill, $proc;
+        }
+    }
+
+    # Now kill all the processes and set the 'killed' key in each
+    # process's hash, so the caller can see which ones we were able to
+    # kill.
+    for my $proc (@kill) {
+        carp "Killing $proc->{pid} ($proc->{command})";
+        $proc->{killed} = kill 9, $proc->{pid} or carp(
+            "Couldn't kill process with pid $proc->{pid} ".
+                "and command '$proc->{command}': $!");
+    }
+    return @kill;
+}
 
 =back
 

@@ -10,7 +10,7 @@ use lib "$Bin/../lib";
 use RUM::Common qw(Roman roman isroman arabic format_large_int);
 use RUM::Sort qw(by_chromosome);
 use RUM::Subproc qw(spawn check pids_by_command_re kill_all procs
-                    child_pids can_kill);
+                    child_pids can_kill kill_runaway_procs);
 
 if($ARGV[0] eq '-version' || $ARGV[0] eq '-v' || $ARGV[0] eq '--version' || $ARGV[0] eq '--v') {
     die "RUM version: $version\n";
@@ -569,19 +569,8 @@ if($kill eq "true") {
         exit();
     }
 
-    # Kill any running chunks
-    kill_all(pids_by_command_re(qr/$output_dir\/$name.$starttime.\d+.sh/));
+    kill_runaway_procs($output_dir, name => $name, starttime => $starttime);
 
-    # Kill any other scripts whose command includes the output dir,
-    # except for the pipeline....sh script and myself. TODO: I'm not
-    # sure why we wouldn't want to kill pipeline.\d+.sh here, but
-    # that's the way it was working before.
-    for my $proc (procs(fields=>[qw(pid command)])) {
-        local $_ = $proc->{command};
-        if (/$output_dir/ && not /pipeline.\d+.sh/ && $proc->{pid} != $$) {
-            kill_all($proc->{pid});
-        }
-    }
     print "\nRUM Job $JID killed using -kill option at $DT\n";
     exit();
 }
@@ -831,31 +820,7 @@ if($postprocess eq "false") {
 if($kill eq "false") {
     sleep(1);
     print "\nChecking for phantom processes from prior runs that might need to be killed.\n\n";
-    $outdir = $output_dir;
-    $str = `ps a | grep $outdir | grep -v RUM_runner.pl | grep -v test_RUM_restart`;
-    @candidates = split(/\n/,$str);
-    $cleanedflag = 0;
-
-    # I should first kill any shell scripts running in this directory,
-    # then any other processes in this directory except for myself.
-    for($i=0; $i<@candidates; $i++) {
-	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
-	    $pid = $1;
-	    print "killing $pid\n";
-	    `kill -9 $pid`;
-            $cleanedflag = 1;
-	}
-    }
-    for($i=0; $i<@candidates; $i++) {
-	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
-	    if(!($candidates[$i] =~ /^$name.$starttime/)) {
-		$pid = $1;
-		print "killing $pid\n";
-		`kill -9 $pid`;
-                $cleanedflag = 1;
-	    }
-	}
-    }
+    $cleanedflag = kill_runaway_procs($output_dir);
 }
 if($cleanedflag == 1) {
     sleep(2);
@@ -1965,31 +1930,15 @@ if($postprocess eq "false") {
                                       print "$R\n";
                                       exit(0);
                                   }
-                                  $outdir = $output_dir;
-                                  $str = `ps a | grep $outdir`;
                                   # I should kill any shell scripts
                                   # with my start time running in this
                                   # directory, then any other
                                   # processes running in this
                                   # directory.
-                                  @candidates = split(/\n/,$str);
-                                  for($i=0; $i<@candidates; $i++) {
-                                      if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
-                                          $pid = $1;
-                                           print "killing $pid\n";
-                                           `kill -9 $pid`;
-                                      }
-                                   }
-                                   for($i=0; $i<@candidates; $i++) {
-                                        if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
-                                             if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
-                                   		$pid = $1;
-                                     		print "killing $pid\n";
-                                       		`kill -9 $pid`;
-                                      	     }
-                                        }
-                                   }
-                                   exit(0);
+                                  kill_runaway_procs($output_dir, 
+                                                     name => $name,
+                                                     startime => $starttime);
+                                  exit(0);
                             }
                             $ofile = $output_dir . "/chunk.restart.$i" . ".o";
                             $efile = $output_dir . "/chunk.restart.$i" . ".e";
@@ -2355,25 +2304,9 @@ if($postprocess eq "false") {
                                        # directory, than any other
                                        # processes running in this
                                        # directory.
-                                       $outdir = $output_dir;
-                                       $str = `ps a | grep $outdir`;
-                                       @candidates = split(/\n/,$str);
-                                       for($i=0; $i<@candidates; $i++) {
-                                           if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
-                                               $pid = $1;
-                                                print "killing $pid\n";
-                                                `kill -9 $pid`;
-                                           }
-                                        }
-                                        for($i=0; $i<@candidates; $i++) {
-                                             if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
-                                                  if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
-                                        		$pid = $1;
-                                        		print "killing $pid\n";
-                                        		`kill -9 $pid`;
-                                         	    }
-                                             }
-                                        }
+                                       kill_runaway_procs($output_dir,
+                                                          name => $name,
+                                                          starttime => $starttime);
                                         exit(0);
                                   }
                                   print ERRORLOG " *** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
@@ -2596,26 +2529,10 @@ while($doneflag == 0) {
                    print "$R\n";
                    exit(0);
                }
-               $outdir = $output_dir;
-               $str = `ps a | grep $outdir`;
-               # Same; first any shell scripts, then any other proces
-               @candidates = split(/\n/,$str);
-               for($i=0; $i<@candidates; $i++) {
-                   if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
-                       $pid = $1;
-                        print "killing $pid\n";
-                        `kill -9 $pid`;
-                   }
-                }
-                for($i=0; $i<@candidates; $i++) {
-                     if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
-                          if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
-                		$pid = $1;
-                  		print "killing $pid\n";
-                    		`kill -9 $pid`;
-                   	     }
-                     }
-                }
+
+               kill_runaway_procs($output_dir, 
+                                  name => $name, 
+                                  starttime => $starttime);
                 exit(0);
             }
             $X = `qdel $Jobid`;
@@ -2715,25 +2632,11 @@ while($doneflag == 0) {
                             $outdir = $output_dir;
                             $str = `ps a | grep $outdir`;
                            # Same, first any shell scripts, then any proces
-                            @candidates = split(/\n/,$str);
-                            for($i=0; $i<@candidates; $i++) {
-                                if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
-                                    $pid = $1;
-                                    print "killing $pid\n";
-                                    `kill -9 $pid`;
-                                 }
-                             }
-                             for($i=0; $i<@candidates; $i++) {
-                                    if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir(\s|\/)/) {
-                                        if(!($candidates[$i] =~ /pipeline.\d+.sh/)) {
-                               		    $pid = $1;
-                                  	    print "killing $pid\n";
-                                   	    `kill -9 $pid`;
-                             	        }
-                                    }
-                              }
-                              exit(0);
-                        }
+                           kill_runaway_procs($output_dir,
+                                              name => $name, 
+                                              starttime => $starttime);
+                           exit(0);
+                       }
 
                        print ERRORLOG " *** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
                        print " *** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
