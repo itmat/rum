@@ -834,6 +834,9 @@ if($kill eq "false") {
     $str = `ps a | grep $outdir | grep -v RUM_runner.pl | grep -v test_RUM_restart`;
     @candidates = split(/\n/,$str);
     $cleanedflag = 0;
+
+    # I should first kill any shell scripts running in this directory,
+    # then any other processes in this directory except for myself.
     for($i=0; $i<@candidates; $i++) {
 	if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
 	    $pid = $1;
@@ -1963,6 +1966,11 @@ if($postprocess eq "false") {
                                   }
                                   $outdir = $output_dir;
                                   $str = `ps a | grep $outdir`;
+                                  # I should kill any shell scripts
+                                  # with my start time running in this
+                                  # directory, then any other
+                                  # processes running in this
+                                  # directory.
                                   @candidates = split(/\n/,$str);
                                   for($i=0; $i<@candidates; $i++) {
                                       if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
@@ -2341,6 +2349,11 @@ if($postprocess eq "false") {
                                            exit();
                                        }
 
+                                       # I should kill any shell
+                                       # scripts running in this
+                                       # directory, than any other
+                                       # processes running in this
+                                       # directory.
                                        $outdir = $output_dir;
                                        $str = `ps a | grep $outdir`;
                                        @candidates = split(/\n/,$str);
@@ -2584,6 +2597,7 @@ while($doneflag == 0) {
                }
                $outdir = $output_dir;
                $str = `ps a | grep $outdir`;
+               # Same; first any shell scripts, then any other proces
                @candidates = split(/\n/,$str);
                for($i=0; $i<@candidates; $i++) {
                    if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
@@ -2699,6 +2713,7 @@ while($doneflag == 0) {
                             }
                             $outdir = $output_dir;
                             $str = `ps a | grep $outdir`;
+                           # Same, first any shell scripts, then any proces
                             @candidates = split(/\n/,$str);
                             for($i=0; $i<@candidates; $i++) {
                                 if($candidates[$i] =~ /^\s*(\d+)\s.*(\s|\/)$outdir\/$name.$starttime.\d+.sh/) {
