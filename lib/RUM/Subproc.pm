@@ -278,9 +278,45 @@ sub _open_ps {
     return $ps;
 }
 
-1;
+=item kill_runaway_procs(OUTDIR, OPTIONS)
 
+Kill any "runaway" processes, whose command contains OUTDIR. We expect
+that any such processes are RUM-related. First we kill any scripts
+that look like <outdir>/<name>.<starttime>.<chunk>.sh. We kill them
+first because because those scripts kick off other scripts, and we
+want to stop these scripts from launching more programs
+immediately. Then we kill any other programs whose command contains my
+output directory.
 
+OPTIONS can contain the following keys:
+
+=over 4
+
+=item B<name>
+
+The name of the job to look for in the
+<outdir>/<name>.<starttime>.<chunk>.sh; if you leave this blank I'll
+kill jobs with any name.
+
+=item B<starttime>
+
+The start time of the job to kill. If you leave it blank I'll kill
+jobs with any start time.
+
+=item B<chunk>
+
+The chunk number to kill. If you leave it blank I'll kill
+jobs with any chunk number.
+
+=back
+
+B<TODO>: I'm not sure if it even makes sense to have the above
+options. I think we end up killing all processes that have the output
+directory in the command anyway. Eventually we should explicitly keep
+track of the PIDs of all the processes that we spawn so we know
+exactly which processes to kill.
+
+=cut
 
 sub kill_runaway_procs {
     my ($outdir, %options) = @_;
@@ -359,3 +395,7 @@ Mike DeLaurentis (delaurentis@gmail.com)
 Copyright 2012 University of Pennsylvania
 
 =cut
+
+1;
+
+
