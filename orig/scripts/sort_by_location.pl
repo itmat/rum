@@ -2,6 +2,9 @@
 
 $|=1;
 
+use strict;
+use warnings;
+
 use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
@@ -32,15 +35,18 @@ Usage: sort_by_location.pl <in file> <out file> [options]
 ";
 }
 
+my ($infile, $outfile) = @ARGV;
 
-$infile = $ARGV[0];
-$outfile = $ARGV[1];
+my $option_specified = "false";
+my $location = "false";
+my $locations = "false";
+my $skip = 0;
+my $location_column;
+my $chr_column;
+my $start_column;
+my $end_column;
 
-$option_specified = "false";
-$location = "false";
-$locations = "false";
-$skip = 0;
-for($i=2; $i<@ARGV; $i++) {
+for(my $i=2; $i<@ARGV; $i++) {
     if($ARGV[$i] eq "-location_column") {
 	$location_column = $ARGV[$i+1] - 1;
 	if(!($location_column =~ /^\d+$/)) {
@@ -82,24 +88,29 @@ if($option_specified eq "false") {
     die "\nError: one of the two options must be specified.\n\n";
 }
 
-open(INFILE, $infile);
-open(OUTFILE, ">$outfile");
-for($i=0; $i<$skip; $i++) {
-    $line = <INFILE>;
-    print OUTFILE $line;
+
+
+open my $in, "<", $infile;
+open my $out, ">", $outfile;
+for(my $i=0; $i<$skip; $i++) {
+    my $line = <$in>;
+    print $out $line;
 }
 
-while($line = <INFILE>) {
+my %hash;
+
+while (defined(my $line = <$in>)) {
     chomp($line);
-    @a = split(/\t/,$line);
-    if($location eq "true") {
-	$loc = $a[$location_column];
+    my @a = split(/\t/,$line);
+    my ($chr, $start, $end);
+    if ($location eq "true") {
+	my $loc = $a[$location_column];
 	$loc =~ /^(.*):(\d+)-(\d+)/;
 	$chr = $1;
 	$start = $2;
 	$end = $3;
     }
-    if($locations eq "true") {
+    if ($locations eq "true") {
 	$chr = $a[$chr_column];
 	$start = $a[$start_column];
 	$end = $a[$end_column];
@@ -107,14 +118,18 @@ while($line = <INFILE>) {
     $hash{$chr}{$line}[0] = $start;
     $hash{$chr}{$line}[1] = $end;
 }
-close(INFILE);
+close($in);
 
-foreach $chr (sort {cmpChrs($a,$b)} keys %hash) {
-    foreach $line (sort {$hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1])} keys %{$hash{$chr}}) {
+for my $chr (sort {cmpChrs($a,$b)} keys %hash) {
+    for my $line (sort {
+        $hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] ||
+        $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1]
+    } keys %{$hash{$chr}}) {
 	chomp($line);
 	if($line =~ /\S/) {
-	    print OUTFILE "$line\n";
+	    print $out "$line\n";
 	}
     }
 }
-close(OUTFILE);
+
+close($out);
