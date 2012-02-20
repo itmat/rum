@@ -1,7 +1,18 @@
 #!/usr/bin/perl
 
 $|=1;
-$timestart = time();
+
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+use Carp;
+
+use RUM::Common qw(roman Roman isroman arabic);
+use RUM::Sort qw(merge_iterators cmpChrs by_chromosome by_location);
+use RUM::FileIterator qw(file_iterator pop_it peek_it);
+use File::Copy qw(mv cp);
+use strict;
+
+my $timestart = time();
 if(@ARGV < 2) {
     die "
 Usage: sort_RUM_by_location.pl <rum file> <sorted file> [options]
@@ -22,27 +33,32 @@ Options: -separate : Do not (necessarily) keep forward and reverse
                      If you have some millions of reads and not at
                      least 4Gb then this is probably not going to work.
 
+         -allowsmallchunks : Allow -maxchunksize to be less than 500,000.
+                             This may be useful for testing purposes.
 ";
 }
 
+my $allowsmallchunks = 0;
 
-$separate = "false";
-$ram = 6;
-$infile = $ARGV[0];
-$outfile = $ARGV[1];
-$running_indicator_file = $ARGV[1];
+my $separate = 0;
+my $ram = 6;
+my $infile = $ARGV[0];
+my $outfile = $ARGV[1];
+my $running_indicator_file = $ARGV[1];
 $running_indicator_file =~ s![^/]+$!!;
 $running_indicator_file = $running_indicator_file . ".running";
 open(OUTFILE, ">$running_indicator_file") or die "ERROR: in script sort_RUM_by_location.pl: cannot open file '$running_indicator_file' for writing.\n\n";
 print OUTFILE "0";
 close(OUTFILE);
 
-$maxchunksize = 9000000;
-$maxchunksize_specified = "false";
-for($i=2; $i<@ARGV; $i++) {
-    $optionrecognized = 0;
+my $maxchunksize = 9000000;
+my $maxchunksize_specified = "false";
+my $name;
+my $allowsmallchunks;
+for(my $i=2; $i<@ARGV; $i++) {
+    my $optionrecognized = 0;
     if($ARGV[$i] eq "-separate") {
-	$separate = "true";
+	$separate = 1;
 	$optionrecognized = 1;
     }
     if($ARGV[$i] eq "-ram") {
@@ -71,14 +87,21 @@ for($i=2; $i<@ARGV; $i++) {
 	$i++;
 	$optionrecognized = 1;
     }
+    if ($ARGV[$i] eq "-allowsmallchunks") {
+        $allowsmallchunks = 1;
+        $optionrecognized = 1;
+    }
     if($optionrecognized == 0) {
 	die "\nERROR: in script sort_RUM_by_location.pl: option '$ARGV[$i]' not recognized\n";
     }
 }
-if ($maxchunksize < 500000) {
+# We have a test that exercises the ability to merge chunks together,
+# so allow max chunk sizes smaller than 500000 if that flag is set.
+if ($maxchunksize < 500000 && !$allowsmallchunks) {
     die "ERROR: in script sort_RUM_by_location.pl: <max chunk size> must at least 500,000.\n\n";
 }
 
+my $max_count_at_once;
 if($maxchunksize_specified eq "false") {
     if($ram >= 7) {
 	$max_count_at_once = 10000000;
@@ -98,14 +121,14 @@ if($maxchunksize_specified eq "false") {
 } else {
     $max_count_at_once = $maxchunksize;
 }
-
+my %chr_counts;
 &doEverything();
 
-$size_input = -s $infile;
-$size_output = -s $outfile;
+my $size_input = -s $infile;
+my $size_output = -s $outfile;
 
-$clean = "false";
-for($i=0; $i<2; $i++) {
+my $clean = "false";
+for(my $i=0; $i<2; $i++) {
     if($size_input != $size_output) {
 	print STDERR "Warning: from script sort_RUM_by_location.pl on \"$infile\": sorting failed, trying again.\n";
 	&doEverything();
@@ -114,7 +137,7 @@ for($i=0; $i<2; $i++) {
 	$i = 2;
 	$clean = "true";
 	print "\n$infile reads per chromosome:\n\nchr_name\tnum_reads\n";
-	foreach $chr (sort {cmpChrs($a,$b)} keys %chr_counts) {
+	foreach my $chr (sort by_chromosome keys %chr_counts) {
 	    print "$chr\t$chr_counts{$chr}\n";
 	}
     }
@@ -124,45 +147,50 @@ if($clean eq "false") {
     print STDERR "ERROR: from script sort_RUM_by_location.pl on \"$infile\": the size of the unsorted input ($size_input) and sorted output\nfiles ($size_output) are not equal.  I tried three times and it failed every\ntime.  Must be something strange about the input file...\n\n";
 }
 
-sub doEverything () {
+sub get_chromosome_counts {
+    use strict;
+    my ($infile) = @_;
+    open my $in, "<", $infile;
 
-    open(INFILE, $infile);
-    open(FINALOUT, ">$outfile");
+    my %counts;
 
-    undef %chr_counts;
-    undef @CHR;
-    undef @CHUNK;
-    undef %hash;
-
-    $num_prev = "0";
-    $type_prev = "";
-    while($line = <INFILE>) {
+    my $num_prev = "0";
+    my $type_prev = "";
+    while(my $line = <$in>) {
 	chomp($line);
-	@a = split(/\t/,$line);
+	my @a = split(/\t/,$line);
 	$line =~ /^seq.(\d+)([^\d])/;
-	$num = $1;
-	$type = $2;
+	my $num = $1;
+	my $type = $2;
 	if($num eq $num_prev && $type_prev eq "a" && $type eq "b") {
 	    $type_prev = $type;
 	    next;
 	}
 	if($a[1] =~ /\S/) {
-	    $chr_counts{$a[1]}++;
+	    $counts{$a[1]}++;
 	}
 	$num_prev = $num;
 	$type_prev = $type;
     }
-    close(INFILE);
-    
-    $cnt=0;
-    foreach $chr (sort {cmpChrs($a,$b)} keys %chr_counts) {
+    return %counts;
+}
+
+sub doEverything () {
+
+    open(FINALOUT, ">$outfile");
+    %chr_counts = get_chromosome_counts($infile);
+
+    my (@CHR, %CHUNK);
+
+    my $cnt=0;
+    foreach my $chr (sort by_chromosome keys %chr_counts) {
 	$CHR[$cnt] = $chr;
 	$cnt++;
     }
-    $chunk = 0;
+    my $chunk = 0;
     $cnt=0;
     while($cnt < @CHR) {
-	$running_count = $chr_counts{$CHR[$cnt]};
+	my $running_count = $chr_counts{$CHR[$cnt]};
 	$CHUNK{$CHR[$cnt]} = $chunk;
 	if($chr_counts{$CHR[$cnt]} > $max_count_at_once) { # it's bigger than $max_count_at_once all by itself..
 	    $CHUNK{$CHR[$cnt]} = $chunk;
@@ -184,16 +212,16 @@ sub doEverything () {
 #    print STDERR "$chr\t$CHUNK{$chr}\n";
 #}
 # DEBUG
-    
-    $numchunks = $chunk;
-    for($chunk=0;$chunk<$numchunks;$chunk++) {
+    my %F1;
+    my $numchunks = $chunk;
+    for(my $chunk=0;$chunk<$numchunks;$chunk++) {
 	open $F1{$chunk}, ">" . $infile . "_sorting_tempfile." . $chunk;
     }
     open(INFILE, $infile);
-    while($line = <INFILE>) {
+    while(my $line = <INFILE>) {
 	chomp($line);
-	@a = split(/\t/,$line);
-	$FF = $F1{$CHUNK{$a[1]}};
+	my @a = split(/\t/,$line);
+	my $FF = $F1{$CHUNK{$a[1]}};
 	if($line =~ /\S/) {
 	    print $FF "$line\n";
 	}
@@ -206,100 +234,72 @@ sub doEverything () {
     $chunk=0;
     
     while($cnt < @CHR) {
-	undef %chrs_current;
-	undef %hash;
-	$running_count = $chr_counts{$CHR[$cnt]};
+
+	my %chrs_current;
+	my $running_count = $chr_counts{$CHR[$cnt]};
 	$chrs_current{$CHR[$cnt]} = 1;
 	if($chr_counts{$CHR[$cnt]} > $max_count_at_once) { # it's a monster chromosome, going to do it in
 	    # pieces for fear of running out of RAM.
-	    $INFILE = $infile . "_sorting_tempfile." . $CHUNK{$CHR[$cnt]};
-	    open(INFILE, $INFILE);
-	    $FLAG = 0;
-	    $chunk_num = 0;
+	    my $INFILE = $infile . "_sorting_tempfile." . $CHUNK{$CHR[$cnt]};
+	    open my $foobar_in, "<", $INFILE;
+            my $it = file_iterator($foobar_in);
+	    my $FLAG = 0;
+	    my $chunk_num = 0;
 	    while($FLAG == 0) {
 		$chunk_num++;
-		$number_so_far = 0;
-		undef %hash;
-		$chunkFLAG = 0;
+		my $number_so_far = 0;
+		my $chunkFLAG = 0;
+                my @recs;
 		# read in one chunk:
 		while($chunkFLAG == 0) {
-		    $line = <INFILE>;
-		    chomp($line);
-		    if($line eq '') {
+                    my $rec = pop_it($it);
+		    unless ($rec) {
 			$chunkFLAG = 1;
 			$FLAG = 1;
 			next;
 		    }
-		    @a = split(/\t/,$line);
-		    $chr = $a[1];
+                    push @recs, $rec;
+
 		    $number_so_far++;
 		    if($number_so_far>$max_count_at_once) {
 			$chunkFLAG=1;
 		    }
-		    $a[2] =~ /^(\d+)-/;
-		    $start = $1;
-		    if($a[0] =~ /a/ && $separate eq "false") {
-			$a[0] =~ /(\d+)/;
-			$seqnum1 = $1;
-			$line2 = <INFILE>;
-			chomp($line2);
-			@b = split(/\t/,$line2);
-			$b[0] =~ /(\d+)/;
-			$seqnum2 = $1;
-			if($seqnum1 == $seqnum2 && $b[0] =~ /b/) {
-			    if($a[3] eq "+") {
-				$b[2] =~ /-(\d+)$/;
-				$end = $1;
-			    } else {
-				$b[2] =~ /^(\d+)-/;
-				$start = $1;
-				$a[2] =~ /-(\d+)$/;
-				$end = $1;
-			    }
-			    $hash{$line . "\n" . $line2}[0] = $start;
-			    $hash{$line . "\n" . $line2}[1] = $end;
-			    $number_so_far++;
-			} else {
-			    $a[2] =~ /-(\d+)$/;
-			    $end = $1;
-			    # reset the file handle so the last line read will be read again
-			    $len = -1 * (1 + length($line2));
-			    seek(INFILE, $len, 1);
-			    $hash{$line}[0] = $start;
-			    $hash{$line}[1] = $end;
-			}
-		    } else {
-			$a[2] =~ /-(\d+)$/;
-			$end = $1;
-			$hash{$line}[0] = $start;
-			$hash{$line}[1] = $end;
-		    }
 		}
 		# write out this chunk sorted:
-		if($chunk_num == 1) {
-		    $tempfilename = $CHR[$cnt] . "_temp.0";
-		} else {
-		    $tempfilename = $CHR[$cnt] . "_temp.1";
-		}
+                my $suffix = $chunk_num == 1 ? 0 : 1;
+                my $tempfilename = $CHR[$cnt] . "_temp.$suffix";
 		
 		open(OUTFILE,">$tempfilename");
-		foreach $line (sort {$hash{$a}[0]<=>$hash{$b}[0] || ($hash{$a}[0]==$hash{$b}[0] && $hash{$a}[1]<=>$hash{$b}[1])} keys %hash) {
-		    chomp($line);
-		    if($line =~ /\S/) {
-			print OUTFILE $line;
-			print OUTFILE "\n";
-		    }
+		foreach my $rec (sort by_location @recs) {
+		    print OUTFILE "$rec->{entry}\n";
 		}
 		close(OUTFILE);
 		
 		# merge with previous chunk (if necessary):
 #	    print "chunk_num = $chunk_num\n";
 		if($chunk_num > 1) {
-		    &merge();
+
+                    my @tempfiles = map "$CHR[$cnt]_temp.$_", (0,1,2);
+
+                    open my $in1, "<", $tempfiles[0]
+                        or croak "Can't open $tempfiles[0] for reading: $!";
+                    open my $in2, "<", $tempfiles[1]
+                        or croak "Can't open $tempfiles[1] for reading: $!";
+                    open my $temp_merged_out, ">", $tempfiles[2]
+                        or croak "Can't open $tempfiles[2] for writing: $!";
+
+                    my @iters = (
+                        file_iterator($in1, separate => $separate),
+                        file_iterator($in2, separate => $separate));
+		    merge_iterators($temp_merged_out, @iters);
+                    close($temp_merged_out);
+                    
+                    mv $tempfiles[2], $tempfiles[0]
+                        or croak "Couldn't move $tempfiles[2] to $tempfiles[0]: $!";
+                    unlink($tempfiles[1]);
 		}
 	    }
-	    close(INFILE);
-	    $tempfilename = $CHR[$cnt] . "_temp.0";
+	    my $tempfilename = $CHR[$cnt] . "_temp.0";
 	    close(FINALOUT);
 	    `cat $tempfilename >> $outfile`;
 	    open(FINALOUT, ">>$outfile");
@@ -321,69 +321,15 @@ sub doEverything () {
 	    $chrs_current{$CHR[$cnt]} = 1;
 	    $cnt++;
 	}
-	$INFILE = $infile . "_sorting_tempfile." . $chunk;
-	open(INFILE, $INFILE);
-	while($line = <INFILE>) {
-	    chomp($line);
-	    @a = split(/\t/,$line);
-	    $chr = $a[1];
-	    $a[2] =~ /^(\d+)-/;
-	    $start = $1;
-	    if($a[0] =~ /a/ && $separate eq "false") {
-		$a[0] =~ /(\d+)/;
-		$seqnum1 = $1;
-		$line2 = <INFILE>;
-		chomp($line2);
-		@b = split(/\t/,$line2);
-		$b[0] =~ /(\d+)/;
-		$seqnum2 = $1;
-		if($seqnum1 == $seqnum2 && $b[0] =~ /b/) {
-		    if($a[3] eq "+") {
-			$b[2] =~ /-(\d+)$/;
-			$end = $1;
-		    } else {
-			$b[2] =~ /^(\d+)-/;
-			$start = $1;
-			$a[2] =~ /-(\d+)$/;
-			$end = $1;
-		    }
-		    $hash{$chr}{$line . "\n" . $line2}[0] = $start;
-		    $hash{$chr}{$line . "\n" . $line2}[1] = $end;
-		} else {
-		    $a[2] =~ /-(\d+)$/;
-		    $end = $1;
-		    # reset the file handle so the last line read will be read again
-		    $len = -1 * (1 + length($line2));
-		    seek(INFILE, $len, 1);
-		    $hash{$chr}{$line}[0] = $start;
-		    $hash{$chr}{$line}[1] = $end;
-		}
-	    } else {
-		$a[2] =~ /-(\d+)$/;
-		$end = $1;
-		$hash{$chr}{$line}[0] = $start;
-		$hash{$chr}{$line}[1] = $end;
-	    }
-	}
-	close(INFILE);
-	foreach $chr (sort {cmpChrs($a,$b)} keys %hash) {
-	    foreach $line (sort {$hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] || ($hash{$chr}{$a}[0]==$hash{$chr}{$b}[0] && $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1])} keys %{$hash{$chr}}) {
-		chomp($line);
-		if($line =~ /\S/) {
-		    print FINALOUT $line;
-		    print FINALOUT "\n";
-		}
-	    }
-	    close(FINALOUT);
-	    open(FINALOUT, ">>$outfile"); # did this just to flush the buffer
-	}
+	my $INFILE = $infile . "_sorting_tempfile." . $chunk;
+	open(my $foo_in, $INFILE);
+        sort_one_file($foo_in, *FINALOUT, $separate);
 	$chunk++;
     }
     close(FINALOUT);
     
     for($chunk=0;$chunk<$numchunks;$chunk++) {
-	$tempfile =  $infile . "_sorting_tempfile." . $chunk;
-	unlink($tempfile);
+	unlink($infile . "_sorting_tempfile." . $chunk);
     }
 #$timeend = time();
 #$timelapse = $timeend - $timestart;
@@ -414,387 +360,18 @@ sub doEverything () {
     unlink($running_indicator_file);
 }
 
-sub cmpChrs () {
-    $a2_c = lc($b);
-    $b2_c = lc($a);
-    if($a2_c =~ /^\d+$/ && !($b2_c =~ /^\d+$/)) {
-        return 1;
-    }
-    if($b2_c =~ /^\d+$/ && !($a2_c =~ /^\d+$/)) {
-        return -1;
-    }
-    if($a2_c =~ /^[ivxym]+$/ && !($b2_c =~ /^[ivxym]+$/)) {
-        return 1;
-    }
-    if($b2_c =~ /^[ivxym]+$/ && !($a2_c =~ /^[ivxym]+$/)) {
-        return -1;
-    }
-    if($a2_c eq 'm' && ($b2_c eq 'y' || $b2_c eq 'x')) {
-        return -1;
-    }
-    if($b2_c eq 'm' && ($a2_c eq 'y' || $a2_c eq 'x')) {
-        return 1;
-    }
-    if($a2_c =~ /^[ivx]+$/ && $b2_c =~ /^[ivx]+$/) {
-        $a2_c = "chr" . $a2_c;
-        $b2_c = "chr" . $b2_c;
-    }
-    if($a2_c =~ /$b2_c/) {
-	return -1;
-    }
-    if($b2_c =~ /$a2_c/) {
-	return 1;
-    }
-    # dealing with roman numerals starts here
-    if($a2_c =~ /chr([ivx]+)/ && $b2_c =~ /chr([ivx]+)/) {
-	$a2_c =~ /chr([ivx]+)/;
-	$a2_roman = $1;
-	$b2_c =~ /chr([ivx]+)/;
-	$b2_roman = $1;
-	$a2_arabic = arabic($a2_roman);
-    	$b2_arabic = arabic($b2_roman);
-	if($a2_arabic > $b2_arabic) {
-	    return -1;
-	} 
-	if($a2_arabic < $b2_arabic) {
-	    return 1;
-	}
-	if($a2_arabic == $b2_arabic) {
-	    $tempa = $a2_c;
-	    $tempb = $b2_c;
-	    $tempa =~ s/chr([ivx]+)//;
-	    $tempb =~ s/chr([ivx]+)//;
-	    undef %temphash;
-	    $temphash{$tempa}=1;
-	    $temphash{$tempb}=1;
-	    foreach $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
-		if($tempkey eq $tempa) {
-		    return 1;
-		} else {
-		    return -1;
-		}
-	    }
-	}
-    }
-    if($b2_c =~ /chr([ivx]+)/ && !($a2_c =~ /chr([a-z]+)/) && !($a2_c =~ /chr(\d+)/)) {
-	return -1;
-    }
-    if($a2_c =~ /chr([ivx]+)/ && !($b2_c =~ /chr([a-z]+)/) && !($b2_c =~ /chr(\d+)/)) {
-	return 1;
-    }
-    if($b2_c =~ /m$/ && $a2_c =~ /vi+/) {
-	return 1;
-    }
-    if($a2_c =~ /m$/ && $b2_c =~ /vi+/) {
-	return -1;
+sub sort_one_file {
+    my ($in, $out, $separate) = @_;
+    use strict;
+    my $it = file_iterator($in, separate => $separate);
+    my @recs;
+    while (my $rec = pop_it($it)) {
+        push @recs, $rec;
     }
 
-    # roman numerals ends here
-    if($a2_c =~ /chr(\d+)$/ && $b2_c =~ /chr.*_/) {
-        return 1;
-    }
-    if($b2_c =~ /chr(\d+)$/ && $a2_c =~ /chr.*_/) {
-        return -1;
-    }
-    if($a2_c =~ /chr([a-z])$/ && $b2_c =~ /chr.*_/) {
-        return 1;
-    }
-    if($b2_c =~ /chr([a-z])$/ && $a2_c =~ /chr.*_/) {
-        return -1;
-    }
-    if($a2_c =~ /chr(\d+)/) {
-        $numa = $1;
-        if($b2_c =~ /chr(\d+)/) {
-            $numb = $1;
-            if($numa < $numb) {return 1;}
-	    if($numa > $numb) {return -1;}
-	    if($numa == $numb) {
-		$tempa = $a2_c;
-		$tempb = $b2_c;
-		$tempa =~ s/chr\d+//;
-		$tempb =~ s/chr\d+//;
-		undef %temphash;
-		$temphash{$tempa}=1;
-		$temphash{$tempb}=1;
-		foreach $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
-		    if($tempkey eq $tempa) {
-			return 1;
-		    } else {
-			return -1;
-		    }
-		}
-	    }
-        } else {
-            return 1;
-        }
-    }
-    if($a2_c =~ /chrx(.*)/ && ($b2_c =~ /chr(y|m)$1/)) {
-	return 1;
-    }
-    if($b2_c =~ /chrx(.*)/ && ($a2_c =~ /chr(y|m)$1/)) {
-	return -1;
-    }
-    if($a2_c =~ /chry(.*)/ && ($b2_c =~ /chrm$1/)) {
-	return 1;
-    }
-    if($b2_c =~ /chry(.*)/ && ($a2_c =~ /chrm$1/)) {
-	return -1;
-    }
-    if($a2_c =~ /chr\d/ && !($b2_c =~ /chr[^\d]/)) {
-	return 1;
-    }
-    if($b2_c =~ /chr\d/ && !($a2_c =~ /chr[^\d]/)) {
-	return -1;
-    }
-    if($a2_c =~ /chr[^xy\d]/ && (($b2_c =~ /chrx/) || ($b2_c =~ /chry/))) {
-        return -1;
-    }
-    if($b2_c =~ /chr[^xy\d]/ && (($a2_c =~ /chrx/) || ($a2_c =~ /chry/))) {
-        return 1;
-    }
-    if($a2_c =~ /chr(\d+)/ && !($b2_c =~ /chr(\d+)/)) {
-        return 1;
-    }
-    if($b2_c =~ /chr(\d+)/ && !($a2_c =~ /chr(\d+)/)) {
-        return -1;
-    }
-    if($a2_c =~ /chr([a-z])/ && !($b2_c =~ /chr(\d+)/) && !($b2_c =~ /chr[a-z]+/)) {
-        return 1;
-    }
-    if($b2_c =~ /chr([a-z])/ && !($a2_c =~ /chr(\d+)/) && !($a2_c =~ /chr[a-z]+/)) {
-        return -1;
-    }
-    if($a2_c =~ /chr([a-z]+)/) {
-        $letter_a = $1;
-        if($b2_c =~ /chr([a-z]+)/) {
-            $letter_b = $1;
-            if($letter_a lt $letter_b) {return 1;}
-	    if($letter_a gt $letter_b) {return -1;}
-        } else {
-            return -1;
-        }
-    }
-    $flag_c = 0;
-    while($flag_c == 0) {
-        $flag_c = 1;
-        if($a2_c =~ /^([^\d]*)(\d+)/) {
-            $stem1_c = $1;
-            $num1_c = $2;
-            if($b2_c =~ /^([^\d]*)(\d+)/) {
-                $stem2_c = $1;
-                $num2_c = $2;
-                if($stem1_c eq $stem2_c && $num1_c < $num2_c) {
-                    return 1;
-                }
-                if($stem1_c eq $stem2_c && $num1_c > $num2_c) {
-                    return -1;
-                }
-                if($stem1_c eq $stem2_c && $num1_c == $num2_c) {
-                    $a2_c =~ s/^$stem1_c$num1_c//;
-                    $b2_c =~ s/^$stem2_c$num2_c//;
-                    $flag_c = 0;
-                }
-            }
-        }
-    }
-    if($a2_c le $b2_c) {
-	return 1;
-    }
-    if($b2_c le $a2_c) {
-	return -1;
-    }
-
-
-    return 1;
-}
-
-sub merge() {
-    $tempfilename1 = $CHR[$cnt] . "_temp.0";
-    $tempfilename2 = $CHR[$cnt] . "_temp.1";
-    $tempfilename3 = $CHR[$cnt] . "_temp.2";
-    open(TEMPMERGEDOUT, ">$tempfilename3");
-    open(TEMPIN1, $tempfilename1);
-    open(TEMPIN2, $tempfilename2);
-    $mergeFLAG = 0;
-    getNext1();
-    getNext2();
-    while($mergeFLAG < 2) {
-	chomp($out1);
-	chomp($out2);
-	if($start1 < $start2) {
-	    if($out1 =~ /\S/) {
-		print TEMPMERGEDOUT "$out1\n";
-	    }
-	    getNext1();
-	} elsif($start1 == $start2) {
-	    if($end1 <= $end2) {
-		if($out1 =~ /\S/) {
-		    print TEMPMERGEDOUT "$out1\n";
-		}
-		getNext1();
-	    } else {
-		if($out2 =~ /\S/) {
-		    print TEMPMERGEDOUT "$out2\n";
-		}
-		getNext2();
-	    }
-	} else {
-	    if($out2 =~ /\S/) {
-		print TEMPMERGEDOUT "$out2\n";
-	    }
-	    getNext2();
-	}
-    }
-    close(TEMPMERGEDOUT);
-    `mv $tempfilename3 $tempfilename1`;
-    unlink($tempfilename2);
-}
-
-sub getNext1 () {
-    $line1 = <TEMPIN1>;
-    chomp($line1);
-    if($line1 eq '') {
-	$mergeFLAG++;
-	$start1 = 1000000000000;  # effectively infinity, no chromosome should be this large;
-	return "";
-    }
-    @a = split(/\t/,$line1);
-    $a[2] =~ /^(\d+)-/;
-    $start1 = $1;
-    if($a[0] =~ /a/ && $separate eq "false") {
-	$a[0] =~ /(\d+)/;
-	$seqnum1 = $1;
-	$line2 = <TEMPIN1>;
-	chomp($line2);
-	@b = split(/\t/,$line2);
-	$b[0] =~ /(\d+)/;
-	$seqnum2 = $1;
-	if($seqnum1 == $seqnum2 && $b[0] =~ /b/) {
-	    if($a[3] eq "+") {
-		$b[2] =~ /-(\d+)$/;
-		$end1 = $1;
-	    } else {
-		$b[2] =~ /^(\d+)-/;
-		$start1 = $1;
-		$a[2] =~ /-(\d+)$/;
-		$end1 = $1;
-	    }
-	    $out1 = $line1 . "\n" . $line2;
-	} else {
-	    $a[2] =~ /-(\d+)$/;
-	    $end1 = $1;
-	    # reset the file handle so the last line read will be read again
-	    $len = -1 * (1 + length($line2));
-	    seek(TEMPIN1, $len, 1);
-	    $out1 = $line1;
-	}
-    } else {
-	$a[2] =~ /-(\d+)$/;
-	$end1 = $1;
-	$out1 = $line1;
+    for my $rec (sort by_location @recs) {
+        print $out "$rec->{entry}\n";
     }
 }
 
-sub getNext2 () {
-    $line1 = <TEMPIN2>;
-    chomp($line1);
-    if($line1 eq '') {
-	$mergeFLAG++;
-	$start2 = 1000000000000;  # effectively infinity, no chromosome should be this large;
-	return "";
-    }
-    @a = split(/\t/,$line1);
-    $a[2] =~ /^(\d+)-/;
-    $start2 = $1;
-    if($a[0] =~ /a/ && $separate eq "false") {
-	$a[0] =~ /(\d+)/;
-	$seqnum1 = $1;
-	$line2 = <TEMPIN2>;
-	chomp($line2);
-	@b = split(/\t/,$line2);
-	$b[0] =~ /(\d+)/;
-	$seqnum2 = $1;
-	if($seqnum1 == $seqnum2 && $b[0] =~ /b/) {
-	    if($a[3] eq "+") {
-		$b[2] =~ /-(\d+)$/;
-		$end2 = $1;
-	    } else {
-		$b[2] =~ /^(\d+)-/;
-		$start2 = $1;
-		$a[2] =~ /-(\d+)$/;
-		$end2 = $1;
-	    }
-	    $out2 = $line1 . "\n" . $line2;
-	} else {
-	    $a[2] =~ /-(\d+)$/;
-	    $end2 = $1;
-	    # reset the file handle so the last line read will be read again
-	    $len = -1 * (1 + length($line2));
-	    seek(TEMPIN2, $len, 1);
-	    $out2 = $line1;
-	}
-    } else {
-	$a[2] =~ /-(\d+)$/;
-	$end2 = $1;
-	$out2 = $line1;
-    }
-}
 
-sub isroman($) {
-    $arg = shift;
-    $arg ne '' and
-      $arg =~ /^(?: M{0,3})
-                (?: D?C{0,3} | C[DM])
-                (?: L?X{0,3} | X[LC])
-                (?: V?I{0,3} | I[VX])$/ix;
-}
-
-sub arabic($) {
-    $arg = shift;
-    %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
-    %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
-    @figure = reverse sort keys %roman_digit;
-    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    isroman $arg or return undef;
-    ($last_digit) = 1000;
-    $arabic = 0;
-    ($arabic);
-    foreach (split(//, uc $arg)) {
-        ($digit) = $roman2arabic{$_};
-        $arabic -= 2 * $last_digit if $last_digit < $digit;
-        $arabic += ($last_digit = $digit);
-    }
-    $arabic;
-}
-
-sub Roman($) {
-    $arg = shift;
-    %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
-    %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
-    @figure = reverse sort keys %roman_digit;
-    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    0 < $arg and $arg < 4000 or return undef;
-    $roman = "";
-    ($x, $roman);
-    foreach (@figure) {
-        ($digit, $i, $v) = (int($arg / $_), @{$roman_digit{$_}});
-        if (1 <= $digit and $digit <= 3) {
-            $roman .= $i x $digit;
-        } elsif ($digit == 4) {
-            $roman .= "$i$v";
-        } elsif ($digit == 5) {
-            $roman .= $v;
-        } elsif (6 <= $digit and $digit <= 8) {
-            $roman .= $v . $i x ($digit - 5);
-        } elsif ($digit == 9) {
-            $roman .= "$i$x";
-        }
-        $arg -= $digit * $_;
-        $x = $i;
-    }
-    $roman;
-}
-
-sub roman($) {
-    lc Roman shift;
-}

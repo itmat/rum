@@ -3,6 +3,11 @@
 # Written by Gregory R. Grant
 # University of Pennsylvania, 2010
 
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(getave addJunctionsToSeq);
+
 if(@ARGV < 1) {
     die "
 Usage: sam2rum.pl <sam file> <RUM Unique outfile> <RUM NU outfile> [options]
@@ -517,37 +522,4 @@ sub merge () {
 	$merged_seq = $seq1 . $suffix;
 	return ($merged, $merged_seq);
     }
-}
-
-sub addJunctionsToSeq () {
-    ($seq, $spans) = @_;
-    $seq =~ s/://g;
-    @s = split(//,$seq);
-    @b = split(/, /,$spans);
-    $seq_out = "";
-    $place = 0;
-    for($j=0; $j<@b; $j++) {
-	@c = split(/-/,$b[$j]);
-	$len = $c[1] - $c[0] + 1;
-	if($seq_out =~ /\S/) { # to avoid putting a colon at the beginning
-	    $seq_out = $seq_out . ":";
-	}
-	for($k=0; $k<$len; $k++) {
-	    if($s[$place] eq "+") {
-		$seq_out = $seq_out . $s[$place];
-		$place++;
-		until($s[$place] eq "+") {
-		    $seq_out = $seq_out . $s[$place];
-		    $place++;
-		    if($place > @s-1) {
-			last;
-		    }
-		}
-		$k--;
-	    }
-	    $seq_out = $seq_out . $s[$place];
-	    $place++;
-	}
-    }
-    return $seq_out;
 }

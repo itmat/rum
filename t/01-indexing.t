@@ -11,7 +11,7 @@ use Log::Log4perl qw(:easy);
 BEGIN { 
   use_ok('RUM::Script', qw(:scripts get_options));
 
-  use_ok('RUM::ChrCmp', qw(cmpChrs by_chromosome));
+  use_ok('RUM::Sort', qw(cmpChrs by_chromosome));
 }
 
 sub transform_ok {

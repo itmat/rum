@@ -3,6 +3,9 @@ package RUM::Script;
 use strict;
 use warnings;
 
+use RUM::Common qw(reversecomplement);
+use RUM::Workflow qw(report);
+
 =pod
 
 =head1 NAME
@@ -115,7 +118,7 @@ our @EXPORT_OK = qw(get_options
                     show_usage);
 Exporter::export_ok_tags('scripts');
 
-use RUM::ChrCmp qw(cmpChrs by_chromosome);
+use RUM::Sort qw(cmpChrs by_chromosome);
 
 =item get_options OPTIONS
 
@@ -872,43 +875,6 @@ sub print_genes {
 
 }
 
-=item reversecomplement SEQUENCE
-
-Return the reverse complement of SEQUENCE.
-
-=cut
-
-sub reversecomplement {
-
-  my ($sq) = @_;
-  my @A = split(//,$sq);
-  my $rev = "";
-  my $flag;
-  for (my $i=@A-1; $i>=0; $i--) {
-    $flag = 0;
-    if($A[$i] eq 'A') {
-      $rev = $rev . "T";
-      $flag = 1;
-    }
-    if($A[$i] eq 'T') {
-      $rev = $rev . "A";
-      $flag = 1;
-    }
-    if($A[$i] eq 'C') {
-      $rev = $rev . "G";
-      $flag = 1;
-    }
-    if($A[$i] eq 'G') {
-      $rev = $rev . "C";
-      $flag = 1;
-    }
-    if($flag == 0) {
-      $rev = $rev . $A[$i];
-    }
-  }
-  return $rev;
-}
-
 ################################################################################
 
 
@@ -1020,17 +986,6 @@ sub _open_in_and_out {
   my ($in, $out, @args) = @_;
   return (_open_in($in), _open_out($out), @args);
 }
-
-=item report MSG
-
-Log the given message at the info level with indentation.
-
-=cut
-
-sub report {
-  INFO "  @_";
-}
-
 
 =back
 

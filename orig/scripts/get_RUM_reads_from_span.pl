@@ -1,3 +1,7 @@
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(format_large_int);
 
 if(@ARGV < 2) {
     die "
@@ -359,19 +363,3 @@ if($vertical eq 'true') {
     }
 }
 
-sub format_large_int () {
-    ($int_f) = @_;
-    @a_f = split(//,"$int_f");
-    $j_f=0;
-    $newint_f = "";
-    $n_f = @a_f;
-    for($i_f=$n_f-1;$i_f>=0;$i_f--) {
-	$j_f++;
-	$newint_f = $a_f[$i_f] . $newint_f;
-	if($j_f % 3 == 0) {
-	    $newint_f = "," . $newint_f;
-	}
-    }
-    $newint_f =~ s/^,//;
-    return $newint_f;
-}

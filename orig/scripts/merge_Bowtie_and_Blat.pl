@@ -5,6 +5,11 @@
 
 $|=1;
 
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(addJunctionsToSeq spansTotalLength);
+
 if(@ARGV < 7) {
     die "
 Usage: merge_BowtieUnique_and_BlatUnique.pl <Bowtie Unique infile> <BLAT Unique infile> <Bowtie NU infile> <BLAT NU infile> <RUM Unique outfile> <RUM NU outfile> <type>
@@ -942,62 +947,4 @@ sub intersect () {
     }
 }
 
-sub addJunctionsToSeq () {
-    ($seq, $spans) = @_;
-    $seq =~ s/://g;
-    @s_j = split(//,$seq);
-    @b_j = split(/, /,$spans);
-    $seq_out = "";
-    $place_j = 0;
-    for($j_j=0; $j_j<@b_j; $j_j++) {
-	@c_j = split(/-/,$b_j[$j_j]);
-	$len_j = $c_j[1] - $c_j[0] + 1;
-	if($seq_out =~ /\S/) { # to avoid putting a colon at the beginning
-	    $seq_out = $seq_out . ":";
-	}
-	for($k_j=0; $k_j<$len_j; $k_j++) {
-	    if($s_j[$place_j] eq "+") {
-		$seq_out = $seq_out . $s_j[$place_j];
-		$place_j++;
-		until($s_j[$place_j] eq "+") {
-		    $seq_out = $seq_out . $s_j[$place_j];
-		    $place_j++;
-		    if($place_j > @s_j-1) {
-			last;
-		    }
-		}
-		$k_j--;
-	    }
-	    $seq_out = $seq_out . $s_j[$place_j];
-	    $place_j++;
-	}
-    }
-    return $seq_out;
-}
 
-sub spansTotalLength () {
-    ($spans) = @_;
-    @a_s = split(/, /,$spans);
-    $length_s = 0;
-    for($i_s=0; $i_s<@a_s; $i_s++) {
-	@b_s = split(/-/,$a_s[$i_s]);
-	$length_s = $length_s + $b_s[1] - $b_s[0] + 1;
-    }
-    return $length_s;
-}
-
-sub getave () {
-    ($spans_x) = @_;
-
-    @SS3 = split(/, /, $spans_x);
-    $spanave = 0;
-    $spanlen = 0;
-    for($ss3=0; $ss3<@SS3; $ss3++) {
-	@SS4 = split(/-/, $SS3[$ss3]);
-	$spanave = $spanave + $SS4[1]*($SS4[1]+1)/2 - $SS4[0]*($SS4[0]-1)/2;
-	$spanlen = $spanlen + $SS4[1] - $SS4[0] + 1;
-    }
-    $spanave = $spanave / $spanlen;
-
-    return $spanave;
-}

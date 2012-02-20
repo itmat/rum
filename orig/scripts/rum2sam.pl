@@ -5,6 +5,11 @@
 
 $|=1;
 
+use FindBin qw($Bin);
+use lib "$Bin/../../lib";
+
+use RUM::Common qw(addJunctionsToSeq reversecomplement spansTotalLength);
+
 if(@ARGV < 5) {
     die "
 Usage: rum2sam.pl <rum unique file> <rum nu file> <reads file> <quals file> <sam outfile> [options]
@@ -1072,75 +1077,5 @@ sub getprefix () {
     }
 }
 
-sub spansTotalLength () {
-    ($spans) = @_;
-    @a = split(/, /,$spans);
-    $length = 0;
-    for($i=0; $i<@a; $i++) {
-	@b = split(/-/,$a[$i]);
-	$length = $length + $b[1] - $b[0] + 1;
-    }
-    return $length;
-}
 
-sub reversecomplement () {
-    ($sq) = @_;
-    @A = split(//,$sq);
-    $rev = "";
-    for($i=@A-1; $i>=0; $i--) {
-	$flag = 0;
-	if($A[$i] eq 'A') {
-	    $rev = $rev . "T";
-	    $flag = 1;
-	}
-	if($A[$i] eq 'T') {
-	    $rev = $rev . "A";
-	    $flag = 1;
-	}
-	if($A[$i] eq 'C') {
-	    $rev = $rev . "G";
-	    $flag = 1;
-	}
-	if($A[$i] eq 'G') {
-	    $rev = $rev . "C";
-	    $flag = 1;
-	}
-	if($flag == 0) {
-	    $rev = $rev . $A[$i];
-	}
-    }
-    return $rev;
-}
 
-sub addJunctionsToSeq () {
-    ($seq, $spans) = @_;
-    $seq =~ s/://g;
-    @s = split(//,$seq);
-    @b = split(/, /,$spans);
-    $seq_out = "";
-    $place = 0;
-    for($j=0; $j<@b; $j++) {
-	@c = split(/-/,$b[$j]);
-	$len = $c[1] - $c[0] + 1;
-	if($seq_out =~ /\S/) { # to avoid putting a colon at the beginning
-	    $seq_out = $seq_out . ":";
-	}
-	for($k=0; $k<$len; $k++) {
-	    if($s[$place] eq "+") {
-		$seq_out = $seq_out . $s[$place];
-		$place++;
-		until($s[$place] eq "+") {
-		    $seq_out = $seq_out . $s[$place];
-		    $place++;
-		    if($place > @s-1) {
-			last;
-		    }
-		}
-		$k--;
-	    }
-	    $seq_out = $seq_out . $s[$place];
-	    $place++;
-	}
-    }
-    return $seq_out;
-}

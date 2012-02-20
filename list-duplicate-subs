@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+# -*- python -*-
+
+# Prints out a list of subroutines that are defined in multiple
+# places.
+
+import os
+import re
+from collections import namedtuple
+from itertools import dropwhile, takewhile, groupby
+from os.path import basename
+import sys
+
+perl_re = re.compile(".*\.(pl|pm)$")    
+sub_start = re.compile("sub\s+(\w+).*")
+skip_re = re.compile("blib|subs")
+
+output_dir = "subs"
+
+Sub = namedtuple('Sub', ['name', 'path', 'raw', 'trimmed']);
+
+def extract_subs(path):
+    subs = []
+
+    name = None
+    raw = ""
+    trimmed = ""
+
+    if not os.access(output_dir, os.R_OK):
+        os.mkdir(output_dir)
+    try:
+        with open(path) as lines:
+            for line in lines:
+                m = sub_start.match(line)
+                if m is not None:
+                    name = m.group(1)
+                elif line.startswith("}") and name is not None:
+                    subs.append(Sub(name, path, raw, trimmed))
+                    name = None
+                    raw = ""
+                    trimmed = ""
+                if name is not None:
+                    raw += line
+                    trimmed += line.strip() + "\n"
+        lines.close()
+        return subs
+
+    except IOError as e:
+        print e
+
+
+def extract_all_subs():
+    subs = []
+    for dir,subdirs,filenames in os.walk("."):
+        for filename in filenames:
+            if perl_re.match(filename) and not re.search(skip_re, dir):
+                path = dir + "/" + filename
+                subs += extract_subs(path)
+    return subs
+
+def main(names=[]):
+
+    if not os.access(output_dir, os.R_OK):
+        os.mkdir(output_dir)
+
+    all_subs = extract_all_subs()
+
+    if len(names) > 0:
+        all_subs = filter(lambda s: s.name in names, all_subs)
+
+    all_subs = sorted(all_subs, key=lambda x: x.name)
+
+    for name, subs in groupby(all_subs, lambda x: x.name):
+        subs = sorted(subs, key=lambda x: x.trimmed)
+        if len(subs) == 1:
+            continue
+        print "%s:" % name
+        version = 0
+        for trimmed, defs in groupby(subs, lambda x: x.trimmed):
+            defs = list(defs)
+            version += 1
+            print "  version %d, %d lines" % (version, 
+                                              len(defs[0].raw.splitlines()))
+            for sub in defs:
+                print "    %s" % basename(sub.path)
+                filename = "subs/%s.%s" % (sub.name, basename(sub.path))
+                with open(filename, "w") as f:
+                    f.write(sub.raw)
+                f.close()
+        print
+
+main(sys.argv[1:])
