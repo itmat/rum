@@ -5,7 +5,7 @@ $|=1;
 use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
-use RUM::ChrCmp qw(cmpChrs);
+use RUM::Sort qw(cmpChrs);
 
 if(@ARGV < 4) {
     die "

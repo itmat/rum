@@ -1,4 +1,4 @@
-package RUM::ChrCmp;
+package RUM::Sort;
 
 use strict;
 use warnings;
@@ -11,7 +11,7 @@ use RUM::Common qw(roman Roman isroman arabic);
 
 =head1 NAME
 
-RUM::ChrCmp - Utilities for comparing chromosome names.
+RUM::Sort - Utilities for comparing chromosome names.
 
 =head1 VERSION
 
@@ -23,7 +23,7 @@ our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
-  use RUM::ChrCmp qw(cmpChrs sort_by_chromosome);
+  use RUM::Sort qw(cmpChrs sort_by_chromosome);
 
   @chromosomes = sort cmpChrs @chromosomes;
   @chromosomes = sort_by_chromosome @chromosomes;

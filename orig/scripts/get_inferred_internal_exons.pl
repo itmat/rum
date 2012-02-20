@@ -6,7 +6,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::ChrCmp qw(by_chromosome);
+use RUM::Sort qw(by_chromosome);
 
 if(@ARGV<4) {
     die "

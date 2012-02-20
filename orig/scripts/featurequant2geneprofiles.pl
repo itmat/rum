@@ -9,7 +9,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::ChrCmp qw(cmpChrs);
+use RUM::Sort qw(cmpChrs);
 
 if(@ARGV<1 || $ARGV[0] eq "/help/") {
     print "\nUsage: featurequant2geneprofiles.pl <outfile> <feature_quantification_files> [options]\n\n";

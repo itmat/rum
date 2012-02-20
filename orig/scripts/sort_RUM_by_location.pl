@@ -6,7 +6,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::ChrCmp qw(cmpChrs by_chromosome);
+use RUM::Sort qw(cmpChrs by_chromosome);
 use RUM::FileIterator qw(file_iterator pop_it peek_it);
 
 use strict;

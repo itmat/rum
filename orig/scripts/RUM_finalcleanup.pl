@@ -9,7 +9,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::ChrCmp qw(cmpChrs);
+use RUM::Sort qw(cmpChrs);
 
 if(@ARGV < 6) {
     die "

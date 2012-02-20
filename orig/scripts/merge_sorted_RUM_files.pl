@@ -4,7 +4,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::ChrCmp qw(cmpChrs);
+use RUM::Sort qw(cmpChrs);
 use RUM::FileIterator qw(file_iterator pop_it peek_it);
 
 if(@ARGV<2) {

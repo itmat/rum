@@ -118,7 +118,7 @@ our @EXPORT_OK = qw(get_options
                     show_usage);
 Exporter::export_ok_tags('scripts');
 
-use RUM::ChrCmp qw(cmpChrs by_chromosome);
+use RUM::Sort qw(cmpChrs by_chromosome);
 
 =item get_options OPTIONS
 

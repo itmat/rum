@@ -8,7 +8,7 @@ $| = 1;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::Common qw(Roman roman isroman arabic format_large_int);
-use RUM::ChrCmp qw(by_chromosome);
+use RUM::Sort qw(by_chromosome);
 use RUM::Subproc qw(spawn check pids_by_command_re kill_all procs
                     child_pids can_kill);
 
