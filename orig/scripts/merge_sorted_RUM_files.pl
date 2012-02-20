@@ -4,7 +4,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::Sort qw(by_location);
+use RUM::Sort qw(merge_iterators by_location);
 use RUM::FileIterator qw(file_iterator pop_it peek_it);
 
 if(@ARGV<2) {
@@ -85,37 +85,5 @@ for my $filename (@file) {
 
 open my $out, ">", $outfile;
 
-merge_iterators($out, @iters);
+merge_iterators \&by_location, $out, @iters;
 
-sub merge_iterators {
-
-    my ($outfile, @iters) = @_;
-
-    while (@iters) {
-        
-        my $argmin = 0;
-        my $min = peek_it($iters[$argmin]);
-        for (my $i = 1; $i < @iters; $i++) {
-            
-            my $rec = peek_it($iters[$i]);
-            
-            # If this one is smaller, set $argmin and $min
-            # appropriately
-            if (by_location($rec, $min) < 0) {
-                $argmin = $i;
-                $min = $rec;
-            }
-        }
-        
-        print $outfile "$min->{entry}\n";
-        
-        # Pop the iterator that we just printed a record from; this
-        # way the next iteration will be looking at the next value. If
-        # this iterator doesn't have a next value, then we've
-        # exhausted it, so remove it from our list.
-        pop_it($iters[$argmin]);        
-        unless (peek_it($iters[$argmin])) {
-            splice @iters, $argmin, 1;
-        }
-    }
-}
