@@ -4,11 +4,12 @@ $|=1;
 
 use FindBin qw($Bin);
 use lib "$Bin/../../lib";
+use Carp;
 
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs by_chromosome by_location);
 use RUM::FileIterator qw(file_iterator pop_it peek_it);
-
+use File::Copy qw(mv cp);
 use strict;
 
 my $timestart = time();
@@ -277,10 +278,25 @@ sub doEverything () {
 		# merge with previous chunk (if necessary):
 #	    print "chunk_num = $chunk_num\n";
 		if($chunk_num > 1) {
-                    my $tempfilename1 = $CHR[$cnt] . "_temp.0";
-                    my $tempfilename2 = $CHR[$cnt] . "_temp.1";
-                    my $tempfilename3 = $CHR[$cnt] . "_temp.2";
-		    merge($tempfilename1, $tempfilename2, $tempfilename3);
+
+                    my @tempfiles = map "$CHR[$cnt]_temp.$_", (0,1,2);
+
+                    open my $in1, "<", $tempfiles[0]
+                        or croak "Can't open $tempfiles[0] for reading: $!";
+                    open my $in2, "<", $tempfiles[1]
+                        or croak "Can't open $tempfiles[1] for reading: $!";
+                    open my $temp_merged_out, ">", $tempfiles[2]
+                        or croak "Can't open $tempfiles[2] for writing: $!";
+
+                    my @iters = (
+                        file_iterator($in1, separate => $separate),
+                        file_iterator($in2, separate => $separate));
+		    merge($temp_merged_out, @iters);
+                    close($temp_merged_out);
+                    
+                    mv $tempfiles[2], $tempfiles[0]
+                        or croak "Couldn't move $tempfiles[2] to $tempfiles[0]: $!";
+                    unlink($tempfiles[1]);
 		}
 	    }
 	    my $tempfilename = $CHR[$cnt] . "_temp.0";
@@ -360,17 +376,7 @@ sub sort_one_file {
 
 sub merge {
 
-    use strict;
-
-    my ($in1, $in2, $out) = @_;
-
-    open my $temp_merged_out, ">", $out;
-    my @iters;
-    for my $in_filename ($in1, $in2) {
-        open my $in, "<", $in_filename;
-        my $iter = file_iterator($in, separate => 0);
-        push @iters, $iter;
-    }
+    my ($out, @iters) = @_;
 
     while (defined(my $rec1 = peek_it($iters[0])) &&
            defined(my $rec2 = peek_it($iters[1]))) {
@@ -380,19 +386,15 @@ sub merge {
         # record.
         my $cmp = by_location($rec1, $rec2);
         my $iter = $cmp < 0 ? $iters[0] : $iters[1];
-        print $temp_merged_out pop_it($iter)->{entry}, "\n";
+        print $out pop_it($iter)->{entry}, "\n";
     }
     
     # When we get here we must have exhausted one of the iterators, so
     # drain the other one.
     for my $iter (@iters) {
         while (defined(my $rec = pop_it($iter))) {
-            print $temp_merged_out $rec->{entry}, "\n";
+            print $out $rec->{entry}, "\n";
         }
     }
 
-    close($temp_merged_out);
-
-    `mv $out $in1`;
-    unlink($in2);
 }
