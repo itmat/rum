@@ -10,7 +10,9 @@ use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(merge_iterators cmpChrs by_chromosome by_location);
 use RUM::FileIterator qw(file_iterator pop_it peek_it);
 use File::Copy qw(mv cp);
+
 use strict;
+use warnings;
 
 my $timestart = time();
 if(@ARGV < 2) {
@@ -54,7 +56,7 @@ close(OUTFILE);
 my $maxchunksize = 9000000;
 my $maxchunksize_specified = "false";
 my $name;
-my $allowsmallchunks;
+
 for(my $i=2; $i<@ARGV; $i++) {
     my $optionrecognized = 0;
     if($ARGV[$i] eq "-separate") {
@@ -180,6 +182,7 @@ sub doEverything () {
     open(FINALOUT, ">$outfile");
     %chr_counts = get_chromosome_counts($infile);
 
+
     my (@CHR, %CHUNK);
 
     my $cnt=0;
@@ -192,16 +195,19 @@ sub doEverything () {
     while($cnt < @CHR) {
 	my $running_count = $chr_counts{$CHR[$cnt]};
 	$CHUNK{$CHR[$cnt]} = $chunk;
-	if($chr_counts{$CHR[$cnt]} > $max_count_at_once) { # it's bigger than $max_count_at_once all by itself..
+	if($chr_counts{$CHR[$cnt]} > $max_count_at_once) { 
+            # it's bigger than $max_count_at_once all by itself..
 	    $CHUNK{$CHR[$cnt]} = $chunk;
 	    $cnt++;
 	    $chunk++;
 	    next;
 	}
 	$cnt++;
-	while($running_count+$chr_counts{$CHR[$cnt]} < $max_count_at_once && $cnt < @CHR) {
-	    $running_count = $running_count + $chr_counts{$CHR[$cnt]};
-	    $CHUNK{$CHR[$cnt]} = $chunk;
+	while($cnt < @CHR &&
+                  $running_count+$chr_counts{$CHR[$cnt]} < $max_count_at_once) {
+            my $chr = $CHR[$cnt];
+	    $running_count = $running_count + $chr_counts{$chr};
+	    $CHUNK{$chr} = $chunk;
 	    $cnt++;
 	}
 	$chunk++;
@@ -241,16 +247,20 @@ sub doEverything () {
 	if($chr_counts{$CHR[$cnt]} > $max_count_at_once) { # it's a monster chromosome, going to do it in
 	    # pieces for fear of running out of RAM.
 	    my $INFILE = $infile . "_sorting_tempfile." . $CHUNK{$CHR[$cnt]};
-	    open my $foobar_in, "<", $INFILE;
-            my $it = file_iterator($foobar_in);
+	    open my $sorting_chunk_in, "<", $INFILE;
+
+            # Open an iterator over the records in $sorting_chunk_in
+            my $it = file_iterator($sorting_chunk_in, separate => $separate);
 	    my $FLAG = 0;
 	    my $chunk_num = 0;
+
 	    while($FLAG == 0) {
 		$chunk_num++;
 		my $number_so_far = 0;
 		my $chunkFLAG = 0;
                 my @recs;
-		# read in one chunk:
+
+
 		while($chunkFLAG == 0) {
                     my $rec = pop_it($it);
 		    unless ($rec) {
@@ -316,14 +326,15 @@ sub doEverything () {
 	# START NORMAL CASE (SO NOT DEALING WITH A MONSTER CHROMOSOME)
 	
 	$cnt++;
-	while($running_count+$chr_counts{$CHR[$cnt]} < $max_count_at_once && $cnt < @CHR) {
+	while ($cnt < @CHR && 
+              $running_count+$chr_counts{$CHR[$cnt]} < $max_count_at_once) {
 	    $running_count = $running_count + $chr_counts{$CHR[$cnt]};
 	    $chrs_current{$CHR[$cnt]} = 1;
 	    $cnt++;
 	}
 	my $INFILE = $infile . "_sorting_tempfile." . $chunk;
-	open(my $foo_in, $INFILE);
-        sort_one_file($foo_in, *FINALOUT, $separate);
+	open(my $sorting_file_in, $INFILE);
+        sort_one_file($sorting_file_in, *FINALOUT, $separate);
 	$chunk++;
     }
     close(FINALOUT);
@@ -362,13 +373,19 @@ sub doEverything () {
 
 sub sort_one_file {
     my ($in, $out, $separate) = @_;
-    use strict;
+
+    # Open an iterator over the input file.
     my $it = file_iterator($in, separate => $separate);
+
+    # Fill up @recs by repeatedly popping the iterator until it is
+    # empty. See RUM::FileIterator.
     my @recs;
     while (my $rec = pop_it($it)) {
         push @recs, $rec;
     }
 
+    # Sort the records by location (See RUM::Sort for by_location) and
+    # print them.
     for my $rec (sort by_location @recs) {
         print $out "$rec->{entry}\n";
     }
