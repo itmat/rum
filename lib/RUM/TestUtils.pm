@@ -1,8 +1,32 @@
-
 package RUM::TestUtils;
 
 use strict;
 use warnings;
+
+=head1 NAME
+
+RUM::TestUtils - Functions used by tests
+
+=head1 SYNOPSIS
+
+  use RUM::TestUtils qw(:all);
+
+  # Download a file, unless the file already exists locally
+  download_file("http://foo.com/bar.tab", "/some/path/bar.tab");
+
+  # Download our tarball of test data from S3
+  download_test_data("test-data.tar.gz");
+
+  # Make sure there are no diffs between two files
+  no_diffs("got.tab", "expected.tab", "I got what I expected");
+
+=head1 DESCRIPTION
+
+=head1 Subroutines
+
+=over 4
+
+=cut
 
 use Test::More;
 use Exporter qw(import);
@@ -75,9 +99,28 @@ sub download_test_data {
     }
 }
 
+=item no_diffs(FILE1, FILE2, NAME)
+
+Uses Test::More to assert that there are no differences between the
+two files.
+
+=cut
+
 sub no_diffs {
     my ($file1, $file2, $name) = @_;
     my $diffs = `diff $file2 $file1 > $name.diff`;
     my $status = $? >> 8;
     ok($status == 0, $name);
 }
+
+=back
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright University of Pennsylvania, 2012
+
+=cut
