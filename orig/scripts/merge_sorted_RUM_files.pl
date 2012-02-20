@@ -23,6 +23,8 @@ if(@ARGV<2) {
 }
 
 use strict;
+use warnings;
+
 my $outfile = $ARGV[0];
 my $options_start_index;
 my $options = "false";
