@@ -321,7 +321,9 @@ sub compare_rum_output {
     my $output_dir   = output_data_dir($run_name);
     open my $out, ">", "$run_name.diff";
     for my $file (@RUM_OUTPUT_FILES) {
-        my $cmd = "diff $expected_dir/$file $output_dir/$file";
+        my $expected = "$expected_dir/$file";
+        my $got      =   "$output_dir/$file";
+        my $cmd = "diff $expected $got";
         INFO "$cmd";
         unless (is_dry_run) {
             open my $pipe, "$cmd |" or croak "Couldn't open $cmd";
@@ -330,6 +332,7 @@ sub compare_rum_output {
                 $diffs++;
                 print $out $_;
             }
+            is(-s $got, -s $expected, "$file is the right size");
             is($diffs, 0, "No diffs for $file");
         }
     }
