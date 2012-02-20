@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More tests => 8;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::Workflow qw(make_paths report);
