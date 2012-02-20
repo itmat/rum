@@ -1,20 +1,18 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
+use strict;
+use warnings;
 
-$infile = $ARGV[0];
-$outfile1 = $ARGV[1];
-$outfile2 = $ARGV[2];
+my ($infile, $outfile1, $outfile2) = @ARGV;
 
-open(INFILE, $infile);
-open(OUTFILE1, ">$outfile1");
-open(OUTFILE2, ">$outfile2");
-while($line = <INFILE>) {
-    if($line =~ /\t-\t/) {
-              print OUTFILE2 $line;
+open my $in,  "<", $infile;
+open my $out1, ">", $outfile1;
+open my $out2, ">", $outfile2;
+
+while (defined(my $line = <$in>)) {
+    if ($line =~ /\t-\t/) {
+        print $out2 $line;
     } else {
-	print OUTFILE1 $line;
+	print $out1 $line;
     }
 }
-close(INFILE);
-close(OUTFILE1);
-close(OUTFILE2);
