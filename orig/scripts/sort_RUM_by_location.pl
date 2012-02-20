@@ -6,7 +6,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::Sort qw(cmpChrs by_chromosome);
+use RUM::Sort qw(cmpChrs by_chromosome by_location);
 use RUM::FileIterator qw(file_iterator pop_it peek_it);
 
 use strict;
@@ -342,15 +342,6 @@ sub doEverything () {
 #}
 
     unlink($running_indicator_file);
-}
-
-sub by_location ($$) {
-    my ($c, $d) = @_;
-    ($c->{chr} ne $d->{chr} ? cmpChrs($c->{chr}, $d->{chr}) : 0) ||
-        $c->{start}  <=> $d->{start} ||
-        $c->{end}    <=> $d->{end} ||
-        $c->{seqnum} <=> $d->{seqnum} ||
-        $c->{seq}    cmp $d->{seq};
 }
 
 sub sort_one_file {

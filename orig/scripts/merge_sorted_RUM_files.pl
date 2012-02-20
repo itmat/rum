@@ -4,7 +4,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::Sort qw(cmpChrs);
+use RUM::Sort qw(by_location);
 use RUM::FileIterator qw(file_iterator pop_it peek_it);
 
 if(@ARGV<2) {
@@ -99,35 +99,15 @@ sub merge_iterators {
             
             my $rec = peek_it($iters[$i]);
             
-            # Set $smaller to 1 if the next record from this iterator
-            # is smaller than the current minimum
-            my $smaller = 0;
-            if ($rec->{chr} eq $min->{chr}) {
-                if ($min->{start} > $rec->{start}) {
-                    $smaller = 1;
-                } elsif ($min->{start} == $rec->{start}) {
-                    if ($min->{end} > $rec->{end}) {
-                        $smaller = 1;
-                    }
-                }
-            } else {
-                if (cmpChrs($rec->{chr}, $min->{chr}) < 0) {
-                    $smaller = 1;
-                }
-            }
-            
             # If this one is smaller, set $argmin and $min
             # appropriately
-            if ($smaller) {
+            if (by_location($rec, $min) < 0) {
                 $argmin = $i;
-                $min = peek_it($iters[$argmin]);
+                $min = $rec;
             }
         }
         
-        if ($min->{entry} =~ /\S/) {
-            print $outfile "$min->{entry}\n";
-            
-        }
+        print $outfile "$min->{entry}\n";
         
         # Pop the iterator that we just printed a record from; this
         # way the next iteration will be looking at the next value. If

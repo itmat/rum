@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use Exporter 'import';
-our @EXPORT_OK = qw(cmpChrs by_chromosome);
+our @EXPORT_OK = qw(cmpChrs by_chromosome by_location);
 use RUM::Common qw(roman Roman isroman arabic);
 
 =pod
@@ -256,4 +256,53 @@ Comparator that compares chromosome names.
 
 =cut
 
+
+
 *by_chromosome = *cmpChrs;
+
+
+=item by_location(A, B)
+
+Comparator that compares hashrefs by chromosome name, then span start,
+then span end, then sequence number, and finally the sequence itself
+(just so we have a consistent sort). . A and B must both be hashrefs
+with the following fields:
+
+=over 4
+
+=item B<chr>
+
+The chromosome name.
+
+=item B<start>
+
+The start location.
+
+=item B<end>
+
+The end location.
+
+=item B<seqnum>
+
+The sequence number, e.g. 1234 from seq1234.a.
+
+=item B<seq>
+
+The sequence in the record.
+
+=back
+
+=back
+
+
+=cut
+
+sub by_location ($$) {
+    my ($c, $d) = @_;
+    ($c->{chr} ne $d->{chr} ? cmpChrs($c->{chr}, $d->{chr}) : 0) ||
+        $c->{start}  <=> $d->{start} ||
+        $c->{end}    <=> $d->{end} ||
+        $c->{seqnum} <=> $d->{seqnum} ||
+        $c->{seq}    cmp $d->{seq};
+}
+
