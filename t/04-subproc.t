@@ -19,7 +19,7 @@ BEGIN {
     ok(can_kill($pid), "I should be able to kill the process");
     ok(!defined(check($pid)), "shouldn't have an exit status yet");
     kill_all($pid);
-    is(await($pid)->{status}, 9, "wait for a child process");
+    is(await($pid, quiet=>1)->{status}, 9, "wait for a child process");
 }
 
 # Parse the output of ps
@@ -42,7 +42,7 @@ BEGIN {
     my @children = child_pids($$);
     ok(grep($_ == $child, child_pids($$)), "child_pids found my child");
     kill_all($child);
-    await($child);
+    await($child, quiet=>1);
     ok(grep($_ == $child, child_pids($$)) == 0,
        "child_pids did not find my child");
 }

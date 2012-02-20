@@ -97,9 +97,19 @@ sub spawn {
     }
 }
 
-=item await(PID)
+=item await(PID, OPTIONS)
 
-Wait for the given process to finish and return a has with the following keys:
+Wait for the given process to finish and return a hash. OPTIONS can have the following keys:
+
+=over 4
+
+=item B<quiet>
+
+Don't complain when a child process exits with a non-zero status.
+
+=back
+
+The hash returned will have the following keys:
 
 =over 4
 
@@ -119,8 +129,8 @@ Note that this will block until the other process exits.
 
 
 sub await {
-    my ($pid) = @_;
-    return _wait($pid, 0);
+    my ($pid, %options) = @_;
+    return _wait($pid, 0, %options);
 }
 
 
@@ -132,8 +142,8 @@ the process is still running, otherwise return a hashref like that returned from
 =cut
 
 sub check {
-    my ($pid) = @_;
-    return _wait($pid, WNOHANG);
+    my ($pid, %options) = @_;
+    return _wait($pid, WNOHANG, %options);
 }
 
 
@@ -218,7 +228,7 @@ sub child_pids {
 
 
 sub _wait {
-    my ($pid, $flags) = @_;
+    my ($pid, $flags, %options) = @_;
     
     my $got_pid = waitpid($pid, $flags);
     
@@ -230,7 +240,8 @@ sub _wait {
         my $result = { status => $? };
         if ($result->{status}) {
             $result->{error} = $!;
-            carp "Child process $pid exited with $?: $!";
+            carp "Child process $pid exited with $?: $!" 
+                unless $options{quiet};
         }
         return $result;
     }
