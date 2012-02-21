@@ -93,6 +93,7 @@ my %CONFIGS = (
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
         expected_output_dir => "$RESOURCES_DIR/mouse-baby",
+        rum_options => ["-noclean"],
         needs_cluster => 0
     },
 
@@ -109,6 +110,7 @@ my %CONFIGS = (
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
         expected_output_dir => "$RESOURCES_DIR/mouse-baby",
+        rum_options => ["-noclean"],
         chunks => 2,
         needs_cluster => 0
     },
@@ -126,7 +128,7 @@ my %CONFIGS = (
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
 
-        rum_options => ["-qsub"],
+        rum_options => ["-qsub", "-noclean"],
         expected_output_dir => "$RESOURCES_DIR/mouse-baby",
         needs_cluster => 1
     }
