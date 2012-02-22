@@ -17,3 +17,4 @@ _testing
 .\#*
 META.yml
 Makefile.PL
+META.json
