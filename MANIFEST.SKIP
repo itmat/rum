@@ -73,3 +73,5 @@
 
 # Avoid the util dir; it just has some scripts useful when developing.
 \butil/
+
+\bRUM-Pipeline-.*.tar.gz

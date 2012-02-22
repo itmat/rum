@@ -15,3 +15,5 @@ _testing
 *~
 \#*
 .\#*
+META.yml
+Makefile.PL

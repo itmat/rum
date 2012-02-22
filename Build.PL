@@ -11,7 +11,7 @@ my $builder = Module::Build->subclass(
     module_name         => 'RUM::Pipeline',
     license             => 'perl',
     dist_author         => q{Mike DeLaurentis <delaurentis@gmail.com>},
-    dist_version_from   => 'lib/RUM/Script.pm',
+    dist_version_from   => 'lib/RUM/Pipeline.pm',
     build_requires => {
         'Test::More' => 0,
     },
