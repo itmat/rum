@@ -53,9 +53,9 @@ if(!(-d "$dir/lib")) {
     `mkdir $dir/lib`;
 }
 
-`wget -O rum_pipeline.tar http://itmat.rum.s3.amazonaws.com/rum_pipeline.tar`;
+`wget https://github.com/downloads/PGFI/rum/RUM-Pipeline-1.11.tar.gz`
 `yes|mv rum_pipeline.tar $dir/`;
-`tar -C $dir -xvf $dir/rum_pipeline.tar`;
+`tar -C $dir --strip-components 1 -xvf $dir/rum_pipeline.tar`;
 `yes|rm $dir/rum_pipeline.tar`;
 
 `wget -O bin_linux64.tar http://itmat.rum.s3.amazonaws.com/bin_linux64.tar`;
