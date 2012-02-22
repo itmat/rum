@@ -3,7 +3,7 @@
 $|=1;
 
 use FindBin qw($Bin);
-use lib "$Bin/../../lib";
+use lib "$Bin/../lib";
 use Carp;
 
 use RUM::Common qw(roman Roman isroman arabic);

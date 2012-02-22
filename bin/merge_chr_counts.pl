@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 use FindBin qw($Bin);
-use lib "$Bin/../../lib";
+use lib "$Bin/../lib";
 
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(by_chromosome);

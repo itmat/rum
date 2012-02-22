@@ -6,7 +6,7 @@
 $|=1;
 
 use FindBin qw($Bin);
-use lib "$Bin/../../lib";
+use lib "$Bin/../lib";
 
 use RUM::Common qw(format_large_int);
 
