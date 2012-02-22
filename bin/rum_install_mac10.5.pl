@@ -58,12 +58,12 @@ if(!(-d "$dir/lib")) {
 my $dist_name = "RUM-Pipeline-1.11";
 my $tarball = "$dist_name.tar.gz";
 
-`wget https://github.com/downloads/PGFI/rum/$tarball`;
+`ftp http://github.s3.amazonaws.com/downloads/PGFI/rum/RUM-Pipeline-1.11.tar.gz`;
 `yes|mv rum_pipeline_macosx10.5leopard.tar $dir/`;
 `tar -C $dir --strip-components 1 -zxvf $dir/$tarball`;
 `yes|rm $dir/$tarball`;
 
-`wget http://itmat.rum.s3.amazonaws.com/bin_mac1.5.tar`;
+`ftp http://itmat.rum.s3.amazonaws.com/bin_mac1.5.tar`;
 `yes|mv bin_mac1.5.tar $dir/`;
 `tar -C $dir -xvf $dir/bin_mac1.5.tar`;
 `yes|rm $dir/bin_mac1.5.tar`;
