@@ -71,6 +71,10 @@ use File::Spec;
 our @EXPORT_OK = qw(spawn check await can_kill procs pids_by_command_re 
                     kill_all child_pids kill_runaway_procs);
 
+# Maps a pid to the command that we used to spawn the process. spawn
+# puts values in this map, and _wait removes them.
+our %COMMANDS;
+
 =item spawn(CMD)
 
 Spawns another processes running the given CMD and returns the pid of
@@ -85,6 +89,7 @@ sub spawn {
     # Fork creates a child process and returns the pid of the new
     # process to the parent process.
     if (my $pid = fork()) {
+        $COMMANDS{$pid} = [@cmd];
         return $pid;
     }
     
@@ -238,9 +243,10 @@ sub _wait {
     }
     else {
         my $result = { status => $? };
+        my @cmd = @{ delete($COMMANDS{$pid}) || [] };
         if ($result->{status}) {
             $result->{error} = $!;
-            carp "Child process $pid exited with $?: $!" 
+            carp "Child process $pid (@cmd) exited with $?: $!" 
                 unless $options{quiet};
         }
         return $result;
