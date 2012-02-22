@@ -8,7 +8,7 @@ my $builder = Module::Build->subclass(
       sub ACTION_testintegration { shift->generic_test(type => 'integration'); }
     )
 )->new(
-    module_name         => 'RUM::Index',
+    module_name         => 'RUM::Pipeline',
     license             => 'perl',
     dist_author         => q{Mike DeLaurentis <delaurentis@gmail.com>},
     dist_version_from   => 'lib/RUM/Script.pm',
