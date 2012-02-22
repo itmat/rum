@@ -14,18 +14,19 @@ rum_install.pl - RUM Pipeline Installer
 
 =head1 SYNOPSIS
 
-rum_install_mac10.5.pl F<dir>
+rum_install.pl F<dir>
 
 Where F<dir> is the directory to install to.  This should not be a
 system directory, it should be some directory in user space.  This
 will install all of the scripts and indexes under this directory.
 
-Note: You will need 'ftp' installed for this to work.
+Note: You will need either ftp, wget, or curl installed for this to
+work.
 
-This script sets up the rum pipeline on a 64 bit linux machine.  You
-will be queried for the right organism to install.  After installation
-is complete, cd into the install directory and issue RUM_runner.pl for
-general usage.
+This script sets up the rum pipeline on a Mac or a 64 bit Linux
+machine.  You will be queried for the right organism to install.
+After installation is complete, cd into the install directory and
+issue RUM_runner.pl for general usage.
 
 For more information on running and interpreting the output, please
 see the following webpage:
@@ -52,28 +53,35 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 
 $|=1;
 
+# Get options from the user and print the help message if we need to.
 sub usage {
     pod2usage { -verbose => 1 };
 }
-
 GetOptions("help|h" => \&usage);
-
-
 my $dir = $ARGV[0] or usage();
-
 $dir =~ s!\/$!!;
 
-my @dirs = ("$dir/", "$dir/bin", "$dir/indexes", "$dir/data", "$dir/conf");
 
+# Maps os name to bin tarball name
+my %bin_tarball_map = (
+    darwin => "bin_mac1.5.tar",
+    linux  => "bin_linux64.tar"
+);
+
+my $tarball = "RUM-Pipeline-1.11.tar.gz";
+my $bin_tarball = $bin_tarball_map{$^O}
+    or croak "I don't have a binary tarball for your operating systen ($^O)";
+
+
+# Make any directories that need to be created
+my @dirs = ("$dir/", "$dir/bin", "$dir/indexes", "$dir/data", "$dir/conf");
 for my $subdir (@dirs) {
     unless (-d $subdir) {
         mkdir $subdir or croak "mkdir $subdir: $!";
     }
 }
 
-my $dist_name = "RUM-Pipeline-1.11";
-my $tarball = "$dist_name.tar.gz";
-my $bin_tarball = "bin_mac1.5.tar";
+
 
 ##
 ## Some wrappers around system calls that add error handling
@@ -81,12 +89,30 @@ my $bin_tarball = "bin_mac1.5.tar";
 
 sub shell {
     my ($cmd) = @_;
+    print "$cmd\n";
     system($cmd) == 0 or croak "$cmd: $!";
 }
 
 sub download {
     my ($url) = @_;
-    shell("ftp $url");
+    my $cmd;
+
+    # Which -s returns 0 if it finds the command, 1 otherwise.
+    if (system("which -s ftp") == 0) {
+        $cmd = "ftp $url";
+    }
+    elsif (system("which -s wget") == 0) {
+        $cmd = "wget $url";
+    }
+    elsif (system("which -s curl") == 0) {
+        $cmd = "curl -O $url";
+    }
+    else {
+        croak "I can't find ftp, wget, or curl on your path; ".
+            "please install one of those programs.";
+    }
+
+    shell($cmd);    
 }
 
 sub mv {
@@ -193,7 +219,9 @@ until($line =~ /-- $org end --/) {
     chomp($line);
 }
 print "\n";
-print "unzipping, please wait...\n";
+print "Unzipping, please wait...\n";
 if (@zippedfiles) {
     shell("gunzip -f @zippedfiles");
 }
+
+print "All done.\n";
