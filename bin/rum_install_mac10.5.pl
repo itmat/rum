@@ -55,12 +55,15 @@ if(!(-d "$dir/lib")) {
     `mkdir $dir/lib`;
 }
 
-`ftp http://itmat.rum.s3.amazonaws.com/rum_pipeline_macosx10.5leopard.tar`;
-`yes|mv rum_pipeline_macosx10.5leopard.tar $dir/`;
-`tar -C $dir -xvf $dir/rum_pipeline_macosx10.5leopard.tar`;
-`yes|rm $dir/rum_pipeline_macosx10.5leopard.tar`;
+my $dist_name = "RUM-Pipeline-1.11";
+my $tarball = "$dist_name.tar.gz";
 
-`ftp http://itmat.rum.s3.amazonaws.com/bin_mac1.5.tar`;
+`wget https://github.com/downloads/PGFI/rum/$tarball`;
+`yes|mv rum_pipeline_macosx10.5leopard.tar $dir/`;
+`tar -C $dir --strip-components 1 -zxvf $dir/$tarball`;
+`yes|rm $dir/$tarball`;
+
+`wget http://itmat.rum.s3.amazonaws.com/bin_mac1.5.tar`;
 `yes|mv bin_mac1.5.tar $dir/`;
 `tar -C $dir -xvf $dir/bin_mac1.5.tar`;
 `yes|rm $dir/bin_mac1.5.tar`;
