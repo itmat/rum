@@ -731,12 +731,19 @@ chomp($genome_blat);
 if(!(-e $genome_blat)) {
     print ERRORLOG "\nERROR: the file '$genome_blat' does not seem to exist.\n\n";
 }
-$scripts_dir = <INFILE>;
-$scripts_dir =~ s!/$!!;
-chomp($scripts_dir);
-$lib = <INFILE>;
-$lib =~ s!/$!!;
-chomp($lib);
+
+if (defined ($scripts_dir = <INFILE>)) {
+    print "The scripts dir configuration is no longer needed\n";
+}
+
+$scripts_dir = $Bin;
+
+if (defined ($lib_dir = <INFILE>)) {
+    print "The lib dir configuration is no longer needed\n";
+}
+
+$lib = "$Bin/../conf";
+
 $genomefa = $genome_blat;
 close(INFILE);
 $genome_size = (-s $genomefa) / 1000000000;
