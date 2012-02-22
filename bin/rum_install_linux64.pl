@@ -52,11 +52,11 @@ if(!(-d "$dir/data")) {
 if(!(-d "$dir/lib")) {
     `mkdir $dir/lib`;
 }
-
-`wget https://github.com/downloads/PGFI/rum/RUM-Pipeline-1.11.tar.gz`
-`yes|mv rum_pipeline.tar $dir/`;
-`tar -C $dir --strip-components 1 -xvf $dir/rum_pipeline.tar`;
-`yes|rm $dir/rum_pipeline.tar`;
+my $tarball = "RUM-Pipeline-1.11.tar.gz";
+`wget --no-check-certificate https://github.com/downloads/PGFI/rum/$tarball`;
+`yes|mv $tarball $dir/`;
+`tar -C $dir --strip-components 1 -xvf $dir/$tarball`;
+`yes|rm $dir/$tarball`;
 
 `wget -O bin_linux64.tar http://itmat.rum.s3.amazonaws.com/bin_linux64.tar`;
 `yes|mv bin_linux64.tar $dir/`;
@@ -118,7 +118,7 @@ until($line =~ /-- $org end --/) {
     $file =~ s!.*/!!;
     if($line =~ /rum.config/) {
 	`wget -O $file $line`;
-	`yes|mv $file $dir/lib/$file`;
+	`yes|mv $file $dir/conf/$file`;
     } else {
 	`wget -O $file $line`;
 	`yes|mv $file $dir/indexes/$file`;
