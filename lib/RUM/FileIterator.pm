@@ -187,8 +187,10 @@ sub _read_record {
             $a[2] =~ /-(\d+)$/;
             $res{end} = $1;
             # reset the file handle so the last line read will be read again
-            my $len = -1 * (1 + length($line2));
-            seek($in, $len, 1);
+            if (defined($line2)) {
+                my $len = -1 * (1 + length($line2));
+                seek($in, $len, 1);
+            }
             $res{entry} = $line1;
         }
     } else {

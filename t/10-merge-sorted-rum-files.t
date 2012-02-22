@@ -15,7 +15,7 @@ our $OUT_DIR = "$ROOT/10-merge-sorted-rum-files";
 our $IN_DIR = "$ROOT/rum-test-data/merge-sorted-rum-files/";
 download_test_data($TEST_DATA_TARBALL);
 make_paths($OUT_DIR);
-our $SCRIPT = "$Bin/../orig/scripts/merge_sorted_RUM_files.pl";
+our $SCRIPT = "$Bin/../bin/merge_sorted_RUM_files.pl";
 
 {
     my @in = map "$IN_DIR/RUM_Unique.sorted.$_", 1..2;

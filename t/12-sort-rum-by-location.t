@@ -16,7 +16,7 @@ our $IN_DIR = "$ROOT/rum-test-data/sort-rum-by-location/";
 download_test_data($TEST_DATA_TARBALL);
 make_paths($OUT_DIR);
 
-our $SCRIPT = "$Bin/../orig/scripts/sort_RUM_by_location.pl";
+our $SCRIPT = "$Bin/../bin/sort_RUM_by_location.pl";
 
 my @types = qw(Unique NU);
 my @chunks = (1, 2);
