@@ -299,7 +299,7 @@ sub run_rum {
     download_bin_tarball($run_name);
     download_test_data($TEST_DATA_TARBALL);
 
-    shell("perl", "orig/RUM_runner.pl",
+    shell("perl", "bin/RUM_runner.pl",
           rum_config_file($run_name),
           join(",,,", input_files($run_name)),
           output_data_dir($run_name),
