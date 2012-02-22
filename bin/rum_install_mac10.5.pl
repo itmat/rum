@@ -121,7 +121,7 @@ until($line =~ /-- $org end --/) {
     $file =~ s!.*/!!;
     if($line =~ /rum.config/) {
 	`ftp $line`;
-	`yes|mv $file $dir/lib/$file`;
+	`yes|mv $file $dir/conf/$file`;
     } else {
 	`ftp $line`;
 	`yes|mv $file $dir/indexes/$file`;
