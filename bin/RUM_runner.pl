@@ -21,7 +21,9 @@ $date = `date`;
 if(@ARGV == 1 && @ARGV[0] eq "config") {
     print "
 The following describes the configuration file:
-Note: All entries can be absolute path, or relative path to where the RUM_runner.pl script is.
+
+Note: All entries can be absolute path, or relative path to where the
+RUM_runner.pl script is.
 
 1) gene annotation file, can be relative path to where the RUM_runner.pl script is, or absolute path
    e.g.: indexes/mm9_ucsc_refseq_gene_info.txt
@@ -37,9 +39,9 @@ Note: All entries can be absolute path, or relative path to where the RUM_runner
    e.g.: indexes/mm9_genes_ucsc_refseq
 7) blat genome index, can be relative path to where the RUM_runner.pl script is, or absolute path
    e.g. indexes/mm9_genome_sequence_single-line-seqs.fa
-8) perl scripts directory, can be relative path to where the RUM_runner.pl script is, or absolute path
+8) [DEPRECATED] perl scripts directory, can be relative path to where the RUM_runner.pl script is, or absolute path
    e.g.: scripts
-9) lib directory, this directory holds the config files and the pipeline_template.sh file.  It can
+9) [DEPRECATED] lib directory, this directory holds the config files and the pipeline_template.sh file.  It can
    be relative path to where the RUM_runner.pl script is, or absolute path
    e.g.: lib
 
@@ -732,17 +734,23 @@ if(!(-e $genome_blat)) {
     print ERRORLOG "\nERROR: the file '$genome_blat' does not seem to exist.\n\n";
 }
 
-if (defined ($scripts_dir = <INFILE>)) {
-    print "The scripts dir configuration is no longer needed\n";
+
+# We can now find the scripts dir and lib dir based on the location of
+# the RUM_runner.pl script. $FindBin::Bin is the directory that
+# contains RUM_runner.pl; all the other scripts are in that directory,
+# and the pipeline template is in $Bin/../conf.
+our $scripts_dir = "$Bin";
+our $conf_dir    = "$Bin/../conf";
+
+if (defined (my $old_scripts_dir = <INFILE>)) {
+    print <<EOF;
+
+The 'scripts' and 'lib' directory lines in the configuration file are no longer needed. I
+will use scripts in $scripts_dir and the pipeline template in $conf_dir.
+
+EOF
 }
 
-$scripts_dir = $Bin;
-
-if (defined ($lib_dir = <INFILE>)) {
-    print "The lib dir configuration is no longer needed\n";
-}
-
-$lib = "$Bin/../conf";
 
 $genomefa = $genome_blat;
 close(INFILE);
@@ -1427,7 +1435,7 @@ if($postprocess eq "false") {
     print OUT "";
     close(OUT);
 
-    $pipeline_template = `cat $lib/pipeline_template.sh`;
+    $pipeline_template = `cat $conf_dir/pipeline_template.sh`;
     if($cleanup eq 'false') {
         $pipeline_template =~ s/^.*unlink.*$//mg;
         $pipeline_template =~ s!if . -f OUTDIR.RUM_NU_temp3.CHUNK .\nthen\n\nfi\n!!gs;
