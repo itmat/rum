@@ -3,7 +3,7 @@
 use Test::More tests => 1;
 
 BEGIN {
-    use_ok( 'RUM::Script' ) || print "Bail out!\n";
+    use_ok( 'RUM::Pipeline' ) || print "Bail out!\n";
 }
 
-diag( "Testing RUM $RUM::Script::VERSION, Perl $], $^X" );
+diag( "Testing RUM $RUM::Pipeline::VERSION, Perl $], $^X" );

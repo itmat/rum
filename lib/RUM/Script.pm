@@ -12,14 +12,6 @@ use RUM::Workflow qw(report);
 
 RUM::Script - Common utilities for transforming files
 
-=head1 VERSION
-
-Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
-
 =head1 DESCRIPTION
 
 This module provides some "scripts" for operating on data files. All
