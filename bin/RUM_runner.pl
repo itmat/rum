@@ -7,6 +7,7 @@ $| = 1;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
+use File::Spec;
 use RUM::Common qw(Roman roman isroman arabic format_large_int);
 use RUM::Sort qw(by_chromosome);
 use RUM::Subproc qw(spawn check pids_by_command_re kill_all procs
@@ -22,8 +23,7 @@ if(@ARGV == 1 && @ARGV[0] eq "config") {
     print "
 The following describes the configuration file:
 
-Note: All entries can be absolute path, or relative path to where the
-RUM_runner.pl script is.
+Note: All entries can be absolute path, or relative path to where RUM is installed.
 
 1) gene annotation file, can be relative path to where the RUM_runner.pl script is, or absolute path
    e.g.: indexes/mm9_ucsc_refseq_gene_info.txt
@@ -700,40 +700,49 @@ if($postprocess eq "false") {
      sleep(1);
 }
 
-open(INFILE, $configfile);
-$gene_annot_file = <INFILE>;
-chomp($gene_annot_file);
+
+# Reads a path from the config file and returns it, making sure it's
+# an absolute path. If it's specified as a relative path, we turn it
+# into an absolute path by prepending the root directory of the RUM
+# installation to it.
+sub read_config_path {
+    use strict;
+    use warnings;
+    my ($in) = @_;
+    my $maybe_rel_path = <$in>;
+    chomp $maybe_rel_path;
+    my $root = "$Bin/../";
+    my $abs_path = File::Spec->rel2abs($maybe_rel_path, $root);
+    print "Changed $maybe_rel_path to $abs_path\n";
+    return $abs_path;
+}
+
+open(my $config_in, $configfile);
+$gene_annot_file = read_config_path($config_in);
 if($dna eq "false") {
     if(!(-e $gene_annot_file)) {
        print ERRORLOG "\nERROR: the file '$gene_annot_file' does not seem to exist.\n\n";
        die "\nERROR: the file '$gene_annot_file' does not seem to exist.\n\n";
     }
 }
-$bowtie_exe = <INFILE>;
-chomp($bowtie_exe);
+$bowtie_exe = read_config_path($config_in);
 if(!(-e $bowtie_exe)) {
     print ERRORLOG "\nERROR: the executable '$bowtie_exe' does not seem to exist.\n\n";
 }
-$blat_exe = <INFILE>;
-chomp($blat_exe);
+$blat_exe = read_config_path($config_in);
 if(!(-e $blat_exe)) {
     print ERRORLOG "\nERROR: the executable '$blat_exe' does not seem to exist.\n\n";
 }
-$mdust_exe = <INFILE>;
-chomp($mdust_exe);
+$mdust_exe = read_config_path($config_in);
 if(!(-e $mdust_exe)) {
     print ERRORLOG "\nERROR: the executable '$mdust_exe' does not seem to exist.\n\n";
 }
-$genome_bowtie = <INFILE>;
-chomp($genome_bowtie);
-$transcriptome_bowtie = <INFILE>;
-chomp($transcriptome_bowtie);
-$genome_blat = <INFILE>;
-chomp($genome_blat);
+$genome_bowtie = read_config_path($config_in);
+$transcriptome_bowtie = read_config_path($config_in);
+$genome_blat = read_config_path($config_in);
 if(!(-e $genome_blat)) {
     print ERRORLOG "\nERROR: the file '$genome_blat' does not seem to exist.\n\n";
 }
-
 
 # We can now find the scripts dir and lib dir based on the location of
 # the RUM_runner.pl script. $FindBin::Bin is the directory that
