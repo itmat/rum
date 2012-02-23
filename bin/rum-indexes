@@ -1,0 +1,132 @@
+#!/usr/bin/env perl 
+# -*- cperl -*-
+
+package RUM::Script::Indexes;
+
+=head1 NAME
+
+rum-indexes - List, install, or remove RUM indexes
+
+=head1 SYNOPSIS
+
+  # Get a list of available indexes
+  rum-indexes -l
+
+  # Install an index by build name
+  rum-indexes -i hg19
+
+  # Install an index by number
+  rum-indexes -i 1
+
+  # Remove an index by build name or number
+  rum-indexes -r hg19
+  rum-indexes -r 1
+  
+=cut
+
+use strict;
+use warnings;
+
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use RUM::Repository::UI;
+use RUM::Script qw(get_options);
+use POSIX;
+
+sub new {
+    my ($class) = @_;
+    return bless {}, $class;
+}
+
+sub main {
+    my ($self) = @_;
+
+    get_options(
+        "--list|l"    => \(my $do_list),
+        "--install|i" => \(my $do_install),
+        "--remove|r"  => \(my $do_remove));
+    
+    $self->{repo} = RUM::Repository->new;
+    
+    if ($do_list) {
+        $self->list_indexes;
+    }
+    elsif ($do_install) {
+        $self->install_index(@ARGV);
+    }
+}
+
+sub repo { shift->{repo} }
+
+sub list_indexes {
+    my ($self) = @_;
+    my $repo = $self->repo;
+    
+    $repo->fetch_organisms_file unless -e $repo->organisms_file;
+
+    my @orgs = $self->repo->organisms;
+
+    print "The following indexes are available:\n\n";
+    $self->print_indexes(@orgs);
+}
+
+sub print_indexes {
+    my ($self, @indexes) = @_;
+
+    my $i = 1;
+    for my $org (@indexes) {
+        my %org = %$org;
+        printf "  %2d %8s: %20s (%s)\n", $i++, @org{qw(build common latin)};
+    }
+}
+
+sub select_index {
+    my ($self, $spec) = @_;
+    print "Spec is $spec\n";
+    my @orgs = $self->repo->organisms;
+    
+    if (isdigit($spec) && $spec > 0 && $spec <= @orgs) {
+        return $orgs[$spec - 1];
+    }
+    
+    else {
+        my @candidates = $self->repo->find_indexes($spec);
+        if (@candidates > 1) {
+            print "I matched more than one match an index for $spec\n";
+            $self->print_indexes(@candidates);
+            exit(1);
+        }
+        elsif (@candidates == 0) {
+            print <<EOF;
+
+I don't have an index with a build name, common name, or latin name of
+$spec. Please try $0 --list to see available indexes.
+EOF
+            exit(1);
+        }
+        else {
+            return $candidates[0];
+        }
+    }
+}
+
+sub install_index {
+    my ($self, $spec) = @_;
+    my $org = $self->select_index($spec);
+    print "Installing $org->{build}: $org->{common} ($org->{latin})\n";
+    for my $url (@{ $org->{files} }) {
+        print "Downloading $url\n";
+        $self->repo->download_index_file($url);
+    }
+
+}
+
+sub remove_index {
+    my ($self, $spec) = @_;
+    my $org = $self->select_index($spec);
+    for my $url (@{ $org->{files} }) {
+        $self->repo->remove_index_file($url);
+    }
+}
+
+__PACKAGE__->new->main;
