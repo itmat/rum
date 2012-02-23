@@ -199,7 +199,7 @@ sub install_index {
     }
 }
 
-=item $repo->install_index($index, $callback)
+=item $repo->remove_index($index, $callback)
 
 Removes the given index. F<index> must be a
 RUM::Repository::IndexSpec.  If $callback is provided it must be a

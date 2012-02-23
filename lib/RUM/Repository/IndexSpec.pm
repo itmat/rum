@@ -13,6 +13,9 @@ RUM::Repository::IndexSpec - Represents the specification of a RUM index
 
 =head2 Parsing from a file
 
+Don't construct a RUM::Repository::IndexSpec directly; use this
+B<parse> method to read them from a file.
+
 =over 4
 
 =item RUM::Repository::IndexSpec->parse($file)
@@ -37,21 +40,31 @@ sub parse {
 
 =head2 Properties
 
-=item $index->latin
+A RUM::Repository::IndexSpec is a simple struct-like object, with the
+following properties:
+
+=over
+
+=item $index->latin()
 
 Return the latin name of the organism.
 
-=item $index->common
+=item $index->common()
 
 Return the common name of the organism.
 
-=item $index->build
+=item $index->build()
 
 Return the build identifier.
 
-=item $index->files
+=item $index->files()
 
 Return an array of the index files for this organism.
+
+=item $index->order()
+
+The order that the index appears in in the organisms.txt file,
+starting at 1.
 
 =back
 
