@@ -29,7 +29,7 @@ use warnings;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Repository::UI;
+use RUM::Repository;
 use RUM::Script qw(get_options);
 use POSIX;
 
@@ -49,84 +49,90 @@ sub main {
     $self->{repo} = RUM::Repository->new;
     
     if ($do_list) {
-        $self->list_indexes;
+        $self->list_indexes(@ARGV);
     }
     elsif ($do_install) {
         $self->install_index(@ARGV);
+    }
+    elsif ($do_remove) {
+        $self->remove_index(@ARGV);
     }
 }
 
 sub repo { shift->{repo} }
 
 sub list_indexes {
-    my ($self) = @_;
+    my ($self, $pattern) = @_;
     my $repo = $self->repo;
     
     $repo->fetch_organisms_file unless -e $repo->organisms_file;
 
-    my @orgs = $self->repo->organisms;
-
     print "The following indexes are available:\n\n";
-    $self->print_indexes(@orgs);
+    my %query;
+    $query{pattern} = qr /$pattern/ if $pattern;
+    $self->print_indexes($repo->indexes(%query));
 }
 
 sub print_indexes {
     my ($self, @indexes) = @_;
 
     my $i = 1;
-    for my $org (@indexes) {
-        my %org = %$org;
-        printf "  %2d %8s: %20s (%s)\n", $i++, @org{qw(build common latin)};
+    for my $idx (@indexes) {
+        printf "  %2d %8s: %20s (%s)\n", 
+            $idx->order, $idx->build, $idx->common, $idx->latin;
     }
 }
 
 sub select_index {
     my ($self, $spec) = @_;
     print "Spec is $spec\n";
-    my @orgs = $self->repo->organisms;
-    
-    if (isdigit($spec) && $spec > 0 && $spec <= @orgs) {
-        return $orgs[$spec - 1];
+    my $repo = $self->repo;
+    my @orgs = $repo->indexes;
+    if (isdigit($spec)) {
+        my @indexes = $repo->indexes;
+        return $indexes[$spec - 1] if $spec > 0 && $spec <= @indexes;
     }
     
-    else {
-        my @candidates = $self->repo->find_indexes($spec);
-        if (@candidates > 1) {
-            print "I matched more than one match an index for $spec\n";
-            $self->print_indexes(@candidates);
-            exit(1);
-        }
-        elsif (@candidates == 0) {
-            print <<EOF;
+    my @candidates = $repo->indexes(pattern => $spec);
+    return $candidates[0] if @candidates == 1;
+    
+    if (@candidates > 1) {
+        print "I matched more than one match an index for $spec\n";
+        $self->print_indexes(@candidates);
+        exit(1);
+    }
+
+    if (@candidates == 0) {
+        print <<EOF;
 
 I don't have an index with a build name, common name, or latin name of
 $spec. Please try $0 --list to see available indexes.
 EOF
-            exit(1);
-        }
-        else {
-            return $candidates[0];
-        }
+        exit(1);
     }
+    
 }
 
 sub install_index {
     my ($self, $spec) = @_;
     my $org = $self->select_index($spec);
     print "Installing $org->{build}: $org->{common} ($org->{latin})\n";
-    for my $url (@{ $org->{files} }) {
-        print "Downloading $url\n";
-        $self->repo->download_index_file($url);
-    }
-
+    my $callback = sub {
+        my ($event, $url) = @_;
+        print "$url\n" if $event eq 'start';
+    };
+    $self->repo->install_index($org, $callback);
 }
 
 sub remove_index {
     my ($self, $spec) = @_;
     my $org = $self->select_index($spec);
-    for my $url (@{ $org->{files} }) {
-        $self->repo->remove_index_file($url);
-    }
+    print "Removing $org->{build}: $org->{common} ($org->{latin})\n";
+    my $callback = sub {
+        my ($event, $file) = @_;
+        print "Removing $file\n" if $event eq 'start';
+    };
+    $self->repo->remove_index($org, $callback);
 }
 
 __PACKAGE__->new->main;
