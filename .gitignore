@@ -21,3 +21,6 @@ META.json
 bin/blat
 bin/bowtie
 bin/mdust
+data
+indexes
+organisms.txt
