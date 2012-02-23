@@ -193,6 +193,10 @@ sub install_index {
         $callback->("start", $url) if $callback;
         my $filename = $self->index_filename($url);
         my $status = getstore($url, $filename);
+        if ($filename =~ /.gz$/) {
+            system("gunzip -f $filename") == 0 
+                or die "Couldn't unzip $filename: $!";
+        }
         croak "Couldn't download index file from $url " .
             "to $filename: $status" unless is_success($status);
         $callback->("end", $url) if $callback;
