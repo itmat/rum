@@ -98,14 +98,14 @@ sub download {
     my $cmd;
 
     # Which -s returns 0 if it finds the command, 1 otherwise.
-    if (system("which -s ftp") == 0) {
-        $cmd = "ftp $url";
-    }
     elsif (system("which -s wget") == 0) {
         $cmd = "wget $url";
     }
     elsif (system("which -s curl") == 0) {
         $cmd = "curl -O $url";
+    }
+    if (system("which -s ftp") == 0) {
+        $cmd = "ftp $url";
     }
     else {
         croak "I can't find ftp, wget, or curl on your path; ".
