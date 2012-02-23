@@ -43,12 +43,13 @@ bin/parsefasta.pl
 bin/parsefastq.pl
 bin/removedups.pl
 bin/rum-config
+bin/rum-indexes
 bin/rum-test-data-tool
 bin/rum2cov.pl
 bin/rum2quantifications.pl
 bin/rum2sam.pl
 bin/RUM_finalcleanup.pl
-bin/rum_install_mac10.5.pl
+bin/rum_install.pl
 bin/RUM_runner.pl
 bin/sam2junctions.pl
 bin/sam2rum.pl
@@ -67,7 +68,6 @@ bin/wait.pl
 Build.PL
 Changes
 conf/pipeline_template.sh
-conf/rum.config_TEMPLATE
 doc/cmpChrs-changes.md
 doc/goals
 doc/how2setup_genome-indexes_forPipeline.txt
@@ -76,6 +76,8 @@ lib/RUM/Common.pm
 lib/RUM/Config.pm
 lib/RUM/FileIterator.pm
 lib/RUM/Pipeline.pm
+lib/RUM/Repository.pm
+lib/RUM/Repository/IndexSpec.pm
 lib/RUM/Script.pm
 lib/RUM/Sort.pm
 lib/RUM/Subproc.pm
@@ -84,6 +86,7 @@ lib/RUM/Workflow.pm
 LICENSE
 Makefile.PL
 MANIFEST			This list of files
+META.json
 META.yml
 README
 README.md
@@ -94,6 +97,7 @@ t/03-workflow.t
 t/04-common.t
 t/04-subproc.t
 t/05-file-iterator.t
+t/06-repository.t
 t/08-download-test-data.pl
 t/09-integration.it
 t/10-merge-sorted-rum-files.t
@@ -103,4 +107,3 @@ t/boilerplate.t
 t/manifest.t
 t/pod-coverage.t
 t/pod.t
-META.json

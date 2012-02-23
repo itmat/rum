@@ -75,3 +75,13 @@
 \butil/
 
 \bRUM-Pipeline-.*.tar.gz
+
+# Avoid directories where we put indexes and data
+\bindexes/
+\bdata/
+
+bin/blat
+bin/bowtie
+bin/mdust
+conf/organisms.txt
+conf/rum.config_
