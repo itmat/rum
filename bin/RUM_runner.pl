@@ -713,7 +713,6 @@ sub read_config_path {
     chomp $maybe_rel_path;
     my $root = "$Bin/../";
     my $abs_path = File::Spec->rel2abs($maybe_rel_path, $root);
-    print "Changed $maybe_rel_path to $abs_path\n";
     return $abs_path;
 }
 
