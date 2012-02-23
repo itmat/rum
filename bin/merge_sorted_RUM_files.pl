@@ -1,11 +1,7 @@
 #!/usr/bin/perl
 
-use FindBin qw($Bin);
-use lib "$Bin/../lib";
-
-use RUM::Common qw(roman Roman isroman arabic);
-use RUM::Sort qw(merge_iterators by_location);
-use RUM::FileIterator qw(file_iterator pop_it peek_it);
+use strict;
+use warnings;
 
 if(@ARGV<2) {
     die "Usage: merge_sorted_RUM_files.pl <outfile> <infile1> <infile2> [<infile3> ... <infileN>] [option]
@@ -22,8 +18,12 @@ if(@ARGV<2) {
 ";
 }
 
-use strict;
-use warnings;
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use Carp;
+use RUM::Common qw(roman Roman isroman arabic);
+use RUM::Sort qw(merge_iterators by_location);
+use RUM::FileIterator qw(file_iterator pop_it peek_it);
 
 my $outfile = $ARGV[0];
 my $options_start_index;
@@ -56,7 +56,7 @@ if ($options eq "true") {
                 }
                 close(INFILE);
             } else {
-                    
+
             }
         }
     }
@@ -72,15 +72,17 @@ my @file;
 for (my $i=0; $i<$numfiles; $i++) {
     $file[$i] = $ARGV[$i+1];
     my $j = $i+1;
-    if ($chunk_ids_file =~ /\S/ && $chunk_ids_mapping{$j} =~ /\S/) {
+    my $mapped_id = $chunk_ids_mapping{$j} || "";
+    if ($mapped_id =~ /\S/) {
         $file[$i] =~ s/(\d|\.)+$//;
-        $file[$i] = $file[$i] . ".$j." . $chunk_ids_mapping{$j};
+        $file[$i] = $file[$i] . ".$j." . $mapped_id;
     }
 }
 
 my @iters;
 for my $filename (@file) {
-    open my $file, "<", $filename;
+    open my $file, "<", $filename
+        or croak "Can't open $filename for reading: $!";
     my $iter = file_iterator($file);
     push @iters, $iter if peek_it($iter);
 }
