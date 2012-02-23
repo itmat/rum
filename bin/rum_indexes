@@ -5,7 +5,7 @@ package RUM::Script::Indexes;
 
 =head1 NAME
 
-rum-indexes - List, install, or remove RUM indexes
+rum_indexes - List, install, or remove RUM indexes
 
 =head1 SYNOPSIS
 

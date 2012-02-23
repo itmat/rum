@@ -42,6 +42,14 @@ FindBin->again;
 
 our $ORGANISMS_URL = "http://itmat.rum.s3.amazonaws.com/organisms.txt";
 
+# Maps os name to bin tarball name
+our %BIN_TARBALL_MAP = (
+    darwin => "bin_mac1.5.tar",
+    linux  => "bin_linux64.tar"
+);
+
+our $BIN_TARBALL_URL_PREFIX = "http://itmat.rum.s3.amazonaws.com";
+
 =head1 DESCRIPTION
 
 =head2 Constructor
@@ -88,6 +96,7 @@ sub new {
     $self{root_dir}       = delete $options{root_dir};    
     $self{conf_dir}       = delete $options{conf_dir};
     $self{indexes_dir}    = delete $options{indexes_dir};
+    $self{bin_dir}        = delete $options{bin_dir};
     $self{organisms_file} = delete $options{organisms_file};
 
     my @extra = keys %options;
@@ -96,6 +105,7 @@ sub new {
     $self{root_dir}       ||= "$Bin/..";
     $self{conf_dir}       ||= "$self{root_dir}/conf";
     $self{indexes_dir}    ||= "$self{root_dir}/indexes";
+    $self{bin_dir}        ||= "$self{root_dir}/bin";
     $self{organisms_file} ||= "$self{conf_dir}/organisms.txt";
     
     return bless \%self, $class;
@@ -111,6 +121,8 @@ sub new {
 
 =item $self->indexes_dir
 
+=item $self->bin_dir
+
 =item $self->organisms_file
 
 =back
@@ -120,11 +132,33 @@ sub new {
 sub root_dir       { $_[0]->{root_dir} }
 sub conf_dir       { $_[0]->{conf_dir} }
 sub indexes_dir    { $_[0]->{indexes_dir} }
+sub bin_dir        { $_[0]->{bin_dir} }
 sub organisms_file { $_[0]->{organisms_file} }
 
 =head2 Querying and Modifying the Repository
 
 =over 4
+
+=item $self->fetch_binaries
+
+Download the binary dependencies (blat, bowtie, mdust).
+
+=cut
+
+sub fetch_binaries {
+    my ($self) = @_;
+    my $bin_tarball = $BIN_TARBALL_MAP{$^O}
+        or croak "I don't have a binary tarball for this operating systen ($^O)";
+    my $url = "$BIN_TARBALL_URL_PREFIX/$bin_tarball";
+    my $bin_dir = $self->bin_dir;
+    my $local = "$bin_dir/$bin_tarball";
+    my $status = getstore($url, $local);
+    croak "Couldn't download $url to $local: $status" 
+        unless is_success($status);
+    system("tar -C $bin_dir --strip-components 1 -xf $local") == 0
+        or croak "Can't unpack $local";
+    unlink $local;
+}
 
 =item $self->fetch_organisms_file
 

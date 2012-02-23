@@ -1,0 +1,38 @@
+#!/usr/bin/env perl 
+# -*- cperl -*-
+
+package RUM::Script::Deps;
+
+=head1 NAME
+
+rum_deps - Install binary dependencies
+
+=head1 SYNOPSIS
+
+  # Install binary dependencies (bowtie, blat, mdust) into the bin
+  # dir.
+  rum-deps
+
+=cut
+
+use strict;
+use warnings;
+
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use RUM::Repository;
+use RUM::Script qw(get_options);
+use POSIX;
+
+sub new {
+    my ($class) = @_;
+    return bless {}, $class;
+}
+
+sub main {
+    my ($self) = @_;
+    RUM::Repository->new->fetch_binaries;
+}
+
+
+__PACKAGE__->new->main;
