@@ -275,3 +275,18 @@ sub index_filename {
     return File::Spec->catdir($subdir, $file);
 }
 
+=item $repo->has_index($index)
+
+Return a true value if the index exists in this repository, false otherwise.
+
+=cut
+
+sub has_index {
+    my ($self, $index) = @_;
+    my @files = map { $self->index_filename($_) } $index->files;
+    for (@files) {
+        s/\.gz$//;
+    }
+    my @missing = grep { not -e } @files;
+    return !@missing;
+}
