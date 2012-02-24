@@ -7,7 +7,7 @@ use Test::More tests => 30;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Log::Log4perl qw(:easy);
-use RUM::Config qw(parse_organisms format_config);
+use RUM::Config;
 use RUM::Workflow qw(make_paths shell report is_dry_run with_settings is_on_cluster);
 use RUM::TestUtils qw(download_file download_test_data);
 use RUM::Repository;
@@ -78,14 +78,7 @@ our @BINARIES = @CONFIG_DEFAULTS{qw(bowtie-bin blat-bin mdust-bin)},
 my %CONFIGS = (
     "mouse-baby" => {
         
-        "rum_config" => {
-            "gene-annotation-file" => "$TEST_INDEX_DIR/mm9_refseq_ucsc_vega_gene_info.txt",
-            "bowtie-genome-index"  => "$TEST_INDEX_DIR/mm9_genome",
-            "bowtie-gene-index"    => "$TEST_INDEX_DIR/mm9_genes",
-            "blat-genome-index"    => "$TEST_INDEX_DIR/mm9_genome_one-line-seqs.fa"},
-
         genome_build => "mm9" ,
-        rum_config_file => "$ROOT/rum.config_mm9",
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
         expected_output_dir => "$RESOURCES_DIR/mouse-baby",
@@ -95,14 +88,7 @@ my %CONFIGS = (
 
     "mouse-baby-split" => {
         
-        "rum_config" => {
-            "gene-annotation-file" => "$TEST_INDEX_DIR/mm9_refseq_ucsc_vega_gene_info.txt",
-            "bowtie-genome-index"  => "$TEST_INDEX_DIR/mm9_genome",
-            "bowtie-gene-index"    => "$TEST_INDEX_DIR/mm9_genes",
-            "blat-genome-index"    => "$TEST_INDEX_DIR/mm9_genome_one-line-seqs.fa"},
-
         genome_build => "mm9" ,
-        rum_config_file => "$ROOT/rum.config_mm9",
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
         expected_output_dir => "$RESOURCES_DIR/mouse-baby",
@@ -113,17 +99,9 @@ my %CONFIGS = (
 
     "mouse-baby-grid" => {
         
-        "rum_config" => {
-            "gene-annotation-file" => "$TEST_INDEX_DIR/mm9_refseq_ucsc_vega_gene_info.txt",
-            "bowtie-genome-index"  => "$TEST_INDEX_DIR/mm9_genome",
-            "bowtie-gene-index"    => "$TEST_INDEX_DIR/mm9_genes",
-            "blat-genome-index"    => "$TEST_INDEX_DIR/mm9_genome_one-line-seqs.fa"},
-
         genome_build => "mm9" ,
-        rum_config_file => "$ROOT/rum.config_mm9",
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
-
         rum_options => ["-qsub", "-noclean"],
         expected_output_dir => "$RESOURCES_DIR/mouse-baby",
         needs_cluster => 1
@@ -161,7 +139,8 @@ sub input_files {
 
 sub rum_config_file {
     my ($test_name) = @_;
-    return config($test_name)->{rum_config_file};
+    my $index = find_index($test_name);
+    return $repo->config_filename($index);
 }
 
 sub rum_options {
@@ -200,6 +179,17 @@ sub download_bin_tarball {
     $repo->setup->fetch_binaries();
 }
 
+sub find_index {
+    my ($run_name) = @_;
+    my $build_name = config($run_name)->{genome_build}
+        or croak "I don't have a genome build id for run name $run_name";
+
+    my @indexes = grep { $_->build eq $build_name } $repo->indexes();
+
+    croak "I didn't find exactly one index" unless @indexes == 1;
+    return $indexes[0];
+}
+
 =item get_indexes RUN_NAME
 
 Get all the indexes required for RUN_NAME, unless we already have them
@@ -209,40 +199,8 @@ or $DRY_RUN is set.
 
 sub get_indexes {
     my ($run_name) = @_;
-
-    my $build_name = config($run_name)->{genome_build}
-        or croak "I don't have a genome build id for run name $run_name";
-
-    my @indexes = grep { $_->build eq $build_name } $repo->indexes();
-
-    croak "I didn't find exactly one index" unless @indexes == 1;
-
-    my $index = $indexes[0];
+    my $index = find_index($run_name);
     $repo->install_index($index) unless $repo->has_index($index);
-}
-
-
-=item MAKE_CONFIG_FILE
-
-Make the RUM config file for the given run name unless it already
-exists or $DRY_RUN is set.
-
-=cut
-
-sub make_config_file { 
-    my ($run_name) = @_;
-    my $filename = rum_config_file($run_name);
-
-    if (-e $filename) {
-        report "$filename exists, skipping";
-    }
-    report "Write config file to $filename";
-    return if is_dry_run;
-    open my $out, ">", $filename;
-    my %config = %CONFIG_DEFAULTS;
-    my %custom = %{ config($run_name)->{rum_config} };
-    @config{keys(%custom)} = values(%custom);
-    print $out format_config(%config);   
 }
 
 =item run_rum RUN_NAME
@@ -264,7 +222,6 @@ sub run_rum {
 
     make_test_paths($run_name);
     get_indexes($run_name);
-    make_config_file($run_name);
     download_bin_tarball($run_name);
     download_test_data($TEST_DATA_TARBALL);
 
