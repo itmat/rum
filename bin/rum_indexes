@@ -88,8 +88,7 @@ sub repo { shift->{repo} }
 
 sub list_indexes {
     my ($self, $pattern) = @_;
-    my $repo = $self->repo;
-    $repo->fetch_organisms_file unless -e $repo->organisms_file;
+    $self->repo->setup;
 
     print <<EOF;
 The following indexes are available. Indexes that you already have are marked with '*':
@@ -97,7 +96,7 @@ The following indexes are available. Indexes that you already have are marked wi
 EOF
     my %query;
     $query{pattern} = qr /$pattern/ if $pattern;
-    $self->print_indexes($repo->indexes(%query));
+    $self->print_indexes($self->repo->indexes(%query));
 }
 
 sub print_indexes {
@@ -113,8 +112,8 @@ sub print_indexes {
 
 sub select_index {
     my ($self, $spec) = @_;
-
     my $repo = $self->repo;
+    $repo->setup;
     my @orgs = $repo->indexes;
     if (isdigit($spec)) {
         my @indexes = $repo->indexes;
@@ -146,6 +145,7 @@ EOF
 
 sub install_index {
     my ($self, $spec) = @_;
+    $self->repo->setup;
     unless ($spec) {
         die <<EOF;
 Please specify an index. Use $0 -l to see a list of available indexes.
@@ -157,11 +157,13 @@ EOF
         my ($event, $url) = @_;
         print "$url\n" if $event eq 'start';
     };
+    $self->repo->fetch_binaries();
     $self->repo->install_index($org, $callback);
 }
 
 sub remove_index {
     my ($self, $spec) = @_;
+    $self->repo->setup;
     my $org = $self->select_index($spec);
     print "Removing $org->{build}: $org->{common} ($org->{latin})\n";
     my $callback = sub {

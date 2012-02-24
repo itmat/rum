@@ -234,7 +234,7 @@ sub install_index {
         if ($filename =~ /rum.config_.*/) {
             open my $in, "<", $filename 
                 or croak "Can't open config file $filename for reading: $!";
-            my $config = RUM::Config->parse($in);
+            my $config = RUM::Config->parse($in, quiet => 1);
             close $in;
             $config->make_absolute($self->root_dir);
             open my $out, ">", $filename 
@@ -323,6 +323,12 @@ sub mkdirs {
             mkdir $dir or croak "mkdir $dir: $!";
         }
     }
+}
+
+sub setup {
+    my ($self) = @_;
+    $self->mkdirs();
+    $self->fetch_organisms_file() unless -e $self->organisms_file();
 }
 
 1;
