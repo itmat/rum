@@ -147,6 +147,7 @@ Download the binary dependencies (blat, bowtie, mdust).
 
 sub fetch_binaries {
     my ($self) = @_;
+    $self->mkdirs;
     my $bin_tarball = $BIN_TARBALL_MAP{$^O}
         or croak "I don't have a binary tarball for this operating systen ($^O)";
     my $url = "$BIN_TARBALL_URL_PREFIX/$bin_tarball";
@@ -168,6 +169,7 @@ Download the organisms file
 
 sub fetch_organisms_file {
     my ($self) = @_;
+    $self->mkdirs;
     my $file = $self->organisms_file;
     my $status = getstore($ORGANISMS_URL, $file);
     croak "Couldn't download organisms file from $ORGANISMS_URL " .
@@ -223,6 +225,7 @@ download complets with ("end", $url).
 
 sub install_index {
     my ($self, $index, $callback) = @_;
+    $self->mkdirs;
     for my $url ($index->files) {
         $callback->("start", $url) if $callback;
         my $filename = $self->index_filename($url);
@@ -289,4 +292,17 @@ sub has_index {
     }
     my @missing = grep { not -e } @files;
     return !@missing;
+}
+
+sub mkdirs {
+    my ($self) = @_;
+    my @dirs = ($self->root_dir,
+                $self->conf_dir,
+                $self->indexes_dir,
+                $self->bin_dir);
+    for my $dir (@dirs) {
+        unless (-d $dir) {
+            mkdir $dir or croak "mkdir $dir: $!";
+        }
+    }
 }

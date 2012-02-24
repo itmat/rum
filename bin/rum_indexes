@@ -65,11 +65,13 @@ sub main {
     get_options(
         "--list|l"    => \(my $do_list),
         "--install|i" => \(my $do_install),
-        "--remove|r"  => \(my $do_remove));
+        "--remove|r"  => \(my $do_remove),
+        "--prefix|p=s"  => \(my $prefix));
     
     show_usage() unless $do_list || $do_install || $do_remove;
-
-    $self->{repo} = RUM::Repository->new;
+    my %options;
+    $options{root_dir} = $prefix if $prefix;
+    $self->{repo} = RUM::Repository->new(%options);
     
     if ($do_list) {
         $self->list_indexes(@ARGV);
@@ -87,7 +89,6 @@ sub repo { shift->{repo} }
 sub list_indexes {
     my ($self, $pattern) = @_;
     my $repo = $self->repo;
-    
     $repo->fetch_organisms_file unless -e $repo->organisms_file;
 
     print <<EOF;
