@@ -9,10 +9,10 @@ use warnings;
 use Log::Log4perl qw(:easy);
 
 BEGIN { 
-  use_ok('RUM::Config', qw(parse_config format_config));
+  use_ok('RUM::Config');
 }
 
-my $valid_config_text = join("", map("$_\n", ('a' .. 'i')));
+my $valid_config_text = join("", map("$_\n", ('a' .. 'g')));
 my $valid_config_hashref = {
     "gene_annotation_file" => "a",
     "bowtie_bin" => "b",
@@ -20,37 +20,36 @@ my $valid_config_hashref = {
     "mdust_bin" => "d",
     "bowtie_genome_index" => "e",
     "bowtie_gene_index" => "f",
-    "blat_genome_index" => "g",
-    "script_dir" => "h",
-    "lib_dir" => "i"
+    "blat_genome_index" => "g"
 };
 
-# Parse_Config a valid config file
+# Parse a valid config file
 do {
     open my $config_in, "<", \$valid_config_text;
-    is_deeply(parse_config($config_in), $valid_config_hashref, 
-              "Parse_Config valid config file");
+    is_deeply(RUM::Config->parse($config_in), $valid_config_hashref, 
+              "Parse valid config file");
 };
 
-# Parse_Config a config file that's too long
+# Parse a config file that's too long
 do {
     my $config_text = join("", map("$_\n", ('a' .. 'z')));
     open my $config_in, "<", \$config_text;
-    throws_ok { parse_config($config_in) } qr/too many lines/i,
-        "Throw when a config file is too long";
+    is_deeply(RUM::Config->parse($config_in, quiet=>1), $valid_config_hashref, 
+              "Parse valid config file");
 };
 
-# Parse_Config a config file that's too short
+# Parse a config file that's too short
 do {
     my $config_text = join("", map("$_\n", ('a' .. 'd')));
     open my $config_in, "<", \$config_text;
-    throws_ok { parse_config($config_in) } qr/not enough lines/i,
-        "Throw when a config file is too long";
+    throws_ok { RUM::Config->parse($config_in) } qr/not enough lines/i,
+        "Throw when a config file is too short";
 };
 
 # Stringify a config file
 do {
-    is(format_config(%{$valid_config_hashref}),
+    open my $config_in, "<", \$valid_config_text;
+    is(RUM::Config->parse($config_in)->to_str,
        $valid_config_text,
        "Stringify a config file");
 };

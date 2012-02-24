@@ -35,6 +35,7 @@ use warnings;
 use FindBin qw($Bin);
 use LWP::Simple;
 use RUM::Repository::IndexSpec;
+use RUM::Config;
 use Carp;
 use File::Spec;
 
@@ -230,8 +231,16 @@ sub install_index {
         $callback->("start", $url) if $callback;
         my $filename = $self->index_filename($url);
         my $status = getstore($url, $filename);
-        if ($filename =! /rum.config_.*/) {
-            
+        if ($filename =~ /rum.config_.*/) {
+            open my $in, "<", $filename 
+                or croak "Can't open config file $filename for reading: $!";
+            my $config = RUM::Config->parse($in);
+            close $in;
+            $config->make_absolute($self->root_dir);
+            open my $out, ">", $filename 
+                or croak "Can't open config file $filename for writing: $!";
+            print $out $config->to_str;
+            close $out;
         }
         if ($filename =~ /.gz$/) {
             system("gunzip -f $filename") == 0 
