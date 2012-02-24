@@ -14,15 +14,15 @@ BEGIN {
 
 my $valid_config_text = join("", map("$_\n", ('a' .. 'i')));
 my $valid_config_hashref = {
-    "gene-annotation-file" => "a",
-    "bowtie-bin" => "b",
-    "blat-bin" => "c",
-    "mdust-bin" => "d",
-    "bowtie-genome-index" => "e",
-    "bowtie-gene-index" => "f",
-    "blat-genome-index" => "g",
-    "script-dir" => "h",
-    "lib-dir" => "i"
+    "gene_annotation_file" => "a",
+    "bowtie_bin" => "b",
+    "blat_bin" => "c",
+    "mdust_bin" => "d",
+    "bowtie_genome_index" => "e",
+    "bowtie_gene_index" => "f",
+    "blat_genome_index" => "g",
+    "script_dir" => "h",
+    "lib_dir" => "i"
 };
 
 # Parse_Config a valid config file

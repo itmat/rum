@@ -57,15 +57,15 @@ our @EXPORT_OK = qw(config_fields
                     parse_config
                     format_config);
 
-our @FIELDS = qw(gene-annotation-file
-                 bowtie-bin
-                 blat-bin
-                 mdust-bin
-                 bowtie-genome-index
-                 bowtie-gene-index
-                 blat-genome-index
-                 script-dir
-                 lib-dir);
+our @FIELDS = qw(gene_annotation_file
+                 bowtie_bin
+                 blat_bin
+                 mdust_bin
+                 bowtie_genome_index
+                 bowtie_gene_index
+                 blat_genome_index
+                 script_dir
+                 lib_dir);
 
 =item parse_config IN
 
@@ -120,11 +120,11 @@ Return a hashref containing sensible defaults for a configuration.
 
 sub config_defaults {
     return {
-        "bowtie-bin" => "bowtie",
-        "blat-bin" => "blat",
-        "mdust-bin" => "mdust",
-        "script-dir" => "$Bin/../orig/scripts",
-        "lib-dir"    => "$Bin/../orig/lib"
+        bowtie_bin => "bowtie",
+        blat_bin   => "blat",
+        mdust_bin  => "mdust",
+        script_dir => "$Bin/../orig/scripts",
+        lib_dir    => "$Bin/../orig/lib"
     };
 }
 

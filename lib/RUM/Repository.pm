@@ -230,6 +230,9 @@ sub install_index {
         $callback->("start", $url) if $callback;
         my $filename = $self->index_filename($url);
         my $status = getstore($url, $filename);
+        if ($filename =! /rum.config_.*/) {
+            
+        }
         if ($filename =~ /.gz$/) {
             system("gunzip -f $filename") == 0 
                 or die "Couldn't unzip $filename: $!";
@@ -294,6 +297,12 @@ sub has_index {
     return !@missing;
 }
 
+=item $repo->mkdirs();
+
+Make any directories the repository needs.
+
+=cut
+
 sub mkdirs {
     my ($self) = @_;
     my @dirs = ($self->root_dir,
@@ -306,3 +315,5 @@ sub mkdirs {
         }
     }
 }
+
+1;
