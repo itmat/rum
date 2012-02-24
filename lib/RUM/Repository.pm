@@ -231,7 +231,7 @@ sub install_index {
         $callback->("start", $url) if $callback;
         my $filename = $self->index_filename($url);
         my $status = getstore($url, $filename);
-        if ($filename =~ /rum.config_.*/) {
+        if ($self->is_config_filename($filename)) {
             open my $in, "<", $filename 
                 or croak "Can't open config file $filename for reading: $!";
             my $config = RUM::Config->parse($in, quiet => 1);
@@ -286,8 +286,24 @@ sub index_filename {
     my ($self, $url) = @_;
     my $path = URI->new($url)->path;
     my ($vol, $dir, $file) = File::Spec->splitpath($path);
-    my $subdir = $file =~ /rum.config/ ? $self->conf_dir : $self->indexes_dir;
+    my $subdir = $self->is_config_filename($file)
+        ? $self->conf_dir : $self->indexes_dir;
     return File::Spec->catdir($subdir, $file);
+}
+
+sub is_config_filename {
+    my ($self, $filename) = @_;
+    my ($vol, $dir, $file) = File::Spec->splitpath($filename);
+    return $file =~ /^rum.config/;
+}
+
+sub config_filename {
+    my ($self, $index) = @_;
+    my @filenames = map { $self->index_filename($_) } $index->urls;
+    my @conf_filenames = grep { $self->is_config_filename($_) } @filenames;
+    croak "I can't find exactly one index filename in @conf_filenames"
+        unless @conf_filenames == 1;
+    return $conf_filenames[0];
 }
 
 =item $repo->has_index($index)

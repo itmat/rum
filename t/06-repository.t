@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 5;
+use Test::More tests => 7;
 use Test::Exception;
 use lib "lib";
 
@@ -10,6 +10,7 @@ use Log::Log4perl qw(:easy);
 
 BEGIN { 
   use_ok('RUM::Repository::IndexSpec');
+  use_ok('RUM::Repository');
 }
 
 ################################################################################
@@ -112,6 +113,10 @@ do {
 
     is_deeply([map { [$_->urls] } @got], \@urls, 
               "Parse build names correctly");
+
+    my $repo = RUM::Repository->new();
+    like($repo->config_filename($got[0]), qr(conf/rum.config_hg18),
+       "Found config file");
           
 }
 
