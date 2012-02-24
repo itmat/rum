@@ -9,18 +9,39 @@ rum_indexes - List, install, or remove RUM indexes
 
 =head1 SYNOPSIS
 
-  # Get a list of available indexes
-  rum-indexes -l
+Get a list of all available indexes:
 
-  # Install an index by build name
-  rum-indexes -i hg19
+  $ ./bin/rum_indexes -l
+  The following indexes are available. Indexes that you already
+  have are marked with '*':
 
-  # Install an index by number
-  rum-indexes -i 1
+    1     hg19:                human (Homo sapiens)
+  * 2     hg18:                human (Homo sapiens)
+    3      mm9:                mouse (Mus musculus)
+    4  danRer7:            zebrafish (Danio rerio)
+  --- snip ---
 
-  # Remove an index by build name or number
-  rum-indexes -r hg19
-  rum-indexes -r 1
+Or filtered by a regular expression:
+
+  $ ./bin/rum_indexes -l human
+  The following indexes are available. Indexes that you already 
+  have are marked with '*':
+
+    1     hg19:                human (Homo sapiens)
+  * 2     hg18:                human (Homo sapiens)
+
+Install an index by build name:
+
+  $ rum-indexes -i hg19
+
+or by index number:
+
+  $ rum-indexes -i 1
+
+Remove an index by build name or number
+
+  $ rum-indexes -r hg19
+  $ rum-indexes -r 1
   
 =cut
 
@@ -30,7 +51,7 @@ use warnings;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::Repository;
-use RUM::Script qw(get_options);
+use RUM::Script qw(get_options show_usage);
 use POSIX;
 
 sub new {
@@ -44,9 +65,13 @@ sub main {
     get_options(
         "--list|l"    => \(my $do_list),
         "--install|i" => \(my $do_install),
-        "--remove|r"  => \(my $do_remove));
+        "--remove|r"  => \(my $do_remove),
+        "--prefix|p=s"  => \(my $prefix));
     
-    $self->{repo} = RUM::Repository->new;
+    show_usage() unless $do_list || $do_install || $do_remove;
+    my %options;
+    $options{root_dir} = $prefix if $prefix;
+    $self->{repo} = RUM::Repository->new(%options);
     
     if ($do_list) {
         $self->list_indexes(@ARGV);
@@ -63,14 +88,15 @@ sub repo { shift->{repo} }
 
 sub list_indexes {
     my ($self, $pattern) = @_;
-    my $repo = $self->repo;
-    
-    $repo->fetch_organisms_file unless -e $repo->organisms_file;
+    $self->repo->setup;
 
-    print "The following indexes are available:\n\n";
+    print <<EOF;
+The following indexes are available. Indexes that you already have are marked with '*':
+
+EOF
     my %query;
     $query{pattern} = qr /$pattern/ if $pattern;
-    $self->print_indexes($repo->indexes(%query));
+    $self->print_indexes($self->repo->indexes(%query));
 }
 
 sub print_indexes {
@@ -78,15 +104,16 @@ sub print_indexes {
 
     my $i = 1;
     for my $idx (@indexes) {
-        printf "  %2d %8s: %20s (%s)\n", 
-            $idx->order, $idx->build, $idx->common, $idx->latin;
+        my $have = $self->repo->has_index($idx) ? "*" : " ";
+        printf "%1s %2d %8s: %20s (%s)\n", 
+            $have, $idx->order, $idx->build, $idx->common, $idx->latin;
     }
 }
 
 sub select_index {
     my ($self, $spec) = @_;
-    print "Spec is $spec\n";
     my $repo = $self->repo;
+    $repo->setup;
     my @orgs = $repo->indexes;
     if (isdigit($spec)) {
         my @indexes = $repo->indexes;
@@ -97,7 +124,10 @@ sub select_index {
     return $candidates[0] if @candidates == 1;
     
     if (@candidates > 1) {
-        print "I matched more than one match an index for $spec\n";
+        print <<EOF;
+I found more than one index matching '$spec'; please be more specific:
+
+EOF
         $self->print_indexes(@candidates);
         exit(1);
     }
@@ -115,22 +145,30 @@ EOF
 
 sub install_index {
     my ($self, $spec) = @_;
+    $self->repo->setup;
+    unless ($spec) {
+        die <<EOF;
+Please specify an index. Use $0 -l to see a list of available indexes.
+EOF
+    }
     my $org = $self->select_index($spec);
     print "Installing $org->{build}: $org->{common} ($org->{latin})\n";
     my $callback = sub {
         my ($event, $url) = @_;
         print "$url\n" if $event eq 'start';
     };
+    $self->repo->fetch_binaries();
     $self->repo->install_index($org, $callback);
 }
 
 sub remove_index {
     my ($self, $spec) = @_;
+    $self->repo->setup;
     my $org = $self->select_index($spec);
     print "Removing $org->{build}: $org->{common} ($org->{latin})\n";
     my $callback = sub {
         my ($event, $file) = @_;
-        print "Removing $file\n" if $event eq 'start';
+        print "  Removing $file\n" if $event eq 'start';
     };
     $self->repo->remove_index($org, $callback);
 }

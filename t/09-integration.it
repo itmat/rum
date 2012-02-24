@@ -7,9 +7,10 @@ use Test::More tests => 30;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Log::Log4perl qw(:easy);
-use RUM::Config qw(parse_organisms format_config);
+use RUM::Config;
 use RUM::Workflow qw(make_paths shell report is_dry_run with_settings is_on_cluster);
 use RUM::TestUtils qw(download_file download_test_data);
+use RUM::Repository;
 use Carp;
 use Getopt::Long;
 
@@ -20,28 +21,15 @@ Log::Log4perl->easy_init($WARN);
 ### Configuration
 ###
 
-my %BIN_TARBALLS = (
-    "linux" =>  "http://itmat.rum.s3.amazonaws.com/bin_linux64.tar",
-    "darwin" => "http://itmat.rum.s3.amazonaws.com/bin_mac1.5.tar"
-);
-
 my $ROOT = "$Bin/../_testing";
 
+my $repo = RUM::Repository->new(root_dir => $ROOT)->setup;
+
 my $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tar.gz";
-my $ORGANISMS_URL = "http://itmat.rum.s3.amazonaws.com/organisms.txt",
 
 # Locations of input files and dirs
-my $TEST_INDEX_DIR      = "$ROOT/indexes";
 my $TEST_DATA_TARBALL   = "$ROOT/rum-test-data.tar.gz";
 my $RESOURCES_DIR       = "$ROOT/rum-test-data";
-my $ORGANISMS_FILE      = "$ROOT/organisms.txt";
-my $TEST_SCRIPT_DIR     = "$Bin/../orig/scripts";
-my $TEST_LIB_DIR        = "$Bin/../orig/lib";
-
-my $BIN_TARBALL         = "$ROOT/bin_tarball.tar";
-my $BIN_TARBALL_URL     = $BIN_TARBALLS{$^O}
-    or die "I don't have a tarball of binaries for OS $^O";
-my $BIN_DIR             = "$ROOT/bin";
 
 # These files are produced by Rum
 my @RUM_OUTPUT_FILES = qw(PostProcessing-errorlog        
@@ -68,28 +56,10 @@ my @IGNORED_RUM_OUTPUT_FILES = qw(rum.log_chunk.1
                                   postprocessing_Lane1.log
                                   rum.log_master);
 
-my %CONFIG_DEFAULTS = (
-    "bowtie-bin" => "$BIN_DIR/bowtie",
-    "blat-bin"   => "$BIN_DIR/blat",
-    "mdust-bin"  => "$BIN_DIR/mdust",
-    "script-dir" => $TEST_SCRIPT_DIR,
-    "lib-dir"    => $TEST_LIB_DIR);
-
-our @BINARIES = @CONFIG_DEFAULTS{qw(bowtie-bin blat-bin mdust-bin)},
-
-
-
 my %CONFIGS = (
     "mouse-baby" => {
         
-        "rum_config" => {
-            "gene-annotation-file" => "$TEST_INDEX_DIR/mm9_refseq_ucsc_vega_gene_info.txt",
-            "bowtie-genome-index"  => "$TEST_INDEX_DIR/mm9_genome",
-            "bowtie-gene-index"    => "$TEST_INDEX_DIR/mm9_genes",
-            "blat-genome-index"    => "$TEST_INDEX_DIR/mm9_genome_one-line-seqs.fa"},
-
         genome_build => "mm9" ,
-        rum_config_file => "$ROOT/rum.config_mm9",
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
         expected_output_dir => "$RESOURCES_DIR/mouse-baby",
@@ -99,14 +69,7 @@ my %CONFIGS = (
 
     "mouse-baby-split" => {
         
-        "rum_config" => {
-            "gene-annotation-file" => "$TEST_INDEX_DIR/mm9_refseq_ucsc_vega_gene_info.txt",
-            "bowtie-genome-index"  => "$TEST_INDEX_DIR/mm9_genome",
-            "bowtie-gene-index"    => "$TEST_INDEX_DIR/mm9_genes",
-            "blat-genome-index"    => "$TEST_INDEX_DIR/mm9_genome_one-line-seqs.fa"},
-
         genome_build => "mm9" ,
-        rum_config_file => "$ROOT/rum.config_mm9",
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
         expected_output_dir => "$RESOURCES_DIR/mouse-baby",
@@ -117,17 +80,9 @@ my %CONFIGS = (
 
     "mouse-baby-grid" => {
         
-        "rum_config" => {
-            "gene-annotation-file" => "$TEST_INDEX_DIR/mm9_refseq_ucsc_vega_gene_info.txt",
-            "bowtie-genome-index"  => "$TEST_INDEX_DIR/mm9_genome",
-            "bowtie-gene-index"    => "$TEST_INDEX_DIR/mm9_genes",
-            "blat-genome-index"    => "$TEST_INDEX_DIR/mm9_genome_one-line-seqs.fa"},
-
         genome_build => "mm9" ,
-        rum_config_file => "$ROOT/rum.config_mm9",
         input_files => ["$RESOURCES_DIR/test_mouse/s_1_1.baby",
                         "$RESOURCES_DIR/test_mouse/s_1_2.baby"],
-
         rum_options => ["-qsub", "-noclean"],
         expected_output_dir => "$RESOURCES_DIR/mouse-baby",
         needs_cluster => 1
@@ -135,7 +90,7 @@ my %CONFIGS = (
 );
 
 
-################################################################################
+###############################################################################
 ###
 ### Helper functions for getting configuration settings
 ###
@@ -163,11 +118,6 @@ sub input_files {
     return @{ config($test_name)->{input_files} };
 }
 
-sub rum_config_file {
-    my ($test_name) = @_;
-    return config($test_name)->{rum_config_file};
-}
-
 sub rum_options {
     my ($test_name) = @_;
     return config($test_name)->{rum_options} || [];
@@ -188,92 +138,19 @@ any actions if it is set to a true value.
 sub make_test_paths {
     my ($run_name) = @_;
     my @paths = (expected_output_dir($run_name),
-                 output_data_dir($run_name),
-                 $TEST_INDEX_DIR);
+                 output_data_dir($run_name));
     make_paths(@paths);
 }
 
-=item download_bin_tarball
-
-Download the binary tarball and unpack it, unless it already
-exists or $DRY_RUN is set.
-
-=cut
-
-sub download_bin_tarball {
-    download_file($BIN_TARBALL_URL, $BIN_TARBALL);
-    report "Untar binaries";
-    shell("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT);
-}
-
-=item get_indexes RUN_NAME
-
-Get all the indexes required for RUN_NAME, unless we already have them
-or $DRY_RUN is set.
-
-=cut
-
-sub get_indexes {
+sub find_index {
     my ($run_name) = @_;
-
-    download_file($ORGANISMS_URL, $ORGANISMS_FILE);
-
     my $build_name = config($run_name)->{genome_build}
         or croak "I don't have a genome build id for run name $run_name";
-    
-    report "Parse organisms file";
-    open my $orgs, "<", $ORGANISMS_FILE;
-    my @organisms = parse_organisms($orgs) 
-        or croak "I can't parse the organisms file";
-    
-    # Filter the organisms to include only mouse
-    @organisms = grep {$_->{build} eq $build_name} @organisms;
-    
-    # Get all the URLs listed for any orgs we're interested in
-    my @urls = map { @{ $_->{files} } } @organisms;
-    
-    # For each of the URLs, enqueue a rule that will download it
-    for my $url (@urls) {
-        my $file = $TEST_INDEX_DIR . "/" .
-            substr($url, rindex($url, "/") + 1);
-        if ($file =~ /^(.*)\.gz$/) {
-            my $unzipped = $1;
-            if (-e $unzipped) {
-                report "$unzipped exists; not downloading or unzipping";
-            }
-            else {
-                download_file($url, $file) unless -e $unzipped;
-                shell("gunzip", $file);
-            }
-        }
-        else {
-            download_file($url, $file);
-        }
-    }
-}
 
+    my @indexes = grep { $_->build eq $build_name } $repo->indexes();
 
-=item MAKE_CONFIG_FILE
-
-Make the RUM config file for the given run name unless it already
-exists or $DRY_RUN is set.
-
-=cut
-
-sub make_config_file { 
-    my ($run_name) = @_;
-    my $filename = rum_config_file($run_name);
-
-    if (-e $filename) {
-        report "$filename exists, skipping";
-    }
-    report "Write config file to $filename";
-    return if is_dry_run;
-    open my $out, ">", $filename;
-    my %config = %CONFIG_DEFAULTS;
-    my %custom = %{ config($run_name)->{rum_config} };
-    @config{keys(%custom)} = values(%custom);
-    print $out format_config(%config);   
+    croak "I didn't find exactly one index" unless @indexes == 1;
+    return $indexes[0];
 }
 
 =item run_rum RUN_NAME
@@ -294,17 +171,21 @@ sub run_rum {
     }
 
     make_test_paths($run_name);
-    get_indexes($run_name);
-    make_config_file($run_name);
-    download_bin_tarball($run_name);
     download_test_data($TEST_DATA_TARBALL);
 
-    shell("perl", "bin/RUM_runner.pl",
-          rum_config_file($run_name),
-          join(",,,", input_files($run_name)),
-          output_data_dir($run_name),
-          chunks($run_name),
-          "Lane1", @{ rum_options($run_name) });
+    my $index = find_index($run_name);
+    $repo->install_index($index) unless $repo->has_index($index);
+    my $config = $repo->config_filename($index);
+    $repo->fetch_binaries;
+
+    my $inputs = join(",,,", input_files($run_name));
+    my $out_dir = output_data_dir($run_name);
+    my $chunks = chunks($run_name);
+    my $name = "Lane1";
+    my @options = @{ rum_options($run_name) };
+
+    shell("perl", "bin/RUM_runner.pl", 
+          $config, $inputs, $out_dir, $chunks, $name, @options);
 }
 
 =item compare_rum_output RUN_NAME

@@ -35,6 +35,7 @@ use warnings;
 use FindBin qw($Bin);
 use LWP::Simple;
 use RUM::Repository::IndexSpec;
+use RUM::Config;
 use Carp;
 use File::Spec;
 
@@ -147,6 +148,7 @@ Download the binary dependencies (blat, bowtie, mdust).
 
 sub fetch_binaries {
     my ($self) = @_;
+    $self->mkdirs;
     my $bin_tarball = $BIN_TARBALL_MAP{$^O}
         or croak "I don't have a binary tarball for this operating systen ($^O)";
     my $url = "$BIN_TARBALL_URL_PREFIX/$bin_tarball";
@@ -168,6 +170,7 @@ Download the organisms file
 
 sub fetch_organisms_file {
     my ($self) = @_;
+    $self->mkdirs;
     my $file = $self->organisms_file;
     my $status = getstore($ORGANISMS_URL, $file);
     croak "Couldn't download organisms file from $ORGANISMS_URL " .
@@ -223,10 +226,22 @@ download complets with ("end", $url).
 
 sub install_index {
     my ($self, $index, $callback) = @_;
-    for my $url ($index->files) {
+    $self->mkdirs;
+    for my $url ($index->urls) {
         $callback->("start", $url) if $callback;
         my $filename = $self->index_filename($url);
         my $status = getstore($url, $filename);
+        if ($self->is_config_filename($filename)) {
+            open my $in, "<", $filename 
+                or croak "Can't open config file $filename for reading: $!";
+            my $config = RUM::Config->parse($in, quiet => 1);
+            close $in;
+            $config->make_absolute($self->root_dir);
+            open my $out, ">", $filename 
+                or croak "Can't open config file $filename for writing: $!";
+            print $out $config->to_str;
+            close $out;
+        }
         if ($filename =~ /.gz$/) {
             system("gunzip -f $filename") == 0 
                 or die "Couldn't unzip $filename: $!";
@@ -249,7 +264,7 @@ download completes with ("end", $filename).
 
 sub remove_index {
     my ($self, $index, $callback) = @_;
-    for my $url ($index->files) {
+    for my $url ($index->urls) {
      
         my $filename = $self->index_filename($url);
         if (-e $filename) {
@@ -271,7 +286,115 @@ sub index_filename {
     my ($self, $url) = @_;
     my $path = URI->new($url)->path;
     my ($vol, $dir, $file) = File::Spec->splitpath($path);
-    my $subdir = $file =~ /rum.config/ ? $self->conf_dir : $self->indexes_dir;
+    my $subdir = $self->is_config_filename($file)
+        ? $self->conf_dir : $self->indexes_dir;
     return File::Spec->catdir($subdir, $file);
 }
 
+=item $repo->is_config_filename($filename)
+
+Return true if the given $filename seems to be a configuration file
+(rum.config_*), false otherwise.
+
+=cut
+
+sub is_config_filename {
+    my ($self, $filename) = @_;
+    my ($vol, $dir, $file) = File::Spec->splitpath($filename);
+    return $file =~ /^rum.config/;
+}
+
+=item $repo->local_filenames($index)
+
+Return all the local filenames for the given index.
+
+=cut
+
+sub local_filenames {
+    my ($self, $index) = @_;
+    return map { $self->index_filename($_) } $index->urls;
+}
+
+=item $repo->config_filename($index)
+
+Return the configuration file name for the given index.
+
+=cut
+
+sub config_filename {
+    my ($self, $index) = @_;
+    my @filenames = $self->local_filenames($index);
+    my @conf_filenames = grep { $self->is_config_filename($_) } @filenames;
+    croak "I can't find exactly one index filename in @conf_filenames"
+        unless @conf_filenames == 1;
+    return $conf_filenames[0];
+}
+
+=item $repo->genome_fasta_filename($index)
+
+Return the genome fasta file name for the given index.
+
+=cut
+
+sub genome_fasta_filename {
+    my ($self, $index) = @_;
+    my @filenames = grep { 
+        /genome_one-line-seqs.fa/ 
+    } $self->local_filenames($index);
+    croak "I can't find exactly one genome fasta filename"
+        unless @filenames == 1;
+    $filenames[0] =~ s/\.gz$//;
+
+    return $filenames[0];
+}
+
+=item $repo->has_index($index)
+
+Return a true value if the index exists in this repository, false otherwise.
+
+=cut
+
+sub has_index {
+    my ($self, $index) = @_;
+    my @files = map { $self->index_filename($_) } $index->urls;
+    for (@files) {
+        s/\.gz$//;
+    }
+    my @missing = grep { not -e } @files;
+    return !@missing;
+}
+
+=item $repo->mkdirs()
+
+Make any directories the repository needs.
+
+=cut
+
+sub mkdirs {
+    my ($self) = @_;
+    my @dirs = ($self->root_dir,
+                $self->conf_dir,
+                $self->indexes_dir,
+                $self->bin_dir);
+    for my $dir (@dirs) {
+        unless (-d $dir) {
+            mkdir $dir or croak "mkdir $dir: $!";
+        }
+    }
+}
+
+=item $repo->setup()
+
+Make any directories that need to be created, and download the
+organisms.txt file if necessary.
+
+=cut
+
+sub setup {
+    my ($self) = @_;
+    $self->mkdirs();
+    $self->fetch_organisms_file() unless -e $self->organisms_file();
+    return $self;
+}
+
+1;

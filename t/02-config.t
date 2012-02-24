@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 5;
+use Test::More tests => 12;
 use Test::Exception;
 use lib "lib";
 
@@ -9,50 +9,58 @@ use warnings;
 use Log::Log4perl qw(:easy);
 
 BEGIN { 
-  use_ok('RUM::Config', qw(parse_config format_config));
+  use_ok('RUM::Config');
 }
 
-my $valid_config_text = join("", map("$_\n", ('a' .. 'i')));
+my $valid_config_text = join("", map("$_\n", ('a' .. 'g')));
 my $valid_config_hashref = {
-    "gene-annotation-file" => "a",
-    "bowtie-bin" => "b",
-    "blat-bin" => "c",
-    "mdust-bin" => "d",
-    "bowtie-genome-index" => "e",
-    "bowtie-gene-index" => "f",
-    "blat-genome-index" => "g",
-    "script-dir" => "h",
-    "lib-dir" => "i"
+    "gene_annotation_file" => "a",
+    "bowtie_bin" => "b",
+    "blat_bin" => "c",
+    "mdust_bin" => "d",
+    "bowtie_genome_index" => "e",
+    "bowtie_gene_index" => "f",
+    "blat_genome_index" => "g"
 };
 
-# Parse_Config a valid config file
+# Parse a valid config file
 do {
     open my $config_in, "<", \$valid_config_text;
-    is_deeply(parse_config($config_in), $valid_config_hashref, 
-              "Parse_Config valid config file");
+    my $config = RUM::Config->parse($config_in);
+    is($config->gene_annotation_file, "a");
+    is($config->bowtie_bin, "b");
+    is($config->blat_bin, "c");
+    is($config->mdust_bin, "d");
+    is($config->bowtie_genome_index, "e");
+    is($config->bowtie_gene_index, "f");
+    is($config->blat_genome_index, "g");
+
+
+    $config->make_absolute("/foo/bar");
+    is("/foo/bar/a", $config->gene_annotation_file);
 };
 
-# Parse_Config a config file that's too long
+# Parse a config file that's too long
 do {
     my $config_text = join("", map("$_\n", ('a' .. 'z')));
     open my $config_in, "<", \$config_text;
-    throws_ok { parse_config($config_in) } qr/too many lines/i,
-        "Throw when a config file is too long";
+    is_deeply(RUM::Config->parse($config_in, quiet=>1), $valid_config_hashref, 
+              "Parse valid config file");
 };
 
-# Parse_Config a config file that's too short
+# Parse a config file that's too short
 do {
     my $config_text = join("", map("$_\n", ('a' .. 'd')));
     open my $config_in, "<", \$config_text;
-    throws_ok { parse_config($config_in) } qr/not enough lines/i,
-        "Throw when a config file is too long";
+    throws_ok { RUM::Config->parse($config_in) } qr/not enough lines/i,
+        "Throw when a config file is too short";
 };
 
 # Stringify a config file
 do {
-    is(format_config(%{$valid_config_hashref}),
+    open my $config_in, "<", \$valid_config_text;
+    is(RUM::Config->parse($config_in)->to_str,
        $valid_config_text,
        "Stringify a config file");
 };
-
 

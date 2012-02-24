@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 5;
+use Test::More tests => 7;
 use Test::Exception;
 use lib "lib";
 
@@ -10,6 +10,7 @@ use Log::Log4perl qw(:easy);
 
 BEGIN { 
   use_ok('RUM::Repository::IndexSpec');
+  use_ok('RUM::Repository');
 }
 
 ################################################################################
@@ -64,7 +65,7 @@ do {
     my @commons = ("human", "human");
     my @builds = qw(hg18 hg19);
 
-    my @files = (
+    my @urls = (
         [
             "http://itmat.rum.s3.amazonaws.com/rum.config_hg18",
             "http://itmat.rum.s3.amazonaws.com/indexes/hg18_genome.1.ebwt",
@@ -110,7 +111,12 @@ do {
     is_deeply([map { $_->build } @got], \@builds, 
               "Parse build names correctly");
 
-    is_deeply([map { [$_->files] } @got], \@files, 
+    is_deeply([map { [$_->urls] } @got], \@urls, 
               "Parse build names correctly");
+
+    my $repo = RUM::Repository->new();
+    like($repo->config_filename($got[0]), qr(conf/rum.config_hg18),
+       "Found config file");
           
 }
+
