@@ -69,7 +69,8 @@ my @B;
 my %tcnt;
 my %ecnt;
 my %icnt;
-my @READS;
+my %NUREADS;
+my $UREADS=0;
 
 my $sepout = "false";
 my $posonly = "false";
@@ -142,7 +143,7 @@ while(my $line = <INFILE>) {
     chomp($line);
     my @a = split(/\t/,$line);
 
-    my $STRAND = $a[3];
+    my $STRAND = $a[1];
     if($strandspecific eq 'true') {
 	if($strand =~ /^p/ && $a[1] eq '-') {
 	    next;
@@ -242,12 +243,8 @@ if($sepout eq "true") {
     open(OUTFILE2, ">$outfile2") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile2' for writing.\n\n";
 }
 
-my $num_reads = 0;
-for(my $i=0; $i<@READS; $i++) {
-    if($READS[$i]+0 == 1) {
-	$num_reads++;
-    }
-}
+my $num_reads = $UREADS;
+$num_reads = $num_reads + (scalar keys %NUREADS);
 
 my $nr = $num_reads / 1000000;
 if($countsonly eq "true") {
@@ -533,7 +530,11 @@ sub readfile () {
 	my $STRAND = $a[3];
 	$a[0] =~ /(\d+)/;
 	my $seqnum1 = $1;
-	$READS[$seqnum1]=1;
+	if($type eq "NUcount") {
+	    $NUREADS{$seqnum1}=1;
+	} else {
+	    $UREADS++;
+	}
 	if($strandspecific eq 'true') {
 	    if($strand eq 'p' && $STRAND eq '-' && $anti eq 'false') {
 		next;
@@ -564,16 +565,19 @@ sub readfile () {
 	my $spans_union;
 	
 	if($seqnum1 == $seqnum2 && $b[0] =~ /b/ && $a[0] =~ /a/) {
+	    my $SPANS;
 	    if($a[3] eq "+") {
 		$b[2] =~ /-(\d+)$/;
 		$end = $1;
+		$SPANS = $a[2] . ", " . $b[2];
 	    } else {
 		$b[2] =~ /^(\d+)-/;
 		$start = $1;
 		$a[2] =~ /-(\d+)$/;
 		$end = $1;
+		$SPANS = $b[2] . ", " . $a[2];
 	    }
-	    my $SPANS = &union($a[2], $b[2]);
+#	    my $SPANS = &union($a[2], $b[2]);
 	    @B = split(/[^\d]+/,$SPANS);
 	} else {
 	    $a[2] =~ /-(\d+)$/;
