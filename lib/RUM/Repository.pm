@@ -227,7 +227,7 @@ download complets with ("end", $url).
 sub install_index {
     my ($self, $index, $callback) = @_;
     $self->mkdirs;
-    for my $url ($index->files) {
+    for my $url ($index->urls) {
         $callback->("start", $url) if $callback;
         my $filename = $self->index_filename($url);
         my $status = getstore($url, $filename);
@@ -264,7 +264,7 @@ download completes with ("end", $filename).
 
 sub remove_index {
     my ($self, $index, $callback) = @_;
-    for my $url ($index->files) {
+    for my $url ($index->urls) {
      
         my $filename = $self->index_filename($url);
         if (-e $filename) {
@@ -298,7 +298,7 @@ Return a true value if the index exists in this repository, false otherwise.
 
 sub has_index {
     my ($self, $index) = @_;
-    my @files = map { $self->index_filename($_) } $index->files;
+    my @files = map { $self->index_filename($_) } $index->urls;
     for (@files) {
         s/\.gz$//;
     }
@@ -336,6 +336,7 @@ sub setup {
     my ($self) = @_;
     $self->mkdirs();
     $self->fetch_organisms_file() unless -e $self->organisms_file();
+    return $self;
 }
 
 1;

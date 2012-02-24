@@ -64,7 +64,7 @@ do {
     my @commons = ("human", "human");
     my @builds = qw(hg18 hg19);
 
-    my @files = (
+    my @urls = (
         [
             "http://itmat.rum.s3.amazonaws.com/rum.config_hg18",
             "http://itmat.rum.s3.amazonaws.com/indexes/hg18_genome.1.ebwt",
@@ -110,7 +110,8 @@ do {
     is_deeply([map { $_->build } @got], \@builds, 
               "Parse build names correctly");
 
-    is_deeply([map { [$_->files] } @got], \@files, 
+    is_deeply([map { [$_->urls] } @got], \@urls, 
               "Parse build names correctly");
           
 }
+

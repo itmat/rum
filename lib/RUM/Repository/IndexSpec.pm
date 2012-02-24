@@ -57,9 +57,10 @@ Return the common name of the organism.
 
 Return the build identifier.
 
-=item $index->files()
+=item $index->urls()
 
-Return an array of the index files for this organism.
+Return an array of the URLs of index files and config file for this
+organism.
 
 =item $index->order()
 
@@ -73,8 +74,9 @@ starting at 1.
 sub latin  {    shift->{latin} }
 sub common {    shift->{common} }
 sub build  {    shift->{build} }
-sub files  { @{ shift->{files} } }
+sub urls   { @{ shift->{urls} } }
 sub order  {    shift->{order} }
+
 
 sub _parse_one {
     my ($in) = @_;
@@ -104,7 +106,7 @@ sub _parse_one {
                 $index->{latin} = $latin;
                 $index->{build} = $build;
                 $index->{common} = $common;
-                $index->{files} = [];
+                $index->{urls} = [];
             }
             
             # If we're at the end, add the org we just built up to the list
@@ -115,7 +117,7 @@ sub _parse_one {
         }
 
         elsif ($started) {
-            push @{ $index->{files} }, $_;
+            push @{ $index->{urls} }, $_;
         }
     }
     

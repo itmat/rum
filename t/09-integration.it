@@ -10,6 +10,7 @@ use Log::Log4perl qw(:easy);
 use RUM::Config qw(parse_organisms format_config);
 use RUM::Workflow qw(make_paths shell report is_dry_run with_settings is_on_cluster);
 use RUM::TestUtils qw(download_file download_test_data);
+use RUM::Repository;
 use Carp;
 use Getopt::Long;
 
@@ -20,12 +21,9 @@ Log::Log4perl->easy_init($WARN);
 ### Configuration
 ###
 
-my %BIN_TARBALLS = (
-    "linux" =>  "http://itmat.rum.s3.amazonaws.com/bin_linux64.tar",
-    "darwin" => "http://itmat.rum.s3.amazonaws.com/bin_mac1.5.tar"
-);
-
 my $ROOT = "$Bin/../_testing";
+
+my $repo = RUM::Repository->new(root_dir => $ROOT)->setup;
 
 my $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tar.gz";
 my $ORGANISMS_URL = "http://itmat.rum.s3.amazonaws.com/organisms.txt",
@@ -39,8 +37,6 @@ my $TEST_SCRIPT_DIR     = "$Bin/../orig/scripts";
 my $TEST_LIB_DIR        = "$Bin/../orig/lib";
 
 my $BIN_TARBALL         = "$ROOT/bin_tarball.tar";
-my $BIN_TARBALL_URL     = $BIN_TARBALLS{$^O}
-    or die "I don't have a tarball of binaries for OS $^O";
 my $BIN_DIR             = "$ROOT/bin";
 
 # These files are produced by Rum
@@ -201,9 +197,7 @@ exists or $DRY_RUN is set.
 =cut
 
 sub download_bin_tarball {
-    download_file($BIN_TARBALL_URL, $BIN_TARBALL);
-    report "Untar binaries";
-    shell("tar", "-xvf", $BIN_TARBALL, "-C", $ROOT);
+    $repo->setup->fetch_binaries();
 }
 
 =item get_indexes RUN_NAME
@@ -216,40 +210,15 @@ or $DRY_RUN is set.
 sub get_indexes {
     my ($run_name) = @_;
 
-    download_file($ORGANISMS_URL, $ORGANISMS_FILE);
-
     my $build_name = config($run_name)->{genome_build}
         or croak "I don't have a genome build id for run name $run_name";
-    
-    report "Parse organisms file";
-    open my $orgs, "<", $ORGANISMS_FILE;
-    my @organisms = parse_organisms($orgs) 
-        or croak "I can't parse the organisms file";
-    
-    # Filter the organisms to include only mouse
-    @organisms = grep {$_->{build} eq $build_name} @organisms;
-    
-    # Get all the URLs listed for any orgs we're interested in
-    my @urls = map { @{ $_->{files} } } @organisms;
-    
-    # For each of the URLs, enqueue a rule that will download it
-    for my $url (@urls) {
-        my $file = $TEST_INDEX_DIR . "/" .
-            substr($url, rindex($url, "/") + 1);
-        if ($file =~ /^(.*)\.gz$/) {
-            my $unzipped = $1;
-            if (-e $unzipped) {
-                report "$unzipped exists; not downloading or unzipping";
-            }
-            else {
-                download_file($url, $file) unless -e $unzipped;
-                shell("gunzip", $file);
-            }
-        }
-        else {
-            download_file($url, $file);
-        }
-    }
+
+    my @indexes = grep { $_->build eq $build_name } $repo->indexes();
+
+    croak "I didn't find exactly one index" unless @indexes == 1;
+
+    my $index = $indexes[0];
+    $repo->install_index($index) unless $repo->has_index($index);
 }
 
 
