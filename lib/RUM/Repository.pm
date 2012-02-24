@@ -306,7 +306,7 @@ sub has_index {
     return !@missing;
 }
 
-=item $repo->mkdirs();
+=item $repo->mkdirs()
 
 Make any directories the repository needs.
 
@@ -324,6 +324,13 @@ sub mkdirs {
         }
     }
 }
+
+=item $repo->setup()
+
+Make any directories that need to be created, and download the
+organisms.txt file if necessary.
+
+=cut
 
 sub setup {
     my ($self) = @_;

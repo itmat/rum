@@ -3,41 +3,31 @@
 
 =head1 NAME
 
-RUM::Config - Utilities for parsing and formatting Rum config file
+RUM::Config - A RUM configuration file
 
 =head1 SYNOPSIS
 
-  use RUM::Config qw(parse_config
-                     format_config
-                     config_fields
-                     config_defaults
-                     parse_organisims);
+  use RUM::Config;
 
-  # Parse a config file
+Parse a config file
+
   open my $in, "<", "rum.config_zebrafish";
-  my $config_hashref = parse_config($in);
+  my $config = RUM::Config->parse($in);
 
-  # Format a configuration
-  my $config_text = format_config(
-      "gene-annotation-file" => "foo.txt",
-      "bowtie-bin" => "/usr/bin/bowtie",
-      ... please see config_fields() for all field names
-  );
+Format a configuration
+
+  my $config_text = $config->to_str();
 
   # Get list of field names
-  for my $field (@config_fields) {
-    ...
-  }
+for my $field (RUM::Config->fields()) {
+  ...
+}
 
   my $default_config_hashref = config_defaults();
 
 =head1 DESCRIPTION
 
 This package provides utilities for parsing and formatting a Rum config file.
-
-=head2 Subroutines
-
-=over 4
 
 =cut
 
@@ -57,9 +47,17 @@ our @FIELDS = qw(gene_annotation_file
                  bowtie_gene_index
                  blat_genome_index);
 
+=head2 Creating a configuration
+
+=over 4
+
+=cut
+
 =item RUM::Config->parse($in)
 
 Parse the open filehandle $in and return a RUM::Config object.
+
+=back
 
 =cut
 
@@ -82,6 +80,28 @@ sub parse {
     return bless \%self, $class;
 }
 
+=head2 Properties
+
+=over 4
+
+=item $config->gene_annotation_file
+
+=item $config->bowtie_bin
+
+=item $config->blat_bin
+
+=item $config->mdust_bin
+
+=item $config->bowtie_genome_index
+
+=item $config->bowtie_gene_index
+
+=item $config->blat_genome_index
+
+=back
+
+=cut
+
 sub gene_annotation_file { shift->{gene_annotation_file} }
 sub bowtie_bin { shift->{bowtie_bin} }
 sub blat_bin { shift->{blat_bin} }
@@ -89,6 +109,17 @@ sub mdust_bin { shift->{mdust_bin} }
 sub bowtie_genome_index { shift->{bowtie_genome_index} }
 sub bowtie_gene_index { shift->{bowtie_gene_index} }
 sub blat_genome_index { shift->{blat_genome_index} }
+
+=head2 Other Methods
+
+=over 4
+
+=item $config->make_absolute($prefix)
+
+Change this configuration object so that any relative paths are
+converted to absolute paths by prepending $prefix.
+
+=cut
 
 sub make_absolute {
     my ($self, $prefix) = @_;
@@ -141,9 +172,16 @@ sub fields {
     return @FIELDS;
 }
 
-=item _missing_fields
+=item missing_fields
 
-Given a config hash, return a list of fields that are missing from it.
+Return a list of fields that are missing from this config.
+
+=cut
+
+sub missing_fields {
+    my ($self) = @_;
+    return grep { not $self->{$_} } @FIELDS;
+}
 
 =back
 
@@ -156,11 +194,6 @@ Mike DeLaurentis (delaurentis@gmail.com)
 Copyright 2012, University of Pennsylvania
 
 =cut
-
-sub missing_fields {
-    my ($self) = @_;
-    return grep { not $self->{$_} } @FIELDS;
-}
 
 
 1;
