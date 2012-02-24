@@ -291,19 +291,61 @@ sub index_filename {
     return File::Spec->catdir($subdir, $file);
 }
 
+=item $repo->is_config_filename($filename)
+
+Return true if the given $filename seems to be a configuration file
+(rum.config_*), false otherwise.
+
+=cut
+
 sub is_config_filename {
     my ($self, $filename) = @_;
     my ($vol, $dir, $file) = File::Spec->splitpath($filename);
     return $file =~ /^rum.config/;
 }
 
+=item $repo->local_filenames($index)
+
+Return all the local filenames for the given index.
+
+=cut
+
+sub local_filenames {
+    my ($self, $index) = @_;
+    return map { $self->index_filename($_) } $index->urls;
+}
+
+=item $repo->config_filename($index)
+
+Return the configuration file name for the given index.
+
+=cut
+
 sub config_filename {
     my ($self, $index) = @_;
-    my @filenames = map { $self->index_filename($_) } $index->urls;
+    my @filenames = $self->local_filenames($index);
     my @conf_filenames = grep { $self->is_config_filename($_) } @filenames;
     croak "I can't find exactly one index filename in @conf_filenames"
         unless @conf_filenames == 1;
     return $conf_filenames[0];
+}
+
+=item $repo->genome_fasta_filename($index)
+
+Return the genome fasta file name for the given index.
+
+=cut
+
+sub genome_fasta_filename {
+    my ($self, $index) = @_;
+    my @filenames = grep { 
+        /genome_one-line-seqs.fa/ 
+    } $self->local_filenames($index);
+    croak "I can't find exactly one genome fasta filename"
+        unless @filenames == 1;
+    $filenames[0] =~ s/\.gz$//;
+
+    return $filenames[0];
 }
 
 =item $repo->has_index($index)
