@@ -69,7 +69,7 @@ sub parse {
 
     for my $field (@FIELDS) {
         local $_ = <$in>;
-        die "Not enough lines in config file" unless defined $_;
+        croak "Not enough lines in config file" unless defined $_;
         chomp;        
         $self{$field} = $_;
     }

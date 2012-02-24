@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 5;
+use Test::More tests => 12;
 use Test::Exception;
 use lib "lib";
 
@@ -26,8 +26,18 @@ my $valid_config_hashref = {
 # Parse a valid config file
 do {
     open my $config_in, "<", \$valid_config_text;
-    is_deeply(RUM::Config->parse($config_in), $valid_config_hashref, 
-              "Parse valid config file");
+    my $config = RUM::Config->parse($config_in);
+    is($config->gene_annotation_file, "a");
+    is($config->bowtie_bin, "b");
+    is($config->blat_bin, "c");
+    is($config->mdust_bin, "d");
+    is($config->bowtie_genome_index, "e");
+    is($config->bowtie_gene_index, "f");
+    is($config->blat_genome_index, "g");
+
+
+    $config->make_absolute("/foo/bar");
+    is("/foo/bar/a", $config->gene_annotation_file);
 };
 
 # Parse a config file that's too long
@@ -53,5 +63,4 @@ do {
        $valid_config_text,
        "Stringify a config file");
 };
-
 
