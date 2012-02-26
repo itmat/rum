@@ -44,6 +44,8 @@ Options:
 
     -strand s : s=p to use just + strand reads, s=m to use just - strand.
 
+    -novel    : outout novel exons only
+
     -info f   : f is a file that maps gene id's to info (i.e. annotation or other gene ids).
                 f must be tab delmited with the first column of known ids and second
                 column of annotation.
@@ -76,6 +78,7 @@ my $strand = "";
 my $anti = "false";
 my $infofile;
 my $infofile_given = "false";
+my $novel = "false";
 for(my $i=4; $i<@ARGV; $i++) {
     my $optionrecognized = 0;
     if($ARGV[$i] eq "-sepout") {
@@ -114,6 +117,10 @@ for(my $i=4; $i<@ARGV; $i++) {
 	$countsonly = "true";
 	$optionrecognized = 1;
     }
+    if($ARGV[$i] eq "-novel") {
+	$novel = "true";
+	$optionrecognized = 1;
+    }
     if($optionrecognized == 0) {
 	die "\nERROR: in script rum2quantifications.pl: option '$ARGV[$i]' not recognized\n";
     }
@@ -140,9 +147,11 @@ my %CHRS;
 while(my $line = <INFILE>) {
     chomp($line);
     my @a = split(/\t/,$line);
-    my $STRAND = $a[1];
+    if($novel eq "true" && $a[1] eq "annotated") {
+	next;
+    } 
     if($strandspecific eq 'true') {
-	if($strand =~ /^p/ && $a[1] eq '-') {
+	if($strand =~ /^p/ && $a[1] eq '-') {  # fix this when fix strand specific, strand is no longer a[1]
 	    next;
 	}
 	if($strand =~ /^m/ && $a[1] eq '+') {
@@ -179,6 +188,7 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
 	my $s = $EXON{$chr}[$i]{start};
 	my $e = $EXON{$chr}[$i]{end};
 	my $elen = $e - $s + 1;
+#	print OUTFILE1 "transcript\t$chr:$s-$e\t$x1\t$x2\t$elen\t+\t$chr:$s-$e\n";
 	print OUTFILE1 "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
     }
 }

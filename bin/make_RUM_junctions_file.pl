@@ -201,7 +201,7 @@ if($strandspecified eq 'true') {
     }
 }
 if($strandspecified eq 'false') {
-    print OUTFILE1 "intron\tscore\tknown\tstandard_splice_signal\tsignal_not_canonical\tambiguous\tlong_overlap_unique_reads\tshort_overlap_unique_reads\tlong_overlap_nu_reads\tshort_overlap_nu_reads\n";
+    print OUTFILE1 "intron\tstrand\tscore\tknown\tstandard_splice_signal\tsignal_not_canonical\tambiguous\tlong_overlap_unique_reads\tshort_overlap_unique_reads\tlong_overlap_nu_reads\tshort_overlap_nu_reads\n";
     print OUTFILE2 "track\tname=rum_junctions_all\tvisibility=3\tdescription=\"RUM junctions (all)\" itemRgb=\"On\"\n";
     print OUTFILE3 "track\tname=rum_junctions_hq\tvisibility=3\tdescription=\"RUM high quality junctions\" itemRgb=\"On\"\n";
 }
@@ -343,26 +343,31 @@ sub printjunctions () {
 	    $goodsplicesignal{$intron} = 1;
 	}
 	$known_noncanonical_signal{$intron} = $known_noncanonical_signal{$intron} + 0;
+	$STRAND = $intronstrand{$intron};
+	if(!($STRAND =~ /\S/)) {
+	    $STRAND = ".";
+	}
 	if($goodoverlapU{$intron} > 0 && $goodsplicesignal{$intron} == 1) {
 	    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 0;
 	    $N = $goodoverlapU{$intron} + $goodsplicesignal{$intron} - 1;
 	    if($strandspecified eq 'true') {
 		print OUTFILE1 "$intron\t$strand\t$N\t$knownintron{$intron}\t$goodsplicesignal{$intron}\t$known_noncanonical_signal{$intron}\t$amb{$intron}\t$goodoverlapU{$intron}\t$badoverlapU{$intron}\t$goodoverlapNU{$intron}\t$badoverlapNU{$intron}\n";
+		print OUTFILE2 "$chr\t$start2\t$end2\t$N\t$N\t$strand\t$start2\t$end2\t0,0,128\t2\t$LEN1,$LEN2\t0,$ilen\n";
 	    } else {
-		print OUTFILE1 "$intron\t$N\t$knownintron{$intron}\t$goodsplicesignal{$intron}\t$known_noncanonical_signal{$intron}\t$amb{$intron}\t$goodoverlapU{$intron}\t$badoverlapU{$intron}\t$goodoverlapNU{$intron}\t$badoverlapNU{$intron}\n";
+		print OUTFILE1 "$intron\t$STRAND\t$N\t$knownintron{$intron}\t$goodsplicesignal{$intron}\t$known_noncanonical_signal{$intron}\t$amb{$intron}\t$goodoverlapU{$intron}\t$badoverlapU{$intron}\t$goodoverlapNU{$intron}\t$badoverlapNU{$intron}\n";
+		print OUTFILE2 "$chr\t$start2\t$end2\t$N\t$N\t$STRAND\t$start2\t$end2\t0,0,128\t2\t$LEN1,$LEN2\t0,$ilen\n";
 	    }
-	    print OUTFILE2 "$chr\t$start2\t$end2\t$N\t$N\t$strand\t$start2\t$end2\t0,0,128\t2\t$LEN1,$LEN2\t0,$ilen\n";
 	    if($knownintron{$intron}==1) {
 		if($known_noncanonical_signal{$intron}+0==1) {
-		    print OUTFILE3 "$chr\t$start2\t$end2\t$N\t$N\t$strand\t$start2\t$end2\t24,116,205\t2\t$LEN1,$LEN2\t0,$ilen\n";
+		    print OUTFILE3 "$chr\t$start2\t$end2\t$N\t$N\t$STRAND\t$start2\t$end2\t24,116,205\t2\t$LEN1,$LEN2\t0,$ilen\n";
 		} else {
-		    print OUTFILE3 "$chr\t$start2\t$end2\t$N\t$N\t$strand\t$start2\t$end2\t16,78,139\t2\t$LEN1,$LEN2\t0,$ilen\n";
+		    print OUTFILE3 "$chr\t$start2\t$end2\t$N\t$N\t$STRAND\t$start2\t$end2\t16,78,139\t2\t$LEN1,$LEN2\t0,$ilen\n";
 		}
 	    } else {
 		if($known_noncanonical_signal{$intron}+0==1) {
-		    print OUTFILE3 "$chr\t$start2\t$end2\t$N\t$N\t$strand\t$start2\t$end2\t0,255,127\t2\t$LEN1,$LEN2\t0,$ilen\n";
+		    print OUTFILE3 "$chr\t$start2\t$end2\t$N\t$N\t$STRAND\t$start2\t$end2\t0,255,127\t2\t$LEN1,$LEN2\t0,$ilen\n";
 		} else {
-		    print OUTFILE3 "$chr\t$start2\t$end2\t$N\t$N\t$strand\t$start2\t$end2\t0,205,102\t2\t$LEN1,$LEN2\t0,$ilen\n";
+		    print OUTFILE3 "$chr\t$start2\t$end2\t$N\t$N\t$STRAND\t$start2\t$end2\t0,205,102\t2\t$LEN1,$LEN2\t0,$ilen\n";
 		}
 	    }
 	} else {
@@ -371,10 +376,10 @@ sub printjunctions () {
 		print OUTFILE1 "$intron\t$strand\t0\t$knownintron{$intron}\t$goodsplicesignal{$intron}\t$known_noncanonical_signal{$intron}\t$amb{$intron}\t$goodoverlapU{$intron}\t$badoverlapU{$intron}\t$goodoverlapNU{$intron}\t$badoverlapNU{$intron}\n";
 	    } else {
 		$goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 0;
-		print OUTFILE1 "$intron\t0\t$knownintron{$intron}\t$goodsplicesignal{$intron}\t$known_noncanonical_signal{$intron}\t$amb{$intron}\t$goodoverlapU{$intron}\t$badoverlapU{$intron}\t$goodoverlapNU{$intron}\t$badoverlapNU{$intron}\n";
+		print OUTFILE1 "$intron\t$STRAND\t0\t$knownintron{$intron}\t$goodsplicesignal{$intron}\t$known_noncanonical_signal{$intron}\t$amb{$intron}\t$goodoverlapU{$intron}\t$badoverlapU{$intron}\t$goodoverlapNU{$intron}\t$badoverlapNU{$intron}\n";
 	    }
 	    $NN = $goodoverlapU{$intron} + $goodoverlapNU{$intron} + $badoverlapU{$intron} + $badoverlapNU{$intron};
-	    print OUTFILE2 "$chr\t$start2\t$end2\t$NN\t$NN\t$strand\t$start2\t$end2\t255,69,0\t2\t$LEN1,$LEN2\t0,$ilen\n";
+	    print OUTFILE2 "$chr\t$start2\t$end2\t$NN\t$NN\t$STRAND\t$start2\t$end2\t255,69,0\t2\t$LEN1,$LEN2\t0,$ilen\n";
 	}
     }
 }
@@ -430,12 +435,17 @@ sub getjunctions () {
 		    $intron_lastbase = substr($CHR2SEQ{$chr}, $iend-1, 1);
 		    $splice_signal_upstream = substr($CHR2SEQ{$chr}, $istart-1, 2);
 		    $splice_signal_downstream = substr($CHR2SEQ{$chr}, $iend-2, 2);
-		    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 0;
+  		    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 0;
 		    for($sig=0; $sig<@donor; $sig++) {
 			if(($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig]) || ($splice_signal_upstream eq $acceptor_rev[$sig] && $splice_signal_downstream eq $donor_rev[$sig])) {
 			    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 1;
 			    if($sig>0) {
 				$known_noncanonical_signal{$intron} = 1;
+			    }
+			    if(($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig])) {
+				$intronstrand{$intron} = "+";
+			    } else {
+				$intronstrand{$intron} = "-";
 			    }
 			} else {
 			    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 0;
@@ -525,6 +535,11 @@ sub getjunctions () {
 			if(($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig]) || ($splice_signal_upstream eq $acceptor_rev[$sig] && $splice_signal_downstream eq $donor_rev[$sig])) {
 			    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 1;
 			    $known_noncanonical_signal{$intron} = 1;
+			    if(($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig])) {
+				$intronstrand{$intron} = "+";
+			    } else {
+				$intronstrand{$intron} = "-";
+			    }
 			} else {
 			    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 0;
 			}
