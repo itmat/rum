@@ -1,7 +1,7 @@
 #!perl
 # -*- cperl -*-
 
-use Test::More tests => 11;
+use Test::More tests => 16;
 use Test::Exception;
 use lib "lib";
 
@@ -10,7 +10,8 @@ use warnings;
 use Log::Log4perl qw(:easy);
 
 BEGIN { 
-  use_ok('RUM::Common', qw(getave format_large_int reversesignal spansTotalLength));
+  use_ok('RUM::Common', qw(getave format_large_int reversesignal 
+                           spansTotalLength addJunctionsToSeq));
 }
 
 is(getave("10184-10303"), "10243.5");
@@ -36,3 +37,10 @@ is(spansTotalLength("-6"), 7, "spansTotalLength with bad span");
 is(spansTotalLength("6-"), -5, "spansTotalLength with bad span");
 is(spansTotalLength("-"), 1, "spansTotalLength with bad span");
 is(spansTotalLength(""), 0, "spansTotalLength with no span");
+
+is(addJunctionsToSeq("C", "-0"), "C", "addJunctionsToSeq with bad input");
+is(addJunctionsToSeq("AAACCCGGGTTT", "2-4, 6-9"), "AAA:CCCG", "addJunctionsToSeq with bad input");
+is(addJunctionsToSeq("ATTC+CCG+GGTTTTTTTT", "3-8"), "ATTC+CCG+GG", "addJunctionsToSeq two + signs");
+is(addJunctionsToSeq("ATTC+CCG+GGTTTTTTTT", "3-80"), "ATTC+CCG+GGTTTTTTTT", "addJunctionsToSeq with span that stretches past seq");
+is(addJunctionsToSeq("ATTC+CCGGGTTTTTTTT", "3-8"), "ATTC+CCGGGTTTTTTTT", "addJunctionsToSeq with no terminating +");
+

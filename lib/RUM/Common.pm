@@ -49,12 +49,12 @@ sub addJunctionsToSeq {
     my $place = 0;
     for(my $j_j=0; $j_j<@b_j; $j_j++) {
 	my @c_j = split(/-/,$b_j[$j_j]);
-	my $len_j = $c_j[1] - $c_j[0] + 1;
+	my $len_j = ($c_j[1]||0) - ($c_j[0]||0) + 1;
 	if($seq_out =~ /\S/) { # to avoid putting a colon at the beginning
 	    $seq_out = $seq_out . ":";
 	}
 	for(my $k_j=0; $k_j<$len_j; $k_j++) {
-	    if($s_j[$place] eq "+") {
+	    if(defined($s_j[$place]) && $s_j[$place] eq "+") {
 		$seq_out = $seq_out . $s_j[$place];
 		$place++;
 		until($s_j[$place] eq "+") {
@@ -66,7 +66,7 @@ sub addJunctionsToSeq {
 		}
 		$k_j--;
 	    }
-	    $seq_out = $seq_out . $s_j[$place];
+	    $seq_out = $seq_out . ($s_j[$place]||"");
 	    $place++;
 	}
     }
