@@ -34,6 +34,7 @@ $strand = "";
 $chunk_ids_file = "";
 $countsonly = "false";
 $alt = "false";
+$header="false";
 for($i=3; $i<@ARGV; $i++) {
     $optionrecognized = 0;
     if($ARGV[$i] eq "-strand") {
@@ -61,6 +62,10 @@ for($i=3; $i<@ARGV; $i++) {
     }
     if($ARGV[$i] eq "-countsonly") {
 	$countsonly = "true";
+	$optionrecognized = 1;
+    }
+    if($ARGV[$i] eq "-header") {
+	$header = "true";
 	$optionrecognized = 1;
     }
     if($ARGV[$i] eq "-alt") {
@@ -116,7 +121,14 @@ $num_reads_hold = $num_reads;
 $num_reads = $num_reads / 1000000;
 open(OUTFILE, ">$outfile");
 print OUTFILE "number of reads used for normalization: $num_reads_hold\n";
+if($header eq "true") {
+    print OUTFILE "      Type\tLocation           \tmin\tmax\tUcount\tNUcount\tLength\n";
+}
 for($i=0; $i<$cnt; $i++) {
+    if($counts[$i]{coords} =~ /:-/) {
+	$exoncnt = 1;
+	next;
+    }
     $NL = $counts[$i]{len} / 1000;
     if($countsonly eq "false") {
 	$ucnt_normalized = int( $counts[$i]{Ucnt} / $NL / $num_reads * 10000 ) / 10000;

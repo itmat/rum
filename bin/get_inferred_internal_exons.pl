@@ -1,12 +1,5 @@
 use strict;
-
 $|=1;
-
-use FindBin qw($Bin);
-use lib "$Bin/../lib";
-
-use RUM::Common qw(roman Roman isroman arabic);
-use RUM::Sort qw(by_chromosome);
 
 if(@ARGV<4) {
     die "
@@ -37,7 +30,7 @@ Options:
 
   -maxexon  : Don't infer exons larger than this (default = 500 bp)
 
-  -bed      : Output as bed file
+  -bed f    : Output as bed file to file named f
 ";
 }
 
@@ -56,6 +49,9 @@ my $maxexon = 500;
 my @inferredTranscript;
 my $firstchr = "true";
 my $bed = "false";
+my $rum = "false";
+my $bedfile;
+my $rumoutfile;
 for(my $i=4; $i<@ARGV; $i++) {
     my $optionrecognized = 0;
     my $double = "false";
@@ -67,7 +63,17 @@ for(my $i=4; $i<@ARGV; $i++) {
     }
     if($ARGV[$i] eq "-bed") {
 	$bed = "true";
+	$bedfile = $ARGV[$i+1];
+	$i++;
 	$optionrecognized = 1;
+	$double = "true";
+    }
+    if($ARGV[$i] eq "-rum") {
+	$rum = "true";
+	$rumoutfile = $ARGV[$i+1];
+	$i++;
+	$optionrecognized = 1;
+	$double = "true";
     }
     if($ARGV[$i] eq "-maxexon") {
 	$maxexon = $ARGV[$i+1];
@@ -164,8 +170,6 @@ my %junctions = %{$ARR[0]};
 my %junctions_scores = %{$ARR[1]};
 close(INFILE);
 
-print STDERR "here 1\n";
-
 #foreach my $chr (keys %junctions) {
 #    my $N = @{$junctions{$chr}};
 #    for(my $i=0; $i<$N; $i++) {
@@ -176,7 +180,7 @@ print STDERR "here 1\n";
 my %ANNOTATEDEXON;  # this guy is a highly structured hash mapping chr to
                     # an ordered list of exons feature details
 my %ANNOTATEDEXONS; # this guy is a simple hash with keys=exons
-foreach my $chr (sort by_chromosome keys %EXON_temp) {
+foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON_temp) {
     $ecnt{$chr} = 0;
     foreach my $exon (sort {$EXON_temp{$chr}{$a}{start} <=> $EXON_temp{$chr}{$b}{start}} keys %{$EXON_temp{$chr}}) {
 	$ANNOTATEDEXON{$chr}[$ecnt{$chr}]{start} = $EXON_temp{$chr}{$exon}{start};
@@ -191,7 +195,7 @@ foreach my $chr (sort by_chromosome keys %EXON_temp) {
 }
 
 my %INTRON;
-foreach my $chr (sort by_chromosome keys %INTRON_temp) {
+foreach my $chr (sort {cmpChrs($a,$b)} keys %INTRON_temp) {
     $icnt{$chr} = 0;
     foreach my $intron (sort {$INTRON_temp{$chr}{$a}{start} <=> $INTRON_temp{$chr}{$b}{start}} keys %{$INTRON_temp{$chr}}) {
 	$INTRON{$chr}[$icnt{$chr}]{start} = $INTRON_temp{$chr}{$intron}{start};
@@ -254,18 +258,18 @@ my %JUNCTIONS_SCORES;
 my %JUNCTIONS_START_SCORES;
 my %JUNCTIONS_END_SCORES;
 
-open(RUMFILE1, $rumfile);
-open(RUMFILE2, $rumfile);
-
 # going to step through the chromosomes in sorted order
 
 if($bed eq "true") {
+    open(BEDFILE, ">$bedfile");
     print "track\tname=\"Inferred Internal Exons\"  description=\"Inferred Internal Exons\"   visibility=3    itemRgb=\"On\"\n";
 }
+if($rum eq "true") {
+    open(RUMFILE, ">$rumoutfile");
+}
+foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
 
-foreach my $chr (sort by_chromosome keys %junctions) {
-
-    print STDERR "working on chromosome '$chr'\n";
+#    print STDERR "working on chromosome '$chr'\n";
 
     undef @coverage;
     undef %exonstart2ends;
@@ -386,9 +390,9 @@ foreach my $chr (sort by_chromosome keys %junctions) {
     for(my $je=0; $je<@junction_ends; $je++) {
 	my $flag = 0;
 	my $js = $start_index;
-	if($js % 1000 == 0 && $js>0) {
-	    print STDERR "finished $js\n";
-	}
+#	if($js % 1000 == 0 && $js>0) {
+#	    print STDERR "finished $js\n";
+#	}
 	while($flag == 0) {
 	    if($start_index >= @junction_starts || $js >= @junction_starts) {
 		$flag = 1;
@@ -463,17 +467,30 @@ foreach my $chr (sort by_chromosome keys %junctions) {
     }
 
     foreach my $exon (sort {$putative_exons{$a}<=>$putative_exons{$b}} keys %putative_exons) {
-	if($bed eq "false") {
-	    print "$exon\n";
+	if($ANNOTATEDEXONS{$exon} + 0 == 1) {
+	    print "$exon\tannotated\n";
 	} else {
+	    print "$exon\tnovel\n";
+	}
+	my $chr;
+	my $start;
+	my $end;
+	if($rum eq "true" || $bed eq "true") {
 	    $exon =~ /^(.*):(\d+)-(\d+)/;
-	    my $chr = $1;
-	    my $start = $2 - 1;
-	    my $end = $3;
+	    $chr = $1;
+	    $start = $2 - 1;
+	    $end = $3;
+	}
+	if($rum eq "true") {
+	    if($ANNOTATEDEXONS{$exon} + 0 == 0) {
+		print RUMFILE "$chr\t+\t$start\t$end\t1\t$start,\t$end,\t$exon\n";
+	    }	    
+	}
+	if($bed eq "true") {
 	    if($ANNOTATEDEXONS{$exon} + 0 == 1) {
-		print "$chr\t$start\t$end\t.\t0\t.\t$start\t$end\t16,78,139\n";
+		print BEDFILE "$chr\t$start\t$end\t.\t0\t.\t$start\t$end\t16,78,139\n";
 	    } else {
-		print "$chr\t$start\t$end\t.\t0\t.\t$start\t$end\t0,205,102\n";
+		print BEDFILE "$chr\t$start\t$end\t.\t0\t.\t$start\t$end\t0,205,102\n";
 	    }
 	}
     }
@@ -643,7 +660,6 @@ sub filter_junctions_file () {
 	    }
 	}
     }
-    print STDERR "here x\n";
     my @ARRAY;
     $ARRAY[0] = \%kept_junctions;
     $ARRAY[1] = \%kept_junctions_scores;
@@ -694,7 +710,7 @@ sub cmpChrs2 () {
     my %temphash;
     $temphash{$c1}=1;
     $temphash{$c2}=1;
-    foreach my $tempkey (sort by_chromosome keys %temphash) {
+    foreach my $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
 	if($tempkey eq $c1) {
 	    return 1;
 	} else {
@@ -703,5 +719,255 @@ sub cmpChrs2 () {
     }
 }
 
+sub cmpChrs () {
+    my $a2_c = lc($b);
+    my $b2_c = lc($a);
+    if($a2_c =~ /^\d+$/ && !($b2_c =~ /^\d+$/)) {
+        return 1;
+    }
+    if($b2_c =~ /^\d+$/ && !($a2_c =~ /^\d+$/)) {
+        return -1;
+    }
+    if($a2_c =~ /^[ivxym]+$/ && !($b2_c =~ /^[ivxym]+$/)) {
+        return 1;
+    }
+    if($b2_c =~ /^[ivxym]+$/ && !($a2_c =~ /^[ivxym]+$/)) {
+        return -1;
+    }
+    if($a2_c eq 'm' && ($b2_c eq 'y' || $b2_c eq 'x')) {
+        return -1;
+    }
+    if($b2_c eq 'm' && ($a2_c eq 'y' || $a2_c eq 'x')) {
+        return 1;
+    }
+    if($a2_c =~ /^[ivx]+$/ && $b2_c =~ /^[ivx]+$/) {
+        $a2_c = "chr" . $a2_c;
+        $b2_c = "chr" . $b2_c;
+    }
+   if($a2_c =~ /$b2_c/) {
+	return -1;
+    }
+    if($b2_c =~ /$a2_c/) {
+	return 1;
+    }
+    # dealing with roman numerals starts here
 
+    if($a2_c =~ /chr([ivx]+)/ && $b2_c =~ /chr([ivx]+)/) {
+	$a2_c =~ /chr([ivx]+)/;
+	my $a2_roman = $1;
+	$b2_c =~ /chr([ivx]+)/;
+	my $b2_roman = $1;
+	my $a2_arabic = arabic($a2_roman);
+    	my $b2_arabic = arabic($b2_roman);
+	if($a2_arabic > $b2_arabic) {
+	    return -1;
+	} 
+	if($a2_arabic < $b2_arabic) {
+	    return 1;
+	}
+	if($a2_arabic == $b2_arabic) {
+	    my $tempa = $a2_c;
+	    my $tempb = $b2_c;
+	    $tempa =~ s/chr([ivx]+)//;
+	    $tempb =~ s/chr([ivx]+)//;
+	    my %temphash;
+	    $temphash{$tempa}=1;
+	    $temphash{$tempb}=1;
+	    foreach my $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
+		if($tempkey eq $tempa) {
+		    return 1;
+		} else {
+		    return -1;
+		}
+	    }
+	}
+    }
 
+    if($b2_c =~ /chr([ivx]+)/ && !($a2_c =~ /chr([a-z]+)/) && !($a2_c =~ /chr(\d+)/)) {
+	return -1;
+    }
+    if($a2_c =~ /chr([ivx]+)/ && !($b2_c =~ /chr([a-z]+)/) && !($b2_c =~ /chr(\d+)/)) {
+	return 1;
+    }
+    if($b2_c =~ /m$/ && $a2_c =~ /vi+/) {
+	return 1;
+    }
+    if($a2_c =~ /m$/ && $b2_c =~ /vi+/) {
+	return -1;
+    }
+
+    # roman numerals ends here
+    if($a2_c =~ /chr(\d+)$/ && $b2_c =~ /chr.*_/) {
+        return 1;
+    }
+    if($b2_c =~ /chr(\d+)$/ && $a2_c =~ /chr.*_/) {
+        return -1;
+    }
+    if($a2_c =~ /chr([a-z])$/ && $b2_c =~ /chr.*_/) {
+        return 1;
+    }
+    if($b2_c =~ /chr([a-z])$/ && $a2_c =~ /chr.*_/) {
+        return -1;
+    }
+    if($a2_c =~ /chr(\d+)/) {
+        my $numa = $1;
+        if($b2_c =~ /chr(\d+)/) {
+            my $numb = $1;
+            if($numa < $numb) {return 1;}
+	    if($numa > $numb) {return -1;}
+	    if($numa == $numb) {
+		my $tempa = $a2_c;
+		my $tempb = $b2_c;
+		$tempa =~ s/chr\d+//;
+		$tempb =~ s/chr\d+//;
+		my %temphash;
+		$temphash{$tempa}=1;
+		$temphash{$tempb}=1;
+		foreach my $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
+		    if($tempkey eq $tempa) {
+			return 1;
+		    } else {
+			return -1;
+		    }
+		}
+	    }
+        } else {
+            return 1;
+        }
+    }
+    if($a2_c =~ /chrx(.*)/ && ($b2_c =~ /chr(y|m)$1/)) {
+	return 1;
+    }
+    if($b2_c =~ /chrx(.*)/ && ($a2_c =~ /chr(y|m)$1/)) {
+	return -1;
+    }
+    if($a2_c =~ /chry(.*)/ && ($b2_c =~ /chrm$1/)) {
+	return 1;
+    }
+    if($b2_c =~ /chry(.*)/ && ($a2_c =~ /chrm$1/)) {
+	return -1;
+    }
+    if($a2_c =~ /chr\d/ && !($b2_c =~ /chr[^\d]/)) {
+	return 1;
+    }
+    if($b2_c =~ /chr\d/ && !($a2_c =~ /chr[^\d]/)) {
+	return -1;
+    }
+    if($a2_c =~ /chr[^xy\d]/ && (($b2_c =~ /chrx/) || ($b2_c =~ /chry/))) {
+        return -1;
+    }
+    if($b2_c =~ /chr[^xy\d]/ && (($a2_c =~ /chrx/) || ($a2_c =~ /chry/))) {
+        return 1;
+    }
+    if($a2_c =~ /chr(\d+)/ && !($b2_c =~ /chr(\d+)/)) {
+        return 1;
+    }
+    if($b2_c =~ /chr(\d+)/ && !($a2_c =~ /chr(\d+)/)) {
+        return -1;
+    }
+    if($a2_c =~ /chr([a-z])/ && !($b2_c =~ /chr(\d+)/) && !($b2_c =~ /chr[a-z]+/)) {
+        return 1;
+    }
+    if($b2_c =~ /chr([a-z])/ && !($a2_c =~ /chr(\d+)/) && !($a2_c =~ /chr[a-z]+/)) {
+        return -1;
+    }
+    if($a2_c =~ /chr([a-z]+)/) {
+        my $letter_a = $1;
+        if($b2_c =~ /chr([a-z]+)/) {
+            my $letter_b = $1;
+            if($letter_a lt $letter_b) {return 1;}
+	    if($letter_a gt $letter_b) {return -1;}
+        } else {
+            return -1;
+        }
+    }
+    my $flag_c = 0;
+    while($flag_c == 0) {
+        $flag_c = 1;
+        if($a2_c =~ /^([^\d]*)(\d+)/) {
+            my $stem1_c = $1;
+            my $num1_c = $2;
+            if($b2_c =~ /^([^\d]*)(\d+)/) {
+                my $stem2_c = $1;
+                my $num2_c = $2;
+                if($stem1_c eq $stem2_c && $num1_c < $num2_c) {
+                    return 1;
+                }
+                if($stem1_c eq $stem2_c && $num1_c > $num2_c) {
+                    return -1;
+                }
+                if($stem1_c eq $stem2_c && $num1_c == $num2_c) {
+                    $a2_c =~ s/^$stem1_c$num1_c//;
+                    $b2_c =~ s/^$stem2_c$num2_c//;
+                    $flag_c = 0;
+                }
+            }
+        }
+    }
+    if($a2_c le $b2_c) {
+	return 1;
+    }
+    if($b2_c le $a2_c) {
+	return -1;
+    }
+
+    return 1;
+}
+
+sub isroman($) {
+    my $arg = shift;
+    $arg ne '' and
+      $arg =~ /^(?: M{0,3})
+                (?: D?C{0,3} | C[DM])
+                (?: L?X{0,3} | X[LC])
+                (?: V?I{0,3} | I[VX])$/ix;
+}
+
+sub arabic($) {
+    my $arg = shift;
+    my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
+    my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
+    my @figure = reverse sort keys %roman_digit;
+    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
+    isroman $arg or return undef;
+    my $last_digit = 1000;
+    my $arabic=0;
+    foreach (split(//, uc $arg)) {
+        my ($digit) = $roman2arabic{$_};
+        $arabic -= 2 * $last_digit if $last_digit < $digit;
+        $arabic += ($last_digit = $digit);
+    }
+    $arabic;
+}
+
+sub Roman($) {
+    my $arg = shift;
+    my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
+    my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
+    my @figure = reverse sort keys %roman_digit;
+    $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
+    0 < $arg and $arg < 4000 or return undef;
+    my $roman="";
+    my $x;
+    foreach (@figure) {
+        my ($digit, $i, $v) = (int($arg / $_), @{$roman_digit{$_}});
+        if (1 <= $digit and $digit <= 3) {
+            $roman .= $i x $digit;
+        } elsif ($digit == 4) {
+            $roman .= "$i$v";
+        } elsif ($digit == 5) {
+            $roman .= $v;
+        } elsif (6 <= $digit and $digit <= 8) {
+            $roman .= $v . $i x ($digit - 5);
+        } elsif ($digit == 9) {
+            $roman .= "$i$x";
+        }
+        $arg -= $digit * $_;
+        $x = $i;
+    }
+    $roman;
+}
+
+sub roman($) {
+    lc Roman shift;
+}
