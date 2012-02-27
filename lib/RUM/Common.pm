@@ -55,10 +55,10 @@ sub addJunctionsToSeq {
 	}
 	for(my $k_j=0; $k_j<$len_j; $k_j++) {
 	    if(defined($s_j[$place]) && $s_j[$place] eq "+") {
-		$seq_out = $seq_out . $s_j[$place];
+		$seq_out = $seq_out . ($s_j[$place]||"");
 		$place++;
-		until($s_j[$place] eq "+") {
-		    $seq_out = $seq_out . $s_j[$place];
+		until(defined($s_j[$place]) && $s_j[$place] eq "+") {
+		    $seq_out = $seq_out . ($s_j[$place]||"");
 		    $place++;
 		    if($place > @s_j-1) {
 			last;
