@@ -1,7 +1,7 @@
 #!perl
 # -*- cperl -*-
 
-use Test::More tests => 16;
+use Test::More tests => 17;
 use Test::Exception;
 use lib "lib";
 
@@ -11,7 +11,7 @@ use Log::Log4perl qw(:easy);
 
 BEGIN { 
   use_ok('RUM::Common', qw(getave format_large_int reversesignal 
-                           spansTotalLength addJunctionsToSeq));
+                           spansTotalLength addJunctionsToSeq Roman));
 }
 
 is(getave("10184-10303"), "10243.5");
@@ -44,3 +44,7 @@ is(addJunctionsToSeq("ATTC+CCG+GGTTTTTTTT", "3-8"), "ATTC+CCG+GG", "addJunctions
 is(addJunctionsToSeq("ATTC+CCG+GGTTTTTTTT", "3-80"), "ATTC+CCG+GGTTTTTTTT", "addJunctionsToSeq with span that stretches past seq");
 is(addJunctionsToSeq("ATTC+CCGGGTTTTTTTT", "3-8"), "ATTC+CCGGGTTTTTTTT", "addJunctionsToSeq with no terminating +");
 
+my @romans = qw(I II III IV V VI VII VIII IX X 
+                XI XII XIII XIV XV XVI XVII XVIII XIX XX);
+my @got = map { Roman($_) } (1..20);
+is_deeply(\@got, \@romans, "Roman");
