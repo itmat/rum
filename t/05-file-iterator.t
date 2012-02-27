@@ -1,4 +1,4 @@
-#!perl -T
+#!perl
 # -*- cperl -*-
 
 use Test::More tests => 9;

@@ -49,16 +49,16 @@ sub addJunctionsToSeq {
     my $place = 0;
     for(my $j_j=0; $j_j<@b_j; $j_j++) {
 	my @c_j = split(/-/,$b_j[$j_j]);
-	my $len_j = $c_j[1] - $c_j[0] + 1;
+	my $len_j = ($c_j[1]||0) - ($c_j[0]||0) + 1;
 	if($seq_out =~ /\S/) { # to avoid putting a colon at the beginning
 	    $seq_out = $seq_out . ":";
 	}
 	for(my $k_j=0; $k_j<$len_j; $k_j++) {
-	    if($s_j[$place] eq "+") {
-		$seq_out = $seq_out . $s_j[$place];
+	    if(defined($s_j[$place]) && $s_j[$place] eq "+") {
+		$seq_out = $seq_out . ($s_j[$place]||"");
 		$place++;
-		until($s_j[$place] eq "+") {
-		    $seq_out = $seq_out . $s_j[$place];
+		until(defined($s_j[$place]) && $s_j[$place] eq "+") {
+		    $seq_out = $seq_out . ($s_j[$place]||"");
 		    $place++;
 		    if($place > @s_j-1) {
 			last;
@@ -66,7 +66,7 @@ sub addJunctionsToSeq {
 		}
 		$k_j--;
 	    }
-	    $seq_out = $seq_out . $s_j[$place];
+	    $seq_out = $seq_out . ($s_j[$place]||"");
 	    $place++;
 	}
     }
@@ -220,11 +220,21 @@ by ", ", and each span should be start-end.
 
 sub spansTotalLength {
     my ($spans) = @_;
-    my @a = split(/, /, $spans);
+    my @spans = split(/, /, $spans);
     my $length = 0;
-    for(my $i=0; $i<@a; $i++) {
-	my @b = split(/-/,$a[$i]);
-	$length = $length + $b[1] - $b[0] + 1;
+    for my $span (@spans) {
+	my ($start, $end) = split(/-/, $span);
+
+        # TODO: What should we do if this is called with a half open
+        # span like "-10" or "10-"? Originally it would just
+        # implicitly use 0 for the part of the span that wasn't
+        # specified. I just added 0 as the default to get rid of
+        # warnings about "" not being numeric. Perhaps we should treat
+        # that span as a 0-length span instead.
+        $start ||= 0;
+        $end   ||= 0;
+
+	$length = $length + $end - $start + 1;
     }
     return $length;
 }

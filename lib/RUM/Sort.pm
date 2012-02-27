@@ -297,11 +297,14 @@ The sequence in the record.
 
 sub by_location ($$) {
     my ($c, $d) = @_;
-    ($c->{chr} ne $d->{chr} ? cmpChrs($c->{chr}, $d->{chr}) : 0) ||
-        $c->{start}  <=> $d->{start} ||
-        $c->{end}    <=> $d->{end} ||
-        $c->{seqnum} <=> $d->{seqnum} ||
-        $c->{seq}    cmp $d->{seq};
+    my $c_chr = $c->{chr} || "";
+    my $d_chr = $d->{chr} || "";
+
+    ($c_chr ne $d_chr ? cmpChrs($c_chr, $d_chr) : 0) ||
+    ($c->{start}  || 0) <=> ($d->{start}  || 0) ||
+    ($c->{end}    || 0) <=> ($d->{end}    || 0) ||
+    ($c->{seqnum} || 0) <=> ($d->{seqnum} || 0) ||
+    ($c->{seq}    ||"") cmp ($d->{seq}    ||"");
 }
 
 =item merge_iterators(CMP, OUT_FH, ITERATORS)
