@@ -1,16 +1,14 @@
-#!perl -T
+#!perl 
+
+use strict;
+use warnings;
 
 use Test::More tests => 28;
 use Test::Exception;
 use lib "lib";
 
-use strict;
-use warnings;
-use Log::Log4perl qw(:easy);
-
 BEGIN { 
   use_ok('RUM::Script', qw(:scripts get_options));
-
   use_ok('RUM::Sort', qw(cmpChrs by_chromosome));
 }
 
@@ -21,6 +19,7 @@ sub transform_ok {
   $function->($infile, $outfile);
   close $infile;
   close $outfile;
+  warn "Here I am";
   is($output, $expected, $desc);
 }
 
@@ -603,3 +602,4 @@ read_files_file_ok();
 fix_geneinfofile_for_neg_introns_ok();
 remove_genes_with_missing_sequence_ok();
 get_options_ok();
+
