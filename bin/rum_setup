@@ -5,13 +5,13 @@ package RUM::Script::Indexes;
 
 =head1 NAME
 
-rum_indexes - List, install, or remove RUM indexes
+rum_setup - List, install, or remove RUM indexes
 
 =head1 SYNOPSIS
 
 Get a list of all available indexes:
 
-  $ ./bin/rum_indexes -l
+  $ ./bin/rum_setup -l
   The following indexes are available. Indexes that you already
   have are marked with '*':
 
@@ -23,7 +23,7 @@ Get a list of all available indexes:
 
 Or filtered by a regular expression:
 
-  $ ./bin/rum_indexes -l human
+  $ ./bin/rum_setup -l human
   The following indexes are available. Indexes that you already 
   have are marked with '*':
 
