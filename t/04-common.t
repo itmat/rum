@@ -1,7 +1,7 @@
 #!perl
 # -*- cperl -*-
 
-use Test::More tests => 17;
+use Test::More tests => 24;
 use Test::Exception;
 use lib "lib";
 
@@ -11,7 +11,8 @@ use Log::Log4perl qw(:easy);
 
 BEGIN { 
   use_ok('RUM::Common', qw(getave format_large_int reversesignal 
-                           spansTotalLength addJunctionsToSeq Roman));
+                           spansTotalLength addJunctionsToSeq Roman arabic
+                           isroman roman));
 }
 
 is(getave("10184-10303"), "10243.5");
@@ -44,7 +45,14 @@ is(addJunctionsToSeq("ATTC+CCG+GGTTTTTTTT", "3-8"), "ATTC+CCG+GG", "addJunctions
 is(addJunctionsToSeq("ATTC+CCG+GGTTTTTTTT", "3-80"), "ATTC+CCG+GGTTTTTTTT", "addJunctionsToSeq with span that stretches past seq");
 is(addJunctionsToSeq("ATTC+CCGGGTTTTTTTT", "3-8"), "ATTC+CCGGGTTTTTTTT", "addJunctionsToSeq with no terminating +");
 
+my @arabic = (1..20);
 my @romans = qw(I II III IV V VI VII VIII IX X 
                 XI XII XIII XIV XV XVI XVII XVIII XIX XX);
-my @got = map { Roman($_) } (1..20);
-is_deeply(\@got, \@romans, "Roman");
+is_deeply([ map { Roman($_) } @arabic], \@romans, "Roman");
+is_deeply([ map { arabic($_) } @romans], \@arabic, "arabic");
+is(length(grep { isroman($_) } @romans), length(@romans), "isroman");
+is(roman(14), "xiv", "roman");
+is(Roman(0), undef, "Roman with 0 as input");
+is(Roman(100000), undef, "Roman with large input");
+is(arabic(""), undef, "arabic with empty input");
+is(isroman(""), "", "isroman with empty input");
