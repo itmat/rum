@@ -1,7 +1,7 @@
 #!perl
 # -*- cperl -*-
 
-use Test::More tests => 7;
+use Test::More tests => 11;
 use Test::Exception;
 use lib "lib";
 
@@ -31,3 +31,8 @@ is(reversesignal("TG"), "CA", "Reverse signal 2");
 
 is(spansTotalLength("1-5, 10-12, 20-30"), 19,
    "spansTotalLength");
+
+is(spansTotalLength("-6"), 7, "spansTotalLength with bad span");
+is(spansTotalLength("6-"), -5, "spansTotalLength with bad span");
+is(spansTotalLength("-"), 1, "spansTotalLength with bad span");
+is(spansTotalLength(""), 0, "spansTotalLength with no span");

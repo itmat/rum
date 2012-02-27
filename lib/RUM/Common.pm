@@ -220,11 +220,21 @@ by ", ", and each span should be start-end.
 
 sub spansTotalLength {
     my ($spans) = @_;
-    my @a = split(/, /, $spans);
+    my @spans = split(/, /, $spans);
     my $length = 0;
-    for(my $i=0; $i<@a; $i++) {
-	my @b = split(/-/,$a[$i]);
-	$length = $length + $b[1] - $b[0] + 1;
+    for my $span (@spans) {
+	my ($start, $end) = split(/-/, $span);
+
+        # TODO: What should we do if this is called with a half open
+        # span like "-10" or "10-"? Originally it would just
+        # implicitly use 0 for the part of the span that wasn't
+        # specified. I just added 0 as the default to get rid of
+        # warnings about "" not being numeric. Perhaps we should treat
+        # that span as a 0-length span instead.
+        $start ||= 0;
+        $end   ||= 0;
+
+	$length = $length + $end - $start + 1;
     }
     return $length;
 }
