@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 use strict;
-use warnings;
+no warnings;
 
 if(@ARGV<2) {
     die "Usage: merge_sorted_RUM_files.pl <outfile> <infile1> <infile2> [<infile3> ... <infileN>] [option]

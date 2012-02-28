@@ -1,7 +1,7 @@
 package RUM::TestUtils;
 
 use strict;
-use warnings;
+no warnings;
 
 =head1 NAME
 

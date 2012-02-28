@@ -1,7 +1,7 @@
 package RUM::Common;
 
 use strict;
-use warnings;
+no warnings;
 
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic

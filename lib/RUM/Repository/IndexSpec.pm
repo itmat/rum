@@ -1,7 +1,7 @@
 package RUM::Repository::IndexSpec;
 
 use strict;
-use warnings;
+no warnings;
 
 use Carp;
 

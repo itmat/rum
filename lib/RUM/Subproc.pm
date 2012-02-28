@@ -61,7 +61,7 @@ shell out to other processes when we need to.
 =cut
 
 use strict;
-use warnings;
+no warnings;
 
 use POSIX qw(:sys_wait_h);
 use Exporter qw(import);

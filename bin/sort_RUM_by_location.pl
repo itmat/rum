@@ -10,7 +10,7 @@ use RUM::FileIterator qw(file_iterator sort_by_location merge_iterators);
 use File::Copy qw(mv cp);
 
 use strict;
-use warnings;
+no warnings;
 
 my $timestart = time();
 if(@ARGV < 2) {

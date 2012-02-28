@@ -49,7 +49,7 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 =cut
 
 use strict;
-use warnings;
+no warnings;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";

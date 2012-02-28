@@ -3,7 +3,7 @@
 $|=1;
 
 use strict;
-use warnings;
+no warnings;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";

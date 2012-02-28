@@ -1,7 +1,7 @@
 package RUM::Sort;
 
 use strict;
-use warnings;
+no warnings;
 
 use Exporter 'import';
 our @EXPORT_OK = qw(cmpChrs by_chromosome by_location merge_iterators);
