@@ -7,8 +7,9 @@ use lib "$Bin/../lib";
 use Carp;
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::Sort qw(merge_iterators cmpChrs by_chromosome by_location);
-use RUM::FileIterator qw(file_iterator pop_it peek_it);
+use RUM::Sort qw(cmpChrs by_chromosome by_location);
+use RUM::FileIterator qw(file_iterator pop_it peek_it sort_by_location
+                         merge_iterators);
 use File::Copy qw(mv cp);
 
 use strict;
@@ -333,8 +334,9 @@ sub doEverything () {
 	    $cnt++;
 	}
 	my $INFILE = $infile . "_sorting_tempfile." . $chunk;
-	open(my $sorting_file_in, $INFILE);
-        sort_one_file($sorting_file_in, *FINALOUT, $separate);
+	open(my $sorting_file_in, "<", $INFILE);
+        sort_by_location($sorting_file_in, *FINALOUT, 
+                         separate => $separate);
 	$chunk++;
     }
     close(FINALOUT);
@@ -370,25 +372,4 @@ sub doEverything () {
 
     unlink($running_indicator_file);
 }
-
-sub sort_one_file {
-    my ($in, $out, $separate) = @_;
-
-    # Open an iterator over the input file.
-    my $it = file_iterator($in, separate => $separate);
-
-    # Fill up @recs by repeatedly popping the iterator until it is
-    # empty. See RUM::FileIterator.
-    my @recs;
-    while (my $rec = pop_it($it)) {
-        push @recs, $rec;
-    }
-
-    # Sort the records by location (See RUM::Sort for by_location) and
-    # print them.
-    for my $rec (sort by_location @recs) {
-        print $out "$rec->{entry}\n";
-    }
-}
-
 

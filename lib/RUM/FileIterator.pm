@@ -65,8 +65,10 @@ The sequence in the record.
 
 use Exporter qw(import);
 use Carp;
+use RUM::Sort qw(by_location cmpChrs);
 
-our @EXPORT_OK = qw(file_iterator pop_it peek_it);
+our @EXPORT_OK = qw(file_iterator pop_it peek_it sort_by_location
+                    merge_iterators);
 
 =item file_iterator(IN, OPTIONS)
 
@@ -203,6 +205,82 @@ sub _read_record {
     return \%res;
     
 }
+
+sub sort_by_location {
+    my ($in, $out, %options) = @_;
+
+    # Open an iterator over the input file.
+    my $it = file_iterator($in, %options);
+
+    # Fill up @recs by repeatedly popping the iterator until it is
+    # empty. See RUM::FileIterator.
+    my @recs;
+    while (my $rec = pop_it($it)) {
+        push @recs, $rec;
+    }
+
+    # Sort the records by location (See RUM::Sort for by_location) and
+    # print them.
+    for my $rec (sort by_location @recs) {
+        print $out "$rec->{entry}\n";
+    }
+}
+
+
+=item merge_iterators(CMP, OUT_FH, ITERATORS)
+
+=item merge_iterators(OUT_FH, ITERATORS)
+
+Merges the given ITERATORS together, printing the entries in the
+iterators to OUT_FH. We assume that the ITERATORS are producing entries in sorted order.
+
+If CMP is supplied, it must be a comparator function; otherwise
+by_location will be used.
+
+=cut
+
+sub merge_iterators {
+
+    my $cmp = \&by_location;
+    my $outfile = shift;
+    if (ref($outfile) =~ /^CODE/) {
+        $cmp = $outfile;
+        $outfile = shift;
+    }
+    my @iters = @_;
+
+    @iters = grep { peek_it($_) } @iters;
+
+    while (@iters) {
+        
+        my $argmin = 0;
+        my $min = peek_it($iters[$argmin]);
+        for (my $i = 1; $i < @iters; $i++) {
+            
+            my $rec = peek_it($iters[$i]);
+            
+            # If this one is smaller, set $argmin and $min
+            # appropriately
+            if (by_location($rec, $min) < 0) {
+                $argmin = $i;
+                $min = $rec;
+            }
+        }
+        
+        print $outfile "$min->{entry}\n";
+        
+        # Pop the iterator that we just printed a record from; this
+        # way the next iteration will be looking at the next value. If
+        # this iterator doesn't have a next value, then we've
+        # exhausted it, so remove it from our list.
+        pop_it($iters[$argmin]);        
+        unless (peek_it($iters[$argmin])) {
+            splice @iters, $argmin, 1;
+        }
+    }
+}
+
+
 
 =back
 
