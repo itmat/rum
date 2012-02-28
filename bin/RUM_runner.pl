@@ -8,6 +8,7 @@ $| = 1;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use File::Spec;
+use Carp;
 use RUM::Common qw(Roman roman isroman arabic format_large_int);
 use RUM::Sort qw(by_chromosome);
 use RUM::Subproc qw(spawn check pids_by_command_re kill_all procs
@@ -19,33 +20,42 @@ if($ARGV[0] eq '-version' || $ARGV[0] eq '-v' || $ARGV[0] eq '--version' || $ARG
 
 $date = `date`;
 
-if(@ARGV == 1 && @ARGV[0] eq "config") {
-    print "
+our $CONFIG_DESC = <<EOF;
 The following describes the configuration file:
 
-Note: All entries can be absolute path, or relative path to where RUM is installed.
+Note: All entries can be absolute path, or relative path to where RUM
+is installed.
 
-1) gene annotation file, can be relative path to where the RUM_runner.pl script is, or absolute path
+1) gene annotation file, can be absolute, or relative to where RUM is installed
    e.g.: indexes/mm9_ucsc_refseq_gene_info.txt
-2) bowtie executable, can be relative path to where the RUM_runner.pl script is, or absolute path
-   e.g.: bowtie/bowtie
-3) blat executable, can be relative path to where the RUM_runner.pl script is, or absolute path
-   e.g.: blat/blat
-4) mdust executable, can be relative path to where the RUM_runner.pl script is, or absolute path
-   e.g.: mdust/mdust
-5) bowtie genome index, can be relative path to where the RUM_runner.pl script is, or absolute path
-   e.g.: indexes/mm9
-6) bowtie gene index, can be relative path to where the RUM_runner.pl script is, or absolute path
-   e.g.: indexes/mm9_genes_ucsc_refseq
-7) blat genome index, can be relative path to where the RUM_runner.pl script is, or absolute path
-   e.g. indexes/mm9_genome_sequence_single-line-seqs.fa
-8) [DEPRECATED] perl scripts directory, can be relative path to where the RUM_runner.pl script is, or absolute path
-   e.g.: scripts
-9) [DEPRECATED] lib directory, this directory holds the config files and the pipeline_template.sh file.  It can
-   be relative path to where the RUM_runner.pl script is, or absolute path
-   e.g.: lib
 
-";
+2) bowtie executable, can be absolute, or relative to where RUM is installed
+   e.g.: bowtie/bowtie
+
+3) blat executable, can be absolute, or relative to where RUM is installed
+   e.g.: blat/blat
+
+4) mdust executable, can be absolute, or relative to where RUM is installed
+   e.g.: mdust/mdust
+
+5) bowtie genome index, can be absolute, or relative to where RUM is installed
+   e.g.: indexes/mm9
+
+6) bowtie gene index, can be absolute, or relative to where RUM is installed
+   e.g.: indexes/mm9_genes_ucsc_refseq
+
+7) blat genome index, can be absolute, or relative to where RUM is installed
+   e.g. indexes/mm9_genome_sequence_single-line-seqs.fa
+
+8) [DEPRECATED] perl scripts directory. This is now ignored, and this script
+    will use $Bin/../bin
+
+9) [DEPRECATED] lib directory. This is now ignored, and this script will use
+    $Bin/../lib
+EOF
+
+if(@ARGV == 1 && @ARGV[0] eq "config") {
+    print $CONFIG_DESC;
 }
 if(@ARGV < 5) {
     print "
@@ -710,13 +720,23 @@ sub read_config_path {
     use warnings;
     my ($in) = @_;
     my $maybe_rel_path = <$in>;
+    unless (defined($maybe_rel_path)) {
+        print $CONFIG_DESC;
+        die <<EOF;
+
+The configuration file seems to be missing some lines.
+Please see the instructions for the configuration file above.
+
+EOF
+    }
     chomp $maybe_rel_path;
     my $root = "$Bin/../";
     my $abs_path = File::Spec->rel2abs($maybe_rel_path, $root);
     return $abs_path;
 }
 
-open(my $config_in, $configfile);
+open my $config_in, "<", $configfile
+    or croak "Can't open the config file $configfile for reading: $!";
 $gene_annot_file = read_config_path($config_in);
 if($dna eq "false") {
     if(!(-e $gene_annot_file)) {
@@ -753,8 +773,9 @@ our $conf_dir    = "$Bin/../conf";
 if (defined (my $old_scripts_dir = <INFILE>)) {
     print <<EOF;
 
-The 'scripts' and 'lib' directory lines in the configuration file are no longer needed. I
-will use scripts in $scripts_dir and the pipeline template in $conf_dir.
+The 'scripts' and 'lib' directory lines in the configuration file are
+no longer needed. I will use scripts in $scripts_dir and the pipeline
+template in $conf_dir.
 
 EOF
 }
