@@ -7,7 +7,7 @@ use lib "$Bin/../lib";
 use Carp;
 
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::Sort qw(cmpChrs by_chromosome by_location);
+use RUM::Sort qw(by_chromosome);
 use RUM::FileIterator qw(file_iterator pop_it peek_it sort_by_location
                          merge_iterators);
 use File::Copy qw(mv cp);
@@ -257,34 +257,17 @@ sub doEverything () {
 
 	    while($FLAG == 0) {
 		$chunk_num++;
-		my $number_so_far = 0;
-		my $chunkFLAG = 0;
-                my @recs;
 
-
-		while($chunkFLAG == 0) {
-                    my $rec = pop_it($it);
-		    unless ($rec) {
-			$chunkFLAG = 1;
-			$FLAG = 1;
-			next;
-		    }
-                    push @recs, $rec;
-
-		    $number_so_far++;
-		    if($number_so_far>$max_count_at_once) {
-			$chunkFLAG=1;
-		    }
-		}
-		# write out this chunk sorted:
                 my $suffix = $chunk_num == 1 ? 0 : 1;
                 my $tempfilename = $CHR[$cnt] . "_temp.$suffix";
-		
-		open(OUTFILE,">$tempfilename");
-		foreach my $rec (sort by_location @recs) {
-		    print OUTFILE "$rec->{entry}\n";
-		}
-		close(OUTFILE);
+                open my $this_chunk_out, ">", $tempfilename;
+                my $num_read = 
+                    sort_by_location($it, $this_chunk_out, 
+                                     max => $max_count_at_once);
+                close($this_chunk_out);
+                unless ($num_read) {
+                    $FLAG = 1;
+                }
 		
 		# merge with previous chunk (if necessary):
 #	    print "chunk_num = $chunk_num\n";

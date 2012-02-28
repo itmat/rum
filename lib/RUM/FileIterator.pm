@@ -284,9 +284,10 @@ it in about 1:55 also.
 =cut
 sub sort_by_location_bighash {
     my ($in, $out, %options) = @_;
+    my $max = $options{max};
 
     # Open an iterator over the input file.
-    my $it = file_iterator($in, %options);
+    my $it = ref($in) =~ /CODE/ ? $in : file_iterator($in, %options);
 
     # Fill up @recs by repeatedly popping the iterator until it is
     # empty. See RUM::FileIterator.
@@ -295,7 +296,6 @@ sub sort_by_location_bighash {
     my $count = 0;
     print "Reading now\n";
     while (my $rec = pop_it($it)) {
-        $count++;
         my %rec = %$rec;
         my $chr = delete $rec{chr};
         my $start = delete $rec{start};
@@ -304,6 +304,9 @@ sub sort_by_location_bighash {
         $data{$chr}{$start} ||= {};
         $data{$chr}{$start}{$end}   ||= [];
         push @{ $data{$chr}{$start}{$end} }, $rec{entry};
+        if ($max && ($count++ >= $max)) {
+            last;
+        }
     }
 
 #    my $size = total_size(\%data);
@@ -323,6 +326,7 @@ sub sort_by_location_bighash {
             }
         }
     }
+    return $count;
 }
 
 sub sort_by_location{
