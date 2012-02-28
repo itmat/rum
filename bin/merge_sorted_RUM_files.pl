@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 use strict;
-use warnings;
+no warnings;
 
 if(@ARGV<2) {
     die "Usage: merge_sorted_RUM_files.pl <outfile> <infile1> <infile2> [<infile3> ... <infileN>] [option]
@@ -22,8 +22,8 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Carp;
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::Sort qw(merge_iterators by_location);
-use RUM::FileIterator qw(file_iterator pop_it peek_it);
+use RUM::Sort qw(by_location);
+use RUM::FileIterator qw(file_iterator pop_it peek_it merge_iterators);
 
 my $outfile = $ARGV[0];
 my $options_start_index;

@@ -13,7 +13,7 @@ RUM::Script - Common utilities for running other tasks using the shell or qsub
 =cut
 
 use strict;
-use warnings;
+no warnings;
 
 use File::Path qw(mkpath);
 use Carp;

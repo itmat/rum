@@ -5,14 +5,12 @@ $|=1;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Carp;
-
-use RUM::Common qw(roman Roman isroman arabic);
-use RUM::Sort qw(merge_iterators cmpChrs by_chromosome by_location);
-use RUM::FileIterator qw(file_iterator pop_it peek_it);
+use RUM::Sort qw(by_chromosome);
+use RUM::FileIterator qw(file_iterator sort_by_location merge_iterators);
 use File::Copy qw(mv cp);
 
 use strict;
-use warnings;
+no warnings;
 
 my $timestart = time();
 if(@ARGV < 2) {
@@ -256,34 +254,17 @@ sub doEverything () {
 
 	    while($FLAG == 0) {
 		$chunk_num++;
-		my $number_so_far = 0;
-		my $chunkFLAG = 0;
-                my @recs;
 
-
-		while($chunkFLAG == 0) {
-                    my $rec = pop_it($it);
-		    unless ($rec) {
-			$chunkFLAG = 1;
-			$FLAG = 1;
-			next;
-		    }
-                    push @recs, $rec;
-
-		    $number_so_far++;
-		    if($number_so_far>$max_count_at_once) {
-			$chunkFLAG=1;
-		    }
-		}
-		# write out this chunk sorted:
                 my $suffix = $chunk_num == 1 ? 0 : 1;
                 my $tempfilename = $CHR[$cnt] . "_temp.$suffix";
-		
-		open(OUTFILE,">$tempfilename");
-		foreach my $rec (sort by_location @recs) {
-		    print OUTFILE "$rec->{entry}\n";
-		}
-		close(OUTFILE);
+                open my $this_chunk_out, ">", $tempfilename;
+                my $num_read = 
+                    sort_by_location($it, $this_chunk_out, 
+                                     max => $max_count_at_once);
+                close($this_chunk_out);
+                unless ($num_read) {
+                    $FLAG = 1;
+                }
 		
 		# merge with previous chunk (if necessary):
 #	    print "chunk_num = $chunk_num\n";
@@ -333,8 +314,9 @@ sub doEverything () {
 	    $cnt++;
 	}
 	my $INFILE = $infile . "_sorting_tempfile." . $chunk;
-	open(my $sorting_file_in, $INFILE);
-        sort_one_file($sorting_file_in, *FINALOUT, $separate);
+	open(my $sorting_file_in, "<", $INFILE);
+        sort_by_location($sorting_file_in, *FINALOUT, 
+                         separate => $separate);
 	$chunk++;
     }
     close(FINALOUT);
@@ -370,25 +352,4 @@ sub doEverything () {
 
     unlink($running_indicator_file);
 }
-
-sub sort_one_file {
-    my ($in, $out, $separate) = @_;
-
-    # Open an iterator over the input file.
-    my $it = file_iterator($in, separate => $separate);
-
-    # Fill up @recs by repeatedly popping the iterator until it is
-    # empty. See RUM::FileIterator.
-    my @recs;
-    while (my $rec = pop_it($it)) {
-        push @recs, $rec;
-    }
-
-    # Sort the records by location (See RUM::Sort for by_location) and
-    # print them.
-    for my $rec (sort by_location @recs) {
-        print $out "$rec->{entry}\n";
-    }
-}
-
 

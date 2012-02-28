@@ -30,7 +30,7 @@ RUM::Repository - Models a local repository of RUM indexes
 =cut
 
 use strict;
-use warnings;
+no warnings;
 
 use FindBin qw($Bin);
 use LWP::Simple;

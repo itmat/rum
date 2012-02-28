@@ -1,12 +1,11 @@
 package RUM::Sort;
 
 use strict;
-use warnings;
+no warnings;
 
 use Exporter 'import';
 our @EXPORT_OK = qw(cmpChrs by_chromosome by_location merge_iterators);
 use RUM::Common qw(roman Roman isroman arabic);
-use RUM::FileIterator qw(peek_it pop_it);
 
 =pod
 
@@ -303,61 +302,7 @@ sub by_location ($$) {
     ($c_chr ne $d_chr ? cmpChrs($c_chr, $d_chr) : 0) ||
     ($c->{start}  || 0) <=> ($d->{start}  || 0) ||
     ($c->{end}    || 0) <=> ($d->{end}    || 0) ||
-    ($c->{seqnum} || 0) <=> ($d->{seqnum} || 0) ||
-    ($c->{seq}    ||"") cmp ($d->{seq}    ||"");
-}
-
-=item merge_iterators(CMP, OUT_FH, ITERATORS)
-
-=item merge_iterators(OUT_FH, ITERATORS)
-
-Merges the given ITERATORS together, printing the entries in the
-iterators to OUT_FH. We assume that the ITERATORS are producing entries in sorted order.
-
-If CMP is supplied, it must be a comparator function; otherwise
-by_location will be used.
-
-=cut
-
-sub merge_iterators {
-
-    my $cmp = \&by_location;
-    my $outfile = shift;
-    if (ref($outfile) =~ /^CODE/) {
-        $cmp = $outfile;
-        $outfile = shift;
-    }
-    my @iters = @_;
-
-    @iters = grep { peek_it($_) } @iters;
-
-    while (@iters) {
-        
-        my $argmin = 0;
-        my $min = peek_it($iters[$argmin]);
-        for (my $i = 1; $i < @iters; $i++) {
-            
-            my $rec = peek_it($iters[$i]);
-            
-            # If this one is smaller, set $argmin and $min
-            # appropriately
-            if (by_location($rec, $min) < 0) {
-                $argmin = $i;
-                $min = $rec;
-            }
-        }
-        
-        print $outfile "$min->{entry}\n";
-        
-        # Pop the iterator that we just printed a record from; this
-        # way the next iteration will be looking at the next value. If
-        # this iterator doesn't have a next value, then we've
-        # exhausted it, so remove it from our list.
-        pop_it($iters[$argmin]);        
-        unless (peek_it($iters[$argmin])) {
-            splice @iters, $argmin, 1;
-        }
-    }
+    ($c->{entry} || 0) cmp ($d->{entry} || 0);
 }
 
 =back

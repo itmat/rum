@@ -34,7 +34,7 @@ This package provides utilities for parsing and formatting a Rum config file.
 package RUM::Config;
 
 use strict;
-use warnings;
+no warnings;
 
 use Getopt::Long;
 use Carp;

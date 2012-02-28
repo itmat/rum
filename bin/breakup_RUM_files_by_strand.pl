@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 use strict;
-use warnings;
+no warnings;
 
 my ($infile, $outfile1, $outfile2) = @ARGV;
 
