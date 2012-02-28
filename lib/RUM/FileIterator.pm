@@ -207,33 +207,6 @@ sub _read_record {
     
 }
 
-sub sort_by_location_hashrefs {
-    my ($in, $out, %options) = @_;
-
-    # Open an iterator over the input file.
-    my $it = file_iterator($in, %options);
-
-    # Fill up @recs by repeatedly popping the iterator until it is
-    # empty. See RUM::FileIterator.
-    my @recs;
-    while (my $rec = $it->("pop")) {
-        push @recs, $rec;
-    }
-
-#    my $size = total_size(\@recs);
-#    printf "Size of recs: %d or %.2f per rec\n", $size, $size / @recs;
-    my $start = time();
-    @recs = sort by_location @recs;
-    my $end = time();
-    printf "Took %d seconds\n", $end - $start;
-
-    # Sort the records by location (See RUM::Sort for by_location) and
-    # print them.
-    for my $rec (sort by_location @recs) {
-        print $out "$rec->{entry}\n";
-    }
-}
-
 =item sort_by_location($in, $out, %options)
 
 Open an iterator over $in, read in all the records, sort them
@@ -276,13 +249,13 @@ name, start, and end.
 
 
 This takes up almost 1 gb for the non-unique file, and sorts it in
-about 1:55. It takes about 3.1 gb for the unique file and sorts it in about 
+about 1:55. It takes about 3.1 gb for the unique file and sorts it in a little less than 6 minutes.
 
 The old version takes about 1.1 gb for the non-unique file and sorts
-it in about 1:55 also.
+it in about 1:55 also. The old version takes about 3.4 gb for the unique file and sorts it in a little more than 6 minutes.
 
 =cut
-sub sort_by_location_bighash {
+sub sort_by_location {
     my ($in, $out, %options) = @_;
     my $max = $options{max};
 
@@ -327,10 +300,6 @@ sub sort_by_location_bighash {
         }
     }
     return $count;
-}
-
-sub sort_by_location{
-    return sort_by_location_bighash(@_);
 }
 
 =item merge_iterators(CMP, OUT_FH, ITERATORS)

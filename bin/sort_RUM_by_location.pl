@@ -5,11 +5,8 @@ $|=1;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Carp;
-
-use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(by_chromosome);
-use RUM::FileIterator qw(file_iterator pop_it peek_it sort_by_location
-                         merge_iterators);
+use RUM::FileIterator qw(file_iterator sort_by_location merge_iterators);
 use File::Copy qw(mv cp);
 
 use strict;
