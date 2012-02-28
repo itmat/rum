@@ -38,6 +38,7 @@ use RUM::Repository::IndexSpec;
 use RUM::Config;
 use Carp;
 use File::Spec;
+use URI;
 
 FindBin->again;
 
