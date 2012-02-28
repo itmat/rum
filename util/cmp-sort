@@ -10,7 +10,7 @@ while (1) {
     my $old_line = <$old>;
     my $new_line = <$new>;
 
-    if (not defined($old_line) || not defined($new_line)) {
+    if (!defined($old_line) || !defined($new_line)) {
         if (defined($old_line) || defined($new_line)) {
             print "One has more than the other!!!\n";
         }

@@ -302,8 +302,7 @@ sub by_location ($$) {
     ($c_chr ne $d_chr ? cmpChrs($c_chr, $d_chr) : 0) ||
     ($c->{start}  || 0) <=> ($d->{start}  || 0) ||
     ($c->{end}    || 0) <=> ($d->{end}    || 0) ||
-    ($c->{seqnum} || 0) <=> ($d->{seqnum} || 0) ||
-    ($c->{seq}    ||"") cmp ($d->{seq}    ||"");
+    ($c->{entry} || 0) cmp ($d->{entry} || 0);
 }
 
 =back

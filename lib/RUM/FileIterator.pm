@@ -66,7 +66,7 @@ The sequence in the record.
 use Exporter qw(import);
 use Carp;
 use RUM::Sort qw(by_location cmpChrs by_chromosome);
-use Devel::Size qw(total_size);
+#use Devel::Size qw(total_size);
 
 our @EXPORT_OK = qw(file_iterator pop_it peek_it sort_by_location
                     merge_iterators);
@@ -220,8 +220,8 @@ sub sort_by_location_hashrefs {
         push @recs, $rec;
     }
 
-    my $size = total_size(\@recs);
-    printf "Size of recs: %d or %.2f per rec\n", $size, $size / @recs;
+#    my $size = total_size(\@recs);
+#    printf "Size of recs: %d or %.2f per rec\n", $size, $size / @recs;
     my $start = time();
     @recs = sort by_location @recs;
     my $end = time();
@@ -306,8 +306,8 @@ sub sort_by_location_bighash {
         push @{ $data{$chr}{$start}{$end} }, $rec{entry};
     }
 
-    my $size = total_size(\%data);
-    printf "Size of recs: %d or %.2f per rec\n", $size, $size / $count;
+#    my $size = total_size(\%data);
+#    printf "Size of recs: %d or %.2f per rec\n", $size, $size / $count;
 
     # Sort the records by location (See RUM::Sort for by_location) and
     # print them.
