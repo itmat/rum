@@ -68,7 +68,7 @@ sub main {
         "--remove|r"  => \(my $do_remove),
         "--prefix|p=s"  => \(my $prefix));
     
-    show_usage() unless $do_list || $do_install || $do_remove;
+    # show_usage() unless $do_list || $do_install || $do_remove;
     my %options;
     $options{root_dir} = $prefix if $prefix;
     $self->{repo} = RUM::Repository->new(%options);
@@ -82,6 +82,9 @@ sub main {
     elsif ($do_remove) {
         $self->remove_index(@ARGV);
     }
+    else {
+        $self->interactive();
+    }
 }
 
 sub repo { shift->{repo} }
@@ -91,13 +94,16 @@ sub list_indexes {
     $self->repo->setup;
 
     print <<EOF;
-The following indexes are available. Indexes that you already have are marked with '*':
+The following indexes are available.
+Indexes that you already have are marked with '*':
 
 EOF
     my %query;
     $query{pattern} = qr /$pattern/ if $pattern;
     $self->print_indexes($self->repo->indexes(%query));
 }
+
+
 
 sub print_indexes {
     my ($self, @indexes) = @_;
@@ -110,17 +116,22 @@ sub print_indexes {
     }
 }
 
-sub select_index {
+sub select_indexes {
     my ($self, $spec) = @_;
     my $repo = $self->repo;
     $repo->setup;
     my @orgs = $repo->indexes;
     if (isdigit($spec)) {
         my @indexes = $repo->indexes;
-        return $indexes[$spec - 1] if $spec > 0 && $spec <= @indexes;
+        return ($indexes[$spec - 1]) if $spec > 0 && $spec <= @indexes;
     }
     
-    my @candidates = $repo->indexes(pattern => $spec);
+    return $repo->indexes(pattern => $spec);
+}
+
+sub select_index {
+    my ($self, $spec) = @_;
+    my @candidates = $self->select_indexes($spec);
     return $candidates[0] if @candidates == 1;
     
     if (@candidates > 1) {
@@ -129,7 +140,7 @@ I found more than one index matching '$spec'; please be more specific:
 
 EOF
         $self->print_indexes(@candidates);
-        exit(1);
+        return undef;
     }
 
     if (@candidates == 0) {
@@ -138,10 +149,15 @@ EOF
 I don't have an index with a build name, common name, or latin name of
 $spec. Please try $0 --list to see available indexes.
 EOF
-        exit(1);
+        return undef;
     }
     
 }
+
+my $callback = sub {
+    my ($event, $url) = @_;
+    print "$url\n" if $event eq 'start';
+};
 
 sub install_index {
     my ($self, $spec) = @_;
@@ -151,12 +167,9 @@ sub install_index {
 Please specify an index. Use $0 -l to see a list of available indexes.
 EOF
     }
-    my $org = $self->select_index($spec);
+    my $org = $self->select_index($spec) or die "\n";
     print "Installing $org->{build}: $org->{common} ($org->{latin})\n";
-    my $callback = sub {
-        my ($event, $url) = @_;
-        print "$url\n" if $event eq 'start';
-    };
+
     $self->repo->fetch_binaries();
     $self->repo->install_index($org, $callback);
 }
@@ -164,13 +177,51 @@ EOF
 sub remove_index {
     my ($self, $spec) = @_;
     $self->repo->setup;
-    my $org = $self->select_index($spec);
+    my $org = $self->select_index($spec) or die "\n";
     print "Removing $org->{build}: $org->{common} ($org->{latin})\n";
     my $callback = sub {
         my ($event, $file) = @_;
         print "  Removing $file\n" if $event eq 'start';
     };
     $self->repo->remove_index($org, $callback);
+}
+
+sub interactive {
+    my ($self) = @_;
+
+    my $prompt = "Enter the number of an index to install or q to quit: ";
+
+    while (1) {
+        print "-" x 80;
+        $self->list_indexes();
+        print "\n$prompt";
+        my $response = <STDIN>;
+        chomp $response;
+
+        if ($response eq "q") {
+            return;
+        }
+        else {
+            my @indexes = $self->select_indexes($response);
+            if (@indexes == 0) {
+                $prompt  = "$response doesn't match an index.\n";
+                $prompt .= "Please enter a number from the list or q to quit: ";
+            }
+            elsif (@indexes > 1) {
+                $prompt  = "'$response' matches more than one index.\n";
+                $prompt .= "Please enter a number from the list or q to quit: ";
+            }
+            else {
+                my $idx = $indexes[0];
+                printf "I'll install %s: %s (%s)\n", 
+                    $idx->build, $idx->common, $idx->latin;
+                $self->repo->fetch_binaries();
+                $self->repo->install_index($idx, $callback);            
+            }
+
+        }
+        
+    }
 }
 
 __PACKAGE__->new->main;
