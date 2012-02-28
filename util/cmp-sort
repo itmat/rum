@@ -1,0 +1,27 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+open my $old, "<", $ARGV[0];
+open my $new, "<", $ARGV[1];
+my $line_num = 0;
+while (1) {
+    my $old_line = <$old>;
+    my $new_line = <$new>;
+
+    if (not defined($old_line) || not defined($new_line)) {
+        if (defined($old_line) || defined($new_line)) {
+            print "One has more than the other!!!\n";
+        }
+        exit(0);
+    }
+            
+    unless ($old_line eq $new_line) {
+        print "On line $line_num, $old has\n  $old_line\nand new has\n  $new_line\n\n";
+    }
+    $line_num++;
+    unless ($line_num % 10000) {
+        print STDERR "$line_num\n";
+    }
+}
