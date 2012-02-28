@@ -214,7 +214,7 @@ my %prev_exon_start;
 my $count;
 my %junction_score;
 my %working_chr;
-my @coverage;
+my %coverage;
 
 # Going to change everything into one-based (inclusive) coordinates, then will change back
 # to print.  Did this to keep from going crazy.
@@ -226,11 +226,10 @@ my %junctionstarts;
 my %junctionends;
 my @junction_starts;
 my @junction_ends;
-my @coverage;
+my %coverage;
 my %exonstart2ends;
 my %exonend2starts;
 my %putative_exons;
-my %JUNCTIONS;
 my %startloc2exons;
 my %endloc2exons;
 my %adjacent;
@@ -254,7 +253,6 @@ my %initial_exons;
 my %terminal_exons;
 my $fraglength_mean;
 my $fraglength_sd;
-my %JUNCTIONS_SCORES;
 my %JUNCTIONS_START_SCORES;
 my %JUNCTIONS_END_SCORES;
 
@@ -267,11 +265,12 @@ if($bed eq "true") {
 if($rum eq "true") {
     open(RUMFILE, ">$rumoutfile");
 }
+
 foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
 
 #    print STDERR "working on chromosome '$chr'\n";
 
-    undef @coverage;
+    undef %coverage;
     undef %exonstart2ends;
     undef %exonend2starts;
     undef %junctionstarts;
@@ -279,8 +278,6 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
     undef @junction_starts;
     undef @junction_ends;
     undef %putative_exons;
-    undef %JUNCTIONS;
-    undef %JUNCTIONS_SCORES;
     undef %JUNCTIONS_START_SCORES;
     undef %JUNCTIONS_END_SCORES;
     undef %startloc2exons;
@@ -301,22 +298,6 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
     undef %terminal_exons;
     undef %fraglengths;
 
-    # the next two loops deal with annotated first and last exons
-    foreach my $exon (keys %{$FIRSTEXONS{$chr}}) {
-	$exon =~ /^.*:(\d+)-(\d+)$/;
-	my $s = $1;
-	my $e = $2;
-	push(@{$annotatedfirstexonendloc2startlocs{$e}}, $s);
-#	print "firstexonstartloc2startlocs{$e}[$N] = $s\n";
-    }
-    foreach my $exon (keys %{$LASTEXONS{$chr}}) {
-	$exon =~ /^.*:(\d+)-(\d+)$/;
-	my $s = $1;
-	my $e = $2;
-	push(@{$annotatedlastexonstartloc2endlocs{$s}}, $e);
-#	print "annotatedlastexonstartloc2endlocs{$s}[$N] = $e\n";
-    }
-
     my $flag2 = 0;
     # read in the coverage file for this chromosome
     while($flag2 == 0) {
@@ -328,7 +309,7 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
 	my @a = split(/\t/,$line);
 	if($a[0] eq $chr) {
 	    for(my $j=$a[1]+1; $j<=$a[2]; $j++) {
-		$coverage[$j] = $a[3];
+		$coverage{$j} = $a[3];
 	    }
 	} else {
 	    # reset the file handle so the last line read will be read again                 
@@ -357,8 +338,6 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
 	my $x = $a[1] + $B[0];
 	my $y = $a[1] + $O[1] + 1;
 	my $J = "$chr:$x-$y";
-	$JUNCTIONS{$J} = $x;  # maps junction coords to the start location
-	$JUNCTIONS_SCORES{$J} = $score;
 	if(!(defined $JUNCTIONS_START_SCORES{$x})) {
 	    $JUNCTIONS_START_SCORES{$x} = $score;
 	} else {
@@ -405,8 +384,6 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
 		$flag = 1;
 		next;
 	    }
-#	    print "junction_ends[$je] = $junction_ends[$je]\n";
-#	    print "junction_starts[$js] = $junction_starts[$js]\n";
 	    if($junction_ends[$je] < $junction_starts[$js] && $junction_starts[$js] <= $junction_ends[$je] + $maxexon) {
 		my $cov_yes = 0;
 		my $annot_yes = 0;
@@ -416,10 +393,6 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
 		if($N == 0) {
 		    $cov_yes = 1;
 		} else {
-#		    my $X = $JUNCTIONS_END_SCORES{$junction_ends[$je]};
-#		    print "JUNCTIONS_END_SCORES{$junction_ends[$je]} = $X\n";
-#		    $X = $JUNCTIONS_START_SCORES{$junction_starts[$js]};
-#		    print "JUNCTIONS_START_SCORES{$junction_starts[$js]} = $X\n";
 		    if($JUNCTIONS_END_SCORES{$junction_ends[$je]} < 10 && $JUNCTIONS_START_SCORES{$junction_starts[$js]} < 10) {
 			$cov_yes=1;
 		    }
@@ -540,7 +513,7 @@ sub count_coverage_in_span () {
     }
     my $num_below=0;
     for(my $i=$start; $i<=$end; $i++) {
-	if($coverage[$i] < $coverage_cutoff) {
+	if($coverage{$i} < $coverage_cutoff) {
 	    $num_below++;
 	}
     }
@@ -557,7 +530,7 @@ sub ave_coverage_in_span () {
 	return $ave_coverage_in_span_cache{$tmp};
     }
     for(my $i=$start; $i<=$end; $i++) {
-	$sum = $sum + $coverage[$i];
+	$sum = $sum + $coverage{$i};
     }
     my $ave = $sum / ($end - $start + 1);
     $ave_coverage_in_span_cache{$tmp}=$ave;
