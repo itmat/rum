@@ -1,7 +1,7 @@
 package RUM::Script;
 
 use strict;
-use warnings;
+no warnings;
 
 use RUM::Common qw(reversecomplement);
 use RUM::Workflow qw(report);

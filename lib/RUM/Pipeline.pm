@@ -1,7 +1,7 @@
 package RUM::Pipeline;
 
 use strict;
-use warnings;
+no warnings;
 
 =pod
 

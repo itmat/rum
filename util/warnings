@@ -1,0 +1,68 @@
+#!/usr/bin/env perl
+# -*- cperl -*-
+
+=head1 NAME
+
+warnings - Modify scripts and modules to turn warnings on or off
+
+=head1 SYNOPSIS
+
+Turn warnings on:
+
+  warnings --on
+
+Turn warnings off:
+
+  warnings --off
+
+=head1 DESCRIPTION
+
+If called with I<--off>, this will open every .pl and .pm file in the
+bin and lib directories and replace any "use warnings;" lines with "no
+warnings;". If called with I<--on>, it will replace "no warnings;"
+with "use warnings;". Note that this does not save a copy of the
+original file. You should only use this if you're working on a
+git-controlled copy of the code.
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright University of Pennsylvania, 2012
+
+=cut
+
+use strict;
+use warnings;
+
+use FindBin qw($Bin);
+use File::Find;
+use Getopt::Long;
+use Carp;
+
+my $bin_dir = "$Bin/../bin";
+my $lib_dir = "$Bin/../lib";
+
+GetOptions("--on"  => \(my $on),
+           "--off" => \(my $off));
+
+find sub { 
+    return unless /\.(pm|pl)$/;
+    my $name = $File::Find::name;
+    open my $in, "<", $name or carp "Can't open $name for reading: $!";
+    my @lines = (<$in>);
+    close $in;
+    local $_;
+
+    open my $out, ">", $name or carp "Can't open $name for writing: $!";
+    for (@lines) {
+        s/^use warnings;/no warnings;/ if $off;
+        s/^no warnings;/use warnings;/ if $on;
+        print $out $_;
+    }
+    close $out;
+
+}, $bin_dir, $lib_dir;
+

@@ -1,5 +1,5 @@
 use strict;
-use warnings;
+no warnings;
 
 my ($dir, $jid) = @ARGV;
 
