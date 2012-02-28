@@ -9,6 +9,48 @@ rum_indexes - List, install, or remove RUM indexes
 
 =head1 SYNOPSIS
 
+  rum_indexes [OPTIONS] [INDEX]
+  rum_indexes # Run with no arguments for interactive mode
+
+=head1 DESCRIPTION
+
+Use this program to list, install, and remove your RUM indexes.
+
+By default it will operate on the indexes installed at the same
+location as this script. For example, if the script is located at
+C<~/rum/bin/rum_indexes>, it will assume that config files are in
+C<~/rum/conf> and indexes are in C<~/rum/indexes>. You can tell it to
+use another location with the B<--prefix> option.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-l>, B<--list>
+
+Print a list of available indexes, with a star next to any that are
+already installed.
+
+=item B<-i>, B<--install>
+
+Install the index specified by the B<INDEX> argument. This can be the number of the index, according to the output of C<rum_indexes --list>, or a pattern that matches part of the index name.
+
+=item B<-r>, B<--remove>
+
+Remove the index specified by the B<INDEX> argument, which has the
+same requirements as the B<INDEX> argument for the B<--install>
+option.
+
+=item B<--prefix> I<PREFIX>
+
+Specify a different location for the repository.
+
+=back
+
+=head1 EXAMPLES
+
+=head2 Listing Indexes
+
 Get a list of all available indexes:
 
   $ ./bin/rum_indexes -l
@@ -29,20 +71,41 @@ Or filtered by a regular expression:
 
     1     hg19:                human (Homo sapiens)
   * 2     hg18:                human (Homo sapiens)
+  --- snip ---
 
-Install an index by build name:
+Or in another location:
+
+  $ ./bin/rum_indexes -l human --prefix ~/rum/indexes
+  --- snip ---
+
+=head2 Installing Indexes
+
+Install an index by build name, or number, or in another location:
 
   $ rum-indexes -i hg19
-
-or by index number:
-
   $ rum-indexes -i 1
+  $ rum-indexes -i 1 --prefix ~/rum/indexes
 
-Remove an index by build name or number
+=head2 Removing Indexes
+
+Remove an index by build name, or number, or in another location:
 
   $ rum-indexes -r hg19
   $ rum-indexes -r 1
-  
+  $ rum-indexes -i 1 --prefix ~/rum/indexes
+
+=head2 Interactive mode
+
+Run rum_indexes without any arguments to enter interactive mode, where
+it will prompt you for indexes to install:
+
+  $ rum_indexes
+
+Or run it with just the B<--prefix> option to run interactive mode
+pointing to a set of indexes in another location:
+
+  $ rum_indexes --list --prefix ~/my-rum-indexes
+
 =cut
 
 use strict;
