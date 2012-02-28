@@ -26,7 +26,7 @@ work.
 This script sets up the rum pipeline on a Mac or a 64 bit Linux
 machine.  You will be queried for the right organism to install.
 After installation is complete, cd into the install directory and
-issue RUM_runner.pl for general usage.
+issue bin/RUM_runner.pl for general usage.
 
 For more information on running and interpreting the output, please
 see the following webpage:
