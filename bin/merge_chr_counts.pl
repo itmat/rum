@@ -41,7 +41,9 @@ if($options eq "true") {
 		while($line = <INFILE>) {
 		    chomp($line);
 		    @a = split(/\t/,$line);
-		    $chunk_ids_mapping{$a[0]} = $a[1];
+		    if($a[0] ne "chr_name") {
+			$chunk_ids_mapping{$a[0]} = $a[1];
+		    }
 		}
 		close(INFILE);
 	    } else {

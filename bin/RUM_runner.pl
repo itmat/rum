@@ -2721,12 +2721,39 @@ while($flag == 1) {
     }
 }
 
+$gs1 = -s $genome_blat;
+`grep ">" $genome_blat > $output_dir/temp.1`;
+$gs2 = -s "$output_dir/temp.1";
+$gs3 = `wc -l $output_dir/temp.1`;
+$genome_size = $gs1 - $gs2 - $gs3;
+`yes|rm $output_dir/temp.1`;
+
 $UFp = int($uf / $genome_size * 10000) / 100;
 $NUFp = int($nuf / $genome_size * 10000) / 100;
 
-#print LOGFILE "genome size: $genome_size\n";
+$gs4 = &format_large_int($genome_size);
+print LOGFILE "genome size: $gs4\n";
 print LOGFILE "number of bases covered by unique mappers: $UF ($UFp%)\n";
 print LOGFILE "number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n";
+
+open(INFILE, "$output_dir/mapping_stats.txt");
+$newfile = "";
+while($line = <INFILE>) {
+   chomp($line);
+   if($line =~ /chr_name/) {
+      next;
+   }
+   if($line =~ /RUM_Unique reads per chromosome/) {
+      $newfile = $newfile . "genome size: $gs4\n";
+      $newfile = $newfile . "number of bases covered by unique mappers: $UF ($UFp%)\n";
+      $newfile = $newfile . "number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n";
+   }
+   $newfile = $newfile . "$line\n";
+}
+close(INFILE);
+open(OUTFILE, ">$output_dir/mapping_stats.txt");
+print OUTFILE $newfile;
+close(OUTFILE);
 
 # Check RUM_Unique and RUM_Unique.sorted are the same size
 $filesize1 = -s "$output_dir/RUM_Unique";

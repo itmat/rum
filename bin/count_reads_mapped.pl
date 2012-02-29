@@ -192,7 +192,7 @@ $num_ambig_consistent=0;
 $num_ambig_a_only=0;
 $num_ambig_b_only=0;
 open(INFILE, $ARGV[1]);
-print "------\n";
+#print "------\n";
 while($line = <INFILE>) {
     chomp($line);
     $line =~ /seq.(\d+)(.)/;
