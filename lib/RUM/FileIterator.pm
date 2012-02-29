@@ -356,9 +356,9 @@ sub merge_iterators {
     my $i = 0;
     for my $iter (@iters) {
         if (my $rec = $iter->("pop")) {
-            $chr[$i] = $rec->{chr};
+            $chr[$i]   = $rec->{chr};
             $start[$i] = $rec->{start};
-            $end[$i] = $rec->{end};
+            $end[$i]   = $rec->{end};
             $entry[$i] = $rec->{entry};
             $q->pushon($i);
             $i++;
