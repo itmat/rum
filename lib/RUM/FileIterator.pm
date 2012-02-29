@@ -307,7 +307,7 @@ sub cmp_iters {
     my @iters = @_;
 
     my $c = $iters[0]->("peek");
-    my $d = $iters[0]->("peek");
+    my $d = $iters[1]->("peek");
     my $c_chr = $c->{chr} || "";
     my $d_chr = $d->{chr} || "";
 
@@ -349,7 +349,6 @@ sub merge_iterators {
     # the queue, print the record, and then add the iterator back
     # unless it is empty.
     while (my $iter = $q->poplowest()) {
-
         my $rec = $iter->("pop");
         print $outfile "$rec->{entry}\n";
         $q->pushon($iter) if $iter->("peek");
