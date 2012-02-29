@@ -371,10 +371,10 @@ sub merge_iterators {
     while (defined(my $index = $q->poplowest())) {
         print $outfile "$entry[$index]\n";
         if (my $rec = $iters[$index]->("pop")) {
-            $chr[$i]   = $rec->{chr};
-            $start[$i] = $rec->{start};
-            $end[$i]   = $rec->{end};
-            $entry[$i] = $rec->{entry};
+            $chr[$index]   = $rec->{chr};
+            $start[$index] = $rec->{start};
+            $end[$index]   = $rec->{end};
+            $entry[$index] = $rec->{entry};
             $q->pushon($index);
         }
     }
