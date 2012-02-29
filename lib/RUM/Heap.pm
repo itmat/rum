@@ -1,12 +1,14 @@
 package RUM::Heap;
 
-package RUM::Heap;
-
 sub new {
     # TODO: Find out why this is weird when the sentinel is 0!
     # index zero is special.  
     #Oh, we'll put the comparator function there.
-    my $self=[sub { return $_[0] <=> $_[1]}];
+
+    my ($class, $cmp) = @_;
+    $cmp ||= sub { return $_[0] <=> $_[1]};
+
+    my $self=[$cmp];
     bless $self;
     return $self;
 }

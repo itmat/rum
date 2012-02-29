@@ -66,6 +66,7 @@ The sequence in the record.
 use Exporter qw(import);
 use Carp;
 use RUM::Sort qw(by_location cmpChrs by_chromosome);
+use RUM::Heap;
 #use Devel::Size qw(total_size);
 
 our @EXPORT_OK = qw(file_iterator pop_it peek_it sort_by_location
@@ -302,6 +303,20 @@ sub sort_by_location {
     return $count;
 }
 
+sub cmp_iters {
+    my @iters = @_;
+
+    my $c = $iters[0]->("peek");
+    my $d = $iters[0]->("peek");
+    my $c_chr = $c->{chr} || "";
+    my $d_chr = $d->{chr} || "";
+
+    return ($c_chr ne $d_chr ? cmpChrs($c_chr, $d_chr) : 0) ||
+    $c->{start}  <=> $d->{start}   ||
+    $c->{end}    <=> $d->{end}     ||
+    $c->{entry}  cmp $d->{entry};
+}
+
 =item merge_iterators(CMP, OUT_FH, ITERATORS)
 
 =item merge_iterators(OUT_FH, ITERATORS)
@@ -315,43 +330,29 @@ by_location will be used.
 =cut
 
 sub merge_iterators {
+    
+    my ($outfile, @iters) = @_;
 
-    my $cmp = \&by_location;
-    my $outfile = shift;
-    if (ref($outfile) =~ /^CODE/) {
-        $cmp = $outfile;
-        $outfile = shift;
+    # Use a priority queue to store the iterators. The key function
+    # takes two iterators, peeks at the next record each iterator has,
+    # and compares them by location. This maintains the list of
+    # iterators in sorted order according to the next record from each
+    # one.
+    my $q = RUM::Heap->new(\&cmp_iters);
+
+    # Populate the queue, skipping any iterators that are already exhausted.
+    for my $iter (@iters) {
+        $q->pushon($iter) if $iter->("peek");
     }
-    my @iters = @_;
 
-    @iters = grep { peek_it($_) } @iters;
+    # Repeatedly take the iterator with the lowest next record from
+    # the queue, print the record, and then add the iterator back
+    # unless it is empty.
+    while (my $iter = $q->poplowest()) {
 
-    while (@iters) {
-        
-        my $argmin = 0;
-        my $min = peek_it($iters[$argmin]);
-        for (my $i = 1; $i < @iters; $i++) {
-            
-            my $rec = peek_it($iters[$i]);
-            
-            # If this one is smaller, set $argmin and $min
-            # appropriately
-            if (by_location($rec, $min) < 0) {
-                $argmin = $i;
-                $min = $rec;
-            }
-        }
-        
-        print $outfile "$min->{entry}\n";
-        
-        # Pop the iterator that we just printed a record from; this
-        # way the next iteration will be looking at the next value. If
-        # this iterator doesn't have a next value, then we've
-        # exhausted it, so remove it from our list.
-        pop_it($iters[$argmin]);        
-        unless (peek_it($iters[$argmin])) {
-            splice @iters, $argmin, 1;
-        }
+        my $rec = $iter->("pop");
+        print $outfile "$rec->{entry}\n";
+        $q->pushon($iter) if $iter->("peek");
     }
 }
 
