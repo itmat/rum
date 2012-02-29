@@ -129,12 +129,16 @@ sub main {
         "--list|l"    => \(my $do_list),
         "--install|i" => \(my $do_install),
         "--remove|r"  => \(my $do_remove),
-        "--prefix|p=s"  => \(my $prefix));
+        "--prefix|p=s"  => \(my $prefix),
+        "--markdown"    => \(my $use_markdown));
     
     # show_usage() unless $do_list || $do_install || $do_remove;
     my %options;
     $options{root_dir} = $prefix if $prefix;
+
     $self->{repo} = RUM::Repository->new(%options);
+    $self->{markdown} = $use_markdown;
+    printf "Looking at the repository located at %s\n", $self->repo->root_dir;
     
     if ($do_list) {
         $self->list_indexes(@ARGV);
@@ -174,8 +178,14 @@ sub print_indexes {
     my $i = 1;
     for my $idx (@indexes) {
         my $have = $self->repo->has_index($idx) ? "*" : " ";
-        printf "%1s %2d %8s: %20s (%s)\n", 
-            $have, $idx->order, $idx->build, $idx->common, $idx->latin;
+        if ($self->{markdown}) {
+            printf "%d. *%s* (build %s) (**%s**)\n",
+                $idx->order, $idx->latin, $idx->build, $idx->common;
+        }
+        else {
+            printf "%1s %2d %8s: %20s (%s)\n", 
+                $have, $idx->order, $idx->build, $idx->common, $idx->latin;
+        }
     }
 }
 
