@@ -89,5 +89,5 @@ for my $filename (@file) {
 
 open my $out, ">", $outfile;
 
-merge_iterators \&by_location, $out, @iters;
+merge_iterators($out, @iters);
 
