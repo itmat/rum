@@ -306,7 +306,6 @@ sub sort_by_location {
 sub cmp_iters {
     my $c = shift->[1];
     my $d = shift->[1];
-    warn "Comparing $c->{seqnum} and $d->{seqnum}\n";
     if ($c->{chr} eq $d->{chr}) {
         return 
             $c->{start}  <=> $d->{start}   ||
