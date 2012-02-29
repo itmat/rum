@@ -304,17 +304,16 @@ sub sort_by_location {
 }
 
 sub cmp_iters {
-    my @iters = @_;
-
-    my $c = $iters[0]->("peek");
-    my $d = $iters[1]->("peek");
-    my $c_chr = $c->{chr} || "";
-    my $d_chr = $d->{chr} || "";
-
-    return ($c_chr ne $d_chr ? cmpChrs($c_chr, $d_chr) : 0) ||
-    $c->{start}  <=> $d->{start}   ||
-    $c->{end}    <=> $d->{end}     ||
-    $c->{entry}  cmp $d->{entry};
+    my $c = shift->[1];
+    my $d = shift->[1];
+    warn "Comparing $c->{seqnum} and $d->{seqnum}\n";
+    if ($c->{chr} eq $d->{chr}) {
+        return 
+            $c->{start}  <=> $d->{start}   ||
+            $c->{end}    <=> $d->{end}     ||
+            $c->{entry}  cmp $d->{entry};
+    }
+    return cmpChrs($c->{chr}, $d->{chr});   
 }
 
 =item merge_iterators(CMP, OUT_FH, ITERATORS)
@@ -342,16 +341,17 @@ sub merge_iterators {
 
     # Populate the queue, skipping any iterators that are already exhausted.
     for my $iter (@iters) {
-        $q->pushon($iter) if $iter->("peek");
+        $q->pushon([$iter, $iter->("peek")]) if $iter->("peek");
     }
 
     # Repeatedly take the iterator with the lowest next record from
     # the queue, print the record, and then add the iterator back
     # unless it is empty.
-    while (my $iter = $q->poplowest()) {
-        my $rec = $iter->("pop");
+    while (my $entry = $q->poplowest()) {
+        my $rec = $entry->[0]->("pop");
+        $entry->[1] = $entry->[0]->("peek");
         print $outfile "$rec->{entry}\n";
-        $q->pushon($iter) if $iter->("peek");
+        $q->pushon($entry) if $entry->[1];
     }
 }
 

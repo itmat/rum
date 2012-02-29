@@ -16,20 +16,29 @@ sub new {
 sub siftDown {
     my $self=shift;
     my $i=int shift;
-    return if $i*2 > $#$self;
-    if (&{$$self[0]}($$self[$i],$$self[2*$i]) <= 0 and
-	(!defined($$self[2*$i+1]) or
-	 &{$$self[0]}($$self[$i],$$self[2*$i+1]) <=0)) {
-	return;
-    }
-    if (defined($$self[2*$i+1]) and 
-	&{$$self[0]}($$self[2*$i+1],$$self[2*$i]) <= 0) {
-	@$self[$i, 2*$i+1] = @$self[2*$i+1, $i];
-	$self->siftDown(2*$i+1);
-    }
-    else {
-	@$self[$i, 2*$i] = @$self[2*$i, $i];
-	$self->siftDown(2*$i);
+    my $cmp = $self->[0];
+
+    while (1) {
+        my $left = $i * 2;
+        return if $left > $#$self;
+        my $right = $left + 1;
+        my $item = $self->[$i];
+        if ($cmp->($item,$$self[$left]) <= 0 and
+                (!defined($$self[$right]) or
+                     $cmp->($item,$$self[$right]) <=0)) {
+            return;
+        }
+        if (defined($$self[$right]) and 
+                $cmp->($$self[$right],$$self[$left]) <= 0) {
+            $self->[$i] = $self->[$right];
+            $self->[$right] = $item;
+            $i = $right;
+        }
+        else {
+            $self->[$i] = $self->[$left];
+            $self->[$left] = $item;
+            $i = $left;
+        }
     }
 }
 
@@ -43,8 +52,9 @@ sub reheap {
 sub siftUp {
     my $self=shift;
     my $i=shift;
+    my $cmp = $self->[0];
     # Use while $i>1 because otherwise we can get $i/2 be 0.
-    while ($i > 1 and &{$$self[0]}($$self[$i],$$self[int($i/2)]) < 0) {
+    while ($i > 1 and $cmp->($$self[$i],$$self[int($i/2)]) < 0) {
 	@$self[$i, int($i/2)] = @$self[int($i/2), $i];
 	$i=int($i/2);
     }

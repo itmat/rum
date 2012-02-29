@@ -2,8 +2,8 @@
 # -*- cperl -*-
 
 use Test::More tests => 24;
-use Test::Exception;
-use lib "lib";
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
 
 use strict;
 use warnings;
