@@ -331,26 +331,52 @@ sub merge_iterators {
     
     my ($outfile, @iters) = @_;
 
+    my (@chr, @start, @end, @entry);
+
+    my $cmp = sub {
+        my $c = shift;
+        my $d = shift;
+        if ($chr[$c] eq $chr[$d]) {
+            return 
+                $start[$c] <=> $start[$d] ||
+                  $end[$c] <=> $end[$d] ||
+                $entry[$c] cmp $entry[$d];
+        }
+        return cmpChrs($chr[$c], $chr[$d]);
+    };
+
     # Use a priority queue to store the iterators. The key function
     # takes two iterators, peeks at the next record each iterator has,
     # and compares them by location. This maintains the list of
     # iterators in sorted order according to the next record from each
     # one.
-    my $q = RUM::Heap->new(\&cmp_iters);
+    my $q = RUM::Heap->new($cmp);
 
     # Populate the queue, skipping any iterators that are already exhausted.
+    my $i = 0;
     for my $iter (@iters) {
-        $q->pushon([$iter, $iter->("peek")]) if $iter->("peek");
+        if (my $rec = $iter->("pop")) {
+            $chr[$i] = $rec->{chr};
+            $start[$i] = $rec->{start};
+            $end[$i] = $rec->{end};
+            $entry[$i] = $rec->{entry};
+            $q->pushon($i);
+            $i++;
+        }
     }
 
     # Repeatedly take the iterator with the lowest next record from
     # the queue, print the record, and then add the iterator back
     # unless it is empty.
-    while (my $entry = $q->poplowest()) {
-        my $rec = $entry->[0]->("pop");
-        $entry->[1] = $entry->[0]->("peek");
-        print $outfile "$rec->{entry}\n";
-        $q->pushon($entry) if $entry->[1];
+    while (defined(my $index = $q->poplowest())) {
+        print $outfile "$entry[$index]\n";
+        if (my $rec = $iters[$index]->("pop")) {
+            $chr[$i]   = $rec->{chr};
+            $start[$i] = $rec->{start};
+            $end[$i]   = $rec->{end};
+            $entry[$i] = $rec->{entry};
+            $q->pushon($index);
+        }
     }
 }
 
