@@ -1355,9 +1355,9 @@ if($postprocess eq "false") {
     print LOGFILE "\nstart: $date\n";
     print LOGFILE "name: $name\n";
     if($configfile =~ /hg(18)/ || $configfile =~ /hg(19)/) {
-        print LOGFILE "config file: $configfile  [ human - build $1 ]\n";
+        print LOGFILE "config file: $configfile  [human - build $1]\n";
     } elsif($configfile =~ /mm(8)/ || $configfile =~ /mm(9)/) {
-        print LOGFILE "config file: $configfile  [ mouse build $1 ]\n";
+        print LOGFILE "config file: $configfile  [mouse build $1]\n";
     } else {
         print LOGFILE "config file: $configfile\n";
     }
@@ -1741,10 +1741,10 @@ if($postprocess eq "false") {
             }
             $shellscript = $shellscript . "echo 'making coverage plots' >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_Unique.sorted $output_dir/RUM_Unique.cov -name \"$name Unique Mappers\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_Unique.sorted $output_dir/RUM_Unique.cov -name \"$name Unique Mappers\" -stats $output_dir/u_footprint.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "echo 'unique mappers coverage plot finished' >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted $output_dir/RUM_NU.cov -name \"$name Non-Unique Mappers\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted $output_dir/RUM_NU.cov -name \"$name Non-Unique Mappers\"  -stats $output_dir/nu_footprint.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "echo 'NU mappers coverage plot finished' >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
             if($strandspecific eq 'true') {
@@ -2697,6 +2697,37 @@ while($doneflag == 0) {
    }
 }
 
+$ufpfile = `cat $output_dir/u_footprint.txt`;
+chomp($ufpfile);
+$ufpfile =~ /(\d+)$/;
+$uf = $1;
+$nufpfile = `cat $output_dir/nu_footprint.txt`;
+chomp($nufpfile);
+$nufpfile =~ /(\d+)$/;
+$nuf = $1;
+$UF = &format_large_int($uf);
+$NUF = &format_large_int($nuf);
+
+open(SF, "$output_dir/RUM.sam");
+$flag = 1;
+$genome_size = 0;
+while($flag == 1) {
+    $line = <SF>;
+    chomp($line);
+    if($line =~ /@SQ\tSN:.*\tLN:(\d+)$/) {
+       $genome_size = $genome_size + $1;
+    } else {
+       $flag = 0;
+    }
+}
+
+$UFp = int($uf / $genome_size * 10000) / 100;
+$NUFp = int($nuf / $genome_size * 10000) / 100;
+
+#print LOGFILE "genome size: $genome_size\n";
+print LOGFILE "number of bases covered by unique mappers: $UF ($UFp%)\n";
+print LOGFILE "number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n";
+
 # Check RUM_Unique and RUM_Unique.sorted are the same size
 $filesize1 = -s "$output_dir/RUM_Unique";
 $filesize2 = -s "$output_dir/RUM_Unique.sorted";
@@ -2876,6 +2907,12 @@ print ERRORLOG "--------------------------------------\n";
 
 if($cleanup eq 'true') {
    print "\nCleaning up some more temp files...\n\n";
+   if(-e "$output_dir/u_footprint.txt") {
+      `yes|rm $output_dir/u_footprint.txt`;
+   }
+   if(-e "$output_dir/nu_footprint.txt") {
+      `yes|rm $output_dir/nu_footprint.txt`;
+   }
    if(-e "$output_dir/kill_command") {
       `yes|rm $output_dir/kill_command`;
    }

@@ -10,6 +10,8 @@ Where <rum file> is the *sorted* RUM_Unique or RUM_NU file.
 Option:
        -name x   : the name of the track
 
+       -stats f  : outputs stats to file f, currently just the footprint size
+
 If it's not sorted, first run sort_RUM_by_location.pl to sort,
 and *do not* use the -separate option.
 
@@ -26,10 +28,17 @@ $outfile = $ARGV[1];
 $name = $infile . " Coverage";
 $strandspecific="false";
 $strand = "";
+$stats = "false";
 for($i=2; $i<@ARGV; $i++) {
     $optionrecognized = 0;
     if($ARGV[$i] eq "-name") {
 	$name = $ARGV[$i+1];
+	$i++;
+	$optionrecognized = 1;
+    }
+    if($ARGV[$i] eq "-stats") {
+	$stats = "true";
+	$statsfile = $ARGV[$i+1];
 	$i++;
 	$optionrecognized = 1;
     }
@@ -61,6 +70,9 @@ $first_span_on_chr = 1;
 $end_max = 0;
 $span_ended = 1;
 $prev_end = $end+2;
+if($stats eq "true") {
+    $footprint = 0;
+}
 while($flag < 2) {
     if($flag == 1) {
 	$flag = 2;
@@ -84,12 +96,16 @@ while($flag < 2) {
 		    if($current_cov > 0) {
 			$k=$j-1;
 			print OUTFILE "\t$k\t$current_cov\n";  # don't adjust the right point because half-open
+			if($stats eq "true") {
+			    $footprint = $footprint + $k - $span_start;
+			}
 			$span_ended = 1;
 		    }
 		    $current_cov = $position_coverage{$j}+0;
 		    if($current_cov > 0) { # start a new span
 			$k = $j-1; # so as to be half zero based
 			print OUTFILE "$chr\t$k";
+			$span_start = $k;
 			$span_ended = 0;
 		    }
 		}
@@ -108,17 +124,24 @@ while($flag < 2) {
 		    $k=$j-1;
 		    print OUTFILE "\t$k\t$current_cov\n";  # don't adjust the right point because half-open
 		    $span_ended = 1;
+		    if($stats eq "true") {
+			$footprint = $footprint + $k - $span_start;
+		    }
 		}
 		$current_cov = $position_coverage{$j}+0;
 		if($current_cov > 0) { # start a new span
 		    $k = $j-1; # so as to be half zero based
 		    print OUTFILE "$chr_prev\t$k";
+		    $span_start = $k;
 		    $span_ended = 0;
 		}
 	    }
 	}
 	if($span_ended == 0) {
 	    print OUTFILE "\t$end_max\t$current_cov\n";  # don't adjust the right point because half-open
+	    if($stats eq "true") {
+		$footprint = $footprint + $k - $span_start;
+	    }
 	}
 	undef %position_coverage;
 	$current_chr = $chr;
@@ -127,6 +150,11 @@ while($flag < 2) {
 	$end_max = 0;
 	$prev_end = $end+2;
     }
+}
+
+if($stats eq "true") {
+    open(STATS, ">$statsfile");
+    print STATS "footprint for $infile : $footprint\n";
 }
 
 $timeend = time();
