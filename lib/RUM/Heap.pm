@@ -43,14 +43,6 @@ elements.
 
 =back
 
-=head2 Methods
-
-=over 4
-
-=item 
-
-=back
-
 =cut
 
 sub new {
@@ -66,52 +58,30 @@ sub new {
     return $self;
 }
 
-sub _sift_down {
-    my $self=shift;
-    my $i=int shift;
-    my $cmp = $self->[0];
 
-    while (1) {
-        my $left = $i * 2;
-        return if $left > $#$self;
-        my $right = $left + 1;
-        my $item = $self->[$i];
-        if ($cmp->($item,$$self[$left]) <= 0 and
-                (!defined($$self[$right]) or
-                     $cmp->($item,$$self[$right]) <=0)) {
-            return;
-        }
-        if (defined($$self[$right]) and 
-                $cmp->($$self[$right],$$self[$left]) <= 0) {
-            $self->[$i] = $self->[$right];
-            $self->[$right] = $item;
-            $i = $right;
-        }
-        else {
-            $self->[$i] = $self->[$left];
-            $self->[$left] = $item;
-            $i = $left;
-        }
-    }
+=head2 Methods
+
+=over 4
+
+=item $heap->pushon($item)
+
+Adds the B<$item> to the heap. B<$item> should be an appropriate type
+for the comparator function that this heap was initialized with.
+
+=cut
+
+sub pushon {
+    my $self=shift;
+    my $val=shift;
+    push @$self, $val;
+    $self->_sift_up($#$self);
 }
 
-sub reheap {
-    my $self=shift;
-    for (my $i=int($#$self/2); $i>=1; $i--) {
-	$self->_sift_down($i);
-    }
-}
+=item $heap->poplowest()
 
-sub siftUp {
-    my $self=shift;
-    my $i=shift;
-    my $cmp = $self->[0];
-    # Use while $i>1 because otherwise we can get $i/2 be 0.
-    while ($i > 1 and $cmp->($$self[$i],$$self[int($i/2)]) < 0) {
-	@$self[$i, int($i/2)] = @$self[int($i/2), $i];
-	$i=int($i/2);
-    }
-}
+Delete and return the minimum item from the heap.
+
+=cut
 
 sub poplowest {
     my $self=shift;
@@ -152,11 +122,55 @@ sub poplowest {
     return $rv;
 }
 
-sub pushon {
+sub _sift_down {
     my $self=shift;
-    my $val=shift;
-    push @$self, $val;
-    $self->siftUp($#$self);
+    my $i=int shift;
+    my $cmp = $self->[0];
+
+    while (1) {
+        my $left = $i * 2;
+        return if $left > $#$self;
+        my $right = $left + 1;
+        my $item = $self->[$i];
+        if ($cmp->($item,$$self[$left]) <= 0 and
+                (!defined($$self[$right]) or
+                     $cmp->($item,$$self[$right]) <=0)) {
+            return;
+        }
+        if (defined($$self[$right]) and 
+                $cmp->($$self[$right],$$self[$left]) <= 0) {
+            $self->[$i] = $self->[$right];
+            $self->[$right] = $item;
+            $i = $right;
+        }
+        else {
+            $self->[$i] = $self->[$left];
+            $self->[$left] = $item;
+            $i = $left;
+        }
+    }
 }
+
+sub _reheap {
+    my $self=shift;
+    for (my $i=int($#$self/2); $i>=1; $i--) {
+	$self->_sift_down($i);
+    }
+}
+
+sub _sift_up {
+    my $self=shift;
+    my $i=shift;
+    my $cmp = $self->[0];
+    # Use while $i>1 because otherwise we can get $i/2 be 0.
+    while ($i > 1 and $cmp->($$self[$i],$$self[int($i/2)]) < 0) {
+	@$self[$i, int($i/2)] = @$self[int($i/2), $i];
+	$i=int($i/2);
+    }
+}
+
+=back
+
+=cut
 
 1;

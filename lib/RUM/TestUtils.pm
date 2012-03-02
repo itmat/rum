@@ -117,6 +117,12 @@ sub no_diffs {
     ok($status == 0, $name);
 }
 
+=item is_sorted_by_location(FILENAME)
+
+Asserts that the given RUM file is sorted by location.
+
+=cut
+
 sub is_sorted_by_location {
     my ($filename) = @_;
     open my $in, "<", $filename or croak "Can't open $filename for reading: $!";
