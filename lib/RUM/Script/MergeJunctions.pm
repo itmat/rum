@@ -1,5 +1,22 @@
 package RUM::Script::MergeJunctions;
 
+=pod
+
+=head1 NAME
+
+RUM::Script::MergeJunctions - Script for merging junction files
+
+=head1 SYNOPSIS
+
+use RUM::Script::MergeJunctions;
+RUM::Script::MergeJunctions->main();
+
+=head1 METHODS
+
+=over 4
+
+=cut
+
 use strict;
 use warnings;
 
@@ -10,16 +27,19 @@ use FindBin qw($Bin);
 use RUM::Sort qw(by_location);
 use RUM::Script qw(get_options show_usage);
 
-our @SAME_FIELDS = qw(known
-                      standard_splice_signal
-                      signal_not_canonical 
-                      ambiguous);
+our @MIN_FIELDS = qw(ambiguous signal_not_canonical);
+our @MAX_FIELDS = qw(known standard_splice_signal);
+our @SUM_FIELDS = qw(score
+                     long_overlap_unique_reads
+                     short_overlap_unique_reads
+                     long_overlap_nu_reads
+                     short_overlap_nu_reads);
 
-our @FIELDS_TO_SUM = qw(score
-                        long_overlap_unique_reads
-                        short_overlap_unique_reads
-                        long_overlap_nu_reads
-                        short_overlap_nu_reads);
+=item $script->main()
+
+Main method, runs the script. Expects @ARGV to be populated.
+
+=cut
 
 sub main {
     get_options(
@@ -39,6 +59,12 @@ sub main {
 }
 
 
+=item RUM::Script::MergeJunctions->new()
+
+Make an instance of the script.
+
+=cut
+
 sub new {
     my ($class) = @_;
     my $self = { 
@@ -48,18 +74,24 @@ sub new {
     return bless $self, $class;
 }
 
+=item $script->read_file($in)
+
+Read the junctions from the given filehandle and accumulate them into
+$script->{data}.
+
+=cut
+
 sub read_file {
     my ($self, $fh) = @_;
     local $_ = <$fh>;
     chomp;
     my @keys = split /\t/;
     if (my @expected_headers = @{ $self->{headers} }) {
-        unless ("@expected_headers" eq "@keys") {
-            my $msg = sprintf(
-                "File has different headers, expected %s, got %s; skipping.",
-                join(", ", @expected_headers),
-                join(", ", @keys));
-            croak $msg;
+        my $expected = join(", ", @expected_headers);
+        my $got = join(", ", @keys);
+        unless ($got eq $expected) {
+            carp "File has different headers, expected $expected, got $got";
+            return 0;
         }
     }
     else { 
@@ -68,41 +100,59 @@ sub read_file {
 
     my $data = $self->{data};
     
-    my $line_num = 0;
     while (defined($_ = <$fh>)) {
-        $line_num++;
         chomp;
         my %rec;
         my @vals = split /\t/;
         unless ($#vals == $#keys) {
-            carp("Bad number of fields on line " . $line_num .
-                     ": expected " . scalar(@keys) . ", got " . scalar(@vals));
+            carp("Bad number of fields on line $.: expected" .
+                     scalar(@keys) . ", got " . scalar(@vals));
         }
 
         @rec{@keys} = @vals;
 
         my $intron = $rec{intron};
         unless ($intron) {
-            carp("Missing intron for line " . $line_num);
+            carp("Missing intron for line $. ");
             next;
         }
         if (my $acc = $data->{$intron}) {
 
-            for my $key (@FIELDS_TO_SUM) {
+            for my $key (@SUM_FIELDS) {
                 $acc->{$key} += $rec{$key};
             }
-
-            my @different = grep { $acc->{$_} != $rec{$_} } @SAME_FIELDS;
-
-            if (@different) {
-                warn("$intron has different values for these fields: @different");
+            
+            for my $key (@MIN_FIELDS) {
+                my $old = $acc->{$key};
+                my $new = $rec{$key};
+                if ($old != $new) {
+                    carp("$intron on line $. has different values for $key");
+                }
+                $acc->{$key} = $new < $old ? $new : $old;
             }
+
+            for my $key (@MAX_FIELDS) {
+                my $old = $acc->{$key};
+                my $new = $rec{$key};
+                if ($old != $new) {
+                    carp("$intron on line $. has different values for $key");
+                }
+                $acc->{$key} = $new > $old ? $new : $old;
+            }
+
         }
         else {
             $data->{$intron} = \%rec;
         }
     }
 }
+
+=item $script->print_output($out)
+
+Sort $self->{data} by location and print all the records to the given
+filehandle.
+
+=cut
 
 sub print_output {
     my ($self, $fh) = @_;
@@ -128,3 +178,9 @@ sub print_output {
         print $fh join("\t", @$row{@headers}), "\n";
     }
 }
+
+=back
+
+=cut
+
+1;
