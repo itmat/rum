@@ -51,18 +51,18 @@ sub make_input {
     my $script = RUM::Script::MergeJunctions->new();
     $script->read_file(make_input($input1));
     $script->read_file(make_input($input2));
-    ok($script->{data}->{"chr1:11-15"}, "Read row 1");
-    is($script->{data}->{"chr1:11-15"}->{score}, 32, "Adds score");
+    ok($script->{data}->{"chr1"}{11}{15}, "Read row 1");
+    is($script->{data}->{"chr1"}{11}{15}->{score}, 32, "Adds score");
 
-    is($script->{data}->{"chr1:11-15"}->{long_overlap_unique_reads}, 39, "Adds long_overlap_unique_reads");
-    is($script->{data}->{"chr1:11-15"}->{short_overlap_unique_reads}, 44, "Adds short_overlap_unique_reads ");
-    is($script->{data}->{"chr1:11-15"}->{long_overlap_nu_reads}, 48, "Adds long_overlap_nu_reads");
-    is($script->{data}->{"chr1:11-15"}->{short_overlap_nu_reads}, 54, "Adds short_overlap_nu_reads");
-    is($script->{data}->{"chr1:11-15"}->{strand}, ".", "Reads strand");
-    is($script->{data}->{"chr1:11-15"}->{known}, 1, "Known");
-    is($script->{data}->{"chr1:11-15"}->{standard_splice_signal}, 2, "Standard splice signal");
-    is($script->{data}->{"chr1:11-15"}->{signal_not_canonical}, 3, "Signal not canonical");
-    is($script->{data}->{"chr1:11-15"}->{ambiguous}, 5, "Ambiguous");
+    is($script->{data}->{"chr1"}{11}{15}->{long_overlap_unique_reads}, 39, "Adds long_overlap_unique_reads");
+    is($script->{data}->{"chr1"}{11}{15}->{short_overlap_unique_reads}, 44, "Adds short_overlap_unique_reads ");
+    is($script->{data}->{"chr1"}{11}{15}->{long_overlap_nu_reads}, 48, "Adds long_overlap_nu_reads");
+    is($script->{data}->{"chr1"}{11}{15}->{short_overlap_nu_reads}, 54, "Adds short_overlap_nu_reads");
+    is($script->{data}->{"chr1"}{11}{15}->{strand}, ".", "Reads strand");
+    is($script->{data}->{"chr1"}{11}{15}->{known}, 1, "Known");
+    is($script->{data}->{"chr1"}{11}{15}->{standard_splice_signal}, 2, "Standard splice signal");
+    is($script->{data}->{"chr1"}{11}{15}->{signal_not_canonical}, 3, "Signal not canonical");
+    is($script->{data}->{"chr1"}{11}{15}->{ambiguous}, 5, "Ambiguous");
 
     open my $out, ">", \(my $got);
     $script->print_output($out);

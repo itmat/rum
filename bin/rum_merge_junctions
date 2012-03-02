@@ -16,7 +16,7 @@ rum_merge_junctions - Merge junctions_*.rum files together.
 
 =head1 SYNOPSIS
 
-rum_merge_junctions --output OUTPUT INPUTS
+rum_merge_junctions [OPTIONS] --output OUTPUT INPUTS
 
 =head1 DESCRIPTION
 
@@ -64,6 +64,10 @@ those records in the input data.
 =item B<-o>, B<--output>
 
 The locatation to write the output data to.
+
+=item B<-v>, B<--verbose>
+
+Print extra output.
 
 =back
 

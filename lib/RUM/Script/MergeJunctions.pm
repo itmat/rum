@@ -24,7 +24,7 @@ use Getopt::Long;
 use Pod::Usage;
 use Carp;
 use FindBin qw($Bin);
-use RUM::Sort qw(by_location);
+use RUM::Sort qw(by_chromosome);
 use RUM::Script qw(get_options show_usage);
 
 our @MIN_FIELDS = qw(ambiguous signal_not_canonical);
@@ -43,10 +43,13 @@ Main method, runs the script. Expects @ARGV to be populated.
 
 sub main {
     get_options(
-        "output|o=s" => \(my $output_filename));
+        "output|o=s" => \(my $output_filename),
+        "verbose|v"  => \(my $verbose));
     show_usage() unless $output_filename;
 
     my $self = __PACKAGE__->new();
+    $self->{verbose} = $verbose;
+
     for my $filename (@ARGV) {
         print "Reading $filename\n";
         open my $in, "<", $filename 
@@ -69,7 +72,8 @@ sub new {
     my ($class) = @_;
     my $self = { 
         headers => [],
-        data    => {}
+        data    => {},
+        diffs   => {}
     };
     return bless $self, $class;
 }
@@ -90,7 +94,7 @@ sub read_file {
         my $expected = join(", ", @expected_headers);
         my $got = join(", ", @keys);
         unless ($got eq $expected) {
-            carp "File has different headers, expected $expected, got $got";
+            carp "File has different headers: expected $expected, got $got; skipping.";
             return 0;
         }
     }
@@ -99,7 +103,10 @@ sub read_file {
     }
 
     my $data = $self->{data};
-    
+    my $diffs = $self->{diffs};
+
+    my %stats = (old => 0, new => 0);
+
     while (defined($_ = <$fh>)) {
         chomp;
         my %rec;
@@ -110,14 +117,22 @@ sub read_file {
         }
 
         @rec{@keys} = @vals;
-
+        
         my $intron = $rec{intron};
         unless ($intron) {
             carp("Missing intron for line $. ");
             next;
         }
-        if (my $acc = $data->{$intron}) {
 
+        my ($chr, $start, $end) = $intron =~ /^(.*):(\d*)-(\d*)$/g
+            or carp "Invalid location: $_";
+
+#        $data->{$chr} ||= {};
+#        $data->{$chr}->{$start} ||= {};
+        my $acc = $data->{$chr}->{$start}->{$end} ||= {};
+
+        if (keys %$acc) {
+            $stats{old}++;
             for my $key (@SUM_FIELDS) {
                 $acc->{$key} += $rec{$key};
             }
@@ -126,25 +141,31 @@ sub read_file {
                 my $old = $acc->{$key};
                 my $new = $rec{$key};
                 if ($old != $new) {
-                    carp("$intron on line $. has different values for $key");
+                    carp("$intron on line $. has different values for $key") 
+                        if $self->{verbose};
+                    $diffs->{$key}->{$intron} = 1;
+                    $acc->{$key} = $new < $old ? $new : $old;
                 }
-                $acc->{$key} = $new < $old ? $new : $old;
             }
 
             for my $key (@MAX_FIELDS) {
                 my $old = $acc->{$key};
                 my $new = $rec{$key};
                 if ($old != $new) {
-                    carp("$intron on line $. has different values for $key");
+                    $diffs->{$key}->{$intron} = 1;
+                    carp("$intron on line $. has different values for $key") 
+                        if $self->{verbose};
+                    $acc->{$key} = $new > $old ? $new : $old;
                 }
-                $acc->{$key} = $new > $old ? $new : $old;
             }
-
         }
         else {
-            $data->{$intron} = \%rec;
+            $stats{new}++;
+            %$acc = %rec;
         }
+
     }
+    return %stats;
 }
 
 =item $script->print_output($out)
@@ -156,27 +177,42 @@ filehandle.
 
 sub print_output {
     my ($self, $fh) = @_;
-    local $_;
-    my @locations;
     my @headers = @{ $self->{headers} };
+
     my $data = $self->{data};
-    for (keys %{ $data }) {
-        my ($chr, $start, $end) = /^(.*):(\d*)-(\d*)$/g
-            or carp "Invalid location: $_";
-        push @locations, { chr => $chr, start => $start, end => $end };
-    }
 
-    print "Sorting by location\n";
-    @locations = sort by_location @locations;
-
-    print "Writing output\n";
     print $fh join("\t", @headers), "\n";
-    for my $loc (@locations) {
-        my ($chr, $start, $stop) = @$loc{qw(chr start end)};
-        my $key = "$chr:$start-$stop";
-        my $row = $data->{$key};
-        print $fh join("\t", @$row{@headers}), "\n";
+
+    my $count = 0;
+
+    print "Sorting chromosomes\n" if $self->{verbose};
+    for my $chr (sort by_chromosome keys %{ $data }) {
+        my $with_chr = $data->{$chr};
+        print "  Sorting by start for $chr\n" if $self->{verbose};
+        for my $start (sort { $a <=> $b } keys %{ $with_chr } ) {
+            my $with_start = $with_chr->{$start};
+            for my $end (sort { $a <=> $b } keys %{ $with_start } ) {
+                my $row = $with_start->{$end};
+                $count++;
+                print $fh join("\t", @$row{@headers}), "\n";
+            }
+        }
     }
+
+    my %diffs = %{ $self->{diffs} };
+    
+    if (keys %diffs) {
+        print "\nThere were some records that had different values for fields\n".
+            "that should not differ:\n";
+        
+        printf "%30s %10s %s\n", "Field", "Records", "Percent";
+        for my $key (keys %diffs) {
+            my $diffs = scalar keys %{ $diffs{$key} };
+            printf "%30s %10d (%.2f%%)\n", $key, $diffs, 100.0 * $diffs / $count;
+        }
+    }
+
+
 }
 
 =back
