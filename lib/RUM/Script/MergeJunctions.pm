@@ -20,10 +20,7 @@ RUM::Script::MergeJunctions->main();
 use strict;
 use warnings;
 
-use Getopt::Long;
-use Pod::Usage;
 use Carp;
-use FindBin qw($Bin);
 use RUM::Sort qw(by_chromosome);
 use RUM::Script qw(get_options show_usage);
 
