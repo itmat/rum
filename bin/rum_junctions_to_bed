@@ -1,0 +1,74 @@
+#!/usr/bin/env perl 
+
+use strict;
+use warnings;
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use RUM::Script::JunctionsToBed;
+
+RUM::Script::JunctionsToBed->main();
+
+=pod
+
+=head1 NAME
+
+junctions_to_bed - Convert junctions_all.rum to bed format
+
+=head1 SYNOPSIS
+
+junctions_to_bed --all ALL_FILE --high-quality HIGH_QUALITY_FILE INPUT
+
+=head1 DESCRIPTION
+
+Converts a junctions_all.rum file into bed format. junctions_all.rum
+should be a tab-delimited file with the following fields:
+
+=over 4
+
+=item * intron
+
+=item * strand
+
+=item * score
+
+=item * known
+
+=item * standard_splice_signal
+
+=item * signal_not_canonical
+
+=item * ambiguous      
+
+=item * long_overlap_unique_reads
+
+=item * short_overlap_unique_reads
+
+=item * long_overlap_nu_reads
+
+=item * short_overlap_nu_reads
+
+=back
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-a>, B<--all> I<ALL_FILE>
+
+Write all junctions here.
+
+=item B<-h>, B<--high-quality> I<HIGH_QUALITY_FILE>
+
+Write high-quality junctions here.
+
+=back
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright University of Pennsylvania, 2012
+
+=cut
