@@ -1,5 +1,7 @@
 package RUM::Heap;
 
+use strict;
+
 sub new {
     # TODO: Find out why this is weird when the sentinel is 0!
     # index zero is special.  

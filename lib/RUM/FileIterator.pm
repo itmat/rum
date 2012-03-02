@@ -303,18 +303,6 @@ sub sort_by_location {
     return $count;
 }
 
-sub cmp_iters {
-    my $c = shift->[1];
-    my $d = shift->[1];
-    if ($c->{chr} eq $d->{chr}) {
-        return 
-            $c->{start}  <=> $d->{start}   ||
-            $c->{end}    <=> $d->{end}     ||
-            $c->{entry}  cmp $d->{entry};
-    }
-    return cmpChrs($c->{chr}, $d->{chr});   
-}
-
 =item merge_iterators(CMP, OUT_FH, ITERATORS)
 
 =item merge_iterators(OUT_FH, ITERATORS)

@@ -158,10 +158,10 @@ sub run_rum {
 
     my $output_dir = output_data_dir($run_name);
     my @output = map "$output_dir/$_", @RUM_OUTPUT_FILES;
-    unless (grep { not -e } @output) {
-        report "All RUM output exists, skipping";
-        return;
-    }
+    #unless (grep { not -e } @output) {
+    #    report "All RUM output exists, skipping";
+    #    return;
+    #}
 
     make_test_paths($run_name);
     download_test_data($TEST_DATA_TARBALL);
@@ -207,19 +207,6 @@ sub compare_rum_output {
     open my $out, ">", "$run_name.diff";
     for my $file (@RUM_OUTPUT_FILES) {
         ok(-f "$output_dir/$file", "$file exists");
-        #my $expected = "$expected_dir/$file";
-        #my $got      =   "$output_dir/$file";
-        #my $cmd = "diff $expected $got";
-        #INFO "$cmd";
-        #unless (is_dry_run) {
-        #    open my $pipe, "$cmd |" or croak "Couldn't open $cmd";
-        #    my $diffs = 0;
-        #    while (defined (local $_ = <$pipe>)) {
-        #        $diffs++;
-        #        print $out $_;
-        #    }
-        #    is(-s $got, -s $expected, "$file is the right size");
-        #    is($diffs, 0, "No diffs for $file");
     }
 }
 
