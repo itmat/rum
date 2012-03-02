@@ -2,6 +2,57 @@ package RUM::Heap;
 
 use strict;
 
+=head1 NAME
+
+RUM::Heap - Heap data structure
+
+=head1 SYNOPSIS
+
+  use RUM::Heap;
+ 
+  # Initialize with a comparator function
+  my $heap = RUM::Heap->new(COMPARATOR_FUNCTION);
+
+  # Add some items
+  $heap->pushon(ITEM);
+  ...
+
+  # Remove some items
+  my $item = $heap->poplowest();
+
+=head1 DESCRIPTION
+
+Note: This was pulled out of covmerge.pl. 
+
+This is a general-purpose heap data structure, which can be used as a
+priority queue. By default a Heap uses <=> as its comparator function,
+though you can initialize it with any consistent comparator function
+that takes two arguments and returns a number.
+
+Call B<pushon(ITEM)> to add an item to the heap, and B<poplowest()> to
+remove the lowest item.
+
+=head2 Constructor
+
+=over 4
+
+=item RUM::Heap->new($comparator)
+
+Initialize a new heap that uses $comparator->($x, $y) to compare two
+elements.
+
+=back
+
+=head2 Methods
+
+=over 4
+
+=item 
+
+=back
+
+=cut
+
 sub new {
     # TODO: Find out why this is weird when the sentinel is 0!
     # index zero is special.  
@@ -15,7 +66,7 @@ sub new {
     return $self;
 }
 
-sub siftDown {
+sub _sift_down {
     my $self=shift;
     my $i=int shift;
     my $cmp = $self->[0];
@@ -47,7 +98,7 @@ sub siftDown {
 sub reheap {
     my $self=shift;
     for (my $i=int($#$self/2); $i>=1; $i--) {
-	$self->siftDown($i);
+	$self->_sift_down($i);
     }
 }
 
