@@ -16,12 +16,14 @@ junctions_to_bed - Convert junctions_all.rum to bed format
 
 =head1 SYNOPSIS
 
-junctions_to_bed --all ALL_FILE --high-quality HIGH_QUALITY_FILE INPUT
+junctions_to_bed --all ALL --high-quality HQ INPUT
 
 =head1 DESCRIPTION
 
-Converts a junctions_all.rum file into bed format. junctions_all.rum
-should be a tab-delimited file with the following fields:
+Converts a junctions_all.rum file into two files in bed format. All
+records from the input are written to F<ALL>. Only high-quality
+records are written to F<HQ>. F<INPUT> should be a tab-delimited file
+with the following fields:
 
 =over 4
 
