@@ -15,7 +15,6 @@ RUM::Script::JunctionsToBed->main();
 
 =over 4
 
-
 =cut
 
 use strict;
@@ -28,6 +27,7 @@ my @OVERLAP_FIELDS = qw(long_overlap_unique_reads
                         short_overlap_unique_reads
                         long_overlap_nu_reads
                         short_overlap_nu_reads);
+
 =item $script->main()
 
 Main method, runs the script. Expects @ARGV to be populated.
