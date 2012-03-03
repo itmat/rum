@@ -135,7 +135,7 @@ Print a usage message based on the running script's Pod and exit.
 
 sub show_usage {
   return pod2usage { 
-    -message => "Please see perldoc $0 for more information",
+    -message => "Please run $0 -h for more information\n",
     -verbose => 1 };
 }
 

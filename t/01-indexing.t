@@ -19,7 +19,6 @@ sub transform_ok {
   $function->($infile, $outfile);
   close $infile;
   close $outfile;
-  warn "Here I am";
   is($output, $expected, $desc);
 }
 
