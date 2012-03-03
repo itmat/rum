@@ -145,7 +145,11 @@ undef %unjoined;
 $f = format_large_int($seqnum);
 $total=$max_seq_num - $min_seq_num + 1;
 $f = format_large_int($total);
-print "Number of reads total: $f\n";
+if($num_breads > 0) {
+    print "Number of read pairs: $f\n";
+} else {
+    print "Number of reads: $f\n";
+}
 if($num_breads > 0) {
     print "\nUNIQUE MAPPERS\n--------------\n";
     $num_bothmapped = $numjoined + $num_unjoined_consistent;

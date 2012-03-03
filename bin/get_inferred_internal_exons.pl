@@ -1,9 +1,9 @@
 use strict;
 $|=1;
 
-if(@ARGV<4) {
+if(@ARGV<3) {
     die "
-Usage: perl get_inferred_internal_exons.pl <junctions file> <coverage file> <rum unique> <annot file> [options]
+Usage: perl get_inferred_internal_exons.pl <junctions file> <coverage file> <annot file> [options]
 
 Where:
 
@@ -40,8 +40,7 @@ my $min_intron = 35;
 my @junctions_file;
 my $junctionsinfile = $ARGV[0];
 my $covinfile = $ARGV[1];
-my $rumfile = $ARGV[2];
-my $annotfile = $ARGV[3];
+my $annotfile = $ARGV[2];
 my %count_coverage_in_span_cache;
 my %ave_coverage_in_span_cache;
 my $minscore = 1;
@@ -52,7 +51,7 @@ my $bed = "false";
 my $rum = "false";
 my $bedfile;
 my $rumoutfile;
-for(my $i=4; $i<@ARGV; $i++) {
+for(my $i=3; $i<@ARGV; $i++) {
     my $optionrecognized = 0;
     my $double = "false";
     if($ARGV[$i] eq "-minscore") {
