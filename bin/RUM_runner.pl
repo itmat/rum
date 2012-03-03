@@ -783,8 +783,15 @@ EOF
 
 $genomefa = $genome_blat;
 close(INFILE);
-$genome_size = (-s $genomefa) / 1000000000;
-$min_ram = int($genome_size * 1.67)+1;
+
+$gs1 = -s $genome_blat;
+`grep ">" $genome_blat > $output_dir/temp.1`;
+$gs2 = -s "$output_dir/temp.1";
+$gs3 = `wc -l $output_dir/temp.1`;
+$genome_size = $gs1 - $gs2 - $gs3;
+`yes|rm $output_dir/temp.1`;
+$gsz = $genome_size / 1000000000;
+$min_ram = int($gsz * 1.67)+1;
 
 if($postprocess eq "false") {
      if($qsub2 eq "false") {
@@ -1757,7 +1764,7 @@ if($postprocess eq "false") {
                   $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted.plus $output_dir/RUM_NU.plus.cov -name \"$name Non-Unique Mappers Plus Strand\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
                   $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted.minus $output_dir/RUM_NU.minus.cov -name \"$name Non-Unique Mappers Minus Strand\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             }
-            $shellscript = $shellscript . "perl $scripts_dir/get_inferred_internal_exons.pl $output_dir/junctions_high-quality.bed $output_dir/RUM_Unique.cov $output_dir/RUM_Unique.sorted $gene_annot_file -bed $output_dir/inferred_internal_exons.bed > $output_dir/inferred_internal_exons.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/get_inferred_internal_exons.pl $output_dir/junctions_high-quality.bed $output_dir/RUM_Unique.cov $gene_annot_file -bed $output_dir/inferred_internal_exons.bed > $output_dir/inferred_internal_exons.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "perl $scripts_dir/quantifyexons.pl $output_dir/inferred_internal_exons.txt $output_dir/RUM_Unique.sorted $output_dir/RUM_NU.sorted $output_dir/quant.1 -novel -countsonly 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir 1 $output_dir/novel_exon_quant_temp -header 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
 	    $shellscript = $shellscript . "grep -v transcript $output_dir/novel_exon_quant_temp > $output_dir/novel_inferred_internal_exons_quantifications_$name\n";
@@ -2707,26 +2714,6 @@ $nufpfile =~ /(\d+)$/;
 $nuf = $1;
 $UF = &format_large_int($uf);
 $NUF = &format_large_int($nuf);
-
-open(SF, "$output_dir/RUM.sam");
-$flag = 1;
-$genome_size = 0;
-while($flag == 1) {
-    $line = <SF>;
-    chomp($line);
-    if($line =~ /@SQ\tSN:.*\tLN:(\d+)$/) {
-       $genome_size = $genome_size + $1;
-    } else {
-       $flag = 0;
-    }
-}
-
-$gs1 = -s $genome_blat;
-`grep ">" $genome_blat > $output_dir/temp.1`;
-$gs2 = -s "$output_dir/temp.1";
-$gs3 = `wc -l $output_dir/temp.1`;
-$genome_size = $gs1 - $gs2 - $gs3;
-`yes|rm $output_dir/temp.1`;
 
 $UFp = int($uf / $genome_size * 10000) / 100;
 $NUFp = int($nuf / $genome_size * 10000) / 100;
