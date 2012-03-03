@@ -16,12 +16,12 @@ rum_merge_junctions - Merge junctions_*.rum files together.
 
 =head1 SYNOPSIS
 
-rum_merge_junctions [OPTIONS] --output OUTPUT INPUTS
+rum_merge_junctions [-v] --output OUTPUT INPUTS
 
 =head1 DESCRIPTION
 
-Takes n input files and produces 1 output file. Input files be
-tab-delimited and should have the following columns:
+Takes n input files and produces 1 output file. Input files must be
+tab-delimited and must have the following columns:
 
 =over 4
 
@@ -45,7 +45,7 @@ tab-delimited and should have the following columns:
 
 =item long_overlap_nu_reads
 
-=item short_overlap_nu_reads);
+=item short_overlap_nu_reads
 
 =back
 
