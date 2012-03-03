@@ -15,4 +15,4 @@ Version 1.11-pre
 
 =cut
 
-our $VERSION = '1.11-pre';
+our $VERSION = '1.11_01';

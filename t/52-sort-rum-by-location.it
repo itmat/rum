@@ -27,7 +27,7 @@ for my $type (@types) {
         my $expected = "$IN_DIR/RUM_$type.sorted.$chunk";
         my $out      = "$OUT_DIR/RUM_$type.sorted.$chunk";
         my $output   = `perl $SCRIPT $in $out -maxchunksize 100 -allowsmallchunks`;
-        no_diffs $out, $expected, "sort-rum-by-location-$type-$chunk";
+        is_sorted_by_location($out);
     }
 }
 
@@ -37,6 +37,6 @@ for my $type (@types) {
         my $expected = "$IN_DIR/RUM_$type.sorted.$chunk";
         my $out      = "$OUT_DIR/RUM_$type.sorted.$chunk-nosplit";
         my $output   = `perl $SCRIPT $in $out`;
-        no_diffs $out, $expected, "sort-rum-by-location-nosplit-$type-$chunk";
+        is_sorted_by_location($out);
     }
 }

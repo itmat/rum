@@ -32,10 +32,14 @@ use Test::More;
 use Exporter qw(import);
 use LWP::UserAgent;
 use File::Spec;
-use RUM::Workflow qw(make_paths shell report is_dry_run with_settings is_on_cluster);
+use RUM::FileIterator qw(file_iterator);
+use RUM::Sort qw(by_chromosome);
+use RUM::Workflow qw(make_paths shell report is_dry_run with_settings 
+                     is_on_cluster);
 use Carp;
 
-our @EXPORT_OK = qw(download_file download_test_data no_diffs);
+our @EXPORT_OK = qw(download_file download_test_data no_diffs
+                    is_sorted_by_location);
 our %EXPORT_TAGS = (
     all => [@EXPORT_OK]);
 
@@ -112,6 +116,35 @@ sub no_diffs {
     my $status = $? >> 8;
     ok($status == 0, $name);
 }
+
+=item is_sorted_by_location(FILENAME)
+
+Asserts that the given RUM file is sorted by location.
+
+=cut
+
+sub is_sorted_by_location {
+    my ($filename) = @_;
+    open my $in, "<", $filename or croak "Can't open $filename for reading: $!";
+    my $it = file_iterator($in);
+
+    my @recs;
+    my @keys = qw(chr start end);
+    while (my $rec = $it->("pop")) {
+        my %rec;
+        @rec{@keys} = @$rec{@keys};
+        push @recs, \%rec;
+    }
+
+    my @sorted = sort {
+        by_chromosome($a->{chr}, $b->{chr}) || $a->{start} <=> $b->{start} || $a->{end} <=> $b->{end};
+    } @recs;
+
+    is_deeply(\@recs, \@sorted, "Sorted by location");
+}
+
+
+
 
 =back
 

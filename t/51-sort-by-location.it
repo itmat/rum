@@ -36,8 +36,6 @@ our $SCRIPT = "$Bin/../bin/sort_by_location.pl";
     no_diffs $out, $expected, "sort-by-location-high-quality-bed"
 }
 
-
-
 {
     my $in = "$IN_DIR/junctions_all.rum";
     my $out = "$OUT_DIR/all_rum";

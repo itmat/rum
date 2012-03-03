@@ -22,7 +22,7 @@ our $SCRIPT = "$Bin/../bin/merge_sorted_RUM_files.pl";
     my $out = "$OUT_DIR/unique";
     my $expected = "$IN_DIR/RUM_Unique.sorted";
     system "perl", $SCRIPT, $out, @in;
-    no_diffs $out, $expected, "merge-sorted-rum-files-unique"
+    is_sorted_by_location($out);
 }
 
 
