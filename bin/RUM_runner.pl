@@ -1355,9 +1355,9 @@ if($postprocess eq "false") {
     print LOGFILE "\nstart: $date\n";
     print LOGFILE "name: $name\n";
     if($configfile =~ /hg(18)/ || $configfile =~ /hg(19)/) {
-        print LOGFILE "config file: $configfile  [ human - build $1 ]\n";
+        print LOGFILE "config file: $configfile  [human - build $1]\n";
     } elsif($configfile =~ /mm(8)/ || $configfile =~ /mm(9)/) {
-        print LOGFILE "config file: $configfile  [ mouse build $1 ]\n";
+        print LOGFILE "config file: $configfile  [mouse build $1]\n";
     } else {
         print LOGFILE "config file: $configfile\n";
     }
@@ -1741,10 +1741,10 @@ if($postprocess eq "false") {
             }
             $shellscript = $shellscript . "echo 'making coverage plots' >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_Unique.sorted $output_dir/RUM_Unique.cov -name \"$name Unique Mappers\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_Unique.sorted $output_dir/RUM_Unique.cov -name \"$name Unique Mappers\" -stats $output_dir/u_footprint.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "echo 'unique mappers coverage plot finished' >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted $output_dir/RUM_NU.cov -name \"$name Non-Unique Mappers\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted $output_dir/RUM_NU.cov -name \"$name Non-Unique Mappers\"  -stats $output_dir/nu_footprint.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "echo 'NU mappers coverage plot finished' >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
             if($strandspecific eq 'true') {
@@ -1757,12 +1757,10 @@ if($postprocess eq "false") {
                   $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted.plus $output_dir/RUM_NU.plus.cov -name \"$name Non-Unique Mappers Plus Strand\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
                   $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted.minus $output_dir/RUM_NU.minus.cov -name \"$name Non-Unique Mappers Minus Strand\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             }
-	    if($quantify eq "true") {
-		$shellscript = $shellscript . "perl $scripts_dir/get_inferred_internal_exons.pl $output_dir/junctions_high-quality.bed $output_dir/RUM_Unique.cov $output_dir/RUM_Unique.sorted $gene_annot_file -bed $output_dir/inferred_internal_exons.bed > $output_dir/inferred_internal_exons.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
-		$shellscript = $shellscript . "perl $scripts_dir/quantifyexons.pl $output_dir/inferred_internal_exons.txt $output_dir/RUM_Unique.sorted $output_dir/RUM_NU.sorted $output_dir/quant.1 -novel -countsonly 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
-		$shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir 1 $output_dir/novel_exon_quant_temp -header 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
-		$shellscript = $shellscript . "grep -v transcript $output_dir/novel_exon_quant_temp > $output_dir/novel_inferred_internal_exons_quantifications_$name\n";
-	    }
+            $shellscript = $shellscript . "perl $scripts_dir/get_inferred_internal_exons.pl $output_dir/junctions_high-quality.bed $output_dir/RUM_Unique.cov $output_dir/RUM_Unique.sorted $gene_annot_file -bed $output_dir/inferred_internal_exons.bed > $output_dir/inferred_internal_exons.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/quantifyexons.pl $output_dir/inferred_internal_exons.txt $output_dir/RUM_Unique.sorted $output_dir/RUM_NU.sorted $output_dir/quant.1 -novel -countsonly 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir 1 $output_dir/novel_exon_quant_temp -header 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+	    $shellscript = $shellscript . "grep -v transcript $output_dir/novel_exon_quant_temp > $output_dir/novel_inferred_internal_exons_quantifications_$name\n";
             $shellscript = $shellscript . "echo post-processing finished >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
             if($qsub2 eq "true") {
@@ -2699,6 +2697,64 @@ while($doneflag == 0) {
    }
 }
 
+$ufpfile = `cat $output_dir/u_footprint.txt`;
+chomp($ufpfile);
+$ufpfile =~ /(\d+)$/;
+$uf = $1;
+$nufpfile = `cat $output_dir/nu_footprint.txt`;
+chomp($nufpfile);
+$nufpfile =~ /(\d+)$/;
+$nuf = $1;
+$UF = &format_large_int($uf);
+$NUF = &format_large_int($nuf);
+
+open(SF, "$output_dir/RUM.sam");
+$flag = 1;
+$genome_size = 0;
+while($flag == 1) {
+    $line = <SF>;
+    chomp($line);
+    if($line =~ /@SQ\tSN:.*\tLN:(\d+)$/) {
+       $genome_size = $genome_size + $1;
+    } else {
+       $flag = 0;
+    }
+}
+
+$gs1 = -s $genome_blat;
+`grep ">" $genome_blat > $output_dir/temp.1`;
+$gs2 = -s "$output_dir/temp.1";
+$gs3 = `wc -l $output_dir/temp.1`;
+$genome_size = $gs1 - $gs2 - $gs3;
+`yes|rm $output_dir/temp.1`;
+
+$UFp = int($uf / $genome_size * 10000) / 100;
+$NUFp = int($nuf / $genome_size * 10000) / 100;
+
+$gs4 = &format_large_int($genome_size);
+print LOGFILE "genome size: $gs4\n";
+print LOGFILE "number of bases covered by unique mappers: $UF ($UFp%)\n";
+print LOGFILE "number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n";
+
+open(INFILE, "$output_dir/mapping_stats.txt");
+$newfile = "";
+while($line = <INFILE>) {
+   chomp($line);
+   if($line =~ /chr_name/) {
+      next;
+   }
+   if($line =~ /RUM_Unique reads per chromosome/) {
+      $newfile = $newfile . "genome size: $gs4\n";
+      $newfile = $newfile . "number of bases covered by unique mappers: $UF ($UFp%)\n";
+      $newfile = $newfile . "number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n";
+   }
+   $newfile = $newfile . "$line\n";
+}
+close(INFILE);
+open(OUTFILE, ">$output_dir/mapping_stats.txt");
+print OUTFILE $newfile;
+close(OUTFILE);
+
 # Check RUM_Unique and RUM_Unique.sorted are the same size
 $filesize1 = -s "$output_dir/RUM_Unique";
 $filesize2 = -s "$output_dir/RUM_Unique.sorted";
@@ -2878,6 +2934,12 @@ print ERRORLOG "--------------------------------------\n";
 
 if($cleanup eq 'true') {
    print "\nCleaning up some more temp files...\n\n";
+   if(-e "$output_dir/u_footprint.txt") {
+      `yes|rm $output_dir/u_footprint.txt`;
+   }
+   if(-e "$output_dir/nu_footprint.txt") {
+      `yes|rm $output_dir/nu_footprint.txt`;
+   }
    if(-e "$output_dir/kill_command") {
       `yes|rm $output_dir/kill_command`;
    }
