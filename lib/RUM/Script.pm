@@ -88,7 +88,6 @@ use subs qw(report _open_in _open_out _open_in_and_out);
 use Carp;
 use Getopt::Long;
 use Pod::Usage;
-use Log::Log4perl qw(:easy);
 
 use Exporter 'import';
 our %EXPORT_TAGS = 
@@ -510,7 +509,6 @@ sub fix_geneinfofile_for_neg_introns {
       my $realstart    = $E[$i-1] + 1;
       my $realend      = $S[$i];
       my $length       = $realend - $realstart + 1;
-      DEBUG "length = $length";
       if($length > 0) {
         $start_string = $start_string . $S[$i] . ",";
         $end_string = $end_string . $E[$i-1] . ",";
