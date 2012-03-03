@@ -440,7 +440,7 @@ sub getjunctions () {
 			if(($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig]) || ($splice_signal_upstream eq $acceptor_rev[$sig] && $splice_signal_downstream eq $donor_rev[$sig])) {
 			    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 1;
 			    if($sig>0) {
-				$known_noncanonical_signal{$intron} = 1;
+  				$known_noncanonical_signal{$intron} = 1;
 			    }
 			    if(($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig])) {
 				$intronstrand{$intron} = "+";
@@ -534,7 +534,9 @@ sub getjunctions () {
 		    for($sig=0; $sig<@donor; $sig++) {
 			if(($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig]) || ($splice_signal_upstream eq $acceptor_rev[$sig] && $splice_signal_downstream eq $donor_rev[$sig])) {
 			    $goodsplicesignal{$intron} = $goodsplicesignal{$intron} + 1;
-			    $known_noncanonical_signal{$intron} = 1;
+			    if($sig>0) {
+				$known_noncanonical_signal{$intron} = 1;
+			    }
 			    if(($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig])) {
 				$intronstrand{$intron} = "+";
 			    } else {
