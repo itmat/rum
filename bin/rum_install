@@ -61,7 +61,7 @@ GetOptions("help|h" => \&usage);
 my $dir = $ARGV[0] or usage();
 $dir =~ s!\/$!!;
 
-my $tarball = "RUM-Pipeline-1.11.tar.gz";
+my $tarball = "RUM-Pipeline-1.11.0.tar.gz";
 
 # Make any directories that need to be created
 unless (-d $dir) {
