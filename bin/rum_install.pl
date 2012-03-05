@@ -7,7 +7,7 @@ use Getopt::Long;
 use Pod::Usage;
 use File::Copy;
 use Carp;
-use LWP::Simple;
+use File::Path qw(mkpath);
 
 =head1 NAME
 
@@ -65,9 +65,7 @@ $dir =~ s!\/$!!;
 my $tarball = "RUM-Pipeline-v1.11.0.tar.gz";
 
 # Make any directories that need to be created
-unless (-d $dir) {
-    mkdir $dir or croak "mkdir $dir: $!";
-}
+mkpath($dir);
 
 ##
 ## Some wrappers around system calls that add error handling
@@ -116,7 +114,7 @@ sub rm {
 download("https://github.com/downloads/PGFI/rum/$tarball");
 my $abs_path = File::Spec->rel2abs($tarball, ".");
 shell "tar -C $dir --strip-components 1 -zxf $abs_path";
-rm "$dir/$tarball";
+rm $abs_path;
 if (my $pid = fork()) {
     wait();
     print "Done installing rum pipeline to $dir\n";
