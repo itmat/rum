@@ -51,6 +51,7 @@ bin/rum2sam.pl
 bin/RUM_finalcleanup.pl
 bin/rum_indexes
 bin/rum_install
+bin/rum_install.pl
 bin/rum_junctions_to_bed
 bin/rum_merge_junctions
 bin/RUM_runner.pl
