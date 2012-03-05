@@ -7,6 +7,7 @@ use Getopt::Long;
 use Pod::Usage;
 use File::Copy;
 use Carp;
+use LWP::Simple;
 
 =head1 NAME
 
@@ -112,7 +113,10 @@ sub rm {
 
 # Download the source tarball, move it to the right directory, and
 # unzip it
-download "http://github.s3.amazonaws.com/downloads/PGFI/rum/$tarball";
+my $url = "https://github.com/downloads/PGFI/rum/RUM-Pipeline-v1.11.0.tar.gz";
+my $status = getstore($url, $tarball);
+croak "Couldn't download $url to $tarball: $status" 
+    unless is_success($status) && -e $tarball;
 mv $tarball, "$dir/$tarball";
 shell "tar -C $dir --strip-components 1 -zxf $dir/$tarball";
 rm "$dir/$tarball";
