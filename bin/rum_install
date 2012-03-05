@@ -62,7 +62,7 @@ GetOptions("help|h" => \&usage);
 my $dir = $ARGV[0] or usage();
 $dir =~ s!\/$!!;
 
-my $tarball = "RUM-Pipeline-1.11.0.tar.gz";
+my $tarball = "RUM-Pipeline-v1.11.0.tar.gz";
 
 # Make any directories that need to be created
 unless (-d $dir) {
@@ -85,7 +85,7 @@ sub download {
 
     # Which -s returns 0 if it finds the command, 1 otherwise.
     if (system("which -s wget") == 0) {
-        $cmd = "wget $url";
+        $cmd = "wget -q $url";
     }
     elsif (system("which -s curl") == 0) {
         $cmd = "curl -O $url";
@@ -113,14 +113,10 @@ sub rm {
 
 # Download the source tarball, move it to the right directory, and
 # unzip it
-my $url = "https://github.com/downloads/PGFI/rum/RUM-Pipeline-v1.11.0.tar.gz";
-my $status = getstore($url, $tarball);
-croak "Couldn't download $url to $tarball: $status" 
-    unless is_success($status) && -e $tarball;
-mv $tarball, "$dir/$tarball";
-shell "tar -C $dir --strip-components 1 -zxf $dir/$tarball";
+download("https://github.com/downloads/PGFI/rum/$tarball");
+my $abs_path = File::Spec->rel2abs($tarball, ".");
+shell "tar -C $dir --strip-components 1 -zxf $abs_path";
 rm "$dir/$tarball";
-
 if (my $pid = fork()) {
     wait();
     print "Done installing rum pipeline to $dir\n";

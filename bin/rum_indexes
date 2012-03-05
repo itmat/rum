@@ -266,6 +266,7 @@ sub interactive {
 
     while (1) {
         print "-" x 80;
+        print "\n";
         $self->list_indexes();
         print "\n$prompt";
         my $response = <STDIN>;
