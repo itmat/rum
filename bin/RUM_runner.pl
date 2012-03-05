@@ -1,7 +1,7 @@
 # Written by Gregory R Grant
 # University of Pennsylvania, 2011
 
-$version = "1.11.beta.  Released XXX";
+$version = "1.11.  Released March 5, 2012";
 
 $| = 1;
 
