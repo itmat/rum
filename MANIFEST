@@ -51,6 +51,8 @@ bin/rum2sam.pl
 bin/RUM_finalcleanup.pl
 bin/rum_indexes
 bin/rum_install
+bin/rum_junctions_to_bed
+bin/rum_merge_junctions
 bin/RUM_runner.pl
 bin/sam2junctions.pl
 bin/sam2rum.pl
@@ -81,6 +83,8 @@ lib/RUM/Pipeline.pm
 lib/RUM/Repository.pm
 lib/RUM/Repository/IndexSpec.pm
 lib/RUM/Script.pm
+lib/RUM/Script/JunctionsToBed.pm
+lib/RUM/Script/MergeJunctions.pm
 lib/RUM/Sort.pm
 lib/RUM/Subproc.pm
 lib/RUM/TestUtils.pm
@@ -101,12 +105,13 @@ t/04-subproc.t
 t/05-file-iterator.t
 t/06-repository.t
 t/07-sort.t
-t/08-download-test-data.pl
-t/09-integration.it
-t/10-merge-sorted-rum-files.t
-t/11-sort-by-location.t
-t/12-sort-rum-by-location.t
 t/13-heap.t
+t/14-merge-junctions.t
+t/50-download-test-data.it
+t/51-sort-by-location.it
+t/52-sort-rum-by-location.it
+t/53-merge-sorted-rum-files.it
+t/80-end-to-end.it
 t/boilerplate.t
 t/manifest.t
 t/pod-coverage.t
