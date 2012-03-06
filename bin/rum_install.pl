@@ -63,6 +63,7 @@ my $dir = $ARGV[0] or usage();
 $dir =~ s!\/$!!;
 
 my $tarball = "RUM-Pipeline-v1.11.0.tar.gz";
+our $tarball_url = "http://pgfi.rum.s3.amazonaws.com/$tarball";
 
 # Make any directories that need to be created
 mkpath($dir);
@@ -82,7 +83,7 @@ sub download {
     my $cmd;
 
     if (system("which wget") == 0) {
-        $cmd = "wget --no-check-certificate $url";
+        $cmd = "wget $url";
     }
     elsif (system("which curl") == 0) {
         $cmd = "curl -O $url";
@@ -110,7 +111,7 @@ sub rm {
 
 # Download the source tarball, move it to the right directory, and
 # unzip it
-download("http://github.com/downloads/PGFI/rum/$tarball");
+download($tarball_url);
 my $abs_path = File::Spec->rel2abs($tarball, ".");
 shell "tar -C $dir --strip-components 1 -zxf $abs_path";
 rm $abs_path;
