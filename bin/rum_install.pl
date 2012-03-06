@@ -81,14 +81,13 @@ sub download {
     my ($url) = @_;
     my $cmd;
 
-    # Which -s returns 0 if it finds the command, 1 otherwise.
-    if (system("which -s wget") == 0) {
+    if (system("which wget") == 0) {
         $cmd = "wget -q $url";
     }
-    elsif (system("which -s curl") == 0) {
+    elsif (system("which curl") == 0) {
         $cmd = "curl -O $url";
     }
-    elsif (system("which -s ftp") == 0) {
+    elsif (system("which ftp") == 0) {
         $cmd = "ftp $url";
     }
     else {
