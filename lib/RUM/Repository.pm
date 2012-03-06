@@ -33,7 +33,6 @@ use strict;
 no warnings;
 
 use FindBin qw($Bin);
-use LWP::Simple;
 use RUM::Repository::IndexSpec;
 use RUM::Config;
 use Carp;
@@ -155,9 +154,7 @@ sub fetch_binaries {
     my $url = "$BIN_TARBALL_URL_PREFIX/$bin_tarball";
     my $bin_dir = $self->bin_dir;
     my $local = "$bin_dir/$bin_tarball";
-    my $status = getstore($url, $local);
-    croak "Couldn't download $url to $local: $status" 
-        unless is_success($status);
+    download($url, $local);
     system("tar -C $bin_dir --strip-components 1 -xf $local") == 0
         or croak "Can't unpack $local";
     unlink $local;
@@ -173,9 +170,7 @@ sub fetch_organisms_file {
     my ($self) = @_;
     $self->mkdirs;
     my $file = $self->organisms_file;
-    my $status = getstore($ORGANISMS_URL, $file);
-    croak "Couldn't download organisms file from $ORGANISMS_URL " .
-        "to $file" unless is_success($status);
+    download($ORGANISMS_URL, $file);
     return $self;
 }
 
@@ -231,7 +226,7 @@ sub install_index {
     for my $url ($index->urls) {
         $callback->("start", $url) if $callback;
         my $filename = $self->index_filename($url);
-        my $status = getstore($url, $filename);
+        download($url, $filename);
         if ($self->is_config_filename($filename)) {
             open my $in, "<", $filename 
                 or croak "Can't open config file $filename for reading: $!";
@@ -247,8 +242,6 @@ sub install_index {
             system("gunzip -f $filename") == 0 
                 or die "Couldn't unzip $filename: $!";
         }
-        croak "Couldn't download index file from $url " .
-            "to $filename: $status" unless is_success($status);
         $callback->("end", $url) if $callback;
     }
 }
@@ -397,5 +390,26 @@ sub setup {
     $self->fetch_organisms_file() unless -e $self->organisms_file();
     return $self;
 }
+
+sub download {
+    my ($url, $local) = @_;
+    my $cmd;
+
+    if (system("which wget > /dev/null") == 0) {
+        $cmd = "wget -q -O $local $url";
+    }
+    elsif (system("which curl > /dev/null") == 0) {
+        $cmd = "curl -s -o $local $url";
+    }
+    elsif (system("which ftp > /dev/null") == 0) {
+        $cmd = "ftp -o $local $url";
+    }
+    else {
+        croak "I can't find ftp, wget, or curl on your path; ".
+            "please install one of those programs.";
+    }
+    system($cmd) == 0 or croak "Error running $cmd: $!";
+}
+
 
 1;
