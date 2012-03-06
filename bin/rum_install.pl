@@ -82,7 +82,7 @@ sub download {
     my $cmd;
 
     if (system("which wget") == 0) {
-        $cmd = "wget -q $url";
+        $cmd = "wget --no-check-certificate $url";
     }
     elsif (system("which curl") == 0) {
         $cmd = "curl -O $url";
@@ -110,7 +110,7 @@ sub rm {
 
 # Download the source tarball, move it to the right directory, and
 # unzip it
-download("https://github.com/downloads/PGFI/rum/$tarball");
+download("http://github.com/downloads/PGFI/rum/$tarball");
 my $abs_path = File::Spec->rel2abs($tarball, ".");
 shell "tar -C $dir --strip-components 1 -zxf $abs_path";
 rm $abs_path;
