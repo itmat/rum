@@ -67,9 +67,9 @@ use Exporter qw(import);
 use Carp;
 use RUM::Sort qw(by_location cmpChrs by_chromosome);
 use RUM::Heap;
-use RUM::Logger;
+use RUM::Logging;
 
-our $log = RUM::Logger->get_logger(__PACKAGE__);
+our $log = RUM::Logging->get_logger();
 #use Devel::Size qw(total_size);
 
 our @EXPORT_OK = qw(file_iterator pop_it peek_it sort_by_location
@@ -373,6 +373,8 @@ sub merge_iterators {
             $end[$index]   = $rec->{end};
             $entry[$index] = $rec->{entry};
             $q->pushon($index);
+        } else {
+            $log->debug("Exhausted an iterator");
         }
     }
 }
