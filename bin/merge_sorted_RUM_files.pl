@@ -16,7 +16,7 @@ merge_sorted_RUM_files.pl - Merge sorted RUM files
 
 =head1 SYNOPSIS
 
-  merge_sorted_RUM_files.pl [OPTIONS] <outfile> <infile1> <infile2> [...<infileN>]
+  merge_sorted_RUM_files.pl [OPTIONS] -o <outfile> <infile1> [...<infileN>]
   merge_sorted_RUM_files.pl --help
 
 where infiles are RUM_Unique or RUM_NU files, each sorted by location,
@@ -26,6 +26,10 @@ into a single sorted file output to <outfile>.
 =head1 OPTIONS:
 
 =over 4
+
+=item B<-o>, B<--output> F<file> (required)
+
+The file to write the merged results to.
 
 =item B<--chunk-ids-file> F<file> 
 
