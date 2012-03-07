@@ -30,14 +30,13 @@ RUM::TestUtils - Functions used by tests
 
 use Test::More;
 use Exporter qw(import);
-use LWP::UserAgent;
 use File::Spec;
 use RUM::FileIterator qw(file_iterator);
 use RUM::Sort qw(by_chromosome);
 use RUM::Workflow qw(make_paths shell report is_dry_run with_settings 
                      is_on_cluster);
 use Carp;
-
+use RUM::Repository qw(download);
 our @EXPORT_OK = qw(download_file download_test_data no_diffs
                     is_sorted_by_location);
 our %EXPORT_TAGS = (
@@ -64,8 +63,7 @@ sub download_file {
     my (undef, $dir, undef) = File::Spec->splitpath($local);
     make_paths($dir);
     unless (is_dry_run) {
-        my $ua = LWP::UserAgent->new;
-        $ua->get($url, ":content_file" => $local);
+        download($url, $local);
     }
 }
 

@@ -37,8 +37,10 @@ use RUM::Repository::IndexSpec;
 use RUM::Config;
 use Carp;
 use File::Spec;
-
+use Exporter qw(EXPORT_OK);
 FindBin->again;
+
+our @EXPORT_OK = qw(download);
 
 our $ORGANISMS_URL = "http://itmat.rum.s3.amazonaws.com/organisms.txt";
 
