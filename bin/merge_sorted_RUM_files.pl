@@ -24,6 +24,8 @@ use Carp;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(by_location);
 use RUM::FileIterator qw(file_iterator pop_it peek_it merge_iterators);
+use RUM::Logging;
+
 
 my $outfile = $ARGV[0];
 my $options_start_index;
