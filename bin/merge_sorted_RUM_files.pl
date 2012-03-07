@@ -17,6 +17,7 @@ merge_sorted_RUM_files.pl - Merge sorted RUM files
 =head1 SYNOPSIS
 
   merge_sorted_RUM_files.pl [OPTIONS] <outfile> <infile1> <infile2> [...<infileN>]
+  merge_sorted_RUM_files.pl --help
 
 where infiles are RUM_Unique or RUM_NU files, each sorted by location,
 without the forward and reverse reads separated.  They will be merged
@@ -38,6 +39,10 @@ Be verbose.
 =item B<-q>, B<--quiet>
 
 Be quiet.
+
+=item B<-h>, B<--help>
+
+Print help.
 
 =cut
 

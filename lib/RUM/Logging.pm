@@ -17,9 +17,14 @@ FindBin->again();
 our $LOG4PERL = "Log::Log4perl";
 our $LOGGER_CLASS;
 
+our $LOG4PERL_MISSING_MSG = <<EOF;
+You don't seem to have $LOG4PERL installed. You may want to install it
+via "cpan -i $LOG4PERL" so you can use advanced logging features.
+
+EOF
+
 sub init {
     $LOGGER_CLASS or init_log4perl() or init_rum_logger();
-#    $LOGGER_CLASS or init_rum_logger();
 }
 
 our @LOG4PERL_CONFIGS = (
@@ -35,9 +40,10 @@ sub init_log4perl {
     # fall back to RUM::Logger.
     eval {
         require "Log/Log4perl.pm"; # qw(:no_extra_logdie_message);
+        die if $ENV{RUM_HIDE_LOG4PERL};
     };
     if ($@) {
-        warn "You don't seem to have $LOG4PERL installed.";
+        warn $LOG4PERL_MISSING_MSG;
         return;
     }
 

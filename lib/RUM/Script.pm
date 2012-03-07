@@ -123,10 +123,11 @@ verbose usage message based on the running program's Pod.
 =cut
 
 sub get_options {
-  my %options = @_;
-  $options{"help|h"} ||= sub {
-    pod2usage { -verbose => 2 }};
-  return GetOptions(%options);
+    shift if ($_[0] eq __PACKAGE__);
+    my %options = @_;
+    $options{"help|h"} ||= sub {
+        pod2usage { -verbose => 2 }};
+    return GetOptions(%options);
 }
 
 =item show_usage

@@ -5,25 +5,46 @@ package RUM::Script::MergeSortedRumFiles;
 use strict;
 no warnings;
 
-use FindBin qw($Bin);
-use lib "$Bin/../lib";
-use Carp;
-use RUM::FileIterator qw(file_iterator pop_it peek_it merge_iterators);
-use RUM::Logging;
+use Getopt::Long;
 use Pod::Usage;
-use RUM::Script qw(show_usage get_options);
+use RUM::FileIterator qw(file_iterator merge_iterators peek_it);
+use RUM::Logging;
+
+# This gets a logger, which will be a Log::Log4perl logger if it's
+# installed, otherwise a RUM::Logger. Any package that wants to do
+# logging should get its own logger by calling this method, so that a
+# user can control how the logging works for different packages using
+# conf/rum_logging.conf.
 our $log = RUM::Logging->get_logger();
 
 sub main {
 
-    get_options("chunk_ids_file|chunk-ids-file=s" => \(my $chunk_ids_file),
-                         "quiet|q" => sub { $log->less_logging(1) },
-                       "verbose|v" => sub { $log->more_logging(1) });
+    GetOptions(
 
-    $log->debug("A debug message");
+        # This will accept either -chunk_ids_file or --chunk-ids-file,
+        # and assign the value the user provides for that option to
+        # $chunk_ids_file.
+        "chunk_ids_file|chunk-ids-file=s" => \(my $chunk_ids_file),
+
+        # This will call $log->less_logging(1) if we see either
+        # --quiet or -q
+        "quiet|q" => sub { $log->less_logging(1) },
+
+        # This will call $log->more_logging(1) if we see either
+        # --verbose or -v
+        "verbose|v" => sub { $log->more_logging(1) },
+    
+        # This dies with a verbose usage message if the user supplies
+        # --help or -h.
+        "help|h" => sub { pod2usage(-verbose=>2) }
+    );
 
     my ($outfile, @infiles) = @ARGV;
 
+    # pod2usage prints the given message as well as the NAME and
+    # SYNOPSIS sections of the POD contained in the script that was
+    # called (in this case bin/merge_sorted_RUM_files.pl) and exits.
+    # It's a good way to exit with a usage message.
     pod2usage("Please provide an output file and input files\n") unless $outfile;
     pod2usage("Please provide one or more input files\n") unless @infiles;
     
@@ -32,7 +53,9 @@ sub main {
     if ($chunk_ids_file) {
         $log->info("Reading chunk id mapping from $chunk_ids_file");
         if (-e $chunk_ids_file) {
-            
+
+            # logdie dies and writes the message to the log
+            # file(s) and the screen.
             open(INFILE, $chunk_ids_file)
                 or $log->logdie("Can't open $chunk_ids_file for reading: $!");
             while (defined (my $line = <INFILE>)) {
@@ -71,14 +94,14 @@ sub main {
     # the files and merge them together.
     my @iters;
     for my $filename (@file) {
-        $log->debug("Opening iterator for $filename");
+        $log->debug("Reading from $filename");
         open my $file, "<", $filename
-            or croak "Can't open $filename for reading: $!";
+            or $log->logdie("Can't open $filename for reading: $!");
         my $iter = file_iterator($file);
         push @iters, $iter if peek_it($iter);
     }
 
-    open my $out, ">", $outfile;
-    $log->debug("Merging iterators");
+    open my $out, ">", $outfile
+        or $log->logdie("Can't open $outfile for writing: $!");
     merge_iterators($out, @iters);
 }

@@ -17,6 +17,8 @@ our %LOGGERS;
 our ($TRACE, $DEBUG, $INFO, $WARN, $ERROR, $FATAL) = (0..6);
 our $DEFAULT_THRESHOLD = $INFO;
 
+our @LEVEL_NAMES = qw(TRACE DEBUG INFO WARN ERROR FATAL);
+
 our $FH;
 
 sub init {
@@ -40,11 +42,12 @@ sub log {
     my ($self, $level, $msg) = @_;
     if ($level >= $self->{threshold}) {
         chomp $msg;
-        $msg .= "\n";
-        if ($self->{name} =~ /^RUM::Script::/) {
-            print $msg;
+        if ($self->{name} =~ /^RUM::Script::/) {    
+            print $msg, "\n";
         }
-        print $FH $msg;
+        printf $FH "%s %d %5s %s - %s\n",
+            scalar(localtime()), $$, $LEVEL_NAMES[$level], $self->{name}, $msg;
+
     }
 }
 
