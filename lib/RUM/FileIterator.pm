@@ -67,6 +67,9 @@ use Exporter qw(import);
 use Carp;
 use RUM::Sort qw(by_location cmpChrs by_chromosome);
 use RUM::Heap;
+use RUM::Logger;
+
+our $log = RUM::Logger->get_logger(__PACKAGE__);
 #use Devel::Size qw(total_size);
 
 our @EXPORT_OK = qw(file_iterator pop_it peek_it sort_by_location
@@ -259,6 +262,7 @@ it in about 1:55 also. The old version takes about 3.4 gb for the unique file an
 sub sort_by_location {
     my ($in, $out, %options) = @_;
     my $max = $options{max};
+    my $file_end = $options{end};
 
     # Open an iterator over the input file.
     my $it = ref($in) =~ /CODE/ ? $in : file_iterator($in, %options);
@@ -268,7 +272,7 @@ sub sort_by_location {
     my @recs;
     my %data;
     my $count = 0;
-    print "Reading now\n";
+    $log->debug("Reading now");
     while (my $rec = pop_it($it)) {
         my %rec = %$rec;
         my $chr = delete $rec{chr};
@@ -279,6 +283,11 @@ sub sort_by_location {
         $data{$chr}{$start}{$end}   ||= [];
         push @{ $data{$chr}{$start}{$end} }, $rec{entry};
         if ($max && ($count++ >= $max)) {
+            last;
+        }
+        if ($file_end && tell($in) > $file_end) {
+            $log->debug("Stopping because file position ".tell($in)." is past $file_end")
+                if $log->is_debug;
             last;
         }
     }
