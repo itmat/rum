@@ -3,11 +3,11 @@ package RUM::Script::MakeGuAndGnu;
 use Pod::Usage;
 use RUM::Logging;
 
+our $log = RUM::Logging->get_logger();
+
 $|=1;
 
 sub main {
-
-
 
     pod2usage if @ARGV < 4;
 
@@ -25,7 +25,7 @@ sub main {
         $typerecognized = 0;
     }
     if($typerecognized == 1) {
-        die "\nERROR: in script make_GU_and_GNU.pl: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
+        die "type '$type' not recognized.  Must be 'single' or 'paired'.\n";
     }
     
     $max_distance_between_paired_reads = 500000;
@@ -38,18 +38,20 @@ sub main {
         }
         
         if($optionrecognized == 0) {
-            die "\nERROR: in script make_GU_and_GNU.pl: option '$ARGV[$i-1] $ARGV[$i]' not recognized\n";
+            die("option '$ARGV[$i-1] $ARGV[$i]' not recognized.\n");
         }
     }
     
-    open(INFILE, $infile) or die "\nERROR: in script make_GU_and_GNU.pl: Cannot open infile '$infile'\n";
+    open(INFILE, $infile) or die("Can't open $infile for reading: $!");
     $t = `tail -1 $infile`;
     $t =~ /seq.(\d+)/;
     $num_seqs = $1;
     $line = <INFILE>;
     chomp($line);
-    open(OUTFILE1, ">$outfile1") or die "\nERROR: in script make_GU_and_GNU.pl: Cannot open file '$outfile1' for writing\n";
-    open(OUTFILE2, ">$outfile2") or die "\nERROR: in script make_GU_and_GNU.pl: Cannot open file '$outfile2' for writing\n";
+    open(OUTFILE1, ">$outfile1") 
+        or die("Can't open $outfile1 for writing: $!");
+    open(OUTFILE2, ">$outfile2") 
+        or die("Can't open $outfile2 for writing: $!");
     
     for($seqnum=1; $seqnum<=$num_seqs; $seqnum++) {
         $numa=0;
