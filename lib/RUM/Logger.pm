@@ -29,7 +29,7 @@ sub new {
 }
 
 sub log {
-    my ($self, $level, @msg) = @_;
+    my ($self, $level, $msg) = @_;
     if ($level >= $self->{threshold}) {
         chomp $msg;
         print $FH $msg, "\n";

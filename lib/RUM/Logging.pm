@@ -65,8 +65,8 @@ __PACKAGE__->init();
 sub get_logger {
     my ($self, $name) = @_;
     unless (defined($name)) {
-        my @caller = caller();
-        $name = $caller[4];
+        my ($package) = caller(0);
+        $name = $package;
     }
     return $LOGGER_CLASS->get_logger($name);
 }
