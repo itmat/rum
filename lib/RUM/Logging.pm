@@ -10,15 +10,16 @@ package RUM::Logging;
 use strict;
 use warnings;
 use FindBin qw($Bin);
+use RUM::Logger;
+
 FindBin->again();
 
 our $LOG4PERL = "Log::Log4perl";
 our $LOGGER_CLASS;
 
-
-
 sub init {
     $LOGGER_CLASS or init_log4perl() or init_rum_logger();
+#    $LOGGER_CLASS or init_rum_logger();
 }
 
 our @LOG4PERL_CONFIGS = (
@@ -57,7 +58,8 @@ sub init_log4perl {
 }
 
 sub init_rum_logger {
-    $LOG4PERL = "RUM::Logger";
+    $LOGGER_CLASS = "RUM::Logger";
+    $LOGGER_CLASS->init();
 }
 
 __PACKAGE__->init();
