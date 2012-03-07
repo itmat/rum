@@ -13,7 +13,7 @@ my $log = RUM::Logging->get_logger();
 
 =head1 NAME
 
-RUM::Script - Common utilities for transforming files
+RUM::Script - Common utilities for command-line programs
 
 =head1 DESCRIPTION
 
@@ -981,6 +981,24 @@ sub _open_in_and_out {
   return (_open_in($in), _open_out($out), @args);
 }
 
+
+=item run_with_logging($script)
+
+Call the main() method on the script with the given name, wrapping the
+call in logging messages that indicate when the script is starting and
+stopping. For example:
+
+  RUM::Script->run_with_logging("RUM::Script:MergeSortedRumFiles")
+
+Will print a message indicating that the script is starting, then call
+RUM::Script::MergeSortedRumFiles->main(), then log a message saying
+that the script has finished.
+
+If we catch an error while the main method is running, we log the
+message.
+
+=cut
+
 sub run_with_logging {
     my ($class, $script) = @_;
     my @parts = split /\:\:/, $script;
@@ -1005,9 +1023,12 @@ sub run_with_logging {
 
 =head1 AUTHOR
 
-Written by Gregory R. Grant, University of Pennsylvania, 2010
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012 University of Pennsylvania
 
 =cut
-
 
 1;
