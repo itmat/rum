@@ -37,7 +37,7 @@ use RUM::Repository::IndexSpec;
 use RUM::Config;
 use Carp;
 use File::Spec;
-use Exporter qw(EXPORT_OK);
+use Exporter qw(import);
 FindBin->again;
 
 our @EXPORT_OK = qw(download);
