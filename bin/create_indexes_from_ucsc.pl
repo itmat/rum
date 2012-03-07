@@ -51,11 +51,8 @@ no warnings;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Carp;
-use Log::Log4perl qw(:easy);
 
 use RUM::Script qw(get_options show_usage);
-
-Log::Log4perl->easy_init($INFO);
 
 # Parse command line options
 get_options("debug" => \(my $debug));
@@ -67,7 +64,7 @@ die "ERROR: the <NAME_genome.txt> file has to end in '.txt', ".
 sub unlink_temp_files {
   my @files = @_;
   return if $debug;
-  INFO "Removing temporary files @files";
+  warn "Removing temporary files @files";
   for my $filename (@files) {
     unlink $filename or warn "Couldn't unlink $filename: $!";
   }
@@ -81,9 +78,9 @@ sub import_scripts_with_logging {
     my $new_name  = "main::$name";
     *{$new_name} = sub {
       my @args = @_;
-      INFO "START $name @args";
+      warn "START $name @args";
       &$long_name(@args);
-      INFO "END $name @args";
+      warn "END $name @args";
     };
   }
 }
@@ -163,17 +160,17 @@ unlink_temp_files("gene_info_merged_unsorted.txt",
 
 sub bowtie {
   my @cmd = ("bowtie-build", @_);
-  system(@cmd) == 0 or LOGCROAK "Couldn't run '@cmd': $!";
+  system(@cmd) == 0 or die "Couldn't run '@cmd': $!";
 }
 
 # run bowtie on genes index
-INFO "\nRunning bowtie on the gene index, please wait...\n\n";
+warn "\nRunning bowtie on the gene index, please wait...\n\n";
 bowtie($genes_fa, $organism . "_genes");
 
 
 # run bowtie on genome index
-INFO "running bowtie on the genome index, please wait this can take some time...\n\n";
+warn "running bowtie on the genome index, please wait this can take some time...\n\n";
 bowtie($genome_one_line_seqs, $organism . "_genome");
 
-INFO "ok, all done...\n\n";
+warn "ok, all done...\n\n";
 
