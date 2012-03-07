@@ -21,7 +21,7 @@ our $SCRIPT = "$Bin/../bin/merge_sorted_RUM_files.pl";
     my @in = map "$IN_DIR/RUM_Unique.sorted.$_", 1..2;
     my $out = "$OUT_DIR/unique";
     my $expected = "$IN_DIR/RUM_Unique.sorted";
-    system "perl", $SCRIPT, $out, @in;
+    system "perl", $SCRIPT, "-o", $out, @in;
     is_sorted_by_location($out);
 }
 
