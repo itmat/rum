@@ -204,7 +204,6 @@ sub compare_rum_output {
     diag "Running rum";
     run_rum($run_name);
     my $output_dir   = output_data_dir($run_name);
-    open my $out, ">", "$run_name.diff";
     for my $file (@RUM_OUTPUT_FILES) {
         ok(-f "$output_dir/$file", "$file exists");
     }
