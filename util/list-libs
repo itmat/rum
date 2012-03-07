@@ -1,0 +1,13 @@
+#!/usr/bin/env perl 
+
+use strict;
+use warnings;
+
+while (<>) {
+    if (/^use (.*?);/) {
+        $_ = $1;
+        my @parts = split;
+        print $parts[0], "\n";
+        
+    }
+}
