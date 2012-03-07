@@ -31,5 +31,13 @@ into a single sorted file output to <outfile>.
 A file mapping chunk N to N.M.  This is used specifically for the RUM
 pipeline when chunks were restarted and names changed.
 
+=item B<-v>, B<--verbose>
+
+Be verbose.
+
+=item B<-q>, B<--quiet>
+
+Be quiet.
+
 =cut
 
