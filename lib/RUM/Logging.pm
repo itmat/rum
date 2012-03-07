@@ -43,14 +43,14 @@ sub init_log4perl {
     # Now try to initialize Log::Log4perl with a config file.
     my @configs = grep { -r } @LOG4PERL_CONFIGS;
     my $config = $configs[0];
-    warn "My configs are @LOG4PERL_CONFIGS\n";
+
     eval {
         Log::Log4perl->init($config);
         my $log = Log::Log4perl->get_logger();
         $log->debug("Using log4perl config at $config");
     };
     if ($@) {
-        warn "Error initializing $LOG4PERL with $config: $!";
+        warn "Error initializing $LOG4PERL with $config: $@";
     }
 
     $LOGGER_CLASS = $LOG4PERL;

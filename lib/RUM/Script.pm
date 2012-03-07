@@ -5,6 +5,9 @@ no warnings;
 
 use RUM::Common qw(reversecomplement);
 use RUM::Workflow qw(report);
+use RUM::Logging;
+
+my $log = RUM::Logging->get_logger();
 
 =pod
 
@@ -975,6 +978,26 @@ sub _open_out {
 sub _open_in_and_out {
   my ($in, $out, @args) = @_;
   return (_open_in($in), _open_out($out), @args);
+}
+
+sub run_with_logging {
+    my ($class, $script) = @_;
+    my @parts = split /\:\:/, $script;
+    my $path = join("/", @parts) . ".pm";
+
+    my $cmd =  "$0 @ARGV";
+    my $log = RUM::Logging->get_logger("RUM.ScriptRunner");
+    $log->info("START $script ($cmd)");
+    eval {
+        require $path;
+        $script->main();
+    };
+    if ($@) {
+        $log->logdie("FAILED $script ($cmd):\n\n$@");
+    }
+    else {
+        $log->info("FINISHED $script ($cmd)");
+    }
 }
 
 =back
