@@ -25,3 +25,4 @@ data
 indexes
 organisms.txt
 rum.config_*
+.DS_Store
