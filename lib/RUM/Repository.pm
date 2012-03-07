@@ -417,6 +417,8 @@ sub download {
     system($cmd) == 0 or croak "Error running $cmd: $!";
 }
 
+=back
+
 =head1 AUTHOR
 
 Mike DeLaurentis (delaurentis@gmail.com)

@@ -1,16 +1,26 @@
 package RUM::Rules;
 
+=head1 NAME
+
+RUM::Rules - Work in progress. Will handle modeling task dependencies in RUM.
+
+=head1 SYNOPSYS
+
+=head1 DESCRIPTION
+
+=cut
+
 use strict;
 use warnings;
 
-sub new {
+sub _new {
     my ($class, %options) = @_;
     return bless {
         rules => []
     }, $class;
 }
 
-sub add {
+sub _add {
     my ($self, $targets, $prereqs, $commands, $comments) = @_;
     push @{ $self->{rules} }, {
         targets => $targets,
@@ -20,7 +30,7 @@ sub add {
     };
 }
 
-sub makefile {
+sub _makefile {
     my ($self) = @_;
     my $result  = "";
     my @clean;
@@ -44,5 +54,15 @@ sub makefile {
 
     return $result;
 }
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012 University of Pennsylvania
+
+=cut
 
 1;
