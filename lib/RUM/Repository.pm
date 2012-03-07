@@ -391,6 +391,12 @@ sub setup {
     return $self;
 }
 
+=item download($url, $local)
+
+Download the given $url to the given $local file.
+
+=cut
+
 sub download {
     my ($url, $local) = @_;
     my $cmd;
@@ -411,5 +417,14 @@ sub download {
     system($cmd) == 0 or croak "Error running $cmd: $!";
 }
 
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012 University of Pennsylvania
+
+=cut
 
 1;
