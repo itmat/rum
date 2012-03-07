@@ -1012,7 +1012,7 @@ sub run_with_logging {
         $script->main();
     };
     if ($@) {
-        $log->logdie("FAILED $script ($cmd):\n\n$@");
+        $log->logdie("FAILED $script ($cmd)");
     }
     else {
         $log->info("FINISHED $script ($cmd)");
