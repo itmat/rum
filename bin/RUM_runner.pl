@@ -1685,14 +1685,14 @@ if($postprocess eq "false") {
             }
             $shellscript = $shellscript . "echo 'merging RUM_Unique.sorted files' >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-            $shellscript = $shellscript . "perl $scripts_dir/merge_sorted_RUM_files.pl $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/merge_sorted_RUM_files.pl -o $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $string = "$output_dir/RUM_NU.sorted";
             for($j=1; $j<$numchunks+1; $j++) {
                 $string = $string . " $output_dir/RUM_NU.sorted.$j";
             }
             $shellscript = $shellscript . "echo 'merging RUM_NU.sorted files' >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-            $shellscript = $shellscript . "perl $scripts_dir/merge_sorted_RUM_files.pl $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/merge_sorted_RUM_files.pl -o $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
 
             $string = "$output_dir/mapping_stats.txt";
             for($j=1; $j<$numchunks+1; $j++) {
