@@ -37,7 +37,6 @@ use RUM::Repository::IndexSpec;
 use RUM::Config;
 use Carp;
 use File::Spec;
-use URI;
 
 FindBin->again;
 
@@ -278,8 +277,7 @@ Return the local filename for the given URL.
 
 sub index_filename {
     my ($self, $url) = @_;
-    my $path = URI->new($url)->path;
-    my ($vol, $dir, $file) = File::Spec->splitpath($path);
+    my ($vol, $dir, $file) = File::Spec->splitpath($url);
     my $subdir = $self->is_config_filename($file)
         ? $self->conf_dir : $self->indexes_dir;
     return File::Spec->catdir($subdir, $file);
