@@ -1619,6 +1619,7 @@ if($postprocess eq "false") {
            $pipeline_file =~ s!MINOVERLAP!$minlength!gs;
         } else {
     	   $pipeline_file =~ s!MATCHLENGTHCUTOFF!!gs;
+           $pipeline_file =~ s!--min-overlap MINOVERLAP!!gs;
            $pipeline_file =~ s!-minoverlap MINOVERLAP!!gs;
         }
         if($paired_end eq "true") {
@@ -1895,6 +1896,7 @@ if($postprocess eq "false") {
            $efile_content =~ s/stdin: is not a tty[^\n]*\n//sg;
            if(!($efile_content eq $efiles_hash{$i})) {
                  $efile_temp = $efiles_hash{$i};
+                 warn "The error file content is $efile_content";
                  $efiles_hash{$i} = $efile_content;
                  $efile_content =~ s/^$efile_temp//s;
                  $time = `date`;
