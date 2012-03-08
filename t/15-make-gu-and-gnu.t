@@ -25,7 +25,7 @@ sub temp_filename {
 sub paired_ok {
     my $u  = temp_filename("paired-unique.XXXXXX");
     my $nu = temp_filename("paired-non-unique.XXXXXX");
-    @ARGV = ($in, $u, $nu, "paired");
+    @ARGV = ($in, "--unique", $u, "--non-unique", $nu, "--paired");
     RUM::Script::MakeGuAndGnu->main();
     no_diffs($u,  "$expected_dir/paired-unique", "paired unique");
     no_diffs($nu, "$expected_dir/paired-non-unique", "paired non-unique");
@@ -34,7 +34,7 @@ sub paired_ok {
 sub single_ok {
     my $u  = temp_filename("single-unique.XXXXXX");
     my $nu = temp_filename("single-non-unique.XXXXXX");
-    @ARGV = ($in, $u, $nu, "single");
+    @ARGV = ($in, "--unique", $u, "--non-unique", $nu, "--single");
 
     RUM::Script::MakeGuAndGnu->main();
     no_diffs($u,  "$expected_dir/single-unique", "single unique");

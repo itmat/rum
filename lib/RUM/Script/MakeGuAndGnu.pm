@@ -1,5 +1,8 @@
 package RUM::Script::MakeGuAndGnu;
 
+no warnings;
+
+use Getopt::Long;
 use Pod::Usage;
 use RUM::Logging;
 
@@ -8,39 +11,30 @@ our $log = RUM::Logging->get_logger();
 $|=1;
 
 sub main {
-    pod2usage if @ARGV < 4;
 
-    $infile = $ARGV[0];
-    $outfile1 = $ARGV[1];
-    $outfile2 = $ARGV[2];
-    $type = $ARGV[3];
-    $typerecognized = 1;
-    if($type eq "single") {
-        $paired_end = "false";
-        $typerecognized = 0;
-    }
-    if($type eq "paired") {
-        $paired_end = "true";
-        $typerecognized = 0;
-    }
-    if($typerecognized == 1) {
-        die "type '$type' not recognized.  Must be 'single' or 'paired'.\n";
-    }
-    
-    $max_distance_between_paired_reads = 500000;
-    for($i=4; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if($ARGV[$i] eq "-maxpairdist") {
-            $i++;
-            $max_distance_between_paired_reads = $ARGV[$i];
-            $optionrecognized = 1;
-        }
-        
-        if($optionrecognized == 0) {
-            die("option '$ARGV[$i-1] $ARGV[$i]' not recognized.\n");
-        }
-    }
-    
+    GetOptions(
+        "unique=s" => \(my $outfile1),
+        "non-unique=s" => \(my $outfile2),
+        "type=s"       => \(my $type),
+        "paired"     => \(my $paired),
+        "single"     => \(my $single),
+        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000));
+
+    pod2usage("Please specify an input file") unless @ARGV == 1;
+    pod2usage("Please specify an output file for unique mappers with --unique")
+        unless $outfile1;
+    pod2usage("Please specify an output file for non-unique mappers ".
+                  "with --non-unique")
+        unless $outfile2;
+    pod2usage("Please specify exactly one type with either ".
+                  "--single or --paired")
+        unless ($single xor $paired);
+
+    my ($infile) = @ARGV;
+    pod2usage("Please specify an input file") unless $infile;
+
+    $paired_end = $paired ? "true" : "false";
+
     open(INFILE, $infile) or die("Can't open $infile for reading: $!");
     $t = `tail -1 $infile`;
     $t =~ /seq.(\d+)/;
