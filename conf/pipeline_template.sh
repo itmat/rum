@@ -7,7 +7,7 @@
 echo "starting..." `date` `date +%s` > OUTDIR/rum.log_chunk.CHUNK
 BOWTIEEXE -a --best --strata -f GENOMEBOWTIE READSFILE.CHUNK -v 3 --suppress 6,7,8 -p 1 --quiet > OUTDIR/X.CHUNK || exit 1
 echo "finished first bowtie run" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
-perl SCRIPTSDIR/make_GU_and_GNU.pl OUTDIR/X.CHUNK --unique OUTDIR/GU.CHUNK --non-unique OUTDIR/GNU.CHUNK --PAIREDEND || exit 1
+perl SCRIPTSDIR/make_GU_and_GNU.pl OUTDIR/X.CHUNK --unique OUTDIR/GU.CHUNK --non-unique OUTDIR/GNU.CHUNK --PAIREDEND  2>> ERRORFILE.CHUNK || exit 1
 echo "finished parsing genome bowtie run" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 ls -l OUTDIR/X.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
 yes|unlink OUTDIR/X.CHUNK
@@ -18,14 +18,14 @@ yes|unlink OUTDIR/X.CHUNK
 
 BOWTIEEXE -a --best --strata -f TRANSCRIPTOMEBOWTIE READSFILE.CHUNK -v 3 --suppress 6,7,8 -p 1 --quiet > OUTDIR/Y.CHUNK || exit 1
 echo "finished second bowtie run" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
-perl SCRIPTSDIR/make_TU_and_TNU.pl --bowtie-output OUTDIR/Y.CHUNK --genes GENEANNOTFILE --unique OUTDIR/TU.CHUNK --non-unique OUTDIR/TNU.CHUNK --PAIREDEND || exit 1
+perl SCRIPTSDIR/make_TU_and_TNU.pl --bowtie-output OUTDIR/Y.CHUNK --genes GENEANNOTFILE --unique OUTDIR/TU.CHUNK --non-unique OUTDIR/TNU.CHUNK --PAIREDEND  2>> ERRORFILE.CHUNK || exit 1
 echo "finished parsing transcriptome bowtie run" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 ls -l OUTDIR/Y.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
 yes|unlink OUTDIR/Y.CHUNK
 
 # merging starts here
 
-perl SCRIPTSDIR/merge_GU_and_TU.pl OUTDIR/GU.CHUNK OUTDIR/TU.CHUNK OUTDIR/GNU.CHUNK OUTDIR/TNU.CHUNK OUTDIR/BowtieUnique.CHUNK OUTDIR/CNU.CHUNK PAIREDEND -readlength READLENGTH -minoverlap MINOVERLAP 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/merge_GU_and_TU.pl --gu OUTDIR/GU.CHUNK --tu OUTDIR/TU.CHUNK --gnu OUTDIR/GNU.CHUNK --tnu OUTDIR/TNU.CHUNK --bowtie-unique OUTDIR/BowtieUnique.CHUNK --cnu OUTDIR/CNU.CHUNK --PAIREDEND --read-length READLENGTH --min-overlap MINOVERLAP  2>> ERRORFILE.CHUNK || exit 1
 echo "finished merging TU and GU" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 perl SCRIPTSDIR/merge_GNU_and_TNU_and_CNU.pl OUTDIR/GNU.CHUNK OUTDIR/TNU.CHUNK OUTDIR/CNU.CHUNK OUTDIR/BowtieNU.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished merging GNU, TNU and CNU" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
