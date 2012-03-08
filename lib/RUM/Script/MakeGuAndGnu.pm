@@ -3,7 +3,7 @@ package RUM::Script::MakeGuAndGnu;
 no warnings;
 
 use Getopt::Long;
-use Pod::Usage;
+use RUM::Usage;
 use RUM::Logging;
 
 our $log = RUM::Logging->get_logger();
@@ -18,17 +18,21 @@ sub main {
         "type=s"       => \(my $type),
         "paired"     => \(my $paired),
         "single"     => \(my $single),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000));
+        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
+        "help|h"  => sub { RUM::Usage->help },
+        "quiet|q" => sub { $log->less_logging(1) });
 
-    pod2usage("Please specify an input file") unless @ARGV == 1;
-    pod2usage("Please specify an output file for unique mappers with --unique")
-        unless $outfile1;
-    pod2usage("Please specify an output file for non-unique mappers ".
-                  "with --non-unique")
-        unless $outfile2;
-    pod2usage("Please specify exactly one type with either ".
-                  "--single or --paired")
-        unless ($single xor $paired);
+    @ARGV == 1 or RUM::Usage->bad(
+        "Please specify an input file");
+    
+    $outfile1 or RUM::Usage->bad(
+        "Please specify output file for unique mappers with --unique");
+
+    $outfile2 or RUM::Usage->bad(
+        "Please specify output file for non-unique mappers with --non-unique");
+
+    ($single xor $paired) or RUM::Usage->bad(
+        "Please specify exactly one type with either --single or --paired");
 
     my ($infile) = @ARGV;
     pod2usage("Please specify an input file") unless $infile;

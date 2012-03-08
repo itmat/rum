@@ -7,16 +7,13 @@ use lib "$Bin/../lib";
 use RUM::Script;
 RUM::Script->run_with_logging("RUM::Script::MakeTuAndTnu");
 
-
-__POD__
-
 =head1 NAME
 
-make_TU_and_TNU.pl - 
+make_TU_and_TNU.pl - Create unique and non-unique mappers from bowtie output
 
-=head1 SYNOPSYS
+=head1 SYNOPSIS
 
-make_TU_and_TNU.pl --bowtie-output <bowtie file> --genes <gene annot file> --unique <tu_filename> --non-unique <tnu_filename> --single|--paired [options]
+make_TU_and_TNU.pl [OPTIONS] --bowtie-output <bowtie_file> --genes <gene_annot_file> --unique <tu_filename> --non-unique <tnu_filename> --single|--paired
 
 =head1 DESCRIPTION
 
@@ -117,6 +114,14 @@ An integer greater than zero representing the furthest apart the
 forward and reverse reads can be.  They could be separated by an
 exon/exon junction so this number can be as large as the largest
 intron.  Default value = 500,000.
+
+=item B<-h>, B<--help>
+
+Get help.
+
+=item B<-q>, B<-quiet>
+
+Be quiet.
 
 =back
 

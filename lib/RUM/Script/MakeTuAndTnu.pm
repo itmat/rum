@@ -1,122 +1,64 @@
 package RUM::Script::MakeTuAndTnu;
 
+no warnings;
+
+use Getopt::Long;
+use Pod::Usage;
+use RUM::Logging;
+use RUM::Usage;
+
 $|=1;
+
+our $log = RUM::Logging->get_logger();
 
 sub main {
 
-    if (@ARGV < 5) {
-        print STDERR 
-            "
-Usage: make_TU_and_TNU.pl <bowtie file> <gene_annot_file> <tu_filename> <tnu_filename> <type> [options]
+    GetOptions(
+        "bowtie-output=s" => \(my $bowtie_output),
+        "genes=s"         => \(my $gene_annot_file),
+        "unique=s"        => \(my $unique_out),
+        "non-unique=s"    => \(my $non_unique_out),
+        "single"          => \(my $single),
+        "paired"          => \(my $paired),
+        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
+        "help|h"  => sub { RUM::Usage->help },
+        "quiet|q" => sub { $log->less_logging(1) });
+        
+    $bowtie_output or RUM::Usage->bad(
+        "Please specify the bowtie output file to read with --bowtie-output");
 
-  Where: <bowtie file> is the file output from bowtie
+    $gene_annot_file or RUM::Usage->bad(
+        "Please specify the gene annotation file with --genes");
 
-         <gene_annot_file> is the file of gene models.
+    $unique_out or RUM::Usage->bad(
+        "Please specify file to write unique mappers with --unique");
 
-         <tu_filename> is the name of the file to be written that will contain
-                       unique transcriptome alignments
+    $non_unique_out or RUM::Usage->bad(
+        "Please specify file to write non-unique mappers with --non-unique");
 
-         <tnu_filename> is the name of the file to be written that will contain
-                        non-nique transcriptome alignments
+    ($single xor $paired) or RUM::Usage->bad(
+        "Please specify exactly one type with either --single or --paired");
 
-         <type> is 'single' for single-end reads, or 'paired' for paired-end reads
+    $paired_end = $paired ? "true" : "false";
 
-  Options:
-         -maxpairdist N : N is an integer greater than zero representing
-                          the furthest apart the forward and reverse reads
-                          can be.  They could be separated by an exon/exon
-                          junction so this number can be as large as the largest
-                          intron.  Default value = 500,000
-
-  INPUT:
-  -----
-  This script takes the output of a bowtie mapping against the transcriptome, which has
-  been sorted by sort_bowtie.pl, and parses it to have the four columns:
-        1) read name
-        2) chromosome
-        3) span
-        4) sequence
-  A line of the (input) bowtie file should look like:
-  seq.167a   -   GENE_1321     411    AGATATGATTCACGAAGAGTTAACCCTGATGG
-
-  Sequence names are expected to be of the form seq.Na where N in an integer
-  greater than 0.  The 'a' signifies this is a 'forward' read, and 'b' signifies
-  'reverse' reads.  The file may consist of all forward reads (single-end data), or
-  it may have both forward and reverse reads (paired-end data).  Even if single-end
-  the sequence names still must end with an 'a'.
-
-  OUTPUT:
-  -----
-  The line above is modified by the script to:
-  seq.167a   chr14    122572-122588, 122701-122715    AGATATGATTCACGAAG:AGTTAACCCTGATGG
-
-  The colon indicates the location of the splice junction.
-
-  In the case of single-end reads, if there is a unique such line for seq.1a then
-  it is written to the file specified by <tu_filename>.  If there are multiple lines for
-  seq.1a then they are all written to the file specified by <tnu_filename>.
-
-  In the case of paired-end reads the script tries to match up entries for seq.1a
-  and seq.1b consistently, which means:
-        1) both reads are on the same chromosome
-        2) the two reads map in opposite orientations
-        3) the start of reads are further apart than ends of reads
-           and no further apart than $max_distance_between_paired_reads
-
-  If the two reads do not overlap then the consistent mapper is represented by two
-  consecutive lines, each with the same sequence name except the forward ends with
-  'a' and the reverse ends with 'b'.  In the case that the two reads overlap then 
-  they two lines are merged into one line and the a/b designation is removed.
-
-  If there is a unique set of consistent mappers it is written to the file specified by
-  <tu_filename>.  If there are multiple consistent mappers they are all written to the file 
-  specified by <tnu_filename>.  If only the forward or reverse read map then it does not
-  write anything.
-
-";
-        exit(1);
-    }
-    open(INFILE, $ARGV[0]) or die "\nError: in script make_TU_and_TNU.pl: input file '$ARGV[0]' cannot be opened for reading.\n\n";
+    open(INFILE, "<", $bowtie_output) 
+        or die "Can't open $bowtie_output for reading: $!";
     $line = <INFILE>;
     close(INFILE);
     chomp($line);
     @a = split(/\t/,$line);
 
-    open(INFILE, $ARGV[0]) or die "\nError: in script make_TU_and_TNU.pl: input file '$ARGV[0]' cannot be opened for reading.\n\n";
-    open(ANNOTFILE, $ARGV[1]) or die "\nError: in script make_TU_and_TNU.pl: gene models file '$ARGV[1]' cannot be opened for reading.\n\n";
-    $outfile1 = $ARGV[2];
-    $outfile2 = $ARGV[3];
-    open(OUTFILE1, ">$outfile1") or die "\nError: in script make_TU_and_TNU.pl: output file '$ARGV[2]' cannot be opened for writing.\n\n";
-    open(OUTFILE2, ">$outfile2") or die "\nError: in script make_TU_and_TNU.pl: output file '$ARGV[3]' cannot be opened for writing.\n\n";
+    open(INFILE, "<", $bowtie_output) 
+        or die "Can't open $bowtie_output for reading: $!";
+    open(ANNOTFILE, "<", $gene_annot_file) 
+        or die "Can't open $gene_annot_file for reading: $!";
 
-    $type = $ARGV[4];
-    $typerecognized = 1;
-    if ($type eq "single") {
-        $paired_end = "false";
-        $typerecognized = 0;
-    }
-    if ($type eq "paired") {
-        $paired_end = "true";
-        $typerecognized = 0;
-    }
-    if ($typerecognized == 1) {
-        die "\nERROR: in script make_TU_and_TNU.pl: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
-    }
+    open(OUTFILE1, ">", $unique_out) 
+        or die "Can't open $unique_out for writing: $!";
+    open(OUTFILE2, ">", $non_unique_out) 
+        or die "Can't open $non_unique_out for writing: $!";
 
-    $max_distance_between_paired_reads = 500000;
-    for ($i=5; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if ($ARGV[$i] eq "-maxpairdist") {
-            $i++;
-            $max_distance_between_paired_reads = $ARGV[$i];
-            $optionrecognized = 1;
-        }
-
-        if ($optionrecognized == 0) {
-            die "\nERROR: in script make_TU_and_TNU.pl: option '$ARGV[$i-1] $ARGV[$i]' not recognized\n";
-        }
-    }
-
+    $log->info("Reading gene annotation file");
     while ($line = <ANNOTFILE>) {
         chomp($line);
         @a = split(/\t/,$line);
@@ -127,6 +69,8 @@ Usage: make_TU_and_TNU.pl <bowtie file> <gene_annot_file> <tu_filename> <tnu_fil
         }
     }
     close(ANNOTFILE);
+
+    $log->info("Parsing bowtie output");
 
     # line of Y looks like this:
     # seq.1308a       -       mm9_NM_153168:chr9:123276058-123371782_+        3181    TAACTGTCTTGTGGCGGCCAAGCGTTCATAGCGACGTCTCTTTTTGATCCTTCGATGTCTGCTCTTCCTATCATTGTGAAGCAGAATTCACCAAGCGTTGGATTGTTC

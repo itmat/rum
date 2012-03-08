@@ -13,7 +13,7 @@ make_GU_and_GNU.pl
 
 =head1 SYNOPSIS
 
-  make_GU_and_GNU.pl [OPTIONS] --unique <gu_filename> --non-unique <gnu_filename> --single|--paired
+  make_GU_and_GNU.pl [OPTIONS] --unique <gu_filename> --non-unique <gnu_filename> --single|--paired <bowtie_output>
 
 =head1 DESCRIPTION
 
@@ -113,4 +113,13 @@ intron.  Default value = 500,000.
 
 Supply the Bowtie output as the last option on the command line.
 
+=item B<-h>, B<--help>
+
+Get help.
+
+=item B<-q>, B<-quiet>
+
+Be quiet.
+
 =cut
+
