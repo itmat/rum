@@ -13,7 +13,7 @@ make_GU_and_GNU.pl
 
 =head1 SYNOPSIS
 
-  make_GU_and_GNU.pl [OPTIONS] --unique <gu_filename> --non-unique <gnu_filename> --type <type> <input_filename>
+  make_GU_and_GNU.pl [OPTIONS] --unique <gu_filename> --non-unique <gnu_filename> --single|--paired
 
 =head1 DESCRIPTION
 
