@@ -12,12 +12,12 @@ $|=1;
 sub main {
 
     GetOptions(
-        "gu=s"            => \(my $infile3),
-        "tu=s"            => \(my $infile4),
-        "gnu=s"           => \(my $infile1),
-        "tnu=s"           => \(my $infile2),
-        "bowtie-unique=s" => \(my $outfile1),
-        "cnu=s"           => \(my $outfile2),
+        "gu-in=s"            => \(my $infile3),
+        "tu-in=s"            => \(my $infile4),
+        "gnu-in=s"           => \(my $infile1),
+        "tnu-in=s"           => \(my $infile2),
+        "bowtie-unique-out=s" => \(my $outfile1),
+        "cnu-out=s"           => \(my $outfile2),
         "paired"          => \(my $paired),
         "single"          => \(my $single),
         "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
