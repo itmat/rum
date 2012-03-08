@@ -28,7 +28,7 @@ my $cnu = "$in_dir/CNU.1";
 
 sub merge_ok {
     my $bowtie_nu  = temp_filename("bowtie-nu.XXXXXX");
-    @ARGV = ($gnu, $tnu, $cnu, $bowtie_nu);
+    @ARGV = ("--gnu", $gnu, "--tnu", $tnu, "--cnu", $cnu, "--out", $bowtie_nu);
     
     RUM::Script::MergeGnuAndTnuAndCnu->main();
     no_diffs($bowtie_nu, "$expected_dir/BowtieNU.1");

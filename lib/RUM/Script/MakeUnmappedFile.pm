@@ -1,5 +1,7 @@
 package RUM::Script::MakeUnmappedFile;
 
+no warnings;
+
 use RUM::Logging;
 use RUM::Usage;
 use Getopt::Long;

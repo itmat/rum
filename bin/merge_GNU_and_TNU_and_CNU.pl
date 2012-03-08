@@ -27,13 +27,15 @@ The file of non-unique mappers from the script make_GU_and_GNU.pl.
 
 The file of non-unique mappers from the script make_TU_and_TNU.pl.
 
-=item B<--cnu-in I<cnu_in>
+=item B<--cnu-in> I<cnu_in>
 
 The file of non-unique mappers from the script merge_GU_and_TU.pl.
 
 =item B<-o>, B<--output>  I<bowtie_nu_out>
 
 The file of non-unique mappers to be output.
+
+=back
 
 =head1 AUTHOR
 

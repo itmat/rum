@@ -1,5 +1,7 @@
 package RUM::Script::MergeGnuAndTnuAndCnu;
 
+no warnings;
+
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
