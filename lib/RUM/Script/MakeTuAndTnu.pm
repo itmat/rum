@@ -2,10 +2,9 @@ package RUM::Script::MakeTuAndTnu;
 
 no warnings;
 
-use Getopt::Long;
-use Pod::Usage;
 use RUM::Logging;
 use RUM::Usage;
+use Getopt::Long;
 
 $|=1;
 

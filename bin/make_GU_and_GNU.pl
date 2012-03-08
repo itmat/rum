@@ -109,8 +109,6 @@ forward and reverse reads can be.  They could be separated by an
 exon/exon junction so this number can be as large as the largest
 intron.  Default value = 500,000.
 
-=back
-
 Supply the Bowtie output as the last option on the command line.
 
 =item B<-h>, B<--help>
@@ -120,6 +118,8 @@ Get help.
 =item B<-q>, B<-quiet>
 
 Be quiet.
+
+=back
 
 =cut
 

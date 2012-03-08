@@ -54,6 +54,9 @@ sub single_ok {
              "single non-unique");
 }
 
-paired_ok();
-single_ok();
+SKIP: {
+    skip "Don't have arabidopsis index", 4 unless -e $gene_info;
+    paired_ok();
+    single_ok();
+}
 
