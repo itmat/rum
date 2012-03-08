@@ -7,7 +7,7 @@
 echo "starting..." `date` `date +%s` > OUTDIR/rum.log_chunk.CHUNK
 BOWTIEEXE -a --best --strata -f GENOMEBOWTIE READSFILE.CHUNK -v 3 --suppress 6,7,8 -p 1 --quiet > OUTDIR/X.CHUNK || exit 1
 echo "finished first bowtie run" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
-perl SCRIPTSDIR/make_GU_and_GNU.pl OUTDIR/X.CHUNK --unique OUTDIR/GU.CHUNK --non-unique OUTDIR/GNU.CHUNK --PAIREDEND 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/make_GU_and_GNU.pl OUTDIR/X.CHUNK --unique OUTDIR/GU.CHUNK --non-unique OUTDIR/GNU.CHUNK --PAIREDEND || exit 1
 echo "finished parsing genome bowtie run" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 ls -l OUTDIR/X.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
 yes|unlink OUTDIR/X.CHUNK
@@ -18,7 +18,7 @@ yes|unlink OUTDIR/X.CHUNK
 
 BOWTIEEXE -a --best --strata -f TRANSCRIPTOMEBOWTIE READSFILE.CHUNK -v 3 --suppress 6,7,8 -p 1 --quiet > OUTDIR/Y.CHUNK || exit 1
 echo "finished second bowtie run" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
-perl SCRIPTSDIR/make_TU_and_TNU.pl OUTDIR/Y.CHUNK GENEANNOTFILE OUTDIR/TU.CHUNK OUTDIR/TNU.CHUNK PAIREDEND 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/make_TU_and_TNU.pl --bowtie-output OUTDIR/Y.CHUNK --genes GENEANNOTFILE --unique OUTDIR/TU.CHUNK --non-unique OUTDIR/TNU.CHUNK --PAIREDEND || exit 1
 echo "finished parsing transcriptome bowtie run" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 ls -l OUTDIR/Y.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
 yes|unlink OUTDIR/Y.CHUNK
