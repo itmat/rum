@@ -27,7 +27,7 @@ yes|unlink OUTDIR/Y.CHUNK
 
 perl SCRIPTSDIR/merge_GU_and_TU.pl --gu OUTDIR/GU.CHUNK --tu OUTDIR/TU.CHUNK --gnu OUTDIR/GNU.CHUNK --tnu OUTDIR/TNU.CHUNK --bowtie-unique OUTDIR/BowtieUnique.CHUNK --cnu OUTDIR/CNU.CHUNK --PAIREDEND --read-length READLENGTH --min-overlap MINOVERLAP  2>> ERRORFILE.CHUNK || exit 1
 echo "finished merging TU and GU" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
-perl SCRIPTSDIR/merge_GNU_and_TNU_and_CNU.pl OUTDIR/GNU.CHUNK OUTDIR/TNU.CHUNK OUTDIR/CNU.CHUNK OUTDIR/BowtieNU.CHUNK 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/merge_GNU_and_TNU_and_CNU.pl --gnu OUTDIR/GNU.CHUNK --tnu OUTDIR/TNU.CHUNK --cnu OUTDIR/CNU.CHUNK --out OUTDIR/BowtieNU.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished merging GNU, TNU and CNU" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 ls -l OUTDIR/TU.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
 ls -l OUTDIR/TNU.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
