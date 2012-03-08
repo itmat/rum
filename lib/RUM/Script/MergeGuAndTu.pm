@@ -1,66 +1,66 @@
 package RUM::Script::MergeGuAndTu;
 
+use RUM::Logging;
+use RUM::Usage;
+use Getopt::Long;
+
 $|=1;
 
+
 sub main {
+
+    GetOptions(
+        "gu=s"            => \(my $infile3),
+        "tu=s"            => \(my $infile4),
+        "gnu=s"           => \(my $infile1),
+        "tnu=s"           => \(my $infile2),
+        "bowtie-unique=s" => \(my $outfile1),
+        "cnu=s"           => \(my $outfile2),
+        "paired"          => \(my $paired),
+        "single"          => \(my $single),
+        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
+        "read-length=s"   => \(my $read_length),
+        "help|h"          => sub { RUM::Usage->help },
+        "quiet|q"         => sub { $log->less_logging(1) });
+
+    $infile3 or RUM::Usage->bad(
+        "Please specify a genome unique input file with --gu");
+    $infile4 or RUM::Usage->bad(
+        "Please specify a transcriptome unique input file with --tu");
+    $infile1 or RUM::Usage->bad(
+        "Please specify a genome non-unique input file with --gnu");
+    $infile2 or RUM::Usage->bad(
+        "Please specify a transcriptome non-unique input file with --tnu");
+    $outfile1 or RUM::Usage->bad(
+        "Please specify the bowtie-unique output file with --bowtie-unique");
+    $outfile2 or RUM::Usage->bad(
+        "Please specify the cnu output file with --cnu");
+    ($paired xor $single) or RUM::Usage->bad(
+        "Please specify exactly one type with either --single or --paired");
+
+    $paired_end = $paired ? "true" : "false";
     
-    $infile1 = $ARGV[2];
-    $infile2 = $ARGV[3];
-    $infile3 = $ARGV[0];
-    $infile4 = $ARGV[1];
-    $outfile1 = $ARGV[4];
-    $outfile2 = $ARGV[5];
-    $type = $ARGV[6];
-    $typerecognized = 1;
-    if ($type eq "single") {
-        $paired_end = "false";
-        $typerecognized = 0;
-    }
-    if ($type eq "paired") {
-        $paired_end = "true";
-        $typerecognized = 0;
-    }
-    if ($typerecognized == 1) {
-        die "\nERROR: in script merge_GU_and_TU.pl: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
-    }
+    if ($readlength) {
 
-    $max_distance_between_paired_reads = 500000;
-
-    $readlength = 0;
-    $user_min_overlap = 0;
-    for ($i=7; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if ($ARGV[$i] eq "-maxpairdist") {
-            $i++;
-            $max_distance_between_paired_reads = $ARGV[$i];
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-readlength") {
-            $i++;
-            $readlength = $ARGV[$i];
-            if (!($readlength =~ /^\d+$/) && !($readlength eq 'v')) {
-                die "\nERROR: in script merge_GU_and_TU.pl: -readlength must be a positive integer > 4, or 'v', '$ARGV[$i]' not recognized\n";
+        if ($readlength =~ /^\d+$/) {
+            if ($readlength < 5) {
+                RUM::Usage->bad("--read-length cannot be that small, ".
+                                    "must be at least 5, or 'v'");
             }
-            if ($readlength ne "v" && $readlength < 5) {
-                die "\nERROR: in script merge_GU_and_TU.pl: -readlength cannot be that small, must be at least 5, or 'v', '$ARGV[$i]' not valid\n";
-            }
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-minoverlap") {
-            $i++;
-            $user_min_overlap = $ARGV[$i];
-            if (!($user_min_overlap =~ /^\d+$/) || $user_min_overlap < 5) {
-                die "\nERROR: in script merge_GU_and_TU.pl: -minoverlap must be a positive integer > 4, '$ARGV[$i]' not recognized\n";
-            }
-            $optionrecognized = 1;
         }
 
-        if ($optionrecognized == 0) {
-            die "\nERROR: in script merge_GU_and_TU.pl: option '$ARGV[$i-1] $ARGV[$i]' not recognized\n";
+        elsif ($readlength ne 'v') {
+            RUM::Usage->bad("--read-length must be an integer > 4, or 'v'");
         }
     }
 
-    open(INFILE, $infile4) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile4' for reading\n";
+    if ($user_min_overlap) {
+        unless ($user_min_overlap =~ /^\d+$/ && $user_min_overlap >= 5) {
+            RUM::Usage->bad("--min-overlap must be an integer > 4");
+        }
+    }
+    
+    open(INFILE, "<", $infile4) or die "Can't open $infile4 for reading: $!";
 
     if ($readlength == 0) {
         $cnt = 0;
@@ -86,7 +86,9 @@ sub main {
             }
         }
         close(INFILE);
-        open(INFILE, $infile3) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile3' for reading\n";
+        open(INFILE, "<", $infile3) 
+            or die "Can't open $infile3 for reading: $!";
+
         $cnt = 0;
         while ($line = <INFILE>) {
             $length = 0;
@@ -111,7 +113,8 @@ sub main {
         }
         close(INFILE);
         $cnt = 0;
-        open(INFILE, $infile1) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile1' for reading\n";
+        open(INFILE, "<", $infile1) 
+            or die "Can't open $infile1 for reading: $!";
         while ($line = <INFILE>) {
             if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
                 chomp($line);
@@ -135,7 +138,8 @@ sub main {
         }
         close(INFILE);
         $cnt = 0;
-        open(INFILE, $infile2) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile3' for reading\n";
+        open(INFILE, $infile2) 
+            or die "Can't open $infile2 for reading: $!";
         while ($line = <INFILE>) {
             if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
                 chomp($line);
@@ -181,22 +185,29 @@ sub main {
         $min_overlap1 = $user_min_overlap;
         $min_overlap2 = $user_min_overlap;
     }
-    open(INFILE, $infile1) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile1' for reading\n";
+    open(INFILE, $infile1) 
+        or die "Can't open $infile1 for reading: $!";
+
     while ($line = <INFILE>) {
         $line =~ /^seq.(\d+)/;
         $ambiguous_mappers{$1}++;
     }
     close(INFILE);
-    open(INFILE, $infile2) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile2' for reading\n";
+    open(INFILE, $infile2) 
+        or die "Can't open $infile2 for reading: $!";
     while ($line = <INFILE>) {
         $line =~ /^seq.(\d+)/;
         $ambiguous_mappers{$1}++;
     }
     close(INFILE);
-    open(INFILE1, $infile3) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile3' for reading\n";
-    open(INFILE2, $infile4) or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$infile4' for reading\n";
-    open(OUTFILE1, ">$outfile1") or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$outfile1' for writing\n";
-    open(OUTFILE2, ">$outfile2") or die "\nERROR: in script merge_GU_and_TU.pl: Cannot open file '$outfile2' for writing\n";
+    open(INFILE1, $infile3)
+        or die "Can't open $infile3 for reading: $!";
+    open(INFILE2, $infile4) 
+        or die "Can't open $infile4 for reading: $!";
+    open(OUTFILE1, ">", $outfile1) 
+        or die "Can't open $outfile1 for writing: $!";
+    open(OUTFILE2, ">", $outfile2) 
+        or die "Can't open $outfile2 for writing: $!";
 
     $num_lines_at_once = 10000;
     $linecount = 0;

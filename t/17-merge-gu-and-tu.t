@@ -23,15 +23,22 @@ sub temp_filename {
 
 
 
-    my $gu  = "$Bin/data/GU.1";
-    my $tu  = "$Bin/data/TU.1";
-    my $gnu = "$Bin/data/GNU.1";
-    my $tnu = "$Bin/data/TNU.1";
+my $gu  = "$Bin/data/GU.1";
+my $tu  = "$Bin/data/TU.1";
+my $gnu = "$Bin/data/GNU.1";
+my $tnu = "$Bin/data/TNU.1";
 
 sub paired_ok {
     my $bowtie_unique  = temp_filename("paired-bowtie-unique.XXXXXX");
     my $cnu = temp_filename("paired-cnu.XXXXXX");
-    @ARGV = ($gu, $tu, $gnu, $tnu, $bowtie_unique, $cnu, "paired", "-readlength", 75);
+    @ARGV = ("--gu", $gu, 
+             "--tu", $tu, 
+             "--gnu", $gnu, 
+             "--tnu", $tnu,
+             "--bowtie-unique", $bowtie_unique, 
+             "--cnu", $cnu, 
+             "--paired", 
+             "--read-length", 75);
     
     RUM::Script::MergeGuAndTu->main();
     no_diffs($bowtie_unique, "$expected_dir/paired-bowtie-unique");
@@ -41,7 +48,14 @@ sub paired_ok {
 sub single_ok {
     my $bowtie_unique  = temp_filename("single-bowtie-unique.XXXXXX");
     my $cnu = temp_filename("single-cnu.XXXXXX");
-    @ARGV = ($gu, $tu, $gnu, $tnu, $bowtie_unique, $cnu, "single", "-readlength", 75);
+    @ARGV = ("--gu", $gu, 
+             "--tu", $tu, 
+             "--gnu", $gnu, 
+             "--tnu", $tnu,
+             "--bowtie-unique", $bowtie_unique, 
+             "--cnu", $cnu, 
+             "--single", 
+             "--read-length", 75);
     
     RUM::Script::MergeGuAndTu->main();
     no_diffs($bowtie_unique, "$expected_dir/single-bowtie-unique");
