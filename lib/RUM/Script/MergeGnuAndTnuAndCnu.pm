@@ -1,15 +1,29 @@
 package RUM::Script::MergeGnuAndTnuAndCnu;
 
+use RUM::Usage;
+use RUM::Logging;
+use Getopt::Long;
+
 $|=1;
 
 sub main {
+
+    GetOptions(
+        "gnu-in=s" => \(my $infile1),
+        "tnu-in=s" => \(my $infile2),
+        "cnu-in=s" => \(my $infile3),
+        "output=s" => \(my $outfile),
+        "help|h"   => sub { RUM::Usage->help });
+
+    $infile1 or RUM::Usage->bad("Missing --gnu-in option");
+    $infile2 or RUM::Usage->bad("Missing --tnu-in option");
+    $infile3 or RUM::Usage->bad("Missing --cnu-in option");
+    $outfile or RUM::Usage->bad("Missing --output option");
     
-    $infile1 = $ARGV[0];
-    open(INFILE1, $infile1) or die "\nERROR: in script merge_GNU_and_TNU_and_CNU.pl: Cannot open file '$infile1' for reading\n";
-    $infile2 = $ARGV[1];
-    open(INFILE2, $infile2) or die "\nERROR: in script merge_GNU_and_TNU_and_CNU.pl: Cannot open file '$infile2' for reading\n";
-    $infile3 = $ARGV[2];
-    open(INFILE3, $infile3) or die "\nERROR: in script merge_GNU_and_TNU_and_CNU.pl: Cannot open file '$infile3' for reading\n";
+    open(INFILE1, "<", $infile1) or die "Can't open $infile1 for reading: $!";
+    open(INFILE2, "<", $infile2) or die "Can't open $infile2 for reading: $!";
+    open(INFILE3, "<", $infile3) or die "Can't open $infile3 for reading: $!";
+
     $x1 = `tail -1 $infile1`;
     $x2 = `tail -1 $infile2`;
     $x3 = `tail -1 $infile3`;
@@ -32,8 +46,8 @@ sub main {
     chomp($line1);
     chomp($line2);
     chomp($line3);
-    $outfile = $ARGV[3];
-    open(OUTFILE, ">$outfile") or die "\nERROR: in script merge_GNU_and_TNU_and_CNU.pl: Cannot open file '$outfile' for writing\n";
+
+    open(OUTFILE, ">", $outfile) or die "Can't open $outfile for writing: $!";
 
     for ($s=1; $s<=$M; $s++) {
         undef %hash;
