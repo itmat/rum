@@ -1,104 +1,59 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
-# Written by Gregory R Grant 
-# University of Pennsylvania, 2010
+use strict;
+use warnings;
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use RUM::Script;
+RUM::Script->run_with_logging("RUM::Script::MakeUnmappedFile");
 
-$|=1;
+=head1 NAME
 
-if(@ARGV < 5) {
-    die "
-Usage: make_R.pl <reads file> <bowtie unique file> <bowtie_nu file> <bowtie unmapped outfile> <type>
+make_unmapped_file.pl - Build file of reads that remain unmapped after bowtie
 
-Where:  <reads file> is the fasta file of reads
+=head1 SYNOPSIS
 
-        <bowtie unique file> the file of unique mappers output from merge_GU_and_TU.pl
+make_unmapped_file.pl --reads-in <reads-file> --unique-in <bowtie-unique-file> --non-unique-in <bowtie_nu_file> --unmapped-out <bowtie_unmapped_file> --paired|--single
 
-        <bowtie nu file> the file of non-unique mappers output from merge_GNU_and_TNU_and_CNU.pl
+=head1 DESCRIPTION
 
-        <type> is 'single' for single-end reads, or 'paired' for paired-end reads
+Reads in a reads file and files of unique and non-unique mappings
+obtained from bowtie, and outputs a file of reads that remain
+unmapped.
 
-        <bowtie unmapped outfile> is the name of the file of unmapped reads to be output.
+=head1 OPTIONS
 
-";
-}
+=over 4
 
-# FIX THIS SO THAT READS CAN SPAN MORE THAN ONE LINE IN THE FASTA FILE
-$infile = $ARGV[0];
-$infile1 = $ARGV[1];
-$infile2 = $ARGV[2];
-$outfile = $ARGV[3];
-$type = $ARGV[4];
-$typerecognized = 1;
-if($type eq "single") {
-    $paired_end = "false";
-    $typerecognized = 0;
-}
-if($type eq "paired") {
-    $paired_end = "true";
-    $typerecognized = 0;
-}
-if($typerecognized == 1) {
-    die "\nERROR: in script make_unmapped.pl: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
-}
+=item B<--reads-in> I<reads>
 
-open(INFILE, $infile1) or die "\nERROR: in script make_unmapped.pl: Cannot open file '$infile1' for reading\n";
-while($line = <INFILE>) {
-    chomp($line);
-    $line =~ s/\t.*//;
-    if(!($line =~ /(a|b)/)) {
-	$bu{$line}=2;
-    }
-    else {
-	$line =~ s/(a|b)//;
-	$bu{$line}++;
-    }
-}
-close(INFILE);
+The fasta file of reads.
 
-open(INFILE, $infile2) or die "\nERROR: in script make_unmapped.pl: Cannot open file '$infile2' for reading\n";
-while($line = <INFILE>) {
-    chomp($line);
-    $line =~ s/\t.*//;
-    $line =~ s/(a|b)//;
-    $bnu{$line}++;
-}
-close(INFILE);
+=item B<--unique-in> I<unique_in>
 
-open(INFILE, $infile) or die "\nERROR: in script make_unmapped.pl: Cannot open file '$infile' for reading\n";
+The file of unique mappers output from merge_GU_and_TU
 
-open(OUTFILE, ">$outfile") or die "\nERROR: in script make_unmapped.pl: Cannot open file '$outfile' for writing\n";
+=item B<--non-unique-in> I<non_unique_in>
 
-while($line = <INFILE>) {
-    chomp($line);
-    if($line =~ /^>(seq.\d+)/) {
-	$seq = $1;
-	if($paired_end eq "true") {
-	    if($bu{$seq}+0 < 2 && !($bnu{$seq} =~ /\S/)) {
-		$line_hold = $line;
-		$line = <INFILE>;
-		chomp($line);
-		print OUTFILE "$line_hold\n";
-		print OUTFILE "$line\n";
-		$line_hold = <INFILE>;
-		chomp($line_hold);
-		$line = <INFILE>;
-		chomp($line);
-		print OUTFILE "$line_hold\n";
-		print OUTFILE "$line\n";
-	    }
-	}
-	else {
-	    if($bu{$seq}+0 < 1 && !($bnu{$seq} =~ /\S/)) {
-		$line_hold = $line;
-		$line = <INFILE>;
-		chomp($line);
-		print OUTFILE "$line_hold\n";
-		print OUTFILE "$line\n";
-	    }
-	}
-    }
-}
-close(INFILE);
-close(OUTFILE);
+The file of non-unique mappers output from merge_GNU_and_TNU_and_CNU
 
-print "Starting BLAT on '$outfile'.\n";
+=item B<--single> | B<--paired>
+
+Specify whether the input contains single-end reads or for paired-end
+reads.
+
+=item B<--umapped-out> I<unmapped_out>
+
+The file to write unmapped reads to.
+
+=back
+
+=head1 AUTHOR
+
+Gregory Grant (ggrant@grant.org)
+
+=head1 COPYRIGHT
+
+Copyright 2012 University of Pennsylvania
+
+=cut
