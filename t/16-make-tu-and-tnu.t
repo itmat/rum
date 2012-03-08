@@ -30,7 +30,7 @@ sub paired_ok {
              "--genes", $gene_info,
              "--unique", $u, 
              "--non-unique", $nu, 
-             "--paired");
+             "--paired", "-q");
 
     RUM::Script::MakeTuAndTnu->main();
     no_diffs($u,  "$expected_dir/transcriptome-paired-unique",
@@ -46,7 +46,7 @@ sub single_ok {
              "--genes", $gene_info,
              "--unique", $u, 
              "--non-unique", $nu, 
-             "--single");
+             "--single", "-q");
     RUM::Script::MakeTuAndTnu->main();
     no_diffs($u,  "$expected_dir/transcriptome-single-unique",
              "single unique");
