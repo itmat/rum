@@ -6,6 +6,8 @@ use RUM::Logging;
 use RUM::Usage;
 use Getopt::Long;
 
+our $log = RUM::Logging->get_logger();
+
 $|=1;
 
 sub main {
@@ -20,7 +22,8 @@ sub main {
         "paired"          => \(my $paired),
         "single"          => \(my $single),
         "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "read-length=s"   => \(my $read_length),
+        "read-length=s"   => \(my $readlength),
+        "min-overlap=s"   => \(my $user_min_overlap),
         "help|h"          => sub { RUM::Usage->help },
         "quiet|q"         => sub { $log->less_logging(1) });
 
@@ -42,7 +45,6 @@ sub main {
     $paired_end = $paired ? "true" : "false";
     
     if ($readlength) {
-
         if ($readlength =~ /^\d+$/) {
             if ($readlength < 5) {
                 RUM::Usage->bad("--read-length cannot be that small, ".

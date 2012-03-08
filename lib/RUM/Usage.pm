@@ -65,7 +65,7 @@ sub man {
 
 sub bad {
     my ($class, $msg) = @_;
-    pod2usage($msg);
+    pod2usage("\n$msg\n");
 }
 
 1;
