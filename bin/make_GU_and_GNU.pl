@@ -82,6 +82,8 @@ then it does not write anything.
 
 =head1 OPTIONS
 
+=over 4
+
 =item B<--unique> I<gu_filename> (required)
 
 The name of the file to be written that will contain unique genome

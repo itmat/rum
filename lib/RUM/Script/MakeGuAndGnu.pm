@@ -8,7 +8,6 @@ our $log = RUM::Logging->get_logger();
 $|=1;
 
 sub main {
-
     pod2usage if @ARGV < 4;
 
     $infile = $ARGV[0];
