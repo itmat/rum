@@ -20,7 +20,7 @@ sub main {
         "single"          => \(my $single),
         "paired"          => \(my $paired),
         "verbose|v"       => sub { $log->more_logging(1) },
-        "quiet|q"       => sub { $log->less_logging(1) },
+        "quiet|q"         => sub { $log->less_logging(1) },
         "help|h"          => sub { RUM::Usage->help });
 
     # Check command line args
@@ -94,8 +94,9 @@ sub main {
     }
     close(INFILE);
     close(OUTFILE);
-
+    
     $log->info("Starting BLAT on '$outfile'.");
+    return 0;
 }
 
 1;

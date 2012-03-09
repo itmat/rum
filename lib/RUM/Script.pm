@@ -1017,6 +1017,7 @@ sub run_with_logging {
     else {
         $log->info("FINISHED $script ($cmd)");
     }
+
 }
 
 =back

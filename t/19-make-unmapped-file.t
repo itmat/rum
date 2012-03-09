@@ -33,9 +33,11 @@ sub merge_ok {
         "--unique-in", $unique, 
         "--non-unique-in", $non_unique, 
         "--output", $unmapped,
-        "--paired");
+        "--paired",
+        "-q");
     
-    RUM::Script::MakeUnmappedFile->main();
+    my $status = RUM::Script::MakeUnmappedFile->main();
+    print "Status is $status\n";
     no_diffs($unmapped, "$expected_dir/R.1");
 }
 

@@ -49,7 +49,7 @@ yes|unlink OUTDIR/GU.CHUNK
 yes|unlink OUTDIR/GNU.CHUNK
 yes|unlink OUTDIR/CNU.CHUNK
 
-perl SCRIPTSDIR/make_unmapped_file.pl READSFILE.CHUNK OUTDIR/BowtieUnique.CHUNK OUTDIR/BowtieNU.CHUNK OUTDIR/R.CHUNK PAIREDEND 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/make_unmapped_file.pl --reads READSFILE.CHUNK --unique OUTDIR/BowtieUnique.CHUNK --non-unique OUTDIR/BowtieNU.CHUNK -o OUTDIR/R.CHUNK --PAIREDEND 2>> ERRORFILE.CHUNK || exit 1
 echo "finished making R" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 
 BLATEXE GENOMEBLAT OUTDIR/R.CHUNK OUTDIR/R.CHUNK.blat BLATEXEOPTS || exit 1
