@@ -13,57 +13,23 @@ $|=1;
 
 sub main {
 
-    if (@ARGV < 6) {
-        die "
-Usage: RUM_finalcleanup.pl <rum_unique> <rum_nu> <cleaned rum_unique outfile> <cleaned rum_nu outfile> <genome seq> <sam header> [options]
+    GetOptions(
+        "unique-in=s" => \(my $unique_in),
+        "non-unique-in=s" => \(my $non_unique_in),
+        "unique-out=s" => \(my $unique_out),
+        "non-unique-out=s" => \(my $non_unique_out),
+        "sam-header-out=s"   => \(my $sam_header_out),
+        "genome=s" => \(my $genome),
+        "match-length-cutoff=s" => \(my $match_length_cutoff = 0),
+        "faok"  => \(my $faok),
+        "count-mismatches" => \(my $countmismatches));
 
-Where: 
-  <sam header> is the name of the outfile that has the header that will be used in the sam file
-
-Options:
-   -faok  : the fasta file already has sequence all on one line
-
-   -countmismatches : report in the final column the number of mismatches, ignoring insertions
-
-   -match_length_cutoff  : set this min length alignment to be reported
-
-This script modifies the RUM_Unique and RUM_NU files to clean
-up things like mismatches at the ends of alignments.
-
-";
-
-    }
-    $faok = "false";
-    $countmismatches = "false";
-    $match_length_cutoff = 0;
-    for ($i=6; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if ($ARGV[$i] eq "-match_length_cutoff") {
-            $i++;
-            $match_length_cutoff = $ARGV[$i];
-            if ($ARGV[$i] =~ /^\d+$/) {
-                $optionrecognized = 1;
-            }
-        }
-        if ($ARGV[$i] eq "-faok") {
-            $faok = "true";
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-countmismatches") {
-            $countmismatches = "true";
-            $optionrecognized = 1;
-        }
-        if ($optionrecognized == 0) {
-            die "\nERROR: in script RUM_finalcleanup.pl: option '$ARGV[$i]' not recognized\n";
-        }
-    }
-
-    if ($faok eq "false") {
+    if (!$faok) {
         print "Modifying genome fa file\n";
         $r = int(rand(1000));
         $f = "temp_" . $r . ".fa";
         open(OUTFILE, ">$f");
-        open(INFILE, $ARGV[4]);
+        open(INFILE, $genome);
         $flag = 0;
         while ($line = <INFILE>) {
             if ($line =~ />/) {
@@ -83,11 +49,11 @@ up things like mismatches at the ends of alignments.
         close(INFILE);
         open(GENOMESEQ, $f);
     } else {
-        open(GENOMESEQ, $ARGV[4]);
+        open(GENOMESEQ, $genome);
     }
-    open(OUTFILE, ">$ARGV[2]");
+    open(OUTFILE, ">$unique_out");
     close(OUTFILE);
-    open(OUTFILE, ">$ARGV[3]");
+    open(OUTFILE, ">$non_unique_out");
     close(OUTFILE);
 
     $FLAG = 0;
@@ -116,12 +82,12 @@ up things like mismatches at the ends of alignments.
                 }
             }
         }
-        &clean($ARGV[0], $ARGV[2]);
-        &clean($ARGV[1], $ARGV[3]);
+        &clean($unique_in, $unique_out);
+        &clean($non_unique_in, $non_unique_out);
     }
     close(GENOMESEQ);
 
-    open(SAMHEADER, ">$ARGV[5]");
+    open(SAMHEADER, ">$sam_header_out");
     foreach $chr (sort {cmpChrs($a,$b)} keys %samheader) {
         $outstr = $samheader{$chr};
         print SAMHEADER $outstr;
@@ -190,7 +156,7 @@ sub clean () {
 		$seq_temp =~ s/://g;
 		$seq_temp =~ s/\+//g;
 		if (length($seq_temp) >= $match_length_cutoff) {
-		    if ($countmismatches eq "true") {
+		    if ($countmismatches) {
 			$num_mismatches = &countmismatches($SEQ, $seq);
 			print OUTFILE "$a[0]\t$chr\t$spans\t$strand\t$seq\t$num_mismatches\n";
 		    } else {

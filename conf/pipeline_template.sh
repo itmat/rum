@@ -76,7 +76,7 @@ yes|unlink OUTDIR/BlatUnique.CHUNK
 yes|unlink OUTDIR/BowtieNU.CHUNK
 yes|unlink OUTDIR/BlatNU.CHUNK
 
-perl SCRIPTSDIR/RUM_finalcleanup.pl OUTDIR/RUM_Unique_temp.CHUNK OUTDIR/RUM_NU_temp.CHUNK OUTDIR/RUM_Unique_temp2.CHUNK OUTDIR/RUM_NU_temp2.CHUNK GENOMEFA OUTDIR/sam_header.CHUNK -faok COUNTMISMATCHES MATCHLENGTHCUTOFF 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/RUM_finalcleanup.pl --unique-in OUTDIR/RUM_Unique_temp.CHUNK --non-unique-in OUTDIR/RUM_NU_temp.CHUNK --unique-out OUTDIR/RUM_Unique_temp2.CHUNK --non-unique-out OUTDIR/RUM_NU_temp2.CHUNK --genome GENOMEFA --sam-header-out OUTDIR/sam_header.CHUNK --faok COUNTMISMATCHES MATCHLENGTHCUTOFF 2>> ERRORFILE.CHUNK || exit 1
 echo "finished cleaning up final results" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 perl SCRIPTSDIR/sort_RUM_by_id.pl OUTDIR/RUM_NU_temp2.CHUNK OUTDIR/RUM_NU_idsorted.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished sorting NU" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK

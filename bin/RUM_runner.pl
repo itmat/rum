@@ -1602,7 +1602,7 @@ if($postprocess eq "false") {
         $pipeline_file =~ s!GENOMEFA!$genomefa!gs;
         $pipeline_file =~ s!READLENGTH!$readlength!gs;
         if($countmismatches eq "true") {
-    	   $pipeline_file =~ s!COUNTMISMATCHES!-countmismatches!gs;
+    	   $pipeline_file =~ s!COUNTMISMATCHES!--count-mismatches!gs;
         } else {
     	   $pipeline_file =~ s!COUNTMISMATCHES!!gs;
         }
@@ -1615,7 +1615,7 @@ if($postprocess eq "false") {
     	   $pipeline_file =~ s!DNA!!gs;
         }
         if($minlength > 0) {
-    	   $pipeline_file =~ s!MATCHLENGTHCUTOFF!-match_length_cutoff $minlength!gs;
+    	   $pipeline_file =~ s!MATCHLENGTHCUTOFF!--match-length-cutoff $minlength!gs;
            $pipeline_file =~ s!MINOVERLAP!$minlength!gs;
         } else {
     	   $pipeline_file =~ s!MATCHLENGTHCUTOFF!!gs;
