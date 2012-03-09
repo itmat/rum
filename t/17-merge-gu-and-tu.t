@@ -7,61 +7,30 @@ use Test::More tests => 4;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::Script::MergeGuAndTu;
-use RUM::TestUtils qw(no_diffs);
+use RUM::TestUtils;
 use File::Temp;
 
-my $tempdir = "$Bin/tmp";
-my $expected_dir = "$Bin/expected/merge_gu_and_tu";
+my $gu  = "$INPUT_DIR/GU.1";
+my $tu  = "$INPUT_DIR/TU.1";
+my $gnu = "$INPUT_DIR/GNU.1";
+my $tnu = "$INPUT_DIR/TNU.1";
 
-sub temp_filename {
-    my ($template) = @_;
-    File::Temp->new(
-        DIR => "$Bin/tmp",
-        UNLINK => 0,
-        TEMPLATE => $template);
-}
-
-
-
-my $gu  = "$Bin/data/GU.1";
-my $tu  = "$Bin/data/TU.1";
-my $gnu = "$Bin/data/GNU.1";
-my $tnu = "$Bin/data/TNU.1";
-
-sub paired_ok {
-    my $bowtie_unique  = temp_filename("paired-bowtie-unique.XXXXXX");
-    my $cnu = temp_filename("paired-cnu.XXXXXX");
+for my $type (qw(paired single)) {
+    my $bowtie_unique  = temp_filename(TEMPLATE=>"$type-bowtie-unique.XXXXXX");
+    my $cnu = temp_filename(TEMPLATE => "$type-cnu.XXXXXX",
+                        UNLINK => 0);
     @ARGV = ("--gu", $gu, 
              "--tu", $tu, 
              "--gnu", $gnu, 
              "--tnu", $tnu,
              "--bowtie-unique", $bowtie_unique, 
              "--cnu", $cnu, 
-             "--paired", 
+             "--$type", 
              "--read-length", 75);
     
     RUM::Script::MergeGuAndTu->main();
-    no_diffs($bowtie_unique, "$expected_dir/paired-bowtie-unique");
-    no_diffs($cnu, "$expected_dir/paired-cnu");
+    no_diffs($bowtie_unique, "$EXPECTED_DIR/$type-bowtie-unique", 
+         "$type bowtie unique");
+    no_diffs($cnu, "$EXPECTED_DIR/$type-cnu", "$type cnu");
 }
 
-sub single_ok {
-    my $bowtie_unique  = temp_filename("single-bowtie-unique.XXXXXX");
-    my $cnu = temp_filename("single-cnu.XXXXXX");
-    @ARGV = ("--gu", $gu, 
-             "--tu", $tu, 
-             "--gnu", $gnu, 
-             "--tnu", $tnu,
-             "--bowtie-unique", $bowtie_unique, 
-             "--cnu", $cnu, 
-             "--single", 
-             "--read-length", 75);
-    
-    RUM::Script::MergeGuAndTu->main();
-    no_diffs($bowtie_unique, "$expected_dir/single-bowtie-unique");
-    no_diffs($cnu, "$expected_dir/single-cnu");
-}
-
-
-paired_ok();
-single_ok();

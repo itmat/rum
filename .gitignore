@@ -21,7 +21,7 @@ META.json
 bin/blat
 bin/bowtie
 bin/mdust
-data
+./data
 indexes
 organisms.txt
 rum.config_*
