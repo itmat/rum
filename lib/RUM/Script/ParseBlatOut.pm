@@ -7,6 +7,8 @@ use RUM::Logging;
 use Getopt::Long;
 use RUM::Common qw(getave addJunctionsToSeq);
 
+our $log = RUM::Logging->get_logger();
+
 $| = 1;
 # blat run on forward/reverse reads separately, reported in order
 # first make hash 'blathits' which is all alignments of the read that we would accept (indexed by t=0,1 for forward/reverse)
@@ -70,6 +72,7 @@ sub main {
     }
     $line1 = $line;
     $blatsorted = "true";
+    $log->info("Checking to see if blat file is sorted");
     while ($line2 = <BLATHITS>) {
         $line1 =~ /seq.(\d+)(.)/;
         $seqnum1 = $1;
@@ -88,8 +91,7 @@ sub main {
     close(BLATHITS);
 
     if ($blatsorted eq "false") {
-        print STDERR "WARNING: The blat file is not sorted properly, I'm sorting it now.  This could indicate an error\n";
-        print "WARNING: The blat file is not sorted properly, I'm sorting it now.  This could indicate an error\n";
+        $log->warn("The blat file is not sorted properly, I'm sorting it now.  This could indicate an error");
         $blatfile_sorted = $blatfile . ".sorted";
 
         open(INFILE, $blatfile);
@@ -139,7 +141,7 @@ sub main {
         }
         $blatfile = $blatfile_sorted;
     } else {
-        #    print "The blat file is sorted properly.\n";
+        $log->info("The blat file is sorted properly.");
     }
 
     $head = `head -1 $seqfile`;
