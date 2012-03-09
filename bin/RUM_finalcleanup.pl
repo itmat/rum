@@ -56,6 +56,12 @@ Report in the final column the number of mismatches, ignoring insertions.
 
 Set this min length alignment to be reported.
 
+=item B<-h>, B<--help>
+
+=item B<-v>, B<--verbose>
+
+=item B<-q>, B<--quiet>
+
 =back
 
 =head1 AUTHOR

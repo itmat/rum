@@ -22,7 +22,25 @@ sub main {
         "genome=s" => \(my $genome),
         "match-length-cutoff=s" => \(my $match_length_cutoff = 0),
         "faok"  => \(my $faok),
-        "count-mismatches" => \(my $countmismatches));
+        "count-mismatches" => \(my $countmismatches),
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) },
+    );
+
+    $unique_in or RUM::Usage->bad(
+        "Please provide input file of unique mappers with --unique-in");
+    $non_unique_in or RUM::Usage->bad(
+        "Please provide input file of non-unique mappers with --non-unique-in");
+    $unique_out or RUM::Usage->bad(
+        "Please provide output file of unique mappers with --unique-out");
+    $non_unique_out or RUM::Usage->bad(
+        "Please provide output file of non-unique mappers with --non-unique-out");
+    $genome or RUM::Usage->bad(
+        "Please provide genome fasta file with --genome");
+
+    $sam_header_out or RUM::Usage->bad(
+        "Please provide sam header output file with --sam-header-out");
 
     if (!$faok) {
         print "Modifying genome fa file\n";
