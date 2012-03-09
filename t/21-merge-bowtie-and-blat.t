@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More tests => 2;
 use FindBin qw($Bin);
 use File::Copy;
 use lib "$Bin/../lib";
@@ -25,8 +25,14 @@ my $merged_non_unique = temp_filename(TEMPLATE => "non-unique.XXXXXX");
 copy $blat_non_unique, $blat_non_unique_tmp;
 
 for my $type (qw(paired)) {
-    @ARGV = ($bowtie_unique, $blat_unique, $bowtie_non_unique, $blat_non_unique_tmp,
-             $merged_unique, $merged_non_unique, $type, "-readlength", 75);
+    @ARGV = ("--bowtie-unique-in", $bowtie_unique,
+             "--blat-unique-in",   $blat_unique, 
+             "--bowtie-non-unique-in", $bowtie_non_unique, 
+             "--blat-non-unique-in", $blat_non_unique_tmp,
+             "--unique-out", $merged_unique,
+             "--non-unique-out", $merged_non_unique, 
+             "--$type",
+             "--read-length", 75);
     #RUM::Script::ParseBlatOut->main();
     system("perl $Bin/../bin/merge_Bowtie_and_Blat.pl @ARGV");
     no_diffs($merged_unique,     "$EXPECTED_DIR/RUM_Unique_temp.1");

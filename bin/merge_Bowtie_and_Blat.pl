@@ -66,6 +66,12 @@ forward and reverse reads can be.  They could be separated by an
 exon/exon junction so this number can be as large as the largest
 intron.  Default value = 500,000.
 
+=item B<-h>, B<--help>
+
+=item B<-v>, B<--verbose>
+
+=item B<-q>, B<--quiet>
+
 =back
 
 =head1 AUTHOR

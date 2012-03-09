@@ -13,60 +13,62 @@ $|=1;
 
 sub main {
 
-    if (@ARGV < 7) {
-        die "
-";
-    }
+    GetOptions(
+        "bowtie-unique-in=s"     => \(my $bowtie_unique_in),
+        "blat-unique-in=s"       => \(my $blat_unique_in),
+        "bowtie-non-unique-in=s" => \(my $bowtie_non_unique_in),
+        "blat-non-unique-in=s"   => \(my $blat_non_unique_in),
+        "unique-out=s"           => \(my $unique_out),
+        "non-unique-out=s"       => \(my $non_unique_out),
+        "single"                 => \(my $single),
+        "paired"                 => \(my $paired),
+        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
+        "read-length"     => \(my $readlength = 0),
+        "min-overlap"     => \(my $user_min_overlap),
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) }
+    );
 
-    # get readlength from bowtie unique/nu, if both empty then get max in blat unique/nu
+    # Input files
+    $bowtie_unique_in or RUM::Usage->bad(
+        "Please provide unique bowtie mappers with --bowtie-unique-in");
+    $blat_unique_in or RUM::Usage->bad(
+        "Please provide unique blat mappers with --blat-unique-in");
+    $bowtie_non_unique_in or RUM::Usage->bad(
+        "Please provide non-unique bowtie mappers with --bowtie-non-unique-in");
+    $blat_non_unique_in or RUM::Usage->bad(
+        "Please provide non-unique blat mappers with --blat-non-unique-in");
 
-    open(INFILE, $ARGV[0]) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$ARGV[0]' for reading\n\n";
+    # Output files
+    $unique_out or RUM::Usage->bad(
+        "Please specify output file for unique mappers with --unique-out");
+    $non_unique_out or RUM::Usage->bad(
+        "Please specify output file for non-unique mappers with --non-unique-out");
+    
+    ($single xor $paired) or RUM::Usage->bad(
+        "Please specify exactly one of --single or --paired");
 
-
-    $type = $ARGV[6];
-    $typerecognized = 1;
-    if ($type eq "single") {
-        $paired_end = "false";
-        $typerecognized = 0;
-    }
-    if ($type eq "paired") {
-        $paired_end = "true";
-        $typerecognized = 0;
-    }
-    if ($typerecognized == 1) {
-        die "\nERROR: in script merge_Bowtie_and_Blat.pl: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
-    }
-
-    $max_distance_between_paired_reads = 500000;
-    $readlength = 0;
-    $user_min_overlap = 0;
-    for ($i=7; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if ($ARGV[$i] eq "-maxpairdist") {
-            $i++;
-            $max_distance_between_paired_reads = $ARGV[$i];
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-readlength") {
-            $i++;
-            $readlength = $ARGV[$i];
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-minoverlap") {
-            $i++;
-            $user_min_overlap = $ARGV[$i];
-            if (!($user_min_overlap =~ /^\d+$/) || $user_min_overlap < 5) {
-                die "\nERROR: in script merge_Bowtie_and_Blat.pl: -minoverlap must be a positive integer > 4, '$ARGV[$i]' not recognized\n";
-            }
-            $optionrecognized = 1;
-        }
-
-        if ($optionrecognized == 0) {
-            die "\nERROR: in script merge_Bowtie_and_Blat.pl: option '$ARGV[$i-1] $ARGV[$i]' not recognized\n";
+    if (defined($user_min_overlap)) {
+        if (!($user_min_overlap =~ /^\d+$/) || $user_min_overlap < 5) {
+            RUM::Usage->bad(
+                "If you provide --min-overlap it must be an integer > 4");
         }
     }
+    else {
+        $user_min_overlap = 0;
+    }
 
+
+    # get readlength from bowtie unique/nu, if both empty then get max
+    # in blat unique/nu
+
+    open(INFILE, $bowtie_unique_in) 
+        or die "Can't open $bowtie_unique_in for reading: $!";
+
+    
     if ($readlength == 0) {
+        $log->info("Trying to figure out read length");
         $cnt = 0;
         while ($line = <INFILE>) {
             $length = 0;
@@ -92,7 +94,8 @@ sub main {
             }
         }
         close(INFILE);
-        open(INFILE, $ARGV[1]) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$ARGV[1]' for reading\n\n";
+        open(INFILE, $blat_unique_in) 
+            or die "Can't open $blat_unique_in for reading: $!";
         $cnt = 0;
         while ($line = <INFILE>) {
             $length = 0;
@@ -117,7 +120,8 @@ sub main {
         }
         close(INFILE);
     
-        open(INFILE, $ARGV[2]) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$ARGV[2]' for reading\n\n";
+        open(INFILE, $bowtie_non_unique_in) 
+            or die "Can't open $bowtie_non_unique_in for reading: $!";
         $cnt = 0;
         while ($line = <INFILE>) {
             $length = 0;
@@ -141,7 +145,8 @@ sub main {
             }
         }
         close(INFILE);
-        open(INFILE, $ARGV[3]) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$ARGV[3]' for reading\n\n";
+        open(INFILE, $blat_non_unique_in) 
+            or die "Can't open $blat_non_unique_in for reading: $!";
         $cnt = 0;
         while ($line = <INFILE>) {
             $length = 0;
@@ -166,6 +171,7 @@ sub main {
         }
         close(INFILE);
     }
+
     if ($readlength == 0) { # Couldn't determine the read length so going to fall back
         # on the strategy used for variable length reads.
         $readlength = "v";
@@ -184,9 +190,11 @@ sub main {
         $min_overlap = $user_min_overlap;
     }
 
-    $f0 = $ARGV[3];
-    open(INFILE, $f0) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f0' for reading\n\n";
+    $f0 = $blat_non_unique_in;
+    open(INFILE, $f0)
+        or die "Can't open $f0 for reading: $!";
 
+    $log->info("Reading blat non-unique mappers");
     while ($line = <INFILE>) {
         $line =~ /^seq.(\d+)/;
         $id = $1;
@@ -203,25 +211,31 @@ sub main {
     }
     close(INFILE);
 
-    open(OUTFILE2, ">>$f0") or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f0' for writing\n\n";
+    open(OUTFILE2, ">>$f0") 
+        or die "Can't open $f0 for appending: $!";
+
     # The only things we're going to add to BlatNU.chunk are the reads that
     # are single direction only mappers in BowtieUnique that are also single
     # direction only mappers in BlatNU, but the two mappings disagree.
     # Also, do not write these to RUM_Unique.
-    $f1 = $ARGV[2];
-    open(INFILE, $f1) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f1' for reading\n\n";
+    $f1 = $bowtie_non_unique_in;
+    open(INFILE, $f1) 
+        or die "Can't open $1 for reading";
     while ($line = <INFILE>) {
         if ($line =~ /^seq.(\d+)/) {
             $bowtie_ambiguous_mappers{$1}++;
         }
     }
     close(INFILE);
-    $f2 = $ARGV[0];
-    open(INFILE1, $f2) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f2' for reading\n\n";
-    $f3 = $ARGV[1];
-    open(INFILE2, $f3) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f3' for reading\n\n";
-    $f4 = $ARGV[4];
-    open(OUTFILE1, ">$f4") or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f4' for writing\n\n";
+    $f2 = $bowtie_unique_in;
+    open(INFILE1, $f2) 
+        or die "Can't open $f2 for reading: $!";
+    $f3 = $blat_unique_in;
+    open(INFILE2, $f3) 
+        or die "Can't open $f3 for reading: $!";
+    $f4 = $unique_out;
+    open(OUTFILE1, ">$f4") 
+        or die "Can't open $f4 for writing: $!";
 
     $max_distance_between_paired_reads = 500000;
     $num_lines_at_once = 10000;
@@ -256,7 +270,7 @@ sub main {
                     $hash1{$id}[0]=-1;
                     $hash1{$id}[1]=$line;
                 }
-                if ($paired_end eq "true") {
+                if ($paired) {
                     # this makes sure we have read in both a and b reads, this approach might cause a problem
                     # if no, or very few, b reads mapped at all.
                     if ( (($linecount == ($num_lines_at_once - 1)) && !($a[0] =~ /a$/)) || ($linecount < ($num_lines_at_once - 1)) ) {
@@ -660,9 +674,11 @@ sub main {
     close(OUTFILE2);
 
     # now need to remove the stuff in %remove_from_BlatNU from BlatNU
-    $filename = $ARGV[5];
-    open(INFILE, $f0) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f0' for reading\n\n";
-    open(OUTFILE, ">$filename") or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$filename' for writing\n\n";
+    $filename = $non_unique_out;
+    open(INFILE, $f0)
+        or die "Can't open $f0 for reading: $!";
+    open(OUTFILE, ">$filename") 
+        or die "Can't open $filename for writing: $!";
     while ($line = <INFILE>) {
         $line =~ /seq.(\d+)/;
         if ($remove_from_BlatNU{$1}+0==0) {
