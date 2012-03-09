@@ -15,43 +15,6 @@ sub main {
 
     if (@ARGV < 7) {
         die "
-Usage: merge_BowtieUnique_and_BlatUnique.pl <Bowtie Unique infile> <BLAT Unique infile> <Bowtie NU infile> <BLAT NU infile> <RUM Unique outfile> <RUM NU outfile> <type>
-
-Where:   
-
-         <Bowtie Unique infile> is the file of unique mappers that is output from
-                                the script merge_GU_and_TU.pl
-
-         <BLAT Unique infile> is the file of unique mappers that is output from the
-                              script parse_blat_out.pl
-
-         <Bowtie NU infile> is the file of non-unique mappers that is output from
-                            the script merge_GNU_and_TNU_and_CNU.pl.
-
-         <Blat NU infile> is the file of non-unique mappers that is output from
-                          the script parse_blat_out.pl
-
-         <RUM_Unique outfile> is the name of the file of unique mappers to be output
-
-         <RUM_NU outfile> is the name of the file of non-unique mappers to be output
-
-         <type> is 'single' for single-end reads, or 'paired' for paired-end reads
-
-  Options:
-
-         -readlength    : The read length, if not specified I will try to determine it,
-                          but if there aren't enough well mapped reads I might not get
-                          it right.  If there are variable read lengths, set n=v.
-
-         -minoverlap n  : The minimum overlap required to report the intersection of
-                          two otherwise disagreeing alignments of the same read.
-
-         -maxpairdist N : N is an integer greater than zero representing
-                          the furthest apart the forward and reverse reads
-                          can be.  They could be separated by an exon/exon
-                          junction so this number can be as large as the largest
-                          intron.  Default value = 500,000
-
 ";
     }
 
