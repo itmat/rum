@@ -37,10 +37,27 @@ use RUM::Workflow qw(make_paths shell report is_dry_run with_settings
                      is_on_cluster);
 use Carp;
 use RUM::Repository qw(download);
+use FindBin qw($Bin);
+use File::Temp;
+
+our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR);
 our @EXPORT_OK = qw(download_file download_test_data no_diffs
                     is_sorted_by_location);
 our %EXPORT_TAGS = (
     all => [@EXPORT_OK]);
+
+FindBin->again();
+
+our $PROGRAM_NAME = do {
+    local $_ = $0;
+    s/^.*\///;
+    s/\..*$//;
+    $_;
+};
+
+our $INPUT_DIR = "$Bin/data/$PROGRAM_NAME";
+our $EXPECTED_DIR = "$Bin/expected/$PROGRAM_NAME";
+
 
 
 our $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tar.gz";
@@ -141,8 +158,37 @@ sub is_sorted_by_location {
     is_deeply(\@recs, \@sorted, "Sorted by location");
 }
 
+=item temp_filename(%options)
 
+Return a temporary filename using File::Temp with some sensible
+defaults for a test script. 
 
+=over 4
+
+=item B<DIR>
+
+The directory to store the temp file. Defaults to $Bin/tmp.
+
+=item B<UNLINK>
+
+Whether to unlink the file upon exit. Defaults to 1.
+
+=item B<TEMPLATE>
+
+The template for the filename. Defaults to a template that includes
+the name of the calling function.
+
+=back
+
+=cut
+
+sub temp_filename {
+    my (%options) = @_;
+    $options{DIR}      = "$Bin/tmp" unless exists $options{DIR};
+    $options{UNLINK}   = 1        unless exists $options{UNLINK};
+    $options{TEMPLATE} = "XXXXXX" unless exists $options{TEMPLATE};
+    File::Temp->new(%options);
+}
 
 =back
 
