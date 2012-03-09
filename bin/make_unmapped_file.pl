@@ -46,6 +46,12 @@ reads.
 
 The file to write unmapped reads to.
 
+=item B<-v>, B<--verbose>
+
+=item B<-q>, B<--quiet>
+
+=item B<-h>, B<--help>
+
 =back
 
 =head1 AUTHOR

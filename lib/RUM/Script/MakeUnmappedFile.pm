@@ -6,28 +6,37 @@ use RUM::Logging;
 use RUM::Usage;
 use Getopt::Long;
 
+our $log = RUM::Logging->get_logger();
+
+# FIX THIS SO THAT READS CAN SPAN MORE THAN ONE LINE IN THE FASTA FILE
+
 sub main {
 
-    # FIX THIS SO THAT READS CAN SPAN MORE THAN ONE LINE IN THE FASTA FILE
-    $infile = $ARGV[0];
-    $infile1 = $ARGV[1];
-    $infile2 = $ARGV[2];
-    $outfile = $ARGV[3];
-    $type = $ARGV[4];
-    $typerecognized = 1;
-    if ($type eq "single") {
-        $paired_end = "false";
-        $typerecognized = 0;
-    }
-    if ($type eq "paired") {
-        $paired_end = "true";
-        $typerecognized = 0;
-    }
-    if ($typerecognized == 1) {
-        die "\nERROR: in script make_unmapped.pl: type '$type' not recognized.  Must be 'single' or 'paired'.\n";
-    }
+    GetOptions(
+        "reads-in=s"      => \(my $infile),
+        "unique-in=s"     => \(my $infile1),
+        "non-unique-in=s" => \(my $infile2),
+        "output|o=s"      => \(my $outfile),
+        "single"          => \(my $single),
+        "paired"          => \(my $paired),
+        "verbose|v"       => sub { $log->more_logging(1) },
+        "quiet|q"       => sub { $log->less_logging(1) },
+        "help|h"          => sub { RUM::Usage->help });
 
-    open(INFILE, $infile1) or die "\nERROR: in script make_unmapped.pl: Cannot open file '$infile1' for reading\n";
+    # Check command line args
+    $infile or RUM::Usage->bad(
+        "Please provide a reads file with --reads-in");
+    $infile1 or RUM::Usage->bad(
+        "Please provide a unique mapper file with --unique-in");
+    $infile2 or RUM::Usage->bad(
+        "Please provide a non-unique mapper file with --non-unique-in");
+    $outfile or RUM::Usage->bad(
+        "Please specify an output file with --output or -o");
+    ($paired xor $single) or RUM::Usage->bad(
+        "Please specify exactly one of --paired or --single");
+
+    $log->debug("Reading unique mappers");
+    open(INFILE, "<", $infile1) or die "Can't open $infile1 for reading: $!";
     while ($line = <INFILE>) {
         chomp($line);
         $line =~ s/\t.*//;
@@ -40,7 +49,8 @@ sub main {
     }
     close(INFILE);
 
-    open(INFILE, $infile2) or die "\nERROR: in script make_unmapped.pl: Cannot open file '$infile2' for reading\n";
+    $log->debug("Reading non-unique mappers");
+    open(INFILE, "<", $infile2) or die "Can't open $infile2 for reading: $!";
     while ($line = <INFILE>) {
         chomp($line);
         $line =~ s/\t.*//;
@@ -49,15 +59,15 @@ sub main {
     }
     close(INFILE);
 
-    open(INFILE, $infile) or die "\nERROR: in script make_unmapped.pl: Cannot open file '$infile' for reading\n";
-
-    open(OUTFILE, ">$outfile") or die "\nERROR: in script make_unmapped.pl: Cannot open file '$outfile' for writing\n";
+    $log->debug("Filtering mapped reads");
+    open(INFILE, $infile) or die "Can't open $infile for reading: $!";
+    open(OUTFILE, ">", $outfile) or die "Can't open $outfile for reading: $!";
 
     while ($line = <INFILE>) {
         chomp($line);
         if ($line =~ /^>(seq.\d+)/) {
             $seq = $1;
-            if ($paired_end eq "true") {
+            if ($paired) {
                 if ($bu{$seq}+0 < 2 && !($bnu{$seq} =~ /\S/)) {
                     $line_hold = $line;
                     $line = <INFILE>;
@@ -85,7 +95,7 @@ sub main {
     close(INFILE);
     close(OUTFILE);
 
-    print "Starting BLAT on '$outfile'.\n";
+    $log->info("Starting BLAT on '$outfile'.");
 }
 
 1;

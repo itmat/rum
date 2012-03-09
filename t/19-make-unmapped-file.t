@@ -28,7 +28,12 @@ my $non_unique = "$in_dir/BowtieNU.1";
 
 sub merge_ok {
     my $unmapped  = temp_filename("unmapped.XXXXXX");
-    @ARGV = ($reads, $unique, $non_unique, $unmapped, "paired");
+    @ARGV = (
+        "--reads-in", $reads, 
+        "--unique-in", $unique, 
+        "--non-unique-in", $non_unique, 
+        "--output", $unmapped,
+        "--paired");
     
     RUM::Script::MakeUnmappedFile->main();
     no_diffs($unmapped, "$expected_dir/R.1");
