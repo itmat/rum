@@ -43,7 +43,7 @@ sub main {
         "Please provide sam header output file with --sam-header-out");
 
     if (!$faok) {
-        print "Modifying genome fa file\n";
+        $log->info("Modifying genome fa file");
         $r = int(rand(1000));
         $f = "temp_" . $r . ".fa";
         open(OUTFILE, ">$f");
@@ -67,8 +67,11 @@ sub main {
         close(INFILE);
         open(GENOMESEQ, $f);
     } else {
+        $log->info("Genome fa file does not need fixing");
         open(GENOMESEQ, $genome);
     }
+    
+    # Truncate output files
     open(OUTFILE, ">$unique_out");
     close(OUTFILE);
     open(OUTFILE, ">$non_unique_out");
@@ -76,6 +79,7 @@ sub main {
 
     $FLAG = 0;
 
+    $log->info("Cleaning mappers");
     while ($FLAG == 0) {
         undef %CHR2SEQ;
         $sizeflag = 0;
@@ -89,6 +93,7 @@ sub main {
                 chomp($line);
                 $line =~ />(.*)/;
                 $chr = $1;
+                $log->debug("Working on chromosome $chr");
                 $chr =~ s/:[^:]*$//;
                 $ref_seq = <GENOMESEQ>;
                 chomp($ref_seq);
@@ -105,6 +110,7 @@ sub main {
     }
     close(GENOMESEQ);
 
+    $log->info("Writing sam header");
     open(SAMHEADER, ">$sam_header_out");
     foreach $chr (sort {cmpChrs($a,$b)} keys %samheader) {
         $outstr = $samheader{$chr};

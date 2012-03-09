@@ -12,4 +12,4 @@
 *  1 SCRIPTSDIR/make_GU_and_GNU.pl
    1 SCRIPTSDIR/limit_NU.pl
    1 SCRIPTSDIR/get_nu_stats.pl
-   1 SCRIPTSDIR/RUM_finalcleanup.pl
+*  1 SCRIPTSDIR/RUM_finalcleanup.pl
