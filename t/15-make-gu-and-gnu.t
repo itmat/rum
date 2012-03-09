@@ -9,8 +9,7 @@ use lib "$Bin/../lib";
 use RUM::Script::MakeGuAndGnu;
 use RUM::TestUtils;
 
-sub all_ok {
-    my ($type) = @_;
+for my $type (qw(paired single)) {
     my $u  = temp_filename(TEMPLATE => "$type-unique.XXXXXX");
     my $nu = temp_filename(TEMPLATE => "$type-non-unique.XXXXXX");
     @ARGV = ("$INPUT_DIR/X.1",
@@ -21,6 +20,3 @@ sub all_ok {
     no_diffs($u,  "$EXPECTED_DIR/$type-unique", "$type unique");
     no_diffs($nu, "$EXPECTED_DIR/$type-non-unique", "$type non-unique");
 }
-
-all_ok("paired");
-all_ok("single");
