@@ -7,7 +7,7 @@ use Test::More tests => 2;
 use FindBin qw($Bin);
 use File::Copy;
 use lib "$Bin/../lib";
-#use RUM::Script::ParseBlatOut;
+use RUM::Script::MergeBowtieAndBlat;
 use RUM::TestUtils;
 
 my $blat_non_unique_tmp = temp_filename(
@@ -32,9 +32,9 @@ for my $type (qw(paired)) {
              "--unique-out", $merged_unique,
              "--non-unique-out", $merged_non_unique, 
              "--$type",
-             "--read-length", 75);
-    #RUM::Script::ParseBlatOut->main();
-    system("perl $Bin/../bin/merge_Bowtie_and_Blat.pl @ARGV");
+             "--read-length", 75,
+             "--quiet");
+    RUM::Script::MergeBowtieAndBlat->main();
     no_diffs($merged_unique,     "$EXPECTED_DIR/RUM_Unique_temp.1");
     no_diffs($merged_non_unique, "$EXPECTED_DIR/RUM_NU_temp.1");
 }

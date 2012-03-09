@@ -20,7 +20,8 @@ my $non_unique = temp_filename(TEMPLATE => "non-unique.XXXXXX");
    "--blat-in", $blat_results,
    "--mdust-in", $mdust_results,
    "--unique-out", $unique,
-   "--non-unique-out", $non_unique);
+   "--non-unique-out", $non_unique,
+   "-q");
 RUM::Script::ParseBlatOut->main();
 no_diffs($unique, "$EXPECTED_DIR/BlatUnique.1");
 no_diffs($non_unique, "$EXPECTED_DIR/BlatNU.1");
