@@ -2,6 +2,9 @@ package RUM::Script::ParseBlatOut;
 
 no warnings;
 
+use RUM::Usage;
+use RUM::Logging;
+use Getopt::Long;
 use RUM::Common qw(getave addJunctionsToSeq);
 
 $| = 1;
@@ -21,51 +24,42 @@ $| = 1;
 
 sub main {
 
-    if (@ARGV < 5) {
-        die "
-Usage: parse_blat_out.pl <seq file> <blat file> <mdust file> <blat unique outfile> <blat nu outfile> [options]
+    GetOptions(
+        "reads-in=s" => \(my $seqfile),
+        "blat-in=s" => \(my $blatfile),
+        "mdust-in=s" => \(my $mdustfile),
+        "unique-out=s" => \(my $outfile1),
+        "non-unique-out=s" => \(my $outfile2),
+        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
+        "num-insertions-allowed=s" => \(my $num_insertions_allowed = 1),
+        "match-length-cutoff=s"    => \(my $match_length_cutoff = 0),
+        "dna" => \(my $dna),
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) },
+    );
 
-Where: <seq file> is a the fasta file of reads output from make_unmapped_file.pl
+    $seqfile or RUM::Usage->bad(
+        "Please provide a file of unmapped reads with --reads-in");
+    $blatfile or RUM::Usage->bad(
+        "Please provide the file produced by blat with --blat-in");
+    $mdustfile or RUM::Usage->bad(
+        "Please provide the file produced by mdust with --mdust-in");
+    $outfile1 or RUM::Usage->bad(
+        "Specify an output file for unique mappers with --unique-out");
+    $outfile2 or RUM::Usage->bad(
+        "Specify an output file for non-unique mappers with --non-unique-out");
+    
+    # Check command-line args
+    $num_insertions_allowed =~ /^\d+$/ or RUM::Usage->bad(
+        "If you provide --num-insertions-allowed, it must be an integer");
+    $match_length_cutoff =~ /^\d+$/ or RUM::Usage->bad(
+        "If you provide --match-length-cutoff, it must be an integer");
 
-       <blat file> is the file output from blat being run on <seq file>
+    $num_blocks_allowed = $dna ? 1 : 1000;
 
-       <mdust file> is the file output from mdust being run on <seq file>
-
-       <blat unique outfile> is the name of the output file of unique blat mappers
-
-       <blat nu outfile> is the name of the output file of non-unique blat mappers
-
-Option: 
-       -maxpairdist N : N is an integer greater than zero representing
-                        the furthest apart the forward and reverse reads
-                        can be.  They could be separated by an exon/exon
-                        junction so this number can be as large as the largest
-                        intron.  Default value = 500,000
-
-       -dna           : set this flag if aligning dna sequence data
-
-       -match_length_cutoff  : set this min length alignment to be reported
-
-       -num_insertions_allowed n : allow n insertions in one read.  The default
-                                   is n=1.  Setting n>1 only allowed for single
-                                   end reads.  Don't raise it unless you know
-                                   what you are doing, because it can greatly 
-                                   increase the false alignments.
-
-* All three files should preferrably be in order by sequence number,
-and if paired end the a's come before the b's.  The blat file will
-be checked for this and fixed if not, the other two are not checked,
-so make sure they conform.
-
-";}
-
-    $seqfile = $ARGV[0];
-    $blatfile = $ARGV[1];
-    $mdustfile = $ARGV[2];
-    $outfile1 = $ARGV[3];
-    $outfile2 = $ARGV[4];
-
-    open(BLATHITS, $blatfile) or die "\nERROR: in script parse_blat_out.pl: cannot open the file '$blatfile' for reading\n\n";
+    open(BLATHITS, "<", $blatfile) 
+        or die "Can't open $blatfile for reading: $!";
     # check the blat file is in sorted order
     # print "Checking that the blat file is in correctly sorted order.\n";
     $line = <BLATHITS>;
@@ -138,7 +132,7 @@ so make sure they conform.
         $N = -s $blatfile;
         $M = -s $blatfile_sorted;
         if ($N != $M) {
-            die "\nERROR: in script parse_blat_out.pl: I tried to sort the blat file but the sorted file is not the same size as the original.\n\n";
+            die "I tried to sort the blat file but the sorted file is not the same size as the original.";
         } else {
             print STDERR "The blat file is now sorted properly.\n";
             print "The blat file is now sorted properly.\n";
@@ -162,50 +156,19 @@ so make sure they conform.
     $last_seq_num = $a[9];
     $last_seq_num =~ s/[^\d]//g;
 
-    open(BLATHITS, $blatfile) or die "\nERROR: in script parse_blat_out.pl: cannot open the file '$blatfile' for reading\n\n";
-    open(SEQFILE, $seqfile) or die "\nERROR: in script parse_blat_out.pl: cannot open the file '$seqfile' for reading\n\n";
-    open(MDUST, $mdustfile) or die "\nERROR: in script parse_blat_out.pl: cannot open the file '$mdustfile' for reading\n\n";
-    open(RESULTS, ">$outfile1") or die "\nERROR: in script parse_blat_out.pl: cannot open the file '$outfile1' for writing\n\n";
-    open(RESULTS2, ">$outfile2") or die "\nERROR: in script parse_blat_out.pl: cannot open the file '$outfile2' for writing\n\n";
-
-    $max_distance_between_paired_reads = 500000;
-    $dna = 'false';
-    $num_blocks_allowed = 1000;
-    $num_insertions_allowed = 1;
-    $match_length_cutoff = 0;
-    for ($i=5; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if ($ARGV[$i] eq "-maxpairdist") {
-            $i++;
-            $max_distance_between_paired_reads = $ARGV[$i];
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-dna") {
-            $dna = 'true';
-            $num_blocks_allowed = 1;
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-num_insertions_allowed") {
-            $i++;
-            $num_insertions_allowed = $ARGV[$i];
-            if ($ARGV[$i] =~ /^\d+$/) {
-                $optionrecognized = 1;
-            }
-        }
-        if ($ARGV[$i] eq "-match_length_cutoff") {
-            $i++;
-            $match_length_cutoff = $ARGV[$i];
-            if ($ARGV[$i] =~ /^\d+$/) {
-                $optionrecognized = 1;
-            }
-        }
-        if ($optionrecognized == 0) {
-            die "\nERROR: in script parse_blat_out.pl: option '$ARGV[$i-1] $ARGV[$i]' not recognized\n";
-        }
-    }
+    open(BLATHITS, "<", $blatfile)
+        or die "Can't open $blatfile for reading: $!";
+    open(SEQFILE, "<", $seqfile) 
+        or die "Can't open $seqfile for rading: $!";
+    open(MDUST, "<", $mdustfile) 
+        or die "Can't open $mdustfile for reading: $!";
+    open(RESULTS, ">", $outfile1) 
+        or die "Can't open $outfile1 for writing: $!";
+    open(RESULTS2, ">", $outfile2) 
+        or die "Can't open $outfile2 for writing: $!";
 
     if ($num_insertions_allowed > 1 && $paired_end eq "true") {
-        die "\nERROR: in script parse_blat_out.pl: for paired end data, you cannot set -num_insertions_allowed to be greater than 1.\n\n";
+        die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
     }
 
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
