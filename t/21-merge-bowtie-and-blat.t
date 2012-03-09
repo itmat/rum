@@ -19,6 +19,7 @@ my $bowtie_non_unique = "$INPUT_DIR/BowtieNU.1";
 my $blat_non_unique   = "$INPUT_DIR/BlatNU.1";
 
 my $merged_unique     = temp_filename(TEMPLATE => "unique.XXXXXX");
+
 my $merged_non_unique = temp_filename(TEMPLATE => "non-unique.XXXXXX");
 
 copy $blat_non_unique, $blat_non_unique_tmp;
