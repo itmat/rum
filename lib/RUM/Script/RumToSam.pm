@@ -12,15 +12,12 @@ $|=1;
 
 sub main {
 
-    $suppress1 = "false";
-    $suppress2 = "false";
-    $suppress3 = "false";
     $map_names = "false";
 
     GetOptions(
-        "suppress1" => sub { $suppress1 = "true" },
-        "suppress2" => sub { $suppress2 = "true" },
-        "suppress3" => sub { $suppress3 = "true" });
+        "suppress1" => \(my $suppress1),
+        "suppress2" => \(my $suppress2),
+        "suppress3" => \(my $suppress3));
 
     for ($i=5; $i<@ARGV; $i++) {
         $optionrecognized = 0;
@@ -907,9 +904,9 @@ sub main {
                 $forward_record = $forward_record . "\tIH:i:$num_mappers\tHI:i:$MM";
 
                 $forward_record = $forward_record . "\n";
-                if ($suppress2 eq "true" && $forward_record =~ /\*\t=/) {
+                if ($suppress2 && $forward_record =~ /\*\t=/) {
                     # do nothing
-                } elsif ($suppress3 eq "true" && ($forward_record =~ /\*\t=/ || $reverse_record =~ /\*\t=/)) {
+                } elsif ($suppress3 && ($forward_record =~ /\*\t=/ || $reverse_record =~ /\*\t=/)) {
                     # do nothing
                 } else {
                     print SAM $forward_record;
@@ -946,9 +943,9 @@ sub main {
                     $reverse_record = $reverse_record . "\tIH:i:$num_mappers\tHI:i:$MM";
 
                     $reverse_record = $reverse_record . "\n";
-                    if ($suppress2 eq "true" && $reverse_record =~ /\*\t=/) {
+                    if ($suppress2 && $reverse_record =~ /\*\t=/) {
                         # do nothing
-                    } elsif ($suppress3 eq "true" && ($forward_record =~ /\*\t=/ || $reverse_record =~ /\*\t=/)) {
+                    } elsif ($suppress3 && ($forward_record =~ /\*\t=/ || $reverse_record =~ /\*\t=/)) {
                         # do nothing
                     } else {
                         print SAM $reverse_record;
@@ -967,7 +964,7 @@ sub main {
                     $record = "seq.$seqnum";
                 }
                 $record = $record . "\t4\t*\t0\t255\t*\t*\t0\t0\t$forward_read\t$forward_qual\n";
-                if ($suppress1 eq "false" && $suppress2 eq "false" && $suppress3 eq "false") {
+                unless ($suppress1 || $suppress2 || $suppress3) {
                     print SAM $record;
                 }
             } else {
@@ -985,7 +982,7 @@ sub main {
                     $record = $record . "seq.$seqnum";
                 }
                 $record = $record . "\t141\t*\t0\t255\t*\t*\t0\t0\t$reverse_read\t$reverse_qual\n";
-                if ($suppress1 eq "false" && $suppress2 eq "false" && $suppress3 eq "false") {
+                unless ($suppress1 || $suppress2 || $suppress3) {
                     print SAM $record;
                 }
             }
