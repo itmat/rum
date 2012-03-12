@@ -3,6 +3,9 @@
    2 SCRIPTSDIR/sort_RUM_by_id.pl
    1 SCRIPTSDIR/rum2sam.pl
    1 SCRIPTSDIR/removedups.pl
+   1 SCRIPTSDIR/limit_NU.pl
+   1 SCRIPTSDIR/get_nu_stats.pl
+
 *  1 SCRIPTSDIR/parse_blat_out.pl
 *  1 SCRIPTSDIR/merge_GU_and_TU.pl
 *  1 SCRIPTSDIR/merge_GNU_and_TNU_and_CNU.pl
@@ -10,6 +13,4 @@
 *  1 SCRIPTSDIR/make_unmapped_file.pl
 *  1 SCRIPTSDIR/make_TU_and_TNU.pl
 *  1 SCRIPTSDIR/make_GU_and_GNU.pl
-   1 SCRIPTSDIR/limit_NU.pl
-   1 SCRIPTSDIR/get_nu_stats.pl
 *  1 SCRIPTSDIR/RUM_finalcleanup.pl
