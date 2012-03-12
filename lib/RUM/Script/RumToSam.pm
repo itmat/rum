@@ -18,7 +18,8 @@ sub main {
         "suppress1" => \(my $suppress1),
         "suppress2" => \(my $suppress2),
         "suppress3" => \(my $suppress3),
-        "sam-out=s" => \(my $sam_outfile));
+        "sam-out=s" => \(my $sam_outfile),
+        "quals-in=s" => \(my $qual_file));
 
     for ($i=5; $i<@ARGV; $i++) {
         $optionrecognized = 0;
@@ -53,12 +54,6 @@ sub main {
         $non_uniquers = "false";
     }
     $reads_file = $ARGV[2];
-    $qual_file = $ARGV[3];
-    $quals = "true";
-    if ($ARGV[3] =~ /none/ || $ARGV[3] =~ /.none./) {
-        $quals = "false";
-    }
-
 
     open(INFILE, $reads_file);
     $line = <INFILE>;
@@ -68,7 +63,7 @@ sub main {
     $line = <INFILE>;
     chomp($line);
     $readlength = length($line);
-    if ($quals eq "false") {
+    unless ($qual_file) {
         $QUAL{$readlength} = ".";
     }
     $line = <INFILE>;
@@ -152,7 +147,7 @@ sub main {
         open(RUMNU, $rum_nu_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_nu_file' for reading\n\n";
     }
 
-    if ($quals eq "true") {
+    if ($qual_file) {
         open(QUALS, $qual_file);
     }
     open(SAM, ">$sam_outfile");
@@ -169,7 +164,7 @@ sub main {
         chomp($forward_read);
         $forward_read_hold = $forward_read;
         $readlength_forward = length($forward_read);
-        if ($quals eq "false" && !($QUAL{$readlength_forward} =~ /\S/)) {
+        if ((!$qual_file) && !($QUAL{$readlength_forward} =~ /\S/)) {
             $QUAL{$readlength_forward} = ".";
         }
         if ($paired eq "true") {
@@ -178,12 +173,12 @@ sub main {
             chomp($reverse_read);
             $reverse_read_hold = $reverse_read;
             $readlength_reverse = length($reverse_read);
-            if ($quals eq "false" && !($QUAL{$readlength_reverse} =~ /\S/)) {
+            if ((!$qual_file) && !($QUAL{$readlength_reverse} =~ /\S/)) {
                 $QUAL{$readlength_reverse} = ".";
             }
         }
 
-        if ($quals eq "true") {
+        if ($qual_file) {
             $forward_qual = <QUALS>;
             $forward_qual = <QUALS>;
             chomp($forward_qual);

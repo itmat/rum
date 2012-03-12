@@ -19,24 +19,30 @@ my $sam_out = temp_filename(TEMPLATE => "sam.XXXXXX");
 
 my %configs = (
     u_nu_quals => [$unique_in, $non_unique_in, $reads_in, $quals_in],
-    nu_quals   => ["none", $non_unique_in, $reads_in, $quals_in],
-    u_quals    => [$unique_in, "none", $reads_in, $quals_in],
-    u_nu       => [$unique_in, $non_unique_in, $reads_in, "none"],
-    nu         => ["none", $non_unique_in, $reads_in, "none"],
-    u          => [$unique_in, "none", $reads_in, "none"],
+    nu_quals   => ["none",     $non_unique_in, $reads_in, $quals_in],
+    u_quals    => [$unique_in, "none",         $reads_in, $quals_in],
+    u_nu       => [$unique_in, $non_unique_in, $reads_in, undef],
+    nu         => ["none",     $non_unique_in, $reads_in, undef],
+    u          => [$unique_in, "none",         $reads_in, undef],
 );
 
 
 while (my ($name, $args) = each %configs) {
-    @ARGV = @$args;
+    my ($unique, $non_unique, $reads, $quals) = @$args;
     my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
-    system("$Bin/../bin/rum2sam.pl @ARGV --sam-out $out");
+
+    @ARGV = ($unique, $non_unique, $reads, "--sam-out", $out);
+    push @ARGV, "--quals-in", $quals if $quals;
+    system("$Bin/../bin/rum2sam.pl @ARGV");
     no_diffs($out, "$EXPECTED_DIR/$name.sam", $name);
 }
 
 for my $suppress (1, 2, 3) {
+    
     my $name = "suppress$suppress";
     my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
+    @ARGV = ($unique_in, $non_unique_in, $reads_in, "--sam-out", $sam_out, "--quals-in", $quals_in);
+    push @ARGV, "-suppress$suppress";
     system("$Bin/../bin/rum2sam.pl @ARGV --sam-out $out -suppress$suppress");
     no_diffs($out, "$EXPECTED_DIR/$name.sam", $name);
 }
