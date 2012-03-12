@@ -3,6 +3,7 @@ package RUM::Script::LimitNU;
 use strict;
 no warnings;
 
+use File::Copy;
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
@@ -19,12 +20,18 @@ sub main {
         "verbose|v"  => sub { $log->more_logging(1) },
         "quiet|q"    => sub { $log->less_logging(1) });
 
-    $cutoff && $cutoff > 0 or RUM::Usage->bad(
-        "Please specify a positive cutoff with --cutoff or -n");
+    #$cutoff && $cutoff > 0 or RUM::Usage->bad(
+    #    "Please specify a positive cutoff with --cutoff or -n");
     $outfile_name or RUM::Usage->bad(
         "Please specify an output file with --output or -o");
     my $infile_name = $ARGV[0] or RUM::Usage->bad(
         "Please provide an input file");
+
+    if (!int($cutoff)) {
+        $log->info("Not filtering out mappers");
+        copy($infile_name, $outfile_name);
+        
+    }
 
     $log->info("Filtering out mappers that appear $cutoff times or more");
    
