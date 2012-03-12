@@ -29,6 +29,8 @@ Please provide the F<rum_file> on the command line, where is the
 RUM_Unique or RUM_NU file output from the RUM pipeline, and the output
 file with B<-o> or B<--output>. Other arguments are optional.
 
+=over 4
+
 =item B<-o>, B<--output> I<sorted_file>
 
 The output file.

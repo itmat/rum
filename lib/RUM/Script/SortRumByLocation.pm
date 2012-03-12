@@ -21,13 +21,12 @@ sub main {
         "separate" => \(my $separate = 0),
         "ram=s"    => \(my $ram = 6),
         "max-chunk-size=s" => \(my $maxchunksize),
-        "allow-small-chunks=s" => \(my $allowsmallchunks = 0),
+        "allow-small-chunks" => \(my $allowsmallchunks = 0),
         "name=s" => \(my $name),
         "help|h"    => sub { RUM::Usage->help },
         "verbose|v" => sub { $log->more_logging(1) },
         "quiet|q"   => sub { $log->less_logging(1) });
         
-
     my $infile = $ARGV[0] or RUM::Usage->bad(
         "Please specify an input file");
 
@@ -43,7 +42,7 @@ sub main {
     print OUTFILE "0";
     close(OUTFILE);
     
-    my $maxchunksize_specified = "false";
+    my $maxchunksize_specified;
     my $name;
 
     if (defined($ram)) {
@@ -52,7 +51,7 @@ sub main {
     }
         
     if (defined($maxchunksize)) {
-        $maxchunksize_specified = "true";
+        $maxchunksize_specified = 1;
         int($maxchunksize) > 0 or RUM::Usage->bad(
             "--max-chunk-size must be a positive integer; you gave $ram");
     }
@@ -67,7 +66,10 @@ sub main {
     }
     
     my $max_count_at_once;
-    if ($maxchunksize_specified eq "false") {
+    if ($maxchunksize_specified) {
+        $max_count_at_once = $maxchunksize;
+    }
+    else {
         if ($ram >= 7) {
             $max_count_at_once = 10000000;
         } elsif ($ram >=6) {
@@ -83,14 +85,11 @@ sub main {
         } else {
             $max_count_at_once = 1500000;
         }
-    } else {
-        $max_count_at_once = $maxchunksize;
     }
     my $chr_counts = doEverything(max_count_at_once => $max_count_at_once,
                                   separate => $separate,
                                   outfile => $outfile,
-                                  infile  => $infile
-              );
+                                  infile  => $infile);
 
     my $size_input = -s $infile;
     my $size_output = -s $outfile;
