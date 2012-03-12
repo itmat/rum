@@ -49,9 +49,6 @@ Copyright 2012 University of Pennsylvania
 
 use strict;
 use warnings;
-
-
-
 use Pod::Usage;
 
 sub help {
@@ -65,6 +62,9 @@ sub man {
 
 sub bad {
     my ($class, $msg) = @_;
+    my ($package) = caller(0);
+    my $log = RUM::Logging->get_logger();
+    $log->fatal("Improper usage of $package->main(): $msg");
     pod2usage("\n$msg\n");
 }
 
