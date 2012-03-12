@@ -17,7 +17,8 @@ sub main {
     GetOptions(
         "suppress1" => \(my $suppress1),
         "suppress2" => \(my $suppress2),
-        "suppress3" => \(my $suppress3));
+        "suppress3" => \(my $suppress3),
+        "sam-out=s" => \(my $sam_outfile));
 
     for ($i=5; $i<@ARGV; $i++) {
         $optionrecognized = 0;
@@ -57,7 +58,6 @@ sub main {
     if ($ARGV[3] =~ /none/ || $ARGV[3] =~ /.none./) {
         $quals = "false";
     }
-    $sam_outfile = $ARGV[4];
 
 
     open(INFILE, $reads_file);
