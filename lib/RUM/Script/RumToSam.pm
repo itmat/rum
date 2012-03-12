@@ -21,7 +21,9 @@ sub main {
         "sam-out=s" => \(my $sam_outfile),
         "quals-in=s" => \(my $qual_file),
         "reads-in=s" => \(my $reads_file),
-        "non-unique-in=s" => \(my $rum_nu_file));
+        "non-unique-in=s" => \(my $rum_nu_file),
+        "unique-in=s" => \(my $rum_unique_file),
+    );
 
     for ($i=5; $i<@ARGV; $i++) {
         $optionrecognized = 0;
@@ -41,13 +43,6 @@ sub main {
         if ($optionrecognized == 0) {
             die "\nERROR: in script rum2sam.pl: option '$ARGV[$i]' not recognized\n";
         }
-    }
-
-
-    $rum_unique_file = $ARGV[0];
-    $uniquers = "true";
-    if ($ARGV[0] =~ /none/ || $ARGV[0] =~ /.none./) {
-        $uniquers = "false";
     }
 
     open(INFILE, $reads_file);
@@ -87,7 +82,7 @@ sub main {
     $bitflag[9] = "the read fails platform/vendor quality checks";
     $bitflag[10] = "the read is either a PCR duplicate or an optical duplicate";
 
-    if ($uniquers eq "true") {
+    if ($rum_unique_file) {
         open(RUMU, $rum_unique_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_unique_file' for reading\n\n";
     }
     if ($rum_nu_file) {
@@ -97,7 +92,7 @@ sub main {
 
     # checking that the first line in RUMU really looks like it should:
 
-    if ($uniquers eq "true") {
+    if ($rum_unique_file) {
         $line = <RUMU>;
         close(RUMU);
         @a = split(/\t/,$line);
@@ -195,7 +190,7 @@ sub main {
         $FORWARD[0] = "";
         $REVERSE[0] = "";
         $JOINED[0] = "";
-        if ($uniquers eq "true") {
+        if ($rum_unique_file) {
             $flag = 0;
         } else {
             $flag = 1;
