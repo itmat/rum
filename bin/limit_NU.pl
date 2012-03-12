@@ -30,6 +30,8 @@ reads count as one forward and one reverse.
 Please provide an input file on the command line and specify the
 output file and cutoff with these options:
 
+=over 4
+
 =item B<-o>, B<--output> I<outfile>
 
 The output file.

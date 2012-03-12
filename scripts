@@ -1,9 +1,9 @@
    4 SCRIPTSDIR/rum2quantifications.pl
    2 SCRIPTSDIR/sort_RUM_by_location.pl
    1 SCRIPTSDIR/rum2sam.pl
-   1 SCRIPTSDIR/limit_NU.pl
    1 SCRIPTSDIR/get_nu_stats.pl
 
+*  1 SCRIPTSDIR/limit_NU.pl
 *  1 SCRIPTSDIR/removedups.pl
 *  2 SCRIPTSDIR/sort_RUM_by_id.pl
 *  1 SCRIPTSDIR/parse_blat_out.pl

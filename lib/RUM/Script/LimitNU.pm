@@ -25,12 +25,14 @@ sub main {
         "Please specify an output file with --output or -o");
     my $infile_name = $ARGV[0] or RUM::Usage->bad(
         "Please provide an input file");
-    
+
+    $log->info("Filtering out mappers that appear $cutoff times or more");
+   
     my (%hash_a, %hash_b);
 
     open my $infile, "<", $infile_name
         or die "Can't open $infile_name for reading: $!";
-    $log->info("Filtering out mappers that appear more $cutoff times or more");
+
     while (defined (my $line = <$infile>)) {
         $line =~ /seq.(\d+)([^\d])/;
         my $seqnum = $1;
@@ -43,7 +45,7 @@ sub main {
         }
     }
     close($infile);
-    
+
     open my $infile, "<", $infile_name
         or die "Can't open $infile_name for reading: $!";
     open my $outfile, ">", $outfile_name 
