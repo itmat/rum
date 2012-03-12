@@ -78,13 +78,13 @@ yes|unlink OUTDIR/BlatNU.CHUNK
 
 perl SCRIPTSDIR/RUM_finalcleanup.pl --unique-in OUTDIR/RUM_Unique_temp.CHUNK --non-unique-in OUTDIR/RUM_NU_temp.CHUNK --unique-out OUTDIR/RUM_Unique_temp2.CHUNK --non-unique-out OUTDIR/RUM_NU_temp2.CHUNK --genome GENOMEFA --sam-header-out OUTDIR/sam_header.CHUNK --faok COUNTMISMATCHES MATCHLENGTHCUTOFF 2>> ERRORFILE.CHUNK || exit 1
 echo "finished cleaning up final results" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
-perl SCRIPTSDIR/sort_RUM_by_id.pl OUTDIR/RUM_NU_temp2.CHUNK OUTDIR/RUM_NU_idsorted.CHUNK 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/sort_RUM_by_id.pl OUTDIR/RUM_NU_temp2.CHUNK -o OUTDIR/RUM_NU_idsorted.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished sorting NU" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 perl SCRIPTSDIR/removedups.pl OUTDIR/RUM_NU_idsorted.CHUNK OUTDIR/RUM_NU_temp3.CHUNK OUTDIR/RUM_Unique_temp2.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished removing dups in RUM_NU" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 
 perl SCRIPTSDIR/limit_NU.pl OUTDIR/RUM_NU_temp3.CHUNK LIMITNUCUTOFF > OUTDIR/RUM_NU.CHUNK 2>> ERRORFILE.CHUNK || exit 1
-perl SCRIPTSDIR/sort_RUM_by_id.pl OUTDIR/RUM_Unique_temp2.CHUNK OUTDIR/RUM_Unique.CHUNK 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/sort_RUM_by_id.pl OUTDIR/RUM_Unique_temp2.CHUNK -o OUTDIR/RUM_Unique.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished sorting Unique" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 
 ls -l OUTDIR/RUM_Unique_temp.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
