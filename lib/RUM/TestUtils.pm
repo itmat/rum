@@ -40,7 +40,8 @@ use RUM::Repository qw(download);
 use FindBin qw($Bin);
 use File::Temp;
 
-our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR);
+our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR
+                 is_sorted_by_location);
 our @EXPORT_OK = qw(download_file download_test_data no_diffs
                     is_sorted_by_location);
 our %EXPORT_TAGS = (
