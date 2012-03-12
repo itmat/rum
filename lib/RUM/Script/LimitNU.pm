@@ -30,7 +30,7 @@ sub main {
     if (!int($cutoff)) {
         $log->info("Not filtering out mappers");
         copy($infile_name, $outfile_name);
-        
+        return 0;
     }
 
     $log->info("Filtering out mappers that appear $cutoff times or more");
