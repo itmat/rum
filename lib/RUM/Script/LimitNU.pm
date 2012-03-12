@@ -32,6 +32,8 @@ sub main {
 
     open my $infile, "<", $infile_name
         or die "Can't open $infile_name for reading: $!";
+    open my $outfile, ">", $outfile_name 
+        or die "Can't open $outfile_name for writing: $!";
 
     while (defined (my $line = <$infile>)) {
         $line =~ /seq.(\d+)([^\d])/;
@@ -44,12 +46,8 @@ sub main {
             $hash_b{$seqnum}++;
         }
     }
-    close($infile);
 
-    open my $infile, "<", $infile_name
-        or die "Can't open $infile_name for reading: $!";
-    open my $outfile, ">", $outfile_name 
-        or die "Can't open $outfile_name for writing: $!";
+    seek($infile, 0, 0);
     while(defined (my $line = <$infile>)) {
         $line =~ /seq.(\d+)[^\d]/;
         my $seqnum = $1;
