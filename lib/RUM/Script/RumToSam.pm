@@ -23,26 +23,23 @@ sub main {
         "reads-in=s" => \(my $reads_file),
         "non-unique-in=s" => \(my $rum_nu_file),
         "unique-in=s" => \(my $rum_unique_file),
+        "name-mapping=s" => \(my $name_mapping_file)
     );
 
-    for ($i=5; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if ($ARGV[$i] eq "-name_mapping") {
-            $map_names = "true";
-            $i++;
-            $name_mapping_file = $ARGV[$i];
-            open(NAMEMAPPING, $name_mapping_file) or die "ERROR: in script parsefastq.pl, cannot open \"$name_mapping_file\" for reading.\n\n";
-            while ($line = <NAMEMAPPING>) {
-                chomp($line);
-                @a = split(/\t/,$line);
-                $namemapping{$a[0]} = $a[1];
-            }
-            close(NAMEMAPPING);
-            $optionrecognized = 1;
+    $sam_outfile or RUM::Usage->bad(
+        "Please specify an output file with --sam-out");
+    $reads_file or RUM::Usage->bad(
+        "Please specify a reads file with --reads-in");
+
+    if ($name_mapping_file) {
+        $map_names = "true";
+        open(NAMEMAPPING, $name_mapping_file) or die "ERROR: in script parsefastq.pl, cannot open \"$name_mapping_file\" for reading.\n\n";
+        while ($line = <NAMEMAPPING>) {
+            chomp($line);
+            @a = split(/\t/,$line);
+            $namemapping{$a[0]} = $a[1];
         }
-        if ($optionrecognized == 0) {
-            die "\nERROR: in script rum2sam.pl: option '$ARGV[$i]' not recognized\n";
-        }
+        close(NAMEMAPPING);
     }
 
     open(INFILE, $reads_file);

@@ -16,11 +16,11 @@ rum2sam.pl - Convert RUM files into a sam file
 
 =head1 SYNOPSIS
 
-rum2sam.pl [OPTIONS] --unique-in <rum_unique_file> --non-unique-in
-<rum_nu_file> --reads-in <reads_file> --quals-in <quals_file>
---sam-out <sam_outfile>
+rum2sam.pl [OPTIONS] --reads-in --sam-out <sam_outfile>
 
 =head1 OPTIONS
+
+=over 4
 
 =item B<--unique-in> I<rum_unique_file>
 
@@ -30,7 +30,7 @@ The file of unique mappers.
 
 The file of non-unique mappers.
 
-=item B<--reads-in> I<reads_file>
+=item B<--reads-in> I<reads_file> (required)
 
 The fasta file of reads, from parse2fasta.pl.
 
@@ -38,7 +38,7 @@ The fasta file of reads, from parse2fasta.pl.
 
 The fasta file of qualities from fastq2qualities.pl
 
-=item B<-o>, B<--sam-out> I<sam_outfile>
+=item B<-o>, B<--sam-out> I<sam_outfile> (required)
 
 The output file.
 
@@ -58,5 +58,7 @@ Don't report records unless both forward and reverse mapped.
 
 If set, will use F<name_mapping_file> to map names in the rum file to
 names in the sam file.
+
+=back
 
 =cut

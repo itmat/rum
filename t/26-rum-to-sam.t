@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 9;
+use Test::More tests => 10;
 use FindBin qw($Bin);
 use File::Copy;
 use lib "$Bin/../lib";
@@ -14,7 +14,7 @@ my $unique_in     = "$INPUT_DIR/RUM_Unique.1";
 my $non_unique_in = "$INPUT_DIR/RUM_NU.1";
 my $reads_in      = "$INPUT_DIR/reads.fa.1";
 my $quals_in      = "$INPUT_DIR/quals.fa.1";
-
+my $name_map      = "$INPUT_DIR/name-map";
 my %configs = (
     u_nu_quals => [$unique_in, $non_unique_in, $reads_in, $quals_in],
     nu_quals   => [undef,      $non_unique_in, $reads_in, $quals_in],
@@ -50,4 +50,18 @@ for my $suppress (1, 2, 3) {
              "--suppress$suppress");
     RUM::Script::RumToSam->main();
     no_diffs($out, "$EXPECTED_DIR/$name.sam", $name);
+}
+{
+    my $name = "name-mapping";
+    my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
+    @ARGV = ("--unique", $unique_in, 
+             "--non-unique", $non_unique_in,
+             "--reads-in", $reads_in,
+             "--sam-out", $out, 
+             "--quals-in", $quals_in,
+             "--name-mapping", $name_map);
+    RUM::Script::RumToSam->main();
+    open my $in, "<", $out;
+    my @lines = grep { /(second|third)-(a|b)/ } (<$in>);
+    is(scalar(@lines), 4, "Name mapping");
 }
