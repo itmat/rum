@@ -101,7 +101,7 @@ yes|unlink OUTDIR/RUM_Unique_temp2.CHUNK
 yes|unlink OUTDIR/RUM_NU_temp2.CHUNK
 yes|unlink OUTDIR/RUM_NU_temp3.CHUNK
 yes|unlink OUTDIR/RUM_NU_idsorted.CHUNK
-perl SCRIPTSDIR/rum2sam.pl OUTDIR/RUM_Unique.CHUNK OUTDIR/RUM_NU.CHUNK READSFILE.CHUNK QUALSFILE.CHUNK OUTDIR/RUM.sam.CHUNK NAMEMAPPING.CHUNK 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/rum2sam.pl --unique-in OUTDIR/RUM_Unique.CHUNK --non-unique-in OUTDIR/RUM_NU.CHUNK --reads-in READSFILE.CHUNK --quals-in QUALSFILE.CHUNK --sam-out OUTDIR/RUM.sam.CHUNK NAMEMAPPING.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished converting to SAM" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 perl SCRIPTSDIR/get_nu_stats.pl OUTDIR/RUM.sam.CHUNK > OUTDIR/nu_stats.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished counting the nu mappers" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK

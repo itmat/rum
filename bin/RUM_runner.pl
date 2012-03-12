@@ -1558,13 +1558,13 @@ if($postprocess eq "false") {
         if($preserve_names eq "false") {
            $pipeline_file =~ s!NAMEMAPPING.CHUNK!!gs;
         } else {
-           $pipeline_file =~ s!NAMEMAPPING!-name_mapping $output_dir/read_names_mapping!gs;
+           $pipeline_file =~ s!NAMEMAPPING!--name-mapping $output_dir/read_names_mapping!gs;
         }
         $pipeline_file =~ s!OUTDIR!$output_dir!gs;
         if($quals eq "false") {
-    	   $pipeline_file =~ s!QUALSFILE.CHUNK!none!gs;
+    	   $pipeline_file =~ s!QUALSFILE.CHUNK!!gs;
         } else {
-    	   $pipeline_file =~ s!QUALSFILE!$qualsfile!gs;
+    	   $pipeline_file =~ s!QUALSFILE!--quals-in $qualsfile!gs;
         }
         if($strandspecific eq 'true') {
            $pipeline_file =~ s/STRAND1s/-strand p/gs;
