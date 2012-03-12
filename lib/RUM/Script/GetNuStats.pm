@@ -63,4 +63,5 @@ sub main {
     for my $cnt (sort {$a<=>$b} keys %hash) {
         print $out "$cnt\t$hash{$cnt}\n";
     }
+    return 0;
 }
