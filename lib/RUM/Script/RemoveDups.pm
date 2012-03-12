@@ -99,4 +99,5 @@ sub main {
     }
     close(OUTFILE);
     close(OUTFILEU);
+    return 0;
 }
