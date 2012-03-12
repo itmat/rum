@@ -3,43 +3,55 @@
 # Written by Gregory R. Grant
 # University of Pennsylvania, 2010
 
-if(@ARGV<1) {
-  die "
-Usage: limit_NU.pl <RUM NU file> <cutoff>
+use strict;
+use warnings;
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use RUM::Script;
+RUM::Script->run_with_logging("RUM::Script::LimitNU");
 
-Where: <RUM NU file> is a file or non-unique mappers coming out of the RUM pipeline
+=head1 NAME
 
-       <cutoff> is a positive integer.  Alignments for reads for which the either the forward,
-                or reverse if it is paired-end, appear more than <cutoff> times in the RUM NU
-                file are filtered out.  Alignments of the joined reads count as one forward
-                and one reverse.
+limit_NU.pl - Remove non-unique mappers that appear more than a specified number of times.
 
-";
-}
+=head1 SYNOPSIS
 
-$cutoff = $ARGV[1];
+limit_NU.pl -o <outfile> -n <cutoff> <rum_nu_file>
 
-open(INFILE, $ARGV[0]);
-while($line = <INFILE>) {
-    $line =~ /seq.(\d+)([^\d])/;
-    $seqnum = $1;
-    $type = $2;
-    if($type eq "a" || $type eq "\t") {
-	$hash_a{$seqnum}++;
-    }
-    if($type eq "b" || $type eq "\t") {
-	$hash_b{$seqnum}++;
-    }
-}
-close(INFILE);
+=head1 DESCRIPTION
 
-open(INFILE, $ARGV[0]);
-while($line = <INFILE>) {
-    $line =~ /seq.(\d+)[^\d]/;
-    $seqnum = $1;
-    if($hash_a{$seqnum}+0 <= $cutoff && $hash_b{$seqnum}+0 <= $cutoff) {
-	print $line;
-    }
-}
-close(INFILE);
+Filters a non-unique mapper file so that alignments for reads for
+which the either the forward, or reverse if it is paired-end, appear
+more than <cutoff> times file are removed.  Alignments of the joined
+reads count as one forward and one reverse.
 
+=head1 OPTIONS
+
+Please provide an input file on the command line and specify the
+output file and cutoff with these options:
+
+=item B<-o>, B<--output> I<outfile>
+
+The output file.
+
+=item B<-n>, B<--cutoff> I<n>
+
+The threshold.
+
+=item B<-h>, B<--help>
+
+=item B<-v>, B<--verbose>
+
+=item B<-q>, B<--quiet>
+
+=back
+
+=head1 AUTHOR
+
+Gregory Grant (ggrant@grant.org)
+
+=head1 COPYRIGHT
+
+Copyright 2012 University of Pennsylvania
+
+=cut

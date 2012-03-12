@@ -83,7 +83,7 @@ echo "finished sorting NU" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 perl SCRIPTSDIR/removedups.pl OUTDIR/RUM_NU_idsorted.CHUNK OUTDIR/RUM_NU_temp3.CHUNK OUTDIR/RUM_Unique_temp2.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished removing dups in RUM_NU" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 
-perl SCRIPTSDIR/limit_NU.pl OUTDIR/RUM_NU_temp3.CHUNK LIMITNUCUTOFF > OUTDIR/RUM_NU.CHUNK 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/limit_NU.pl -o OUTDIR/RUM_NU_temp3.CHUNK -n LIMITNUCUTOFF 2>> ERRORFILE.CHUNK || exit 1
 perl SCRIPTSDIR/sort_RUM_by_id.pl OUTDIR/RUM_Unique_temp2.CHUNK -o OUTDIR/RUM_Unique.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished sorting Unique" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 
