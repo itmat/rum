@@ -18,10 +18,10 @@ my $quals_in      = "$INPUT_DIR/quals.fa.1";
 my %configs = (
     u_nu_quals => [$unique_in, $non_unique_in, $reads_in, $quals_in],
     nu_quals   => ["none",     $non_unique_in, $reads_in, $quals_in],
-    u_quals    => [$unique_in, "none",         $reads_in, $quals_in],
+    u_quals    => [$unique_in, undef,          $reads_in, $quals_in],
     u_nu       => [$unique_in, $non_unique_in, $reads_in, undef],
     nu         => ["none",     $non_unique_in, $reads_in, undef],
-    u          => [$unique_in, "none",         $reads_in, undef],
+    u          => [$unique_in, undef,          $reads_in, undef],
 );
 
 
@@ -29,9 +29,10 @@ while (my ($name, $args) = each %configs) {
     my ($unique, $non_unique, $reads, $quals) = @$args;
     my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
 
-    @ARGV = ($unique, $non_unique, "--sam-out", $out);
+    @ARGV = ($unique, "--sam-out", $out);
     push @ARGV, "--quals-in", $quals if $quals;
     push @ARGV, "--reads-in", $reads if $reads;
+    push @ARGV, "--non-unique", $non_unique if $non_unique;
     RUM::Script::RumToSam->main();
     no_diffs($out, "$EXPECTED_DIR/$name.sam", $name);
 }
@@ -40,7 +41,8 @@ for my $suppress (1, 2, 3) {
     
     my $name = "suppress$suppress";
     my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
-    @ARGV = ($unique_in, $non_unique_in,
+    @ARGV = ($unique_in, 
+             "--non-unique", $non_unique_in,
              "--reads-in", $reads_in,
              "--sam-out", $out, 
              "--quals-in", $quals_in,

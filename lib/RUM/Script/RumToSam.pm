@@ -20,7 +20,8 @@ sub main {
         "suppress3" => \(my $suppress3),
         "sam-out=s" => \(my $sam_outfile),
         "quals-in=s" => \(my $qual_file),
-        "reads-in=s" => \(my $reads_file));
+        "reads-in=s" => \(my $reads_file),
+        "non-unique-in=s" => \(my $rum_nu_file));
 
     for ($i=5; $i<@ARGV; $i++) {
         $optionrecognized = 0;
@@ -44,15 +45,9 @@ sub main {
 
 
     $rum_unique_file = $ARGV[0];
-    $rum_nu_file = $ARGV[1];
     $uniquers = "true";
     if ($ARGV[0] =~ /none/ || $ARGV[0] =~ /.none./) {
         $uniquers = "false";
-    }
-
-    $non_uniquers = "true";
-    if ($ARGV[1] =~ /none/ || $ARGV[1] =~ /.none./) {
-        $non_uniquers = "false";
     }
 
     open(INFILE, $reads_file);
@@ -95,7 +90,7 @@ sub main {
     if ($uniquers eq "true") {
         open(RUMU, $rum_unique_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_unique_file' for reading\n\n";
     }
-    if ($non_uniquers eq "true") {
+    if ($rum_nu_file) {
         open(RUMNU, $rum_nu_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_nu_file' for reading\n\n";
     }
     open(READS, $reads_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$reads_file' for reading\n\n";
@@ -124,7 +119,7 @@ sub main {
         }
         open(RUMU, $rum_unique_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_unique_file' for reading\n\n";
     }
-    if ($non_uniquers eq "true") {
+    if ($rum_nu_file) {
         $line = <RUMNU>;
         close(RUMNU);
         @a = split(/\t/,$line);
@@ -240,7 +235,7 @@ sub main {
                 $flag = 1;
             }
         }
-        if ($unique_mapper_found eq "false" && $non_uniquers eq "true") {
+        if ($unique_mapper_found eq "false" && $rum_nu_file) {
             $flag = 0;
             $num_mappers = 0;
             $last_type_found = "";
