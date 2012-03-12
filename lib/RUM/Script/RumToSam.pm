@@ -19,7 +19,8 @@ sub main {
         "suppress2" => \(my $suppress2),
         "suppress3" => \(my $suppress3),
         "sam-out=s" => \(my $sam_outfile),
-        "quals-in=s" => \(my $qual_file));
+        "quals-in=s" => \(my $qual_file),
+        "reads-in=s" => \(my $reads_file));
 
     for ($i=5; $i<@ARGV; $i++) {
         $optionrecognized = 0;
@@ -53,7 +54,6 @@ sub main {
     if ($ARGV[1] =~ /none/ || $ARGV[1] =~ /.none./) {
         $non_uniquers = "false";
     }
-    $reads_file = $ARGV[2];
 
     open(INFILE, $reads_file);
     $line = <INFILE>;

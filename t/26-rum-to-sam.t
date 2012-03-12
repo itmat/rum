@@ -31,8 +31,9 @@ while (my ($name, $args) = each %configs) {
     my ($unique, $non_unique, $reads, $quals) = @$args;
     my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
 
-    @ARGV = ($unique, $non_unique, $reads, "--sam-out", $out);
+    @ARGV = ($unique, $non_unique, "--sam-out", $out);
     push @ARGV, "--quals-in", $quals if $quals;
+    push @ARGV, "--reads-in", $reads if $reads;
     system("$Bin/../bin/rum2sam.pl @ARGV");
     no_diffs($out, "$EXPECTED_DIR/$name.sam", $name);
 }
@@ -41,7 +42,10 @@ for my $suppress (1, 2, 3) {
     
     my $name = "suppress$suppress";
     my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
-    @ARGV = ($unique_in, $non_unique_in, $reads_in, "--sam-out", $sam_out, "--quals-in", $quals_in);
+    @ARGV = ($unique_in, $non_unique_in,
+             "--reads-in", $reads_in,
+             "--sam-out", $sam_out, 
+             "--quals-in", $quals_in);
     push @ARGV, "-suppress$suppress";
     system("$Bin/../bin/rum2sam.pl @ARGV --sam-out $out -suppress$suppress");
     no_diffs($out, "$EXPECTED_DIR/$name.sam", $name);
