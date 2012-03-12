@@ -23,8 +23,10 @@ sub main {
         "reads-in=s" => \(my $reads_file),
         "non-unique-in=s" => \(my $rum_nu_file),
         "unique-in=s" => \(my $rum_unique_file),
-        "name-mapping=s" => \(my $name_mapping_file)
-    );
+        "name-mapping=s" => \(my $name_mapping_file),
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
 
     $sam_outfile or RUM::Usage->bad(
         "Please specify an output file with --sam-out");

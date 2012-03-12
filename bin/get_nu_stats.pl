@@ -1,43 +1,35 @@
+#!/usr/bin/perl
 
-if(@ARGV < 1) {
-    die "
-Usage: get_nu_stats.pl <sam file>
+# Written by Gregory R. Grant
+# University of Pennsylvania, 2010
 
-";
-}
+use strict;
+use warnings;
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use RUM::Script;
+RUM::Script->run_with_logging("RUM::Script::GetNuStats");
 
-$samfile = $ARGV[0];
+=head1 NAME
 
-open(INFILE, $samfile);
+get_nu_stats.pl - Read a sam file and print counts for non-unique mappers
 
-$doing = "seq.0";
-while($line = <INFILE>) {
-    if($line =~ /LN:\d+/) {
-	next;
-    } else {
-	last;
-    }
-}
-while($line = <INFILE>) {
-    $line =~ /^(\S+)\t.*IH:i:(\d+)\s/;
-    $id = $1;
-    $cnt = $2;
-    if(!($line =~ /IH:i:\d+/)) {
-	$doing = $id;
-	next;
-    }
-#    print "id=$id\n";
-#    print "cnt=$cnt\n";
-    if($doing eq $id) {
-	next;
-    } else {
-	$doing = $id;
-	$hash{$cnt}++;
-    }
-}
-close(INFILE);
+=head1 OPTIONS
 
-print "num_locs\tnum_reads\n";
-foreach $cnt (sort {$a<=>$b} keys %hash) {
-    print "$cnt\t$hash{$cnt}\n";
-}
+=over 4
+
+=item B<-o>, B<--output> I<out_file>
+
+The output file. Defaults to stdout.
+
+=back
+
+=head1 AUTHOR
+
+Gregory Grant (ggrant@grant.org)
+
+=head1 COPYRIGHT
+
+Copyright 2012 University of Pennsylvania
+
+=cut
