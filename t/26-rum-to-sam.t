@@ -31,12 +31,12 @@ while (my ($name, $args) = each %configs) {
     @ARGV = @$args;
     my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
     system("$Bin/../bin/rum2sam.pl @ARGV $out");
-    no_diffs($out, "$EXPECTED_DIR/$name.sam");
+    no_diffs($out, "$EXPECTED_DIR/$name.sam", $name);
 }
 
 for my $suppress (1, 2, 3) {
     my $name = "suppress$suppress";
     my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
     system("$Bin/../bin/rum2sam.pl @ARGV $out -suppress$suppress");
-    no_diffs($out, "$EXPECTED_DIR/$name.sam");
+    no_diffs($out, "$EXPECTED_DIR/$name.sam", $name);
 }

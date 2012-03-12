@@ -12,49 +12,18 @@ $|=1;
 
 sub main {
 
-    if (@ARGV < 5) {
-        die "
-Usage: rum2sam.pl <rum unique file> <rum nu file> <reads file> <quals file> <sam outfile> [options]
-
-<reads file> and <qual file> are the files coming from parse2fasta.pl and fastq2qualities.pl
-
-Options:
-
-   -suppress1  : Don't report records if neither forward nor reverse map
-   -suppress2  : Don't report records of non-mapper, even if their pair mapped
-   -suppress3  : Don't report records unless both forward and reverse mapped
-   -name_mapping F  : If set will use a file <F> mapping names in the rum file
-                      to names to use in the sam file
-
-
-If you don't have the qualities just put 'none' for the <quals file> argument.
-
-If you don't have the rum unique file, just put 'none' for the <rum unique file> argument.
-
-If you don't have the rum nu file, just put 'none' for the <rum nu file> argument.
-
-";
-    }
-
     $suppress1 = "false";
     $suppress2 = "false";
     $suppress3 = "false";
     $map_names = "false";
 
+    GetOptions(
+        "suppress1" => sub { $suppress1 = "true" },
+        "suppress2" => sub { $suppress2 = "true" },
+        "suppress3" => sub { $suppress3 = "true" });
+
     for ($i=5; $i<@ARGV; $i++) {
         $optionrecognized = 0;
-        if ($ARGV[$i] eq "-suppress1") {
-            $suppress1 = "true";
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-suppress2") {
-            $suppress2 = "true";
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-suppress3") {
-            $suppress3 = "true";
-            $optionrecognized = 1;
-        }
         if ($ARGV[$i] eq "-name_mapping") {
             $map_names = "true";
             $i++;
