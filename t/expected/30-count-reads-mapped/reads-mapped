@@ -1,0 +1,27 @@
+Number of read pairs: 1,000
+
+UNIQUE MAPPERS
+--------------
+Both forward and reverse mapped consistently: 458 (45.8%)
+   - do overlap: 50
+   - don't overlap: 408
+Number of forward mapped only: 98
+Number of reverse mapped only: 21
+Number of forward total: 556 (55.6%)
+Number of reverse total: 479 (47.9%)
+At least one of forward or reverse mapped: 577 (57.7%)
+
+
+NON-UNIQUE MAPPERS
+------------------
+Total number forward only ambiguous: 53 (5.3%)
+Total number reverse only ambiguous:  (0%)
+Total number consistent ambiguous: 192 (19.2%)
+
+
+TOTAL
+-----
+Total number forward: 801 (80.1%)
+Total number reverse: 671 (67.1%)
+Total number consistent: 650 (65%)
+At least one of forward or reverse mapped: 822 (82.2%)

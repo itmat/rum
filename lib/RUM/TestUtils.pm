@@ -41,7 +41,7 @@ use FindBin qw($Bin);
 use File::Temp;
 
 our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR
-                 is_sorted_by_location same_line_count);
+                 $SHARED_INPUT_DIR is_sorted_by_location same_line_count);
 our @EXPORT_OK = qw(download_file download_test_data no_diffs
                     is_sorted_by_location);
 our %EXPORT_TAGS = (
@@ -56,6 +56,7 @@ our $PROGRAM_NAME = do {
     $_;
 };
 
+our $SHARED_INPUT_DIR = "$Bin/data/shared";
 our $INPUT_DIR = "$Bin/data/$PROGRAM_NAME";
 our $EXPECTED_DIR = "$Bin/expected/$PROGRAM_NAME";
 
