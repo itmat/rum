@@ -102,10 +102,10 @@ sub main {
         } else {
             $i = 2;
             $clean = "true";
-            $log->debug("\n$infile reads per chromosome:");
-            $log->debug("chr_name\tnum_reads");
+            print "\n$infile reads per chromosome:";
+            print "chr_name\tnum_reads";
             foreach my $chr (sort by_chromosome keys %$chr_counts) {
-                $log->debug("$chr\t$chr_counts->{$chr}");
+                print "$chr\t$chr_counts->{$chr}";
             }
         }
     }
