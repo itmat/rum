@@ -111,10 +111,10 @@ ls -l OUTDIR/RUM_Unique.sorted.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
 perl SCRIPTSDIR/sort_RUM_by_location.pl OUTDIR/RUM_NU.CHUNK -o OUTDIR/RUM_NU.sorted.CHUNK RAM >> OUTDIR/chr_counts_nu.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished sorting RUM_NU" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 ls -l OUTDIR/RUM_NU.sorted.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
-perl SCRIPTSDIR/rum2quantifications.pl GENEANNOTFILE OUTDIR/RUM_Unique.sorted.CHUNK OUTDIR/RUM_NU.sorted.CHUNK OUTDIR/quant.S1s.CHUNK -countsonly STRAND1s 2>> ERRORFILE.CHUNK || exit 1
-perl SCRIPTSDIR/rum2quantifications.pl GENEANNOTFILE OUTDIR/RUM_Unique.sorted.CHUNK OUTDIR/RUM_NU.sorted.CHUNK OUTDIR/quant.S2s.CHUNK -countsonly STRAND2s 2>> ERRORFILE.CHUNK || exit 1
-perl SCRIPTSDIR/rum2quantifications.pl GENEANNOTFILE OUTDIR/RUM_Unique.sorted.CHUNK OUTDIR/RUM_NU.sorted.CHUNK OUTDIR/quant.S1a.CHUNK -countsonly STRAND1a 2>> ERRORFILE.CHUNK || exit 1
-perl SCRIPTSDIR/rum2quantifications.pl GENEANNOTFILE OUTDIR/RUM_Unique.sorted.CHUNK OUTDIR/RUM_NU.sorted.CHUNK OUTDIR/quant.S2a.CHUNK -countsonly STRAND2a 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/rum2quantifications.pl --genes-in GENEANNOTFILE --unique-in OUTDIR/RUM_Unique.sorted.CHUNK --non-unique-in OUTDIR/RUM_NU.sorted.CHUNK -o OUTDIR/quant.S1s.CHUNK -countsonly STRAND1s 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/rum2quantifications.pl --genes-in GENEANNOTFILE --unique-in OUTDIR/RUM_Unique.sorted.CHUNK --non-unique-in OUTDIR/RUM_NU.sorted.CHUNK -o OUTDIR/quant.S2s.CHUNK -countsonly STRAND2s 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/rum2quantifications.pl --genes-in GENEANNOTFILE --unique-in OUTDIR/RUM_Unique.sorted.CHUNK --non-unique-in OUTDIR/RUM_NU.sorted.CHUNK -o OUTDIR/quant.S1a.CHUNK -countsonly STRAND1a 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/rum2quantifications.pl --genes-in GENEANNOTFILE --unique-in OUTDIR/RUM_Unique.sorted.CHUNK --non-unique-in OUTDIR/RUM_NU.sorted.CHUNK -o OUTDIR/quant.S2a.CHUNK -countsonly STRAND2a 2>> ERRORFILE.CHUNK || exit 1
 
 echo "finished quantification" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 
