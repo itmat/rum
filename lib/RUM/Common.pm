@@ -270,5 +270,28 @@ sub reversesignal {
     return $return_string;
 }
 
+=item read_chunk_id_mapping($filename)
+
+If $filename is defined and exists, reads a chunk id mapping from it
+and returns it as a hash, otherwise returns undef.
+
+=cut
+
+
+
+sub read_chunk_id_mapping {
+    my ($chunk_ids_file) = @_;
+    my %chunk_ids_mapping;
+    return unless $chunk_ids_file && -e $chunk_ids_file;
+
+    open my $infile, "$chunk_ids_file"
+        or die "Error: cannot open '$chunk_ids_file' for reading.\n\n";
+    while (defined(local $_ = <$infile>)) {
+        chomp;
+        my ($old, $new) = split /\t/;
+        $chunk_ids_mapping{$old} = $new;
+    }
+    return %chunk_ids_mapping;
+}
 
 1;

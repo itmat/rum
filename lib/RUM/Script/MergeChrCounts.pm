@@ -3,6 +3,7 @@ package RUM::Script::MergeChrCounts;
 no warnings;
 use RUM::Usage;
 use RUM::Logging;
+use RUM::Common qw(read_chunk_id_mapping);
 use Getopt::Long;
 use RUM::Sort qw(by_chromosome);
 our $log = RUM::Logging->get_logger();
@@ -26,21 +27,8 @@ sub main {
     @file > 0 or RUM::Usage->bad(
         "Please list the input files on the command line");
     
-    my %chunk_ids_mapping;
+    my %chunk_ids_mapping = read_chunk_id_mapping($chunk_ids_file);
 
-    if ($chunk_ids_file && -e $chunk_ids_file) {
-        $log->info("Loading chunk id file");
-        open(INFILE, $chunk_ids_file) 
-            or die "Can't open $chunk_ids_file for reading: $!";
-        while (defined(my $line = <INFILE>)) {
-            chomp($line);
-            my @a = split(/\t/,$line);
-            if ($a[0] ne "chr_name") {
-                $chunk_ids_mapping{$a[0]} = $a[1];
-            }
-        }
-        close(INFILE);
-    }
     open(OUTFILE, ">>", $outfile) or die "Can't open $outfile for appending";
     
     for (my $i=0; $i<@file; $i++) {

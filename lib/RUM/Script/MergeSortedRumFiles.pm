@@ -54,26 +54,7 @@ sub main {
     pod2usage("Please specify one or more input files\n") unless @infiles;
     pod2usage("Please specify an output file with --output\n") unless $outfile;
     
-    my %chunk_ids_mapping;
-    
-    if ($chunk_ids_file) {
-        $log->info("Reading chunk id mapping from $chunk_ids_file");
-        if (-e $chunk_ids_file) {
-
-            # logdie dies and writes the message to the log
-            # file(s) and the screen.
-            open my $chunks_file, "<", $chunk_ids_file
-                or $log->logdie("Can't open $chunk_ids_file for reading: $!");
-            while (defined (my $line = <$chunks_file>)) {
-                chomp($line);
-                my @a = split(/\t/,$line);
-                $chunk_ids_mapping{$a[0]} = $a[1];
-            }
-        } else {
-            $log->error("Chunk id mapping file $chunk_ids_file does not exist");
-        }
-    }
-
+    my %chunk_ids_mapping = read_chunk_id_mapping($chunk_ids_file);
 
     my @file;
     for (my $i=0; $i<@infiles; $i++) {
