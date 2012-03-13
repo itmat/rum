@@ -84,7 +84,17 @@ sub main {
         "anti"            => \$anti,
         "info=s"          => \$infofile
     );
-    
+
+    $annotfile or RUM::Usage->bad(
+        "Please provide a gene annotation file with --genes-in");
+    $U_readsfile or RUM::Usage->bad(
+        "Please provide a sorted file of unique mappers with --unique-in");
+    $NU_readsfile or RUM::Usage->bad(
+        "Please provide a sorted file of non-unique mappers with ".
+            "--non-unique-in");
+    $outfile1 or RUM::Usage->bad(
+        "Please specify an output file with --output or -o");
+
     if ($outfile2) {
         $sepout = "true";
     }
