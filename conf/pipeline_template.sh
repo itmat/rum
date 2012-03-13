@@ -64,7 +64,6 @@ ls -l OUTDIR/R.mdust.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
 yes|unlink OUTDIR/R.CHUNK
 yes|unlink OUTDIR/R.CHUNK.blat
 yes|unlink OUTDIR/R.mdust.CHUNK
-echo perl SCRIPTSDIR/merge_Bowtie_and_Blat.pl OUTDIR/BowtieUnique.CHUNK OUTDIR/BlatUnique.CHUNK OUTDIR/BowtieNU.CHUNK OUTDIR/BlatNU.CHUNK OUTDIR/RUM_Unique_temp.CHUNK OUTDIR/RUM_NU_temp.CHUNK PAIREDEND -readlength READLENGTH -minoverlap MINOVERLAP > merge_bowtie_and_blat
 perl SCRIPTSDIR/merge_Bowtie_and_Blat.pl --bowtie-unique OUTDIR/BowtieUnique.CHUNK --blat-unique OUTDIR/BlatUnique.CHUNK --bowtie-non-unique OUTDIR/BowtieNU.CHUNK --blat-non-unique OUTDIR/BlatNU.CHUNK --unique-out OUTDIR/RUM_Unique_temp.CHUNK --non-unique-out OUTDIR/RUM_NU_temp.CHUNK --PAIREDEND --read-length READLENGTH --min-overlap MINOVERLAP 2>> ERRORFILE.CHUNK || exit 1
 echo "finished merging Bowtie and Blat" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 ls -l OUTDIR/BowtieUnique.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
