@@ -13,9 +13,8 @@
 *  1 SCRIPTSDIR/make_TU_and_TNU.pl
 *  1 SCRIPTSDIR/make_GU_and_GNU.pl
 *  1 SCRIPTSDIR/RUM_finalcleanup.pl
-
-
 *  1 /Users/mike/src/rum/bin/count_reads_mapped.pl
+
    1 /Users/mike/src/rum/bin/get_inferred_internal_exons.pl
    1 /Users/mike/src/rum/bin/make_RUM_junctions_file.pl
    2 /Users/mike/src/rum/bin/merge_chr_counts.pl
