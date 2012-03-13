@@ -56,7 +56,8 @@ for quant.S.1, quant.S.2, etc...
             $chunk_ids_file = $ARGV[$i+1];
             $i++;
             if (-e $chunk_ids_file) {
-                open(INFILE, $chunk_ids_file) or die "Error: cannot open '$chunk_ids_file' for reading.\n\n";
+                open(INFILE, $chunk_ids_file) 
+                    or die "Can't open $chunk_ids_file for reading: $!";
                 while ($line = <INFILE>) {
                     chomp($line);
                     @a = split(/\t/,$line);
@@ -105,7 +106,8 @@ for quant.S.1, quant.S.2, etc...
 
         $log->info("Reading from $filename");
 
-        open(INFILE, "$output_dir/$filename");
+        open(INFILE, "$output_dir/$filename")
+            or die "Can't open $output_dir/$filename for reading: $!";
         $line = <INFILE>;
         $line =~ /num_reads = (\d+)/;
         $num_reads = $num_reads + $1;
@@ -128,17 +130,23 @@ for quant.S.1, quant.S.2, etc...
     }
     $num_reads_hold = $num_reads;
     $num_reads = $num_reads / 1000000;
-    open(OUTFILE, ">$outfile");
+    open(OUTFILE, ">$outfile") or die "Can't open $output_dir/$outfile for writing: $!";
     print OUTFILE "number of reads used for normalization: $num_reads_hold\n";
     if ($header eq "true") {
         print OUTFILE "      Type\tLocation           \tmin\tmax\tUcount\tNUcount\tLength\n";
     }
+
     for ($i=0; $i<$cnt; $i++) {
         if ($counts[$i]{coords} =~ /:-/) {
             $exoncnt = 1;
             next;
         }
         $NL = $counts[$i]{len} / 1000;
+        unless ($NL) {
+            $log->warn("Got 0 NL");
+            next;
+        }
+
         if ($countsonly eq "false") {
             $ucnt_normalized = int( $counts[$i]{Ucnt} / $NL / $num_reads * 10000 ) / 10000;
             $totalcnt_normalized = int( ($counts[$i]{NUcnt}+$counts[$i]{Ucnt}) / $NL / $num_reads * 10000 ) / 10000;
