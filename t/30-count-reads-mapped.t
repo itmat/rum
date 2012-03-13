@@ -19,7 +19,11 @@ my $data;
 open $out_fh, ">", $out;
 *OLD = *STDOUT;
 *STDOUT = $out_fh;
-@ARGV = ($unique, $non_unique, "-minseq", 1, "-maxseq", 1000);
+@ARGV = (
+    "--unique-in", $unique, 
+    "--non-unique-in", $non_unique,
+    "--min", 1,
+    "--max", 1000);
 RUM::Script::CountReadsMapped->main();
 *STDOUT = *OLD;
 close $out_fh;

@@ -11,52 +11,36 @@ sub main {
 
     use RUM::Common qw(format_large_int);
 
-    open(INFILE, $ARGV[0]);
-    if (@ARGV<2) {
-        die "
-Usage: count_reads_mapped.pl <RUM Unique file> <RUM NU file> [options]
+    GetOptions(
+        "unique-in=s"     => \(my $unique_in),
+        "non-unique-in=s" => \(my $non_unique_in),
+        "min-seq=s"       => \(my $min_seq_num),
+        "max-seq=s"       => \(my $max_seq_num = 0));
 
-Options: -maxseq n : specify the max sequence id, otherwise
-          will just use the max seq id found in the two files.
 
-         -minseq n : specify the min sequences id, otherwise
-          will just use the min seq id found in the two files.
 
-File lines should look like this:
-seq.6b  chr19   44086924-44086960, 44088066-44088143    CGTCCAATCACACGATCAAGTTCTTCATGAACTTTGG:CTTGCACCTCTGGATGCTTGACAAGGAGCAGAAGCCCGAATCTCAGGGTGGTGCTGGTTGTCTCTGTGACTGCCGTAA
-
-";
-    }
-
-    $max_seq_num = 0;
     $max_num_seqs_specified = "false";
     $min_num_seqs_specified = "false";
-    for ($i=2; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if ($ARGV[$i] eq "-maxseq") {
-            $max_seq_num = $ARGV[$i+1];
-            $max_num_seqs_specified = "true";
-            if (!($max_seq_num =~ /^\d+$/)) {
-                $x = $ARGV[$i+1];
-                die "\nError: in script count_reads_mapped.pl: option $ARGV[$i] $x is not recognized, you need a number here, not '$x'...\n\n";
-            }
-            $optionrecognized = 1;
-            $i++;
-        }
-        if ($ARGV[$i] eq "-minseq") {
-            $min_seq_num = $ARGV[$i+1];
-            $min_num_seqs_specified = "true";
-            if (!($min_seq_num =~ /^\d+$/)) {
-                $x = $ARGV[$i+1];
-                die "\nError: in script count_reads_mapped.pl: option $ARGV[$i] $x is not recognized, you need a number here, not '$x'...\n\n";
-            }
-            $optionrecognized = 1;
-            $i++;
-        }
-        if ($optionrecognized == 0) {
-            die "\nError: in script count_reads_mapped.pl: option $ARGV[$i] is not recognized\n\n";
-        }
+
+    $unique_in or RUM::Usage->bad(
+        "Please specify a file of unique mappers with --unique-in");
+    $non_unique_in or RUM::Usage->bad(
+        "Please specify a file of non-unique mappers ".
+            "with --non-unique-in");
+
+    if (defined($max_seq_num)) {
+        $max_num_seqs_specified = "true";
+        $max_seq_num =~ /^\d+$/ or RUM::Usage->bad(
+            "--max-seq must be a number, not $max_seq_num");
     }
+    if (defined($min_seq_num)) {
+        $min_num_seqs_specified = "true";
+        $min_seq_num =~ /^\d+$/ or RUM::Usage->bad(
+            "--min-seq must be a number, not $min_seq_num");
+    }
+
+    open(INFILE, $unique_in) 
+        or die "Can't open $unique_in for reading: $!";
 
     $flag = 0;
     $num_areads = 0;
@@ -144,7 +128,7 @@ seq.6b  chr19   44086924-44086960, 44088066-44088143    CGTCCAATCACACGATCAAGTTCT
     undef %unjoined;
 
     $f = format_large_int($seqnum);
-    $total=$max_seq_num - $min_seq_num + 1;
+    $total= $max_seq_num - $min_seq_num + 1;
     $f = format_large_int($total);
     if ($num_breads > 0) {
         print "Number of read pairs: $f\n";
@@ -195,7 +179,8 @@ seq.6b  chr19   44086924-44086960, 44088066-44088143    CGTCCAATCACACGATCAAGTTCT
     $num_ambig_consistent=0;
     $num_ambig_a_only=0;
     $num_ambig_b_only=0;
-    open(INFILE, $ARGV[1]);
+    open(INFILE, $non_unique_in) 
+        or die "Can't open $non_unique_in for reading: $!";
     #print "------\n";
     while ($line = <INFILE>) {
         chomp($line);
