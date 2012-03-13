@@ -11,11 +11,14 @@ use RUM::Sort qw(cmpChrs);
 
 our $log = RUM::Logging->get_logger();
 
-my $annotfile = $ARGV[0];
-my $U_readsfile = $ARGV[1];
-my $NU_readsfile = $ARGV[2];
-my $outfile1 = $ARGV[3];
-my $outfile2;
+my $sepout = "false";
+my $posonly = "false";
+my $countsonly = "false";
+my $strandspecific="false";
+my $strand = "";
+my $anti = "false";
+my $infofile;
+my $infofile_given = "false";
 
 my %TRANSCRIPT;
 my %EXON_temp;
@@ -28,23 +31,53 @@ my %ecnt;
 my %icnt;
 my %NUREADS;
 my $UREADS=0;
-
-my $sepout = "false";
-my $posonly = "false";
-my $countsonly = "false";
-my $strandspecific="false";
-my $strand = "";
-my $anti = "false";
-my $infofile;
-my $infofile_given = "false";
-
 my %EXON;
 my %INTRON;
 
+sub new {
+    my ($class) = @_;
+    bless {}, $class;
+    
+}
+
 sub main {
 
+    my $outfile2;
+    
+    my $annotfile;
+    my $U_readsfile;
+    my $NU_readsfile;
+    my $outfile1;
+
+    undef %TRANSCRIPT;
+    undef %EXON_temp;
+    undef %INTRON_temp;
+    undef %cnt;
+    undef @A;
+    undef @B;
+    undef %tcnt;
+    undef %ecnt;
+    undef %icnt;
+    undef %NUREADS;
+    undef $UREADS;
+    undef %EXON;
+    undef %INTRON;
+    
+    $annotfile = $ARGV[0];
+    $U_readsfile = $ARGV[1];
+    $NU_readsfile = $ARGV[2];
+    $outfile1 = $ARGV[3];
+
+    $sepout = "false";
+    $posonly = "false";
+    $countsonly = "false";
+    $strandspecific="false";
+    $strand = "";
+    $anti = "false";
+
     if (@ARGV < 4) {
-        die "
+        
+die "
 Usage: rum2quantifications.pl <annot file> <RUM_Unique> <RUM_NU> <outfile> [options]
 
 Where:
@@ -97,11 +130,12 @@ Options:
             $i++;
             $infofile = $ARGV[$i];
             if (!(-e $infofile)) {
-                die "ERROR: in script rum2quantifications.pl: info file '$infofile' does not seem to exist.\n\n";
+                die "Can't open $infofile for reading";
             }
             $optionrecognized = 1;
         }
         if ($ARGV[$i] eq "-strand") {
+
             $strand = $ARGV[$i+1];
             $strandspecific="true";
             $i++;
@@ -131,7 +165,7 @@ Options:
 
     my %INFO;
     if ($infofile_given eq "true") {
-        open(INFILE, $infofile) or die "ERROR: in script rum2quantifications.pl: Cannot open the file '$infofile' for reading\n";
+        open(INFILE, $infofile) or die "Can't open $infofile for reading";
         while (my $line = <INFILE>) {
             chomp($line);
             my @a = split(/\t/,$line);
@@ -142,7 +176,7 @@ Options:
 
     # read in the transcript models
 
-    open(INFILE, $annotfile) or die "ERROR: in script rum2quantifications.pl: cannot open '$annotfile' for reading.\n\n";
+    open(INFILE, $annotfile) or die "Can't open $annotfile for reading";
     while (my $line = <INFILE>) {
         chomp($line);
         my @a = split(/\t/,$line);
@@ -650,7 +684,7 @@ sub readfile () {
     }
 }
 
-sub do_they_overlap() {
+sub do_they_overlap {
     # going to pass in two arrays as global vars, because don't want them
     # to be copied every time, this function is going to be called a lot.
     # the global vars @A and @B

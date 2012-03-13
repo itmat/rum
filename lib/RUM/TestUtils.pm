@@ -41,7 +41,7 @@ use FindBin qw($Bin);
 use File::Temp;
 
 our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR
-                 is_sorted_by_location);
+                 is_sorted_by_location same_line_count);
 our @EXPORT_OK = qw(download_file download_test_data no_diffs
                     is_sorted_by_location);
 our %EXPORT_TAGS = (
@@ -58,8 +58,6 @@ our $PROGRAM_NAME = do {
 
 our $INPUT_DIR = "$Bin/data/$PROGRAM_NAME";
 our $EXPECTED_DIR = "$Bin/expected/$PROGRAM_NAME";
-
-
 
 our $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tar.gz";
 
@@ -131,6 +129,34 @@ sub no_diffs {
     my $diffs = `diff $file2 $file1 > /dev/null`;
     my $status = $? >> 8;
     ok($status == 0, $name);
+}
+
+=item line_count($filename)
+
+Returns the number of lines in $filename.
+
+=cut
+
+sub line_count {
+    my ($filename) = @_;
+    open my $in, "<", $filename or die "Can't open $filename for reading: $!";
+    my $count = 0;
+    while (defined(<$in>)) {
+        $count++;
+    }
+    return $count;
+}
+
+=item same_line_count(FILE1, FILE2, NAME)
+
+Uses Test::More to assert that the two files have the same number of
+lines.
+
+=cut
+
+sub same_line_count {
+    my ($file1, $file2, $name) = @_;
+    is(line_count($file1), line_count($file2), $name);
 }
 
 =item is_sorted_by_location(FILENAME)
