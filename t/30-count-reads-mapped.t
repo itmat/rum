@@ -13,8 +13,16 @@ my $unique     = "$SHARED_INPUT_DIR/RUM_Unique.sorted.1";
 my $non_unique = "$SHARED_INPUT_DIR/RUM_NU.sorted.1";
 
 my $out = temp_filename(TEMPLATE => "reads-mapped.XXXXXX", UNLINK => 0);
-my $cmd = "perl $Bin/../bin/count_reads_mapped.pl $unique $non_unique -minseq 1 -maxseq 1000 > $out";
-diag "Running $cmd";
-system $cmd;
+
+my $out_fh;
+my $data;
+open $out_fh, ">", $out;
+*OLD = *STDOUT;
+*STDOUT = $out_fh;
+@ARGV = ($unique, $non_unique, "-minseq", 1, "-maxseq", 1000);
+RUM::Script::CountReadsMapped->main();
+*STDOUT = *OLD;
+close $out_fh;
+
 no_diffs($out, "$EXPECTED_DIR/reads-mapped");
 
