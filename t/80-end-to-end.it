@@ -97,7 +97,7 @@ my %CONFIGS = (
 sub output_data_dir {
     my ($test_name) = @_;
     croak "Can't get output data dir without test name" unless $test_name;
-    return "$ROOT/data/$test_name/test";
+    return "$ROOT/data/$test_name";
 }
 
 sub config {

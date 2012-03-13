@@ -15,7 +15,6 @@ my $non_unique = "$SHARED_INPUT_DIR/RUM_NU.sorted.1";
 my $out = temp_filename(TEMPLATE => "reads-mapped.XXXXXX", UNLINK => 0);
 
 my $out_fh;
-my $data;
 open $out_fh, ">", $out;
 *OLD = *STDOUT;
 *STDOUT = $out_fh;
