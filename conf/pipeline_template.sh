@@ -105,10 +105,10 @@ perl SCRIPTSDIR/rum2sam.pl --unique-in OUTDIR/RUM_Unique.CHUNK --non-unique-in O
 echo "finished converting to SAM" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 perl SCRIPTSDIR/get_nu_stats.pl OUTDIR/RUM.sam.CHUNK > OUTDIR/nu_stats.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished counting the nu mappers" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
-perl SCRIPTSDIR/sort_RUM_by_location.pl OUTDIR/RUM_Unique.CHUNK OUTDIR/RUM_Unique.sorted.CHUNK RAM >> OUTDIR/chr_counts_u.CHUNK 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/sort_RUM_by_location.pl OUTDIR/RUM_Unique.CHUNK -o OUTDIR/RUM_Unique.sorted.CHUNK RAM >> OUTDIR/chr_counts_u.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished sorting RUM_Unique" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 ls -l OUTDIR/RUM_Unique.sorted.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
-perl SCRIPTSDIR/sort_RUM_by_location.pl OUTDIR/RUM_NU.CHUNK OUTDIR/RUM_NU.sorted.CHUNK RAM >> OUTDIR/chr_counts_nu.CHUNK 2>> ERRORFILE.CHUNK || exit 1
+perl SCRIPTSDIR/sort_RUM_by_location.pl OUTDIR/RUM_NU.CHUNK -o OUTDIR/RUM_NU.sorted.CHUNK RAM >> OUTDIR/chr_counts_nu.CHUNK 2>> ERRORFILE.CHUNK || exit 1
 echo "finished sorting RUM_NU" `date` `date +%s` >> OUTDIR/rum.log_chunk.CHUNK
 ls -l OUTDIR/RUM_NU.sorted.CHUNK >> OUTDIR/rum.log_chunk.CHUNK
 perl SCRIPTSDIR/rum2quantifications.pl GENEANNOTFILE OUTDIR/RUM_Unique.sorted.CHUNK OUTDIR/RUM_NU.sorted.CHUNK OUTDIR/quant.S1s.CHUNK -countsonly STRAND1s 2>> ERRORFILE.CHUNK || exit 1

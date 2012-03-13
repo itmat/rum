@@ -61,9 +61,8 @@ sub main {
 
     # We have a test that exercises the ability to merge chunks together,
     # so allow max chunk sizes smaller than 500000 if that flag is set.
-    if ($maxchunksize < 500000 && !$allowsmallchunks) {
-        die "ERROR: in script sort_RUM_by_location.pl: <max chunk size> must at least 500,000.\n\n";
-    }
+    $maxchunksize >= 500000 || $allowsmallchunks or
+        RUM::Usage->bad("--max-chunks-ize must be at least 500,000.");
     
     my $max_count_at_once;
     if ($maxchunksize_specified) {
