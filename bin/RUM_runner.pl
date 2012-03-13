@@ -1702,7 +1702,7 @@ if($postprocess eq "false") {
             $shellscript = $shellscript . "echo '' >> $output_dir/mapping_stats.txt\n";
             $shellscript = $shellscript . "echo 'RUM_Unique reads per chromosome' >> $output_dir/mapping_stats.txt\n";
             $shellscript = $shellscript . "echo '-------------------------------' >> $output_dir/mapping_stats.txt\n";
-            $shellscript = $shellscript . "perl $scripts_dir/merge_chr_counts.pl $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/merge_chr_counts.pl -o $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
 
             $string = "$output_dir/mapping_stats.txt";
             for($j=1; $j<$numchunks+1; $j++) {
@@ -1711,7 +1711,7 @@ if($postprocess eq "false") {
             $shellscript = $shellscript . "echo '' >> $output_dir/mapping_stats.txt\n";
             $shellscript = $shellscript . "echo 'RUM_NU reads per chromosome' >> $output_dir/mapping_stats.txt\n";
             $shellscript = $shellscript . "echo '---------------------------' >> $output_dir/mapping_stats.txt\n";
-            $shellscript = $shellscript . "perl $scripts_dir/merge_chr_counts.pl $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/merge_chr_counts.pl -o $string -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
 
             $shellscript = $shellscript . "perl $scripts_dir/merge_nu_stats.pl $output_dir $numchunks -chunk_ids_file $output_dir/restart.ids >> $output_dir/mapping_stats.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
 
