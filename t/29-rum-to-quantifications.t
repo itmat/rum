@@ -14,7 +14,7 @@ my $non_unique = "$INPUT_DIR/RUM_NU.sorted.1";
 
 my $genes = "$Bin/../_testing/indexes/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
 
-my @standard_args = ($genes, $unique, $non_unique);
+my @standard_args = ("--genes", $genes, "--unique", $unique, "--non-unique", $non_unique);
 
 SKIP: {
     skip "Don't have arabidopsis index", 6 unless -e $genes;
@@ -26,7 +26,7 @@ SKIP: {
 sub run_with_extra_args {
     my @args = @_;
     my $out  = temp_filename(TEMPLATE => "quant.XXXXXX", UNLINK => 0);
-    @ARGV = (@standard_args, $out, @args);
+    @ARGV = (@standard_args, "-o", $out, @args);
 #    system("perl $Bin/../bin/rum2quantifications.pl @ARGV");
     RUM::Script::RumToQuantifications->main();
     return $out;

@@ -12,13 +12,11 @@ use RUM::Sort qw(cmpChrs);
 our $log = RUM::Logging->get_logger();
 
 my $sepout = "false";
-my $posonly = "false";
-my $countsonly = "false";
-my $strandspecific="false";
-my $strand = "";
-my $anti = "false";
+my $posonly;
+my $countsonly;
+my $strand;
+my $anti;
 my $infofile;
-my $infofile_given = "false";
 
 my %TRANSCRIPT;
 my %EXON_temp;
@@ -63,108 +61,41 @@ sub main {
     undef %EXON;
     undef %INTRON;
     
-    $annotfile = $ARGV[0];
-    $U_readsfile = $ARGV[1];
-    $NU_readsfile = $ARGV[2];
-    $outfile1 = $ARGV[3];
+    $annotfile = "";
+    $U_readsfile = "";
+    $NU_readsfile = "";
+    $outfile1 = "";
 
     $sepout = "false";
-    $posonly = "false";
-    $countsonly = "false";
-    $strandspecific="false";
-    $strand = "";
-    $anti = "false";
+    undef $posonly;
+    undef $countsonly;
+    undef $strand;
+    undef $anti;
 
-    if (@ARGV < 4) {
-        
-die "
-Usage: rum2quantifications.pl <annot file> <RUM_Unique> <RUM_NU> <outfile> [options]
-
-Where:
-
-    <annot file> is the transcript models file for the RUM pipeline
-
-    <RUM_Unique> is the sorted RUM Unique file
-
-    <RUM_NU> is the sorted RUM NU file
-
-    <outfile> the file to write the results to
-
-Options:
-
-    -sepout filename : Make separate files for the min and max experssion values.
-                       In this case will write the min values to <outfile> and the   
-                       max values to the file specified by 'filename'.
-                       There are two extra columns in each file if done this way,
-                       one giving the raw count and one giving the count normalized
-                       only by the feature length.
-
-    -posonly  :  Output results only for transcripts that have non-zero intensity.
-                 Note: if using -sepout, this will output results to both files for
-                 a transcript if either one of the unique or non-unique counts is zero.
-
-    -countsonly :  Output only a simple file with feature names and counts.
-
-    -strand s : s=p to use just + strand reads, s=m to use just - strand.
-
-    -info f   : f is a file that maps gene id's to info (i.e. annotation or other gene ids).
-                f must be tab delmited with the first column of known ids and second
-                column of annotation.
-
-    -anti     : Use in conjunction with -strand to record anti-sense transcripts instead
-                of sense. 
-
-";
+    GetOptions(
+        "genes-in=s"      => \$annotfile,
+        "unique-in=s"     => \$U_readsfile,
+        "non-unique-in=s" => \$NU_readsfile,
+        "output|o=s"      => \$outfile1,
+        "sepout=s"        => \$outfile2,
+        "strand=s"        => \$strand,
+        "posonly"         => \$posonly,
+        "countsonly"      => \$countsonly,
+        "anti"            => \$anti,
+        "info=s"          => \$infofile
+    );
+    
+    if ($outfile2) {
+        $sepout = "true";
     }
 
-    for (my $i=4; $i<@ARGV; $i++) {
-        my $optionrecognized = 0;
-        if ($ARGV[$i] eq "-sepout") {
-            $sepout = "true";
-            $outfile2 = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-info") {
-            $infofile_given = "true";
-            $i++;
-            $infofile = $ARGV[$i];
-            if (!(-e $infofile)) {
-                die "Can't open $infofile for reading";
-            }
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-strand") {
-
-            $strand = $ARGV[$i+1];
-            $strandspecific="true";
-            $i++;
-            if (!($strand eq 'p' || $strand eq 'm')) {
-                die "\nERROR: in script rum2quantifications.pl: -strand must equal either 'p' or 'm', not '$strand'\n\n";
-            }
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-posonly") {
-            $posonly = "true";
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-anti") {
-            $anti = "true";
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-countsonly") {
-            $countsonly = "true";
-            $optionrecognized = 1;
-        }
-        if ($optionrecognized == 0) {
-            die "\nERROR: in script rum2quantifications.pl: option '$ARGV[$i]' not recognized\n";
-        }
-    }
+    !$strand || $strand eq 'p' || $strand eq 'm' or RUM::Usage->bad(
+        "--strand must be either 'p' or 'm', not '$strand'");
 
     # read in the info file, if given
 
     my %INFO;
-    if ($infofile_given eq "true") {
+    if ($infofile) {
         open(INFILE, $infofile) or die "Can't open $infofile for reading";
         while (my $line = <INFILE>) {
             chomp($line);
@@ -182,7 +113,7 @@ Options:
         my @a = split(/\t/,$line);
 
         my $STRAND = $a[1];
-        if ($strandspecific eq 'true') {
+        if ($strand) {
             if ($strand =~ /^p/ && $a[1] eq '-') {
                 next;
             }
@@ -284,7 +215,7 @@ Options:
     $num_reads = $num_reads + (scalar keys %NUREADS);
 
     my $nr = $num_reads / 1000000;
-    if ($countsonly eq "true") {
+    if ($countsonly) {
         print OUTFILE1 "num_reads = $num_reads\n";
     }
     foreach my $chr (sort {cmpChrs($a,$b)} keys %TRANSCRIPT) {
@@ -306,15 +237,15 @@ Options:
                 $n1 = int($x1 / $nl / $nr * 10000) / 10000;
                 $n2 = int($z / $nl / $nr * 10000) / 10000;
             }
-            if ($posonly eq "false" || ($posonly eq "true" && $z > 0)) {
-                if ($countsonly eq "false") {
+            if ((!$posonly) || $z > 0) {
+                if (!$countsonly) {
                     print OUTFILE1 "--------------------------------------------------------------------\n";
                     if ($sepout eq "true") {
                         print OUTFILE2 "--------------------------------------------------------------------\n";
                     }
                 }
                 my $tlen = $TRANSCRIPT{$chr}[$i]{length};
-                if ($countsonly eq "false") {
+                if (!$countsonly) {
                     if ($sepout eq "true") {
                         print OUTFILE1 "$y\t$st\n";
                         print OUTFILE1 "      Type\tLocation           \tCount\tAve_Cnt\tRPKM\tLength\n";
@@ -339,7 +270,7 @@ Options:
                         print OUTFILE1 "      Type\tLocation           \tmin\tmax\tLength\n";
                         print OUTFILE1 "transcript\t$chr:$s-$e\t$n1\t$n2\t$tlen";
                         my $info = "";
-                        if ($infofile_given eq "true") {
+                        if ($infofile) {
                             my @b = split(/:::/,$y);
                             for (my $k=0; $k<@b; $k++) {
                                 $b[$k] =~ s/\(.*//;
@@ -355,7 +286,7 @@ Options:
                 } else {
                     print OUTFILE1 "transcript\t$chr:$s-$e\t$x1\t$x2\t$tlen\t$st\t$y";
                     my $info = "";
-                    if ($infofile_given eq "true") {
+                    if ($infofile) {
                         my @b = split(/:::/,$y);
                         for (my $k=0; $k<@b; $k++) {
                             $b[$k] =~ s/\(.*//;
@@ -389,7 +320,7 @@ Options:
                             $n2 = int($z / $nl / $nr * 10000) / 10000;
                         }
                         my $en = $j/2+1;
-                        if ($countsonly eq "false") {
+                        if (!$countsonly) {
                             if ($sepout eq "true") {
                                 my $x3;
                                 if ($nl == 0) {
@@ -429,7 +360,7 @@ Options:
                                 $n2 = int($z / $nl / $nr * 10000) / 10000;
                             }
                             my $en = $j/2+1;
-                            if ($countsonly eq "false") {
+                            if (!$countsonly) {
                                 if ($sepout eq "true") {
                                     my $x3;
                                     if ($nl==0) {
@@ -472,7 +403,7 @@ Options:
                             $n1 = int($x1 / $nl / $nr * 10000) / 10000;
                             $n2 = int($z / $nl / $nr * 10000) / 10000;
                         }
-                        if ($countsonly eq "false") {
+                        if (!$countsonly) {
                             if ($sepout eq "true") {
                                 my $x3;
                                 if ($nl==0) {
@@ -512,7 +443,7 @@ Options:
                                 $n2 = int($z / $nl / $nr * 10000) / 10000;
                             }
                             my $en = $j/2+1;
-                            if ($countsonly eq "false") {
+                            if (!$countsonly) {
                                 if ($sepout eq "true") {
                                     my $x3;
                                     if ($nl == 0) {
@@ -574,17 +505,17 @@ sub readfile () {
 	} else {
 	    $UREADS++;
 	}
-	if ($strandspecific eq 'true') {
-	    if ($strand eq 'p' && $STRAND eq '-' && $anti eq 'false') {
+	if ($strand) {
+	    if ($strand eq 'p' && $STRAND eq '-' && !$anti) {
 		next;
 	    }
-	    if ($strand eq 'm' && $STRAND eq '+' && $anti eq 'false') {
+	    if ($strand eq 'm' && $STRAND eq '+' && !$anti) {
 		next;
 	    }
-	    if ($strand eq 'p' && $STRAND eq '+' && $anti eq 'true') {
+	    if ($strand eq 'p' && $STRAND eq '+' && $anti) {
 		next;
 	    }
-	    if ($strand eq 'm' && $STRAND eq '-' && $anti eq 'true') {
+	    if ($strand eq 'm' && $STRAND eq '-' && $anti) {
 		next;
 	    }
 	}
