@@ -21,6 +21,8 @@ rum2quantifications.pl [OPTIONS] --genes-in <annot_file> --unique-in
 
 =head1 OPTIONS
 
+=over 4
+
 =item B<--genes-in> I<annot_file>
 
 Transcript models file for the RUM pipeline.

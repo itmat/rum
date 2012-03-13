@@ -9,8 +9,8 @@ use lib "$Bin/../lib";
 use_ok("RUM::Script::RumToQuantifications");
 use RUM::TestUtils;
 
-my $unique = "$INPUT_DIR/RUM_Unique.sorted.1";
-my $non_unique = "$INPUT_DIR/RUM_NU.sorted.1";
+my $unique = "$SHARED_INPUT_DIR/RUM_Unique.sorted.1";
+my $non_unique = "$SHARED_INPUT_DIR/RUM_NU.sorted.1";
 
 my $genes = "$Bin/../_testing/indexes/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
 

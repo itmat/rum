@@ -22,6 +22,8 @@ Where IN_FILES are chr_counts files.
 
 =head1 OPTIONS
 
+=over 4
+
 =item B<-o>, B<--output> I<outfile>
 
 Output file.

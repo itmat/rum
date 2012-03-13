@@ -6,7 +6,7 @@ no warnings;
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
                     reversecomplement format_large_int spansTotalLength
-                    reversesignal);
+                    reversesignal read_chunk_id_mapping);
 
 =head1 FUNCTIONS
 
