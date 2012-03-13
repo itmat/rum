@@ -7,10 +7,9 @@ use lib "$Bin/../lib";
 use Carp;
 use Getopt::Long;
 use RUM::Sort qw(by_chromosome);
-use RUM::Usage qw(by_chromosome);
+use RUM::Usage;
 use RUM::FileIterator qw(file_iterator sort_by_location merge_iterators);
 use File::Copy qw(mv cp);
-
 
 our $log = RUM::Logging->get_logger();
 $|=1;

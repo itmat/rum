@@ -9,8 +9,6 @@ use lib "$Bin/../lib";
 use RUM::Script::SortRumByLocation;
 use RUM::TestUtils;
 
-our $SCRIPT = "$Bin/../bin/sort_RUM_by_location.pl";
-
 my @types = qw(Unique NU);
 
 for my $type (@types) {
