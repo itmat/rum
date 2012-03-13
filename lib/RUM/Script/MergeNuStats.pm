@@ -3,48 +3,27 @@ package RUM::Script::MergeNuStats;
 no warnings;
 use RUM::Usage;
 use RUM::Logging;
+use RUM::Common qw(read_chunk_id_mapping);
 use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
 
 sub main {
 
-    if (@ARGV<2) {
-        die "
-Usage: merge_nu_stats.pl <dir> <numchunks>
+    GetOptions(
+        "chunks|n=s" => \(my $numchunks),
+        "help|h" => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) },
+        "chunk-ids-file=s" => \(my $chunk_ids_file));
 
-This script will look in <dir> for files named nu_stats.1, nu_stats.2, etc..
-up to nu_stats.numchunks.  
+    my $output_dir = $ARGV[0] or RUM::Usage->bad(
+        "Please give the data directory on the command line");
 
-Option:
+    defined($numchunks) or RUM::Usage->bad(
+        "Please specify the number of chunks with --chunks or -n");
 
-    -chunk_ids_file f : If a file mapping chunk N to N.M.  This is used
-                        specifically for the RUM pipeline when chunks were
-                        restarted and names changed. 
-
-";
-    }
-
-    $output_dir = $ARGV[0]; 
-    $numchunks = $ARGV[1];
-
-    for ($i=2; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if ($ARGV[$i] eq "-chunk_ids_file") {
-            $chunk_ids_file = $ARGV[$i+1];
-            $i++;
-            if (-e "$chunk_ids_file") {
-                open(INFILE, "$chunk_ids_file") or die "Error: cannot open '$chunk_ids_file' for reading.\n\n";
-                while ($line = <INFILE>) {
-                    chomp($line);
-                    @a = split(/\t/,$line);
-                    $chunk_ids_mapping{$a[0]} = $a[1];
-                }
-                close(INFILE);
-            }
-            $optionrecognized = 1;
-        }
-    }
+    my %chunk_ids_mapping = read_chunk_id_mapping($chunk_ids_file);
 
 
     for ($i=1; $i<=$numchunks; $i++) {
