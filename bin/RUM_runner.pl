@@ -1651,9 +1651,9 @@ if($postprocess eq "false") {
             if($NumSeqs =~ /(\d+)/) {
                 $shellscript = $shellscript . "echo 'computing mapping statistics' > $output_dir/$PPlog\n";
                 $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-                $shellscript = $shellscript . "perl $scripts_dir/count_reads_mapped.pl $output_dir/RUM_Unique $output_dir/RUM_NU -minseq 1 -maxseq $NumSeqs > $output_dir/mapping_stats.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                $shellscript = $shellscript . "perl $scripts_dir/count_reads_mapped.pl --unique-in $output_dir/RUM_Unique --non-unique-in $output_dir/RUM_NU --min-seq 1 --max-seq $NumSeqs > $output_dir/mapping_stats.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             } else {
-                $shellscript = $shellscript . "perl $scripts_dir/count_reads_mapped.pl $output_dir/RUM_Unique $output_dir/RUM_NU -minseq 1 > $output_dir/mapping_stats.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                $shellscript = $shellscript . "perl $scripts_dir/count_reads_mapped.pl --unique-in $output_dir/RUM_Unique --non-unique-in $output_dir/RUM_NU --min-seq 1 > $output_dir/mapping_stats.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             }
             if($quantify eq "true") {
                 $shellscript = $shellscript . "echo 'merging feature quantifications' >> $output_dir/$PPlog\n";
