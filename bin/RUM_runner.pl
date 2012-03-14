@@ -1740,9 +1740,9 @@ if($postprocess eq "false") {
                          $shellscript = $shellscript . "yes|rm $output_dir/junctions_high-quality_ps.bed $output_dir/junctions_high-quality_ms.bed $output_dir/junctions_ps_all.bed $output_dir/junctions_ms_all.bed $output_dir/junctions_ps_all.rum $output_dir/junctions_ms_all.rum\n";
                      }
                }
-               $shellscript = $shellscript . "perl $scripts_dir/sort_by_location.pl $output_dir/junctions_all_temp.rum $output_dir/junctions_all.rum -location_column 1 -skip 1\n";
-               $shellscript = $shellscript . "perl $scripts_dir/sort_by_location.pl $output_dir/junctions_all_temp.bed $output_dir/junctions_all.bed -location_columns 1,2,3 -skip 1\n";
-               $shellscript = $shellscript . "perl $scripts_dir/sort_by_location.pl $output_dir/junctions_high-quality_temp.bed $output_dir/junctions_high-quality.bed -location_columns 1,2,3 -skip 1\n";
+               $shellscript = $shellscript . "perl $scripts_dir/sort_by_location.pl $output_dir/junctions_all_temp.rum -o $output_dir/junctions_all.rum --location 1 -skip 1\n";
+               $shellscript = $shellscript . "perl $scripts_dir/sort_by_location.pl $output_dir/junctions_all_temp.bed -o $output_dir/junctions_all.bed --chromosome 1 --start 2 --end 3 -skip 1\n";
+               $shellscript = $shellscript . "perl $scripts_dir/sort_by_location.pl $output_dir/junctions_high-quality_temp.bed -o $output_dir/junctions_high-quality.bed --chromosome 1 --start 2 --end 3 -skip 1\n";
                if($cleanup eq 'true') {
                    $shellscript = $shellscript . "yes|rm $output_dir/junctions_high-quality_temp.bed $output_dir/junctions_all_temp.bed $output_dir/junctions_all_temp.rum\n";
                }
