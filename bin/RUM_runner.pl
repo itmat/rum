@@ -1749,10 +1749,10 @@ if($postprocess eq "false") {
             }
             $shellscript = $shellscript . "echo 'making coverage plots' >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_Unique.sorted $output_dir/RUM_Unique.cov -name \"$name Unique Mappers\" -stats $output_dir/u_footprint.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_Unique.sorted -o $output_dir/RUM_Unique.cov --name \"$name Unique Mappers\" --stats $output_dir/u_footprint.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "echo 'unique mappers coverage plot finished' >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
-            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted $output_dir/RUM_NU.cov -name \"$name Non-Unique Mappers\"  -stats $output_dir/nu_footprint.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted -o $output_dir/RUM_NU.cov --name \"$name Non-Unique Mappers\"  --stats $output_dir/nu_footprint.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "echo 'NU mappers coverage plot finished' >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
             if($strandspecific eq 'true') {
