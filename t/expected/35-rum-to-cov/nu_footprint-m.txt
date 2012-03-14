@@ -1,0 +1,1 @@
+footprint for /Users/midel/src/rum/t/../_testing/data/arabidopsis-1k/RUM_NU.sorted : 66922

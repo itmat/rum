@@ -8,69 +8,36 @@ use Getopt::Long;
 our $log = RUM::Logging->get_logger();
 
 sub main {
+    $timestart = time();
 
     undef %chromosomes_finished;
 
-    $timestart = time();
-    if (@ARGV < 2) {
-        die "
-Usage: rum2cov.pl <rum file> <coverage file> [option]
-
-Where <rum file> is the *sorted* RUM_Unique or RUM_NU file.
-      <coverage file> is the name of the output file, should end in .cov
-
-Option:
-       -name x   : the name of the track
-
-       -stats f  : outputs stats to file f, currently just the footprint size
-
-If it's not sorted, first run sort_RUM_by_location.pl to sort,
-and *do not* use the -separate option.
-
-";
-    }
+    GetOptions(
+        "output|o=s" => \(my $outfile = undef),
+        "stats=s"    => \(my $statsfile = undef),
+        "name=s"     => \(my $name = undef),
+        "help|h" => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
 
     # option not implemented:
     #       -strand s : s=p to use just + strand reads, s=m to use just - strand.
 
-    print "\nMaking coverage plot $ARGV[1]...\n\n";
+    $outfile or RUM::Usage->bad(
+        "Please specify an output file with -o or --output");
 
-    $infile = $ARGV[0];
-    $outfile = $ARGV[1];
-    $name = $infile . " Coverage";
-    $strandspecific="false";
-    $strand = "";
-    $stats = "false";
-    for ($i=2; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if ($ARGV[$i] eq "-name") {
-            $name = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-stats") {
-            $stats = "true";
-            $statsfile = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-strand") {
-            $strand = $ARGV[$i+1];
-            $strandspecific="true";
-            $i++;
-            if (!($strand eq 'p' || $strand eq 'm')) {
-                die "\nERROR: in script rum2cov.pl: -strand must equal either 'p' or 'm', not '$strand'\n\n";
-            }
-            $optionrecognized = 1;
-        }
-        if ($optionrecognized == 0) {
-            die "\nERROR: in script rum2cov.pl: option '$ARGV[$i]' not recognized\n";
-        }
-    }
+    my $infile = $ARGV[0] or RUM::Usage->bad(
+        "Please provide an input file on the command line");
 
+    $log->info("Making coverage plot $outfile...");
 
-    open(INFILE, $infile) or die "ERROR: in script rum2cov.pl: could not open the file '$infile' for reading";
-    open(OUTFILE, ">$outfile") or die "ERROR: in script rum2cov.pl: could not open the file '$outfile' for writing";
+    $name ||= $infile . " Coverage";
+
+    open(INFILE, $infile) 
+        or die "Can't open $infile for reading: $!";
+    open(OUTFILE, ">$outfile") 
+        or die "Can't open $outfile for writing: $!";
+
     print OUTFILE "track type=bedGraph name=\"$name\" description=\"$name\" visibility=full color=255,0,0 priority=10\n";
 
     $flag = 0;
@@ -82,7 +49,7 @@ and *do not* use the -separate option.
     $end_max = 0;
     $span_ended = 1;
     $prev_end = $end+2;
-    if ($stats eq "true") {
+    if ($statsfile) {
         $footprint = 0;
     }
     while ($flag < 2) {
@@ -108,7 +75,7 @@ and *do not* use the -separate option.
                         if ($current_cov > 0) {
                             $k=$j-1;
                             print OUTFILE "\t$k\t$current_cov\n"; # don't adjust the right point because half-open
-                            if ($stats eq "true") {
+                            if ($statsfile) {
                                 $footprint = $footprint + $k - $span_start;
                             }
                             $span_ended = 1;
@@ -136,7 +103,7 @@ and *do not* use the -separate option.
                         $k=$j-1;
                         print OUTFILE "\t$k\t$current_cov\n"; # don't adjust the right point because half-open
                         $span_ended = 1;
-                        if ($stats eq "true") {
+                        if ($statsfile) {
                             $footprint = $footprint + $k - $span_start;
                         }
                     }
@@ -151,7 +118,7 @@ and *do not* use the -separate option.
             }
             if ($span_ended == 0) {
                 print OUTFILE "\t$end_max\t$current_cov\n"; # don't adjust the right point because half-open
-                if ($stats eq "true") {
+                if ($statsfile) {
                     $footprint = $footprint + $k - $span_start;
                 }
             }
@@ -164,7 +131,7 @@ and *do not* use the -separate option.
         }
     }
 
-    if ($stats eq "true") {
+    if ($statsfile) {
         open(STATS, ">$statsfile");
         print STATS "footprint for $infile : $footprint\n";
     }
@@ -174,24 +141,19 @@ and *do not* use the -separate option.
     if ($timelapse < 0) {
         $timelapse = 0;
     }
+    my $elapsed;
+
     if ($timelapse < 60) {
-        print "\nIt took $timelapse seconds to create the coverage file $outfile.\n\n";
+        $elapsed = "$timelapse seconds";
     } else {
         $sec = $timelapse % 60;
         $min = int($timelapse / 60);
-        if ($min > 1 && $sec > 1) {
-            print "\nIt took $min minutes, $sec seconds to create the coverage file $outfile.\n\n";
-        }
-        if ($min == 1 && $sec > 1) {
-            print "\nIt took $min minute, $sec seconds to create the coverage file $outfile.\n\n";
-        }
-        if ($min > 1 && $sec == 1) {
-            print "\nIt took $min minutes, $sec second to create the coverage file $outfile.\n\n";
-        }
-        if ($min == 1 && $sec == 1) {
-            print "\nIt took $min minute, $sec second to create the coverage file $outfile.\n\n";
-        }
+        $elapsed = "$min minute";
+        $elapsed .= "s" if $min > 1;
+        $elapsed .= ", $sec second";
+        $elapsed .= "s" if $sec > 1;
     }
+    $log->info("It took $elapsed to create the coverage file $outfile.");
 
     sub getStartEndandSpans_of_nextline () {
         $line = <INFILE>;
@@ -255,11 +217,9 @@ and *do not* use the -separate option.
         if ($chr ne $chr_prev) {
             $chromosomes_finished{$chr_prev}++;
         }
-        if ($chromosomes_finished{$chr}+0>0) {
-            die "\nERROR: in script rum2cov.pl: It appears your file '$infile' is not sorted.\nUse sort_RUM_by_location.pl to sort it.\n\n";
-        }
-        if ($chr eq $chr_prev && $start < $start_prev) {
-            die "\nERROR: in script rum2cov.pl: It appears your file '$infile' is not sorted.\nUse sort_RUM_by_location.pl to sort it.\n\n";
+        if (($chromosomes_finished{$chr}+0>0) ||
+                ($chr eq $chr_prev && $start < $start_prev)) {
+            die "It appears your file '$infile' is not sorted.  Use sort_RUM_by_location.pl to sort it.";
         }
     }
 

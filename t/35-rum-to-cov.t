@@ -41,7 +41,7 @@ for my $test (@tests) {
     my $cov_out = temp_filename(TEMPLATE => "coverage.XXXXXX", UNLINK => 0);
     my $stats_out = temp_filename(TEMPLATE => "footprint.XXXXXX", UNLINK => 0);
 
-    @ARGV = ($file, $cov_out, "-name", $name, "-stats", $stats_out);
+    @ARGV = ($file, "-o", $cov_out, "--name", $name, "--stats", $stats_out);
     RUM::Script::RumToCov->main();
     no_diffs($cov_out, $expected_cov, "Coverage diffs: $expected_cov");
     open my $in, "<", $stats_out;
