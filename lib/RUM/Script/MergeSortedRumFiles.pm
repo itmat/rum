@@ -10,6 +10,7 @@ use Pod::Usage;
 use RUM::Common qw(read_chunk_id_mapping);
 use RUM::FileIterator qw(file_iterator merge_iterators peek_it);
 use RUM::Logging;
+use RUM::Usage;
 
 # This gets a logger, which will be a Log::Log4perl logger if it's
 # installed, otherwise a RUM::Logger. Any package that wants to do
@@ -41,7 +42,7 @@ sub main {
     
         # This dies with a verbose usage message if the user supplies
         # --help or -h.
-        "help|h" => sub { pod2usage(-verbose=>2) }
+        "help|h" => sub { RUM::Usage->help }
     );
 
     # GetOptions leaves any leftover options in @ARGV, so the
@@ -52,8 +53,10 @@ sub main {
     # SYNOPSIS sections of the POD contained in the script that was
     # called (in this case bin/merge_sorted_RUM_files.pl) and exits.
     # It's a good way to exit with a usage message.
-    pod2usage("Please specify one or more input files\n") unless @infiles;
-    pod2usage("Please specify an output file with --output\n") unless $outfile;
+    @infiles or RUM::Usage->bad(
+        "Please specify one or more input files");
+    $outfile or RUM::Usage->bad(
+        "Please specify an output file with --output\n");
     
     my %chunk_ids_mapping = read_chunk_id_mapping($chunk_ids_file);
 

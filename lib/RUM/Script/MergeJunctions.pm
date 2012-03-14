@@ -22,7 +22,9 @@ use warnings;
 
 use Carp;
 use RUM::Sort qw(by_chromosome);
-use RUM::Script qw(get_options show_usage);
+use RUM::Usage;
+use RUM::Logging;
+use Getopt::Long;
 
 our @MIN_FIELDS = qw(ambiguous signal_not_canonical);
 our @MAX_FIELDS = qw(known standard_splice_signal);
@@ -32,6 +34,8 @@ our @SUM_FIELDS = qw(score
                      long_overlap_nu_reads
                      short_overlap_nu_reads);
 
+our $log = RUM::Logging->get_logger();
+
 =item $script->main()
 
 Main method, runs the script. Expects @ARGV to be populated.
@@ -39,13 +43,15 @@ Main method, runs the script. Expects @ARGV to be populated.
 =cut
 
 sub main {
-    get_options(
+    GetOptions(
         "output|o=s" => \(my $output_filename),
-        "verbose|v"  => \(my $verbose));
-    show_usage() unless $output_filename;
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
+    $output_filename or RUM::Usage->bad(
+        "Please provide an output file with -o or --output");
 
     my $self = __PACKAGE__->new();
-    $self->{verbose} = $verbose;
 
     for my $filename (@ARGV) {
         print "Reading $filename\n";
@@ -138,8 +144,7 @@ sub read_file {
                 my $old = $acc->{$key};
                 my $new = $rec{$key};
                 if ($old != $new) {
-                    carp("$intron on line $. has different values for $key") 
-                        if $self->{verbose};
+                    $log->debug("$intron on line $. has different values for $key");
                     $diffs->{$key}->{$intron} = 1;
                     $acc->{$key} = $new < $old ? $new : $old;
                 }
@@ -150,8 +155,7 @@ sub read_file {
                 my $new = $rec{$key};
                 if ($old != $new) {
                     $diffs->{$key}->{$intron} = 1;
-                    carp("$intron on line $. has different values for $key") 
-                        if $self->{verbose};
+                    $log->debug("$intron on line $. has different values for $key");
                     $acc->{$key} = $new > $old ? $new : $old;
                 }
             }

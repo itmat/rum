@@ -21,12 +21,16 @@ use strict;
 use warnings;
 
 use Carp;
-use RUM::Script qw(get_options show_usage);
+use Getopt::Long;
+use RUM::Usage;
+use RUM::Logging;
 
 my @OVERLAP_FIELDS = qw(long_overlap_unique_reads
                         short_overlap_unique_reads
                         long_overlap_nu_reads
                         short_overlap_nu_reads);
+
+our $log = RUM::Logging->get_logger();
 
 =item $script->main()
 
@@ -35,13 +39,21 @@ Main method, runs the script. Expects @ARGV to be populated.
 =cut
 
 sub main {
-    get_options(
+    GetOptions(
         "all|a=s"          => \(my $all_filename),
-        "high-quality|q=s" => \(my $hq_filename));
+        "high-quality|q=s" => \(my $hq_filename),
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
 
     my $in_filename = shift(@ARGV);
 
-    show_usage() unless $all_filename && $hq_filename && $in_filename;
+    $all_filename or RUM::Usage->bad(
+        "Please provide an output file for all junctions with --all");
+    $hq_filename or RUM::Usage->bad(
+        "Please provide an output file for high-quality junctions with --high-quality");
+    $in_filename or RUM::Usage->bad(
+        "Please provide an input file");
 
     open my $all_out, ">", $all_filename
         or croak "Can't open $all_filename for writing: $!";

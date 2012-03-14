@@ -25,7 +25,8 @@ sub main {
         "read-length=s"   => \(my $readlength),
         "min-overlap=s"   => \(my $user_min_overlap),
         "help|h"          => sub { RUM::Usage->help },
-        "quiet|q"         => sub { $log->less_logging(1) });
+        "quiet|q"         => sub { $log->less_logging(1) },
+        "verbose|v"         => sub { $log->more_logging(1) });
 
     $infile3 or RUM::Usage->bad(
         "Please specify a genome unique input file with --gu");

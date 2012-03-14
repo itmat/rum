@@ -15,9 +15,10 @@ sub main {
         "unique-in=s"     => \(my $unique_in),
         "non-unique-in=s" => \(my $non_unique_in),
         "min-seq=s"       => \(my $min_seq_num),
-        "max-seq=s"       => \(my $max_seq_num = 0));
-
-
+        "max-seq=s"       => \(my $max_seq_num = 0),
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
 
     $max_num_seqs_specified = "false";
     $min_num_seqs_specified = "false";
