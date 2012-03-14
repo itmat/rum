@@ -19,8 +19,9 @@ sub main {
         "paired"     => \(my $paired),
         "single"     => \(my $single),
         "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "help|h"  => sub { RUM::Usage->help },
-        "quiet|q" => sub { $log->less_logging(1) });
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
 
     @ARGV == 1 or RUM::Usage->bad(
         "Please specify an input file");

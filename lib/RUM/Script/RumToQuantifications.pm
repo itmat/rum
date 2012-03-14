@@ -82,8 +82,10 @@ sub main {
         "posonly"         => \$posonly,
         "countsonly"      => \$countsonly,
         "anti"            => \$anti,
-        "info=s"          => \$infofile
-    );
+        "info=s"          => \$infofile,
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
 
     $annotfile or RUM::Usage->bad(
         "Please provide a gene annotation file with --genes-in");

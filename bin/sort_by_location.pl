@@ -1,135 +1,52 @@
 #!/usr/bin/perl
 
-$|=1;
+# Written by Gregory R Grant
+# University of Pennsylvania, 2010
 
 use strict;
-no warnings;
-
+use warnings;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
+use RUM::Script;
+RUM::Script->run_with_logging("RUM::Script::SortByLocation");
 
-use RUM::Sort qw(cmpChrs);
+=head1 NAME
 
-if(@ARGV < 4) {
-    die "
-Usage: sort_by_location.pl <in file> <out file> [options]
+sort_by_location.pl - Sort a file by location
 
-  Where:
-     <in file> is a tab delimited file with either:
-        one column giving locations in the format chr:start-end
-        chr, start location and end location given in three different columns
+=head1 SYNOPSIS
 
-  Options: 
+sort_by_location.pl [OPTIONS] -o <out_file> --location <loc_col> INPUT
 
-      One of the following must be specified:
+sort_by_location.pl [OPTIONS] -o <out_file> --chromosome <chr_col> --start <start_col> --end <end_col> INPUT
 
-      -location_column n : n is the column that has the location (start counting at one)
-                           in the case there is one column having the form chr:start-end 
+=head1 OPTIONS
 
-      -location_columns c,s,e : c is the column that has the chromsome (start counting at one)
-                                s is the column that has the start location (start counting at one)
-                                e is the column that has the end location (start counting at one)
-                                c,s,e must be separated by commas, without spaces
+=over
 
-      -skip n : skip the first n lines (will preserve those lines at the top of the output).
-";
-}
+=item B<-o>, B<--output> I<out_file>
 
-my ($infile, $outfile) = @ARGV;
+The output file.
 
-my $option_specified = "false";
-my $location = "false";
-my $locations = "false";
-my $skip = 0;
-my $location_column;
-my $chr_column;
-my $start_column;
-my $end_column;
+=item B<--location> I<n>
 
-for(my $i=2; $i<@ARGV; $i++) {
-    if($ARGV[$i] eq "-location_column") {
-	$location_column = $ARGV[$i+1] - 1;
-	if(!($location_column =~ /^\d+$/)) {
-	    die "\nError: location_column must be a positive integer\n\n";
-	} else {
-	    if($ARGV[$i+1]  == 0) {
-		die "\nError: location_column must be a positive integer\n\n";
-	    }
-	}
-	$location = "true";
-	$option_specified = "true";
-	$i++;
-    }
-    if($ARGV[$i] eq "-location_columns") {
-	if($ARGV[$i+1] =~ /(\d+),(\d+),(\d+)/) {
-	    $chr_column = $1 - 1;
-	    $start_column = $2 - 1;
-	    $end_column = $3 - 1;
-	} else {
-	    die "\nError: location_columns must be three positive integers separated by commas, with no spaces.\n\n";
-	    exit();
-	}
-	$locations = "true";
-	$option_specified = "true";
-	$i++;
-    }
-    if($ARGV[$i] eq "-skip") {
-	$skip = $ARGV[$i+1];
-	if(!($skip =~ /^\d+$/)) {
-	    die "\nError: -skip must be a positive integer\n\n";
-	} else {
-	    if($ARGV[$i+1] == 0) {
-		die "\nError: location_column must be a positive integer\n\n";
-	    }
-	}
-    }
-}
-if($option_specified eq "false") {
-    die "\nError: one of the two options must be specified.\n\n";
-}
+The column number that has the location (start counting at one). This
+column must have the form chr:start-end.
 
+=item B<--chromosome> I<n>
 
+The column that has the chromosome (start counting at one).
 
-open my $in, "<", $infile;
-open my $out, ">", $outfile;
-for(my $i=0; $i<$skip; $i++) {
-    my $line = <$in>;
-    print $out $line;
-}
+=item B<--start> I<n>
 
-my %hash;
+The column that has the start location (start counting at one).
 
-while (defined(my $line = <$in>)) {
-    chomp($line);
-    my @a = split(/\t/,$line);
-    my ($chr, $start, $end);
-    if ($location eq "true") {
-	my $loc = $a[$location_column];
-	$loc =~ /^(.*):(\d+)-(\d+)/;
-	$chr = $1;
-	$start = $2;
-	$end = $3;
-    }
-    if ($locations eq "true") {
-	$chr = $a[$chr_column];
-	$start = $a[$start_column];
-	$end = $a[$end_column];
-    }
-    $hash{$chr}{$line}[0] = $start;
-    $hash{$chr}{$line}[1] = $end;
-}
-close($in);
+=item B<--end> I<n>
 
-for my $chr (sort {cmpChrs($a,$b)} keys %hash) {
-    for my $line (sort {
-        $hash{$chr}{$a}[0]<=>$hash{$chr}{$b}[0] ||
-        $hash{$chr}{$a}[1]<=>$hash{$chr}{$b}[1]
-    } keys %{$hash{$chr}}) {
-	chomp($line);
-	if($line =~ /\S/) {
-	    print $out "$line\n";
-	}
-    }
-}
+The column that has the end location (start counting at one).
 
-close($out);
+=item B<--skip> I<n>
+
+Skip the first n lines (will preserve those lines at the top of the output).
+
+=cut

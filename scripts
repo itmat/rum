@@ -15,13 +15,13 @@
 *  1 SCRIPTSDIR/RUM_finalcleanup.pl
 *  1 /Users/mike/src/rum/bin/count_reads_mapped.pl
 *  2 /Users/mike/src/rum/bin/merge_chr_counts.pl
+*  2 /Users/mike/src/rum/bin/merge_sorted_RUM_files.pl
+*  1 /Users/mike/src/rum/bin/merge_nu_stats.pl
+*  3 /Users/mike/src/rum/bin/sort_by_location.pl
 
    1 /Users/mike/src/rum/bin/get_inferred_internal_exons.pl
    1 /Users/mike/src/rum/bin/make_RUM_junctions_file.pl
-   1 /Users/mike/src/rum/bin/merge_nu_stats.pl
    2 /Users/mike/src/rum/bin/merge_quants.pl
-   2 /Users/mike/src/rum/bin/merge_sorted_RUM_files.pl
    1 /Users/mike/src/rum/bin/quantifyexons.pl
    2 /Users/mike/src/rum/bin/rum2cov.pl
-   3 /Users/mike/src/rum/bin/sort_by_location.pl
    1 /Users/mike/src/rum/bin/wait.pl

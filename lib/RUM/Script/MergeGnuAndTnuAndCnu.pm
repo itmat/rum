@@ -6,6 +6,8 @@ use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
 
+our $log = RUM::Logging->get_logger();
+
 $|=1;
 
 sub main {
@@ -15,7 +17,9 @@ sub main {
         "tnu-in=s" => \(my $infile2),
         "cnu-in=s" => \(my $infile3),
         "output=s" => \(my $outfile),
-        "help|h"   => sub { RUM::Usage->help });
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
 
     $infile1 or RUM::Usage->bad("Missing --gnu-in option");
     $infile2 or RUM::Usage->bad("Missing --tnu-in option");

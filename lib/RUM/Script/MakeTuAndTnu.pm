@@ -20,8 +20,9 @@ sub main {
         "single"          => \(my $single),
         "paired"          => \(my $paired),
         "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "help|h"  => sub { RUM::Usage->help },
-        "quiet|q" => sub { $log->less_logging(1) });
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
         
     $bowtie_output or RUM::Usage->bad(
         "Please specify the bowtie output file to read with --bowtie-output");
