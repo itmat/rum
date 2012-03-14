@@ -30,7 +30,7 @@ while (<$in>) {
 my $out = temp_filename("merged.XXXXXX");
 
 {
-    @ARGV = ("-o", $out, @names);
+    @ARGV = ("-o", $out, @names, "-q");
     RUM::Script::MergeSortedRumFiles->main();
     is_sorted_by_location($out);
 }
