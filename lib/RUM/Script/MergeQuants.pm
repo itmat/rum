@@ -86,6 +86,7 @@ for quant.S.1, quant.S.2, etc...
 
     $num_reads = 0;
     $first = 1;
+    my @counts;
     for ($i=1; $i<=$numchunks; $i++) {
         if ($strandspecific eq "true") {
             if ($alt eq "false") {
@@ -104,14 +105,16 @@ for quant.S.1, quant.S.2, etc...
             $filename = $filename . "." . $chunk_ids_mapping{$i};
         }
 
-        $log->info("Reading from $filename");
+#        $log->info("Reading from $filename");
 
         open(INFILE, "$output_dir/$filename")
             or die "Can't open $output_dir/$filename for reading: $!";
+
         $line = <INFILE>;
         $line =~ /num_reads = (\d+)/;
         $num_reads = $num_reads + $1;
         $cnt=0;
+
         while ($line = <INFILE>) {
             chomp($line);
             @a = split(/\t/,$line);
@@ -143,7 +146,7 @@ for quant.S.1, quant.S.2, etc...
         }
         $NL = $counts[$i]{len} / 1000;
         unless ($NL) {
-            $log->warn("Got 0 NL");
+#            $log->warn("Got 0 NL");
             next;
         }
 
