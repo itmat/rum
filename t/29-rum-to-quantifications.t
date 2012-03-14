@@ -17,7 +17,7 @@ my $genes = "$Bin/../_testing/indexes/Arabidopsis_thaliana_TAIR10_ensembl_gene_i
 my @standard_args = ("--genes", $genes, "--unique", $unique, "--non-unique", $non_unique);
 
 SKIP: {
-    skip "Don't have arabidopsis index", 6 unless -e $genes;
+    skip "Don't have arabidopsis index", 10 unless -e $genes;
     posonly_strand_ok();
     posonly_countsonly_ok();
     posonly_ok();
