@@ -1,97 +1,60 @@
 package RUM::Script::SortByLocation;
 
+use strict;
 no warnings;
+
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
 use RUM::Sort qw(cmpChrs);
 
+
+
 our $log = RUM::Logging->get_logger();
 
 sub main {
 
-    if (@ARGV < 4) {
-        die "
-Usage: sort_by_location.pl <in file> <out file> [options]
+    GetOptions(
+        "output|o=s"   => \(my $outfile),
+        "location=s"   => \(my $location_col),
+        "chromosome=s" => \(my $chromosome_col),
+        "start=s"      => \(my $start_col),
+        "end=s"        => \(my $end_col),
+        "skip=s"       => \(my $skip = 0),
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
 
-  Where:
-     <in file> is a tab delimited file with either:
-        one column giving locations in the format chr:start-end
-        chr, start location and end location given in three different columns
+    my ($infile) = shift(@ARGV) or RUM::Usage->bad(
+        "Please provide an input file");
 
-  Options: 
-
-      One of the following must be specified:
-
-      -location_column n : n is the column that has the location (start counting at one)
-                           in the case there is one column having the form chr:start-end 
-
-      -location_columns c,s,e : c is the column that has the chromsome (start counting at one)
-                                s is the column that has the start location (start counting at one)
-                                e is the column that has the end location (start counting at one)
-                                c,s,e must be separated by commas, without spaces
-
-      -skip n : skip the first n lines (will preserve those lines at the top of the output).
-";
+    if ($location_col) {
+        $location_col > 0 or RUM::Usage->bad(
+            "Location column must be a positive integer");
+        $location_col--;
     }
 
-    my ($infile, $outfile) = @ARGV;
-
-    my $option_specified = "false";
-    my $location = "false";
-    my $locations = "false";
-    my $skip = 0;
-    my $location_column;
-    my $chr_column;
-    my $start_column;
-    my $end_column;
-
-    for (my $i=2; $i<@ARGV; $i++) {
-        if ($ARGV[$i] eq "-location_column") {
-            $location_column = $ARGV[$i+1] - 1;
-            if (!($location_column =~ /^\d+$/)) {
-                die "\nError: location_column must be a positive integer\n\n";
-            } else {
-                if ($ARGV[$i+1]  == 0) {
-                    die "\nError: location_column must be a positive integer\n\n";
-                }
-            }
-            $location = "true";
-            $option_specified = "true";
-            $i++;
-        }
-        if ($ARGV[$i] eq "-location_columns") {
-            if ($ARGV[$i+1] =~ /(\d+),(\d+),(\d+)/) {
-                $chr_column = $1 - 1;
-                $start_column = $2 - 1;
-                $end_column = $3 - 1;
-            } else {
-                die "\nError: location_columns must be three positive integers separated by commas, with no spaces.\n\n";
-                exit();
-            }
-            $locations = "true";
-            $option_specified = "true";
-            $i++;
-        }
-        if ($ARGV[$i] eq "-skip") {
-            $skip = $ARGV[$i+1];
-            if (!($skip =~ /^\d+$/)) {
-                die "\nError: -skip must be a positive integer\n\n";
-            } else {
-                if ($ARGV[$i+1] == 0) {
-                    die "\nError: location_column must be a positive integer\n\n";
-                }
-            }
-        }
+    elsif ($chromosome_col && $start_col && $end_col) {
+        $chromosome_col > 0 or RUM::Usage->bad(
+            "Chromosome column must be a positive integer");
+        $start_col > 0 or RUM::Usage->bad(
+            "Start column must be a positive integer");
+        $end_col > 0 or RUM::Usage->bad(
+            "End column must be a positive integer");
+        $chromosome_col--;
+        $start_col--;
+        $end_col--;
     }
-    if ($option_specified eq "false") {
-        die "\nError: one of the two options must be specified.\n\n";
+    else {
+        RUM::Usage->bad("Please specify either --location or --chromsome, ".
+                            "--start, and --end");
     }
 
+    $skip >= 0 or RUM::Usage->bad("--skip must be an integer");
 
+    open my $in, "<", $infile or die "Can't open $infile for reading: $!";
+    open my $out, ">", $outfile or die "Can't open $outfile for writing: $!";
 
-    open my $in, "<", $infile;
-    open my $out, ">", $outfile;
     for (my $i=0; $i<$skip; $i++) {
         my $line = <$in>;
         print $out $line;
@@ -103,17 +66,17 @@ Usage: sort_by_location.pl <in file> <out file> [options]
         chomp($line);
         my @a = split(/\t/,$line);
         my ($chr, $start, $end);
-        if ($location eq "true") {
-            my $loc = $a[$location_column];
+        if ($location_col) {
+            my $loc = $a[$location_col];
             $loc =~ /^(.*):(\d+)-(\d+)/;
             $chr = $1;
             $start = $2;
             $end = $3;
         }
-        if ($locations eq "true") {
-            $chr = $a[$chr_column];
-            $start = $a[$start_column];
-            $end = $a[$end_column];
+        else {
+            $chr = $a[$chromosome_col];
+            $start = $a[$start_col];
+            $end = $a[$end_col];
         }
         $hash{$chr}{$line}[0] = $start;
         $hash{$chr}{$line}[1] = $end;
@@ -131,10 +94,6 @@ Usage: sort_by_location.pl <in file> <out file> [options]
             }
         }
     }
-
-    close($out);
-
-
 }
 
 1;
