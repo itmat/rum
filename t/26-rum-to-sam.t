@@ -10,8 +10,8 @@ use lib "$Bin/../lib";
 use RUM::Script::RumToSam;
 use RUM::TestUtils;
 
-my $unique_in     = "$INPUT_DIR/RUM_Unique.1";
-my $non_unique_in = "$INPUT_DIR/RUM_NU.1";
+my $unique_in     = "$SHARED_INPUT_DIR/RUM_Unique.1";
+my $non_unique_in = "$SHARED_INPUT_DIR/RUM_NU.1";
 my $reads_in      = "$INPUT_DIR/reads.fa.1";
 my $quals_in      = "$INPUT_DIR/quals.fa.1";
 my $name_map      = "$INPUT_DIR/name-map";
