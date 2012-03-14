@@ -28,6 +28,8 @@ I<do not> use the -separate option.
 
 =head1 OPTIONS
 
+=over
+
 =item B<-o>, B<--output> I<coverage_file>
 
 The output file.
@@ -40,8 +42,4 @@ The name of the track.
 
 Output stats to F<stats_file>, currently just the footprint size.
 
-
-
-
-
-
+=back
