@@ -29,9 +29,9 @@ my @tests = (
     }
 );
 
-#use_ok("RUM::Script::SortByLocation");
+plan tests => 1 + 2 * scalar(@tests);
 
-plan tests => 2 * scalar(@tests);
+use_ok("RUM::Script::RumToCov");
 
 for my $test (@tests) {
     my $name = $test->{name};
@@ -41,7 +41,8 @@ for my $test (@tests) {
     my $cov_out = temp_filename(TEMPLATE => "coverage.XXXXXX", UNLINK => 0);
     my $stats_out = temp_filename(TEMPLATE => "footprint.XXXXXX", UNLINK => 0);
 
-system "perl $Bin/../bin/rum2cov.pl $file $cov_out -name '$name' -stats $stats_out";
+    @ARGV = ($file, $cov_out, "-name", $name, "-stats", $stats_out);
+    RUM::Script::RumToCov->main();
     no_diffs($cov_out, $expected_cov, "Coverage diffs: $expected_cov");
     open my $in, "<", $stats_out;
     $_ = <$in>;    
