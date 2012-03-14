@@ -10,96 +10,38 @@ our $log = RUM::Logging->get_logger();
 
 sub main {
 
-    if (@ARGV<3) {
-        die "
-Usage: perl get_inferred_internal_exons.pl <junctions file> <coverage file> <annot file> [options]
+    GetOptions(
+        "junctions=s" => \(my $junctionsinfile),
+        "coverage=s"  => \(my $covinfile),
+        "genes=s"     => \(my $annotfile),
+        "bed=s"       => \(my $bedfile),
+        "rum=s"       => \(my $rumoutfile),
+        "min-score=s" => \(my $minscore = 1),
+        "max-exon=s"  => \(my $maxexon = 500),
+        "help|h"      => sub { RUM::Usage->help },
+        "verbose|v"   => sub { $log->more_logging(1) },
+        "quiet|q"     => sub { $log->less_logging(1) });
 
-Where:
+    $junctionsinfile or RUM::Usage->bad(
+        "Please provide a junctions input file with --junctions");
 
-  <junctions file>  : The high-quality junctions file output by RUM, sorted
-                      by chromosome (it should be sorted already when it comes
-                      out of RUM).  It does not matter what gene annotation
-                      was used to generate it, the annotation used to aid in
-                      inferring exons is taken from the <annnot file> parameter.
+    $covinfile or RUM::Usage->bad(
+        "Please provide a coverage file with --coverage");
 
-  <coverage file>   : The coverage file output by RUM, sorted by chromosome
-                      (it should be sorted already when it comes out of RUM).
-
-  <rum unique file> : RUM_Unique file output by RUM, the one that is sorted
-                      by chromosome/location.
-
-  <annot file>      : Transcript models file, in the format of the RUM gene
-                      info file.
-
-Options:
-
-  -minscore : don't use junctions unless they have at least this score
-              (default = 1).  Note: this will only be applied to things
-              with coverage at the junction of at least 5 times the minscore.
-
-  -maxexon  : Don't infer exons larger than this (default = 500 bp)
-
-  -bed f    : Output as bed file to file named f
-";
-    }
+    $annotfile or RUM::Usage->bad(
+        "Please provide an annotation file with --genes");
 
     my %debughash;              # xxx get rid of this later...
 
     my $min_intron = 35;
     my @junctions_file;
-    my $junctionsinfile = $ARGV[0];
-    my $covinfile = $ARGV[1];
-    my $annotfile = $ARGV[2];
+
     my %count_coverage_in_span_cache;
     my %ave_coverage_in_span_cache;
-    my $minscore = 1;
-    my $maxexon = 500;
     my @inferredTranscript;
     my $firstchr = "true";
-    my $bed = "false";
-    my $rum = "false";
-    my $bedfile;
-    my $rumoutfile;
-    for (my $i=3; $i<@ARGV; $i++) {
-        my $optionrecognized = 0;
-        my $double = "false";
-        if ($ARGV[$i] eq "-minscore") {
-            $minscore = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-            $double = "true";
-        }
-        if ($ARGV[$i] eq "-bed") {
-            $bed = "true";
-            $bedfile = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-            $double = "true";
-        }
-        if ($ARGV[$i] eq "-rum") {
-            $rum = "true";
-            $rumoutfile = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-            $double = "true";
-        }
-        if ($ARGV[$i] eq "-maxexon") {
-            $maxexon = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-            $double = "true";
-        }
-        if ($optionrecognized == 0) {
-            if ($double eq "true") {
-                my $temp = $ARGV[$i-1];
-                die "\nERROR: option '$temp $ARGV[$i]' not recognized\n";
-            } else {
-                die "\nERROR: option '$ARGV[$i]' not recognized\n";
-            }
-        }
-    }
 
-    open(INFILE, $annotfile) or die "Error: cannot open '$annotfile' for reading.\n\n";
+    open(INFILE, $annotfile) or die "Can't open $annotfile for reading: $!";
 
     # read in the transcript models
 
@@ -171,7 +113,8 @@ Options:
     #    print "$key\n";
     #}
 
-    open(INFILE, $junctionsinfile) or die "Error: cannot open '$junctionsinfile' for reading\n\n";
+    open(INFILE, $junctionsinfile) 
+        or die "Can't open $junctionsinfile for reading: $!";
     my $junctions_ref = &filter_junctions_file();
     my @ARR = @{$junctions_ref};
     my %junctions = %{$ARR[0]};
@@ -213,7 +156,8 @@ Options:
         }
     }
 
-    open(COVFILE, $covinfile) or die "Error: cannot open '$covinfile' for reading\n\n";
+    open(COVFILE, $covinfile)
+        or die "Can't open $covinfile for reading: $!";
     my $line = <INFILE>;
     chomp($line);
     my @a = split(/\t/,$line);
@@ -266,11 +210,11 @@ Options:
 
     # going to step through the chromosomes in sorted order
 
-    if ($bed eq "true") {
+    if ($bedfile) {
         open(BEDFILE, ">$bedfile");
         print "track\tname=\"Inferred Internal Exons\"  description=\"Inferred Internal Exons\"   visibility=3    itemRgb=\"On\"\n";
     }
-    if ($rum eq "true") {
+    if ($rumoutfile) {
         open(RUMFILE, ">$rumoutfile");
     }
 
@@ -456,18 +400,18 @@ Options:
             my $chr;
             my $start;
             my $end;
-            if ($rum eq "true" || $bed eq "true") {
+            if ($rumoutfile || $bedfile) {
                 $exon =~ /^(.*):(\d+)-(\d+)/;
                 $chr = $1;
                 $start = $2 - 1;
                 $end = $3;
             }
-            if ($rum eq "true") {
+            if ($rumoutfile) {
                 if ($ANNOTATEDEXONS{$exon} + 0 == 0) {
                     print RUMFILE "$chr\t+\t$start\t$end\t1\t$start,\t$end,\t$exon\n";
                 }	    
             }
-            if ($bed eq "true") {
+            if ($bedfile) {
                 if ($ANNOTATEDEXONS{$exon} + 0 == 1) {
                     print BEDFILE "$chr\t$start\t$end\t.\t0\t.\t$start\t$end\t16,78,139\n";
                 } else {
