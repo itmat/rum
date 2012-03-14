@@ -22,7 +22,6 @@
 
 
 # This one needs big test data
-
    1 /Users/mike/src/rum/bin/get_inferred_internal_exons.pl
    1 /Users/mike/src/rum/bin/make_RUM_junctions_file.pl
    2 /Users/mike/src/rum/bin/merge_quants.pl

@@ -44,7 +44,6 @@ my @libs;
 
 find sub {
     /^(\w*)\.pm$/ or return;
-    /MergeQuants/ and return;
     push @libs, ["RUM/Script/$_", "RUM::Script::$1"];
 }, "$Bin/../lib/RUM/Script";
 

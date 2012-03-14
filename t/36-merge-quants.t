@@ -15,12 +15,12 @@ plan tests => 2;
 
 use_ok("RUM::Script::MergeQuants");
 my $out = temp_filename(TEMPLATE => "merge-quants.XXXXXX", UNLINK => 0);
-@ARGV = ($INPUT_DIR, 2, $out);
+@ARGV = ($INPUT_DIR, "-n", 2, "-o", $out);
 
 RUM::Script::MergeQuants->main();
 no_diffs($out, "$EXPECTED_DIR/feature_quantifications_test");
 
 my $out2 = temp_filename(TEMPLATE => "merge-quants.XXXXXX", UNLINK => 0);
-@ARGV = ($INPUT_DIR, 1, $out2, "-header");
+@ARGV = ($INPUT_DIR, "-n", 1, "-o", $out2, "-header");
 RUM::Script::MergeQuants->main();
 no_diffs($out2, "$EXPECTED_DIR/novel_exon_quant_temp");

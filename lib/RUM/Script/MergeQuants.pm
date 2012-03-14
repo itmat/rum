@@ -3,99 +3,55 @@ package RUM::Script::MergeQuants;
 no warnings;
 use RUM::Usage;
 use RUM::Logging;
+use RUM::Common qw(read_chunk_id_mapping);
 use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
 
+our @VALID_STRANDS = qw(pa ma ps ms);
+
 sub main {
 
-    if (@ARGV<3) {
-        die "
-Usage: merge_quants.pl <dir> <numchunks> <outfile> [options]
+    GetOptions(
+        "output|o=s" => \(my $outfile),
+        "chunks|n=s" => \(my $numchunks),
+        "strand=s"   => \(my $strand),
+        "chunk-ids-file=s" => \(my $chunk_id_file),
+        "countsonly"       => \(my $countsonly),
+        "alt"              => \(my $alt),
+        "header"           => \(my $header),
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
 
-option:
+    my $output_dir = shift(@ARGV) or RUM::Usage->bad(
+        "Please provide the directory containing the quant.* files");
 
-    -strand s : ps, ms, pa, or ma (p: plus, m: minus, s: sense, a: antisense)
+    $outfile or RUM::Usage->bad(
+        "Please specify an output file with o or --output");
 
-    -chunk_ids_file f : If a file mapping chunk N to N.M.  This is used
-                        specifically for the RUM pipeline when chunks were
-                        restarted and names changed. 
+    $numchunks or RUM::Usage->bad(
+        "Please indicate the number of chunks with -n or --chunks");
 
-    -countsonly :  Output only a simple file with feature names and counts.
-
-    -alt :  need this if using -altquant when running RUM
-
-This script will look in <dir> for files named quant.1, quant.2, etc..
-up to quant.numchunks.  Unless -strand S is set in which case it looks
-for quant.S.1, quant.S.2, etc...
-
-";
+    if ($strand) {
+        grep { $_ eq $strand } @VALID_STRANDS or RUM::Usage->bad(
+            "--strand must be one of (@VALID_STRANDS), not '$strand'");
     }
-
-    $output_dir = $ARGV[0]; 
-    $numchunks = $ARGV[1];
-    $outfile = $ARGV[2];
-    $strandspecific = "false";
-    $strand = "";
-    $chunk_ids_file = "";
-    $countsonly = "false";
-    $alt = "false";
-    $header="false";
-    for ($i=3; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if ($ARGV[$i] eq "-strand") {
-            $strand = $ARGV[$i+1];
-            $strandspecific="true";
-            $i++;
-            if (!($strand eq 'pa' || $strand eq 'ma' || $strand eq 'ps' || $strand eq 'ms')) {
-                die "\nError: in file merge_quants.pl: -strand must equal either ps, ms, pa or ma, not '$strand'\n\n";
-            }
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-chunk_ids_file") {
-            $chunk_ids_file = $ARGV[$i+1];
-            $i++;
-            if (-e $chunk_ids_file) {
-                open(INFILE, $chunk_ids_file) 
-                    or die "Can't open $chunk_ids_file for reading: $!";
-                while ($line = <INFILE>) {
-                    chomp($line);
-                    @a = split(/\t/,$line);
-                    $chunk_ids_mapping{$a[0]} = $a[1];
-                }
-                close(INFILE);
-            }
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-countsonly") {
-            $countsonly = "true";
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-header") {
-            $header = "true";
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-alt") {
-            $alt = "true";
-            $optionrecognized = 1;
-        }
-        if ($optionrecognized == 0) {
-            die "\nError: option '$ARGV[$i]' not recognized.\n\n";
-        }
-    }
+    
+    my %chunk_ids_mapping = read_chunk_id_mapping($chunk_ids_file);
 
     $num_reads = 0;
     $first = 1;
     my @counts;
     for ($i=1; $i<=$numchunks; $i++) {
-        if ($strandspecific eq "true") {
-            if ($alt eq "false") {
+        if ($strand) {
+            if (!$alt) {
                 $filename = "quant.$strand.$i";
             } else {
                 $filename = "quant.$strand.altquant.$i";
             }
         } else {
-            if ($alt eq "false") {
+            if (!$alt) {
                 $filename = "quant.$i";
             } else {
                 $filename = "quant.altquant.$i";
@@ -105,7 +61,7 @@ for quant.S.1, quant.S.2, etc...
             $filename = $filename . "." . $chunk_ids_mapping{$i};
         }
 
-#        $log->info("Reading from $filename");
+        $log->info("Reading from $filename");
 
         open(INFILE, "$output_dir/$filename")
             or die "Can't open $output_dir/$filename for reading: $!";
@@ -133,9 +89,10 @@ for quant.S.1, quant.S.2, etc...
     }
     $num_reads_hold = $num_reads;
     $num_reads = $num_reads / 1000000;
-    open(OUTFILE, ">$outfile") or die "Can't open $output_dir/$outfile for writing: $!";
+    open(OUTFILE, ">$outfile") 
+        or die "Can't open $output_dir/$outfile for writing: $!";
     print OUTFILE "number of reads used for normalization: $num_reads_hold\n";
-    if ($header eq "true") {
+    if ($header) {
         print OUTFILE "      Type\tLocation           \tmin\tmax\tUcount\tNUcount\tLength\n";
     }
 
@@ -150,7 +107,7 @@ for quant.S.1, quant.S.2, etc...
             next;
         }
 
-        if ($countsonly eq "false") {
+        if (!$countsonly) {
             $ucnt_normalized = int( $counts[$i]{Ucnt} / $NL / $num_reads * 10000 ) / 10000;
             $totalcnt_normalized = int( ($counts[$i]{NUcnt}+$counts[$i]{Ucnt}) / $NL / $num_reads * 10000 ) / 10000;
         } else {
@@ -173,8 +130,6 @@ for quant.S.1, quant.S.2, etc...
         }
     }
     close(OUTFILE);
-
-
 }
 
 1;
