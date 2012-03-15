@@ -35,7 +35,10 @@ sub main {
         "strand=s" => \(my $userstrand),
         "anti"     => \(my $anti),
         "countsonly" => \(my $countsonly),
-        "novel"      => \(my $novel));
+        "novel"      => \(my $novel),
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) });
     
     $annotfile or RUM::Usage->bad(
         "Please specify an exons file with --exons-in");

@@ -8,7 +8,6 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
 use RUM::TestUtils;
-use_ok "RUM::Script::MakeRumJunctionsFile";
 
 our $annotations = "_testing/indexes/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
 
@@ -39,6 +38,9 @@ my @tests = (
 
 plan tests => 1 + 3 * @tests;
 
+use_ok "RUM::Script::MakeRumJunctionsFile";
+
+
 for my $test (@tests) {
 #    $test = $tests[2];
     my %test = %{ $test };
@@ -58,6 +60,7 @@ for my $test (@tests) {
         "--all-bed-out",   $all_bed_out,
         "--high-bed-out",  $high_bed_out,
         "-faok",
+        "-q",
         @{ $test->{options} } );
 
     RUM::Script::MakeRumJunctionsFile->main();

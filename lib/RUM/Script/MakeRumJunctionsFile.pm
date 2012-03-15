@@ -75,40 +75,6 @@ sub main {
 
     $|=1;
 
-    if (@ARGV < 7) {
-        die "
-
-Usage: make_RUM_junctions_file.pl <rum_unique> <rum_nu> <genome seq> <gene annotations> <all junctions outfile rum-format> <all junctions outfile bed-format> <high quality junctions outfile bed-format> [options]
-
-Where:
-   <gene annotations> is the RUM gene models file, put 'none' if there are no known gene models.
-
-Options:
-   -faok  : the fasta file already has sequence all on one line
-
-   -minintron n : the size of the smallest intron allowed 0<n (default = 15 bp)
-
-   -overlap n : there must be at least this many bases spanning either side of a junction
-                to qualify as high quality (default = 8 bp)
-
-   -signal wxyz : Use this alternate splice signal, wx is the donor and yz the acceptor.
-                  Multiple may be specified, separated by commas w/o whitespace.  If not
-                  specified, the standard signals will be used, with the canonical colored
-                  darker in the high quality junctions file.
-
-   -strand x : x is either p (for the plus strand) or m (for the minus strand).
-
-This script finds the junctions in the RUM_Unique and RUM_NU files
-and reports them to a junctions file that can be uploaded to the UCSC
-browser.
-
-In the high quality junctions, junctions in the annotation file are colored blue,
-others are colored green.  Those with standard splice signals (or those
-specified by -signal) are colored a shade lighter.
-
-";
-    }
-
     # print "\nMaking junctions files...\n";
 
     $faok = "false";
@@ -131,7 +97,10 @@ specified by -signal) are colored a shade lighter.
         "strand=s" => \(my $userstrand),
         "signal=s" => \(my $signal),
         "minintron=s" => \(my $minintron = 15),
-        "overlap=s"   => \(my $allowable_overlap = 8)
+        "overlap=s"   => \(my $allowable_overlap = 8),
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) }
     );
 
     $rumU or RUM::Usage->bad(

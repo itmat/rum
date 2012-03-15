@@ -8,7 +8,6 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
 use RUM::TestUtils;
-use_ok "RUM::Script::QuantifyExons";
 
 my $exons = "$INPUT_DIR/inferred_internal_exons.txt";
 our $unique = "$SHARED_INPUT_DIR/RUM_Unique.sorted.1";
@@ -33,7 +32,7 @@ my @tests = (
 
 plan tests => 1 + @tests;
 
-
+use_ok "RUM::Script::QuantifyExons";
 
 for my $test (@tests) {
     my %test = %{ $test };
