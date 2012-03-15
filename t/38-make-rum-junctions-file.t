@@ -24,11 +24,13 @@ my @tests = (
       all_bed  => "$EXPECTED_DIR/junctions_ps_all.bed",
       high_bed => "$EXPECTED_DIR/junctions_high-quality_ps.bed",
       options => ["-strand", "p"] },
+
     { name => "strand-specific: m",
       all_rum  => "$EXPECTED_DIR/junctions_ms_all.rum",
       all_bed  => "$EXPECTED_DIR/junctions_ms_all.bed",
       high_bed => "$EXPECTED_DIR/junctions_high-quality_ms.bed",
       options => ["-strand", "m"] },
+
     { name => "not strand-specific",
       all_rum  => "$EXPECTED_DIR/junctions_all_temp.rum",
       all_bed  => "$EXPECTED_DIR/junctions_all_temp.bed",
