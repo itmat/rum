@@ -1767,7 +1767,7 @@ if($postprocess eq "false") {
             }
             $shellscript = $shellscript . "perl $scripts_dir/get_inferred_internal_exons.pl --junctions $output_dir/junctions_high-quality.bed --coverage $output_dir/RUM_Unique.cov --genes $gene_annot_file --bed $output_dir/inferred_internal_exons.bed > $output_dir/inferred_internal_exons.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "perl $scripts_dir/quantifyexons.pl $output_dir/inferred_internal_exons.txt $output_dir/RUM_Unique.sorted $output_dir/RUM_NU.sorted $output_dir/quant.1 -novel -countsonly 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
-            $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir 1 $output_dir/novel_exon_quant_temp -header 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n 1 -o $output_dir/novel_exon_quant_temp --header 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
 	    $shellscript = $shellscript . "grep -v transcript $output_dir/novel_exon_quant_temp > $output_dir/novel_inferred_internal_exons_quantifications_$name\n";
             $shellscript = $shellscript . "echo post-processing finished >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
