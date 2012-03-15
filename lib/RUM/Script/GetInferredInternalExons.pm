@@ -4,7 +4,7 @@ no warnings;
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
-use RUM::Common qw(roman Roman);
+use RUM::Common qw(roman Roman arabic isroman);
 
 our $log = RUM::Logging->get_logger();
 
@@ -421,39 +421,42 @@ sub main {
         }
     }
 
-    sub attach () {
-        my ($exonlist_ref) = @_;
-        my @exonlist = @{$exonlist_ref};
-        my $lastexon = $exonlist[@exonlist-1];
-        my @returnarray;
-        my $N2;
-        if (defined $adjacent{$lastexon}) {
-            $N2 = @{$adjacent{$lastexon}};
-        } else {
-            $N2 = 0;
-        }
-        if (defined $terminal_exons{$lastexon} || $N2 == 0) {
-            my $N1 = @returnarray;
-            push(@{$returnarray[$N1]}, @exonlist);
-        }
-        for (my $i=0; $i<$N2; $i++) {
-            my $y = $adjacent{$lastexon}[$i];
-        }
-        for (my $i=0; $i<$N2; $i++) {
-            my $exon = $adjacent{$lastexon}[$i];
-            my @exonlist2 = @exonlist;
-            push(@exonlist2, $exon);
-            my $temp_ref = &attach(\@exonlist2);
-            my @temp = @{$temp_ref};
-            my $M = @returnarray;
-            for (my $i=0; $i<@temp; $i++) {
-                for (my $j=0; $j<@{$temp[$i]}; $j++) {
-                    $returnarray[$M+$i][$j] = $temp[$i][$j];
-                }
-            }
-        }
-        return \@returnarray;
-    }
+
+#    This doesn't seem to be used at all
+#    
+#    sub  attach () {
+#         my ($exonlist_ref) = @_;
+#         my @exonlist = @{$exonlist_ref};
+#         my $lastexon = $exonlist[@exonlist-1];
+#         my @returnarray;
+#         my $N2;
+#         if (defined $adjacent{$lastexon}) {
+#             $N2 = @{$adjacent{$lastexon}};
+#         } else {
+#             $N2 = 0;
+#         }
+#         if (defined $terminal_exons{$lastexon} || $N2 == 0) {
+#             my $N1 = @returnarray;
+#             push(@{$returnarray[$N1]}, @exonlist);
+#         }
+#         for (my $i=0; $i<$N2; $i++) {
+#             my $y = $adjacent{$lastexon}[$i];
+#         }
+#         for (my $i=0; $i<$N2; $i++) {
+#             my $exon = $adjacent{$lastexon}[$i];
+#             my @exonlist2 = @exonlist;
+#             push(@exonlist2, $exon);
+#             my $temp_ref = &attach(\@exonlist2);
+#             my @temp = @{$temp_ref};
+#             my $M = @returnarray;
+#             for (my $i=0; $i<@temp; $i++) {
+#                 for (my $j=0; $j<@{$temp[$i]}; $j++) {
+#                     $returnarray[$M+$i][$j] = $temp[$i][$j];
+#                 }
+#             }
+#         }
+#         return \@returnarray;
+#     }
 
     sub count_coverage_in_span () {
         # This will return the number of bases in the span that
@@ -473,21 +476,24 @@ sub main {
         return $num_below;
     }
 
-    sub ave_coverage_in_span () {
-        # This will return the average depth over bases in the span
-        my ($start, $end, $coverage_cutoff) = @_;
-        my $tmp = $start . ":" . $end . ":" . $coverage_cutoff;
-        my $sum = 0;
-        if (defined $ave_coverage_in_span_cache{$tmp}) {
-            return $ave_coverage_in_span_cache{$tmp};
-        }
-        for (my $i=$start; $i<=$end; $i++) {
-            $sum = $sum + $coverage{$i};
-        }
-        my $ave = $sum / ($end - $start + 1);
-        $ave_coverage_in_span_cache{$tmp}=$ave;
-        return $ave;
-    }
+
+#    This doesn't seem to be used at all
+#
+#    sub  ave_coverage_in_span () {
+#         # This will return the average depth over bases in the span
+#         my ($start, $end, $coverage_cutoff) = @_;
+#         my $tmp = $start . ":" . $end . ":" . $coverage_cutoff;
+#         my $sum = 0;
+#         if (defined $ave_coverage_in_span_cache{$tmp}) {
+#             return $ave_coverage_in_span_cache{$tmp};
+#         }
+#         for (my $i=$start; $i<=$end; $i++) {
+#             $sum = $sum + $coverage{$i};
+#         }
+#         my $ave = $sum / ($end - $start + 1);
+#         $ave_coverage_in_span_cache{$tmp}=$ave;
+#         return $ave;
+#     }
 
     # Initial filtering to remove low scoring stuff that does not seem
     # like it should be part of a transcript:

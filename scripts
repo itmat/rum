@@ -20,9 +20,10 @@
 *  3 /Users/mike/src/rum/bin/sort_by_location.pl
 *  2 /Users/mike/src/rum/bin/rum2cov.pl
 *  2 /Users/mike/src/rum/bin/merge_quants.pl
+*  1 /Users/mike/src/rum/bin/get_inferred_internal_exons.pl
 
 # This one needs big test data
-   1 /Users/mike/src/rum/bin/get_inferred_internal_exons.pl
+
    1 /Users/mike/src/rum/bin/make_RUM_junctions_file.pl
    1 /Users/mike/src/rum/bin/quantifyexons.pl
    1 /Users/mike/src/rum/bin/wait.pl
