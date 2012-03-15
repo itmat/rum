@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 2;
+use Test::More tests => 3;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
@@ -25,7 +25,8 @@ open my $out_fh, ">", $out or die "Can't open $out for writing: $!";
 @ARGV = ("--junctions", $junctions,
          "--coverage", $cov, 
          "--genes", $genes, 
-         "--bed", $bed_out);
+         "--bed", $bed_out,
+         "-q");
 
 RUM::Script::GetInferredInternalExons->main();
 *STDOUT = *STDOUT_BAK;
