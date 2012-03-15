@@ -25,6 +25,10 @@ my @tests = (
       options => ["-novel", "-countsonly", "-strand", "p"] },
     { name => "quant-novel-countsonly-strand-m", 
       options => ["-novel", "-countsonly", "-strand", "m"] },
+    { name => "quant-novel-countsonly-strand-p-anti", 
+      options => ["-novel", "-countsonly", "-strand", "p", "-anti"] },
+    { name => "quant-novel-countsonly-strand-m-anti", 
+      options => ["-novel", "-countsonly", "-strand", "m", "-anti"] },
 );
 
 plan tests => 1 + @tests;
@@ -42,7 +46,7 @@ for my $test (@tests) {
 
 #    RUM::Script::MakeRumJunctionsFile->main();
     my @cmd = ("perl", "bin/quantifyexons.pl", @ARGV);
-    diag "@cmd";
+
     system(@cmd);
     no_diffs($out,  "$EXPECTED_DIR/$name", $name);
 }
