@@ -172,29 +172,7 @@ Options:
         $ecnt{$chr}++;
     }
 
-    &readfile($U_readsfile, "Ucount");
-    &readfile($NU_readsfile, "NUcount");
-
-    my %EXONhash;
-    open(OUTFILE1, ">$outfile1") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile1' for writing.\n\n";
-    my $num_reads = $UREADS;
-    $num_reads = $num_reads + (scalar keys %NUREADS);
-    if ($countsonly eq "true") {
-        print OUTFILE1 "num_reads = $num_reads\n";
-    }
-    foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
-        for (my $i=0; $i<$ecnt{$chr}; $i++) {
-            my $x1 = $EXON{$chr}[$i]{Ucount}+0;
-            my $x2 = $EXON{$chr}[$i]{NUcount}+0;
-            my $s = $EXON{$chr}[$i]{start};
-            my $e = $EXON{$chr}[$i]{end};
-            my $elen = $e - $s + 1;
-            #	print OUTFILE1 "transcript\t$chr:$s-$e\t$x1\t$x2\t$elen\t+\t$chr:$s-$e\n";
-            print OUTFILE1 "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
-        }
-    }
-
-    sub readfile () {
+    my $readfile = sub {
         my ($filename, $type) = @_;
         open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
         my %HASH;
@@ -296,9 +274,34 @@ Options:
                 $i++;
             }
         }
+    };
+
+
+    $readfile->($U_readsfile, "Ucount");
+    $readfile->($NU_readsfile, "NUcount");
+
+    my %EXONhash;
+    open(OUTFILE1, ">$outfile1") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile1' for writing.\n\n";
+    my $num_reads = $UREADS;
+    $num_reads = $num_reads + (scalar keys %NUREADS);
+    if ($countsonly eq "true") {
+        print OUTFILE1 "num_reads = $num_reads\n";
+    }
+    foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
+        for (my $i=0; $i<$ecnt{$chr}; $i++) {
+            my $x1 = $EXON{$chr}[$i]{Ucount}+0;
+            my $x2 = $EXON{$chr}[$i]{NUcount}+0;
+            my $s = $EXON{$chr}[$i]{start};
+            my $e = $EXON{$chr}[$i]{end};
+            my $elen = $e - $s + 1;
+            #	print OUTFILE1 "transcript\t$chr:$s-$e\t$x1\t$x2\t$elen\t+\t$chr:$s-$e\n";
+            print OUTFILE1 "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
+        }
     }
 
+
 }
+
 
 sub union () {
     my ($spans1_u, $spans2_u) = @_;

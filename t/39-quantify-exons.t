@@ -43,11 +43,10 @@ for my $test (@tests) {
     my $out = temp_filename(TEMPLATE => "$name.XXXXXX");
 
     @ARGV = ($exons, $unique, $non_unique, $out, @options);
-
-#    RUM::Script::QuantifyExons->main();
     my @cmd = ("perl", "bin/quantifyexons.pl", @ARGV);
 
-    system(@cmd) == 0 or die;
+    RUM::Script::QuantifyExons->main();
+#    system(@cmd) == 0 or die;
     no_diffs($out,  "$EXPECTED_DIR/$name", $name);
 }
 
