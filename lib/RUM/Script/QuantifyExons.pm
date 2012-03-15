@@ -4,20 +4,16 @@ no warnings;
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
-
+use RUM::Common qw(roman Roman isroman arabic);
+use RUM::Sort qw(cmpChrs);
 our $log = RUM::Logging->get_logger();
 use strict;
 
 
 sub main {
 
-    use RUM::Common qw(roman Roman isroman arabic);
-    use RUM::Sort qw(cmpChrs);
+
     
-    my $annotfile = $ARGV[0];
-    my $U_readsfile = $ARGV[1];
-    my $NU_readsfile = $ARGV[2];
-    my $outfile1 = $ARGV[3];
 
     my %EXON_temp;
     my %cnt;
@@ -31,12 +27,25 @@ sub main {
     my $strandspecific;
 
     GetOptions(
+        "exons-in=s"  => \(my $annotfile),    
+        "unique-in=s" => \(my $U_readsfile),
+        "non-unique-in=s" => \(my $NU_readsfile),
+        "output|o=s" => \(my $outfile1),
         "info=s"   => \(my $infofile),
         "strand=s" => \(my $userstrand),
         "anti"     => \(my $anti),
         "countsonly" => \(my $countsonly),
         "novel"      => \(my $novel));
     
+    $annotfile or RUM::Usage->bad(
+        "Please specify an exons file with --exons-in");
+    $U_readsfile or RUM::Usage->bad(
+        "Please specify a RUM_Unique file with --unique-in");
+    $NU_readsfile or RUM::Usage->bad(
+        "Please specify a RUM_NU file with --non-unique-in");
+    $outfile1 or RUM::Usage->bad(
+        "Please specify an output file with -o or --output");
+
     if ($userstrand) {
         $strand = $userstrand;
         $strandspecific = 1;
@@ -61,7 +70,7 @@ sub main {
 
 # read in the transcript models
 
-open(INFILE, $annotfile) or die "ERROR: in script rum2quantifications.pl: cannot open '$annotfile' for reading.\n\n";
+    open(INFILE, $annotfile) or die "ERROR: in script rum2quantifications.pl: cannot open '$annotfile' for reading.\n\n";
 my %EXON;
 my %CHRS;
     while (my $line = <INFILE>) {

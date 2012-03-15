@@ -42,7 +42,11 @@ for my $test (@tests) {
     my @options = @{ $test->{options} };
     my $out = temp_filename(TEMPLATE => "$name.XXXXXX");
 
-    @ARGV = ($exons, $unique, $non_unique, $out, @options);
+    @ARGV = ("--exons-in", $exons,
+             "--unique-in", $unique, 
+             "--non-unique-in", $non_unique, 
+             "--output", $out,
+             @options);
     my @cmd = ("perl", "bin/quantifyexons.pl", @ARGV);
 
     RUM::Script::QuantifyExons->main();
