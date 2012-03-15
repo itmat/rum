@@ -111,14 +111,50 @@ specified by -signal) are colored a shade lighter.
 
     # print "\nMaking junctions files...\n";
 
-    $allowable_overlap = 8;
-    $rumU = $ARGV[0];
-    $rumNU = $ARGV[1];
-    $genome_sequence = $ARGV[2];
-    $gene_annot = $ARGV[3];
-    $outfile1 = $ARGV[4];
-    $outfile2 = $ARGV[5];
-    $outfile3 = $ARGV[6];
+    $faok = "false";
+
+    $strand = "+"; # the default if unspecified, will basically ignore
+                   # strand in this case
+    $strandspecified = "false";
+
+    my @argv = @ARGV;
+
+    GetOptions(
+        "unique-in=s" => \(my $rumU),
+        "non-unique-in=s" => \(my $rumNU),
+        "genome=s" => \(my $genome_sequence),
+        "genes=s" => \(my $gene_annot),
+        "all-rum-out=s" => \(my $outfile1),        
+        "all-bed-out=s" => \(my $outfile2),
+        "high-bed-out=s" => \(my $outfile3),
+        "faok" => \(my $faok),
+        "strand=s" => \(my $userstrand),
+        "signal=s" => \(my $signal),
+        "minintron=s" => \(my $minintron = 15),
+        "overlap=s"   => \(my $allowable_overlap = 8)
+    );
+
+    $rumU or RUM::Usage->bad(
+        "Please provide a RUM_Unique file with --non-unique-in");
+
+    $rumNU or RUM::Usage->bad(
+        "Please provide a RUM_NU file with --non-unique-in");
+
+    $genome_sequence or RUM::Usage->bad(
+        "Please provide a genome fasta file with --genome");
+
+    $gene_annot or RUM::Usage->bad(
+        "Please provide a gene annotation file with --genes");
+
+    $outfile1 or RUM::Usage->bad(
+        "Please specify a RUM output file for all junctions ".
+            "with --all-ru-out");
+    $outfile2 or RUM::Usage->bad(
+        "Please specify a bed output file for all junctions ".
+            "with --all-bed-out");
+    $outfile3 or RUM::Usage->bad(
+        "Please specify a bed output file for high-quality junctions ".
+            "with --high-bed-out");
 
     open(OUTFILE1, ">$outfile1") or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$outfile1' for writing\n\n";
 
@@ -127,71 +163,48 @@ specified by -signal) are colored a shade lighter.
     open(OUTFILE3, ">$outfile3") or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$outfile3' for writing\n\n";
 
 
-    $faok = "false";
-    $minintron = 15;
-    $strand = "+"; # the default if unspecified, will basically ignore strand in this case
-    $strandspecified = "false";
-    for ($i=7; $i<@ARGV; $i++) {
-        $optionrecognized = 0;
-        if ($ARGV[$i] eq "-signal") {
-            $i++;
-            @AR = split(/,/,$ARGV[$i]);
-            undef @donor;
-            undef @donor_rev;
-            undef @acceptor;
-            undef @acceptor_rev;
-            for ($j=0; $j<@AR; $j++) {
-                if ($AR[$j] =~ /^([ACGT][ACGT])([ACGT][ACGT])$/) {
-                    $donor[$j] = $1;
-                    $acceptor[$j] = $2;
-                    $donor_rev[$j] = reversesignal($donor[$j]);
-                    $acceptor_rev[$j] = reversesignal($acceptor[$j]);
-                } else {
-                    die "\nError: in scritp make_RUM_junctions_file.pl: the -signal argument is misformatted, check signal $i: '$AR[$j]'\n\n";
-                }
-            }
-            $optionrecognized = 1;
-        }    
-        if ($ARGV[$i] eq "-faok") {
-            $faok = "true";
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-strand") {
-            $strandspecified = "true";
-            $i++;
-            if ($ARGV[$i] eq "p") {
-                $strand = "+";
-            } elsif ($ARGV[$i] eq "m") {
-                $strand = "-";
-            } else {
-                die "\nError: -strand must be either \"p\" or \"m\"\n\n";
-            }
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-minintron") {
-            $minintron = $ARGV[$i+1];
-            if (!($minintron =~ /^\d+$/)) {
-                die "\nError: in script make_RUM_junctions_file.pl: -minintron must be an integer greater than zero, you gave '$minintron'.\n\n";
-            } elsif ($minintron==0) {
-                die "\nError: in script make_RUM_junctions_file.pl: -minintron must be an integer greater than zero, you gave '$minintron'.\n\n";
-            }
-            $i++;
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-overlap") {
-            $allowable_overlap = $ARGV[$i+1];
-            if (!($allowable_overlap =~ /^\d+$/)) {
-                die "\nError: in script make_RUM_junctions_file.pl: -overlap must be an integer greater than zero, you gave '$allowable_overlap'.\n\n";
-            } elsif ($allowable_overlap==0) {
-                die "\nError: in script make_RUM_junctions_file.pl: -overlap must be an integer greater than zero, you gave '$allowable_overlap'.\n\n";
-            }
-            $i++;
-            $optionrecognized = 1;
-        }
-        if ($optionrecognized == 0) {
-            die "\nERROR: in script make_RUM_junctions_file.pl: option '$ARGV[$i]' not recognized\n";
+
+
+    if ($userstrand) {
+        $strandspecified = "true";
+        $arg = $userstrand;
+        
+        if ($arg eq "p") {
+            $strand = "+";
+        } elsif ($arg eq "m") {
+            $strand = "-";
+        } else {
+            RUM::Usage->bad("--strand must be either \"p\" or \"m\"");
         }
     }
+
+    if ($signal) {
+
+        @AR = split(/,/,$signal);
+        undef @donor;
+        undef @donor_rev;
+        undef @acceptor;
+        undef @acceptor_rev;
+        for ($j=0; $j<@AR; $j++) {
+            if ($AR[$j] =~ /^([ACGT][ACGT])([ACGT][ACGT])$/) {
+                $donor[$j] = $1;
+                $acceptor[$j] = $2;
+                $donor_rev[$j] = reversesignal($donor[$j]);
+                $acceptor_rev[$j] = reversesignal($acceptor[$j]);
+            } else {
+                die "\nError: in scritp make_RUM_junctions_file.pl: the -signal argument is misformatted, check signal $i: '$AR[$j]'\n\n";
+            }
+        }
+        $optionrecognized = 1;
+    }    
+
+    $minintron =~ /^\d+$/ && $minintron > 0 or RUM::Usage->bad(
+        "--minintron must be an integer greater than zero, ".
+            "you gave '$minintron'");
+
+    $allowable_overlap =~ /^\d+$/ && $allowable_overlap > 0 or RUM::Usage->bad(
+        "--overlap must be an integer greater than zero, ".
+            "you gave '$allowable_overlap'");
 
     if ($strandspecified eq 'true') {
         print OUTFILE1 "intron\tstrand\tscore\tknown\tstandard_splice_signal\tsignal_not_canonical\tambiguous\tlong_overlap_unique_reads\tshort_overlap_unique_reads\tlong_overlap_nu_reads\tshort_overlap_nu_reads\n";
@@ -239,7 +252,7 @@ specified by -signal) are colored a shade lighter.
         close(INFILE);
     }
 
-    if ($faok eq "false") {
+    if (!$faok) {
         print "Modifying genome fa file\n";
         $r = int(rand(1000));
         $f = "temp_" . $r . ".fa";

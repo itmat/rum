@@ -23,13 +23,13 @@ my @tests = (
       all_rum  => "$EXPECTED_DIR/junctions_ps_all.rum",
       all_bed  => "$EXPECTED_DIR/junctions_ps_all.bed",
       high_bed => "$EXPECTED_DIR/junctions_high-quality_ps.bed",
-      options => ["--strand", "p"] },
+      options => ["-strand", "p"] },
 
     { name => "strand-specific-m",
       all_rum  => "$EXPECTED_DIR/junctions_ms_all.rum",
       all_bed  => "$EXPECTED_DIR/junctions_ms_all.bed",
       high_bed => "$EXPECTED_DIR/junctions_high-quality_ms.bed",
-      options => ["--strand", "m"] },
+      options => ["-strand", "m"] },
 
     { name => "not-strand-specific",
       all_rum  => "$EXPECTED_DIR/junctions_all_temp.rum",
@@ -45,33 +45,25 @@ for my $test (@tests) {
 
     my ($all_rum, $all_bed, $high_bed) = @test{qw(all_rum all_bed high_bed)};
     my $name = $test->{name};
-    my $all_rum_out  = temp_filename(TEMPLATE => "$name-all-rum.XXXXXX",
-                                 UNLINK => 0);
-    my $all_bed_out  = temp_filename(TEMPLATE => "$name-all-bed.XXXXXX",
-                                 UNLINK => 0);
-    my $high_bed_out = temp_filename(TEMPLATE => "$name-high-bed.XXXXXX",
-                                     UNLINK => 0);
+    my $all_rum_out  = temp_filename(TEMPLATE => "$name-all-rum.XXXXXX");
+    my $all_bed_out  = temp_filename(TEMPLATE => "$name-all-bed.XXXXXX");
+    my $high_bed_out = temp_filename(TEMPLATE => "$name-high-bed.XXXXXX");
 
     @ARGV = (
-        "--unique-in", $unique,
+        "--unique-in",     $unique,
         "--non-unique-in", $non_unique,
-        "--genome", $genome,
-        "--genes", $annotations,
-        "--all-rum-out", $all_rum_out,
-        "--all-bed-out", $all_bed_out,
-        "--high-bed-out", $high_bed_out,
-        "--faok",
-        , @{ $test->{options} } );
-
-    my @args = ("perl", "$Bin/../bin/make_RUM_junctions_file.pl", @ARGV);
+        "--genome",        $genome,
+        "--genes",         $annotations,
+        "--all-rum-out",   $all_rum_out,
+        "--all-bed-out",   $all_bed_out,
+        "--high-bed-out",  $high_bed_out,
+        "-faok",
+        @{ $test->{options} } );
 
     RUM::Script::MakeRumJunctionsFile->main();
-    #system(@args);
     
     no_diffs($all_rum_out,  $all_rum,  "$all_rum $all_rum_out");
     no_diffs($all_bed_out,  $all_bed,  "$all_bed $all_bed_out");
     no_diffs($high_bed_out, $high_bed, "$high_bed $high_bed_out");
 }
-
-
 
