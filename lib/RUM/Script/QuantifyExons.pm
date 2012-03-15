@@ -13,55 +13,11 @@ sub main {
 
     use RUM::Common qw(roman Roman isroman arabic);
     use RUM::Sort qw(cmpChrs);
-
-    if (@ARGV < 4) {
-        die "
-Usage: quantifyexons.pl <exons file> <RUM_Unique> <RUM_NU> <outfile> [options]
-
-Where:
-
-    <exons file> is a list of exons in format chr:start-end, one per line
-
-    <RUM_Unique> is the sorted RUM Unique file
-
-    <RUM_NU> is the sorted RUM NU file
-
-    <outfile> the file to write the results to
-
-Options:
-
-    -sepout filename : Make separate files for the min and max experssion values.
-                       In this case will write the min values to <outfile> and the   
-                       max values to the file specified by 'filename'.
-                       There are two extra columns in each file if done this way,
-                       one giving the raw count and one giving the count normalized
-                       only by the feature length.
-
-    -posonly  :  Output results only for transcripts that have non-zero intensity.
-                 Note: if using -sepout, this will output results to both files for
-                 a transcript if either one of the unique or non-unique counts is zero.
-
-    -countsonly :  Output only a simple file with feature names and counts.
-
-    -strand s : s=p to use just + strand reads, s=m to use just - strand.
-
-    -novel    : outout novel exons only
-
-    -info f   : f is a file that maps gene id's to info (i.e. annotation or other gene ids).
-                f must be tab delmited with the first column of known ids and second
-                column of annotation.
-
-    -anti     : Use in conjunction with -strand to record anti-sense transcripts instead
-                of sense. 
-
-";
-    }
-
+    
     my $annotfile = $ARGV[0];
     my $U_readsfile = $ARGV[1];
     my $NU_readsfile = $ARGV[2];
     my $outfile1 = $ARGV[3];
-    my $outfile2;
 
     my %EXON_temp;
     my %cnt;
@@ -70,68 +26,31 @@ Options:
     my %ecnt;
     my %NUREADS;
     my $UREADS=0;
-
-    my $sepout = "false";
-    my $posonly = "false";
-    my $countsonly = "false";
-    my $strandspecific="false";
+    
     my $strand = "";
-    my $anti = "false";
-    my $infofile;
-    my $infofile_given = "false";
-    my $novel = "false";
-    for (my $i=4; $i<@ARGV; $i++) {
-        my $optionrecognized = 0;
-        if ($ARGV[$i] eq "-sepout") {
-            $sepout = "true";
-            $outfile2 = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-info") {
-            $infofile_given = "true";
-            $i++;
-            $infofile = $ARGV[$i];
-            if (!(-e $infofile)) {
-                die "ERROR: in script rum2quantifications.pl: info file '$infofile' does not seem to exist.\n\n";
-            }
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-strand") {
-            $strand = $ARGV[$i+1];
-            $strandspecific="true";
-            $i++;
-            if (!($strand eq 'p' || $strand eq 'm')) {
-                die "\nERROR: in script rum2quantifications.pl: -strand must equal either 'p' or 'm', not '$strand'\n\n";
-            }
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-posonly") {
-            $posonly = "true";
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-anti") {
-            $anti = "true";
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-countsonly") {
-            $countsonly = "true";
-            $optionrecognized = 1;
-        }
-        if ($ARGV[$i] eq "-novel") {
-            $novel = "true";
-            $optionrecognized = 1;
-        }
-        if ($optionrecognized == 0) {
-            die "\nERROR: in script rum2quantifications.pl: option '$ARGV[$i]' not recognized\n";
-        }
+    my $strandspecific;
+
+    GetOptions(
+        "info=s"   => \(my $infofile),
+        "strand=s" => \(my $userstrand),
+        "anti"     => \(my $anti),
+        "countsonly" => \(my $countsonly),
+        "novel"      => \(my $novel));
+    
+    if ($userstrand) {
+        $strand = $userstrand;
+        $strandspecific = 1;
+        $strand eq 'p' || $strand eq 'm' or RUM::Usage->bad(
+            "--strand must be p or m, not $strand");
     }
+
 
     # read in the info file, if given
 
     my %INFO;
-    if ($infofile_given eq "true") {
-        open(INFILE, $infofile) or die "ERROR: in script rum2quantifications.pl: Cannot open the file '$infofile' for reading\n";
+    if ($infofile) {
+        open(INFILE, $infofile) 
+            or die "Can't open $infofile for reading: $!";
         while (my $line = <INFILE>) {
             chomp($line);
             my @a = split(/\t/,$line);
@@ -140,18 +59,18 @@ Options:
         close(INFILE);
     }
 
-    # read in the transcript models
+# read in the transcript models
 
-    open(INFILE, $annotfile) or die "ERROR: in script rum2quantifications.pl: cannot open '$annotfile' for reading.\n\n";
-    my %EXON;
-    my %CHRS;
+open(INFILE, $annotfile) or die "ERROR: in script rum2quantifications.pl: cannot open '$annotfile' for reading.\n\n";
+my %EXON;
+my %CHRS;
     while (my $line = <INFILE>) {
         chomp($line);
         my @a = split(/\t/,$line);
-        if ($novel eq "true" && $a[1] eq "annotated") {
+        if ($novel && $a[1] eq "annotated") {
             next;
         } 
-        if ($strandspecific eq 'true') {
+        if ($strandspecific) {
             if ($strand =~ /^p/ && $a[1] eq '-') { # fix this when fix strand specific, strand is no longer a[1]
                 next;
             }
@@ -186,7 +105,7 @@ Options:
         }
         while ($line = <INFILE>) {
             $counter++;
-            if ($counter % 100000 == 0 && $countsonly eq "false") {
+            if ($counter % 100000 == 0 && !$countsonly) {
                 print "$type: counter=$counter\n";
             }
             chomp($line);
@@ -202,17 +121,17 @@ Options:
             } else {
                 $UREADS++;
             }
-            if ($strandspecific eq 'true') {
-                if ($strand eq 'p' && $STRAND eq '-' && $anti eq 'false') {
+            if ($strandspecific) {
+                if ($strand eq 'p' && $STRAND eq '-' && !$anti) {
                     next;
                 }
-                if ($strand eq 'm' && $STRAND eq '+' && $anti eq 'false') {
+                if ($strand eq 'm' && $STRAND eq '+' && !$anti) {
                     next;
                 }
-                if ($strand eq 'p' && $STRAND eq '+' && $anti eq 'true') {
+                if ($strand eq 'p' && $STRAND eq '+' && $anti) {
                     next;
                 }
-                if ($strand eq 'm' && $STRAND eq '-' && $anti eq 'true') {
+                if ($strand eq 'm' && $STRAND eq '-' && $anti) {
                     next;
                 }
             }
@@ -284,7 +203,7 @@ Options:
     open(OUTFILE1, ">$outfile1") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile1' for writing.\n\n";
     my $num_reads = $UREADS;
     $num_reads = $num_reads + (scalar keys %NUREADS);
-    if ($countsonly eq "true") {
+if ($countsonly) {
         print OUTFILE1 "num_reads = $num_reads\n";
     }
     foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
