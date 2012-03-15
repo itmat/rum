@@ -1659,23 +1659,23 @@ if($postprocess eq "false") {
                 $shellscript = $shellscript . "echo 'merging feature quantifications' >> $output_dir/$PPlog\n";
                 $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
                 if($strandspecific eq 'true') {
-                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.ps -strand ps -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
-                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.ms -strand ms -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
-                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.pa -strand pa -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
-                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.ma -strand ma -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n $numchunks -o $output_dir/feature_quantifications.ps -strand ps --chunk-ids-file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n $numchunks -o $output_dir/feature_quantifications.ms --strand ms --chunk-ids-file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n $numchunks -o $output_dir/feature_quantifications.pa --strand pa --chunk-ids-file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n $numchunks -o $output_dir/feature_quantifications.ma --strand ma --chunk-ids-file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
                     $shellscript = $shellscript . "perl $scripts_dir/merge_quants_strandspecific.pl $output_dir/feature_quantifications.ps $output_dir/feature_quantifications.ms $output_dir/feature_quantifications.pa $output_dir/feature_quantifications.ma $gene_annot_file $output_dir/feature_quantifications_$name 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
                 } else {
-                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications_$name -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                    $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n $numchunks -o $output_dir/feature_quantifications_$name --chunk-ids-file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
                 }
                 if($altquant eq "true") {
                     if($strandspecific eq 'true') {
-                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.altquant.ps -alt -strand ps -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
-                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.altquant.ms -alt -strand ms -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
-                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.altquant.pa -alt -strand pa -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
-                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications.altquant.ma -alt -strand ma -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n $numchunks -o $output_dir/feature_quantifications.altquant.ps --alt --strand ps --chunk-ids-file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n $numchunks -o $output_dir/feature_quantifications.altquant.ms --alt --strand ms --chunk-ids-file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n $numchunks -o $output_dir/feature_quantifications.altquant.pa --alt --strand pa --chunk-ids-file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n $numchunks -o $output_dir/feature_quantifications.altquant.ma --alt --strand ma --chunk-ids-file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
                         $shellscript = $shellscript . "perl $scripts_dir/merge_quants_strandspecific.pl $output_dir/feature_quantifications.altquant.ps $output_dir/feature_quantifications.altquant.ms $output_dir/feature_quantifications.altquant.pa $output_dir/feature_quantifications.altquant.ma $altquant_file $output_dir/feature_quantifications_$name" . ".altquant 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
                     } else {
-                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir $numchunks $output_dir/feature_quantifications_$name" . ".altquant -alt -chunk_ids_file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+                        $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n $numchunks -o $output_dir/feature_quantifications_$name" . ".altquant --alt --chunk-ids-file $output_dir/restart.ids 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
                     }
                 }
             }
@@ -1765,7 +1765,7 @@ if($postprocess eq "false") {
                   $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted.plus $output_dir/RUM_NU.plus.cov -name \"$name Non-Unique Mappers Plus Strand\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
                   $shellscript = $shellscript . "perl $scripts_dir/rum2cov.pl $output_dir/RUM_NU.sorted.minus $output_dir/RUM_NU.minus.cov -name \"$name Non-Unique Mappers Minus Strand\" 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             }
-            $shellscript = $shellscript . "perl $scripts_dir/get_inferred_internal_exons.pl $output_dir/junctions_high-quality.bed $output_dir/RUM_Unique.cov $gene_annot_file -bed $output_dir/inferred_internal_exons.bed > $output_dir/inferred_internal_exons.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
+            $shellscript = $shellscript . "perl $scripts_dir/get_inferred_internal_exons.pl --junctions $output_dir/junctions_high-quality.bed --coverage $output_dir/RUM_Unique.cov --genes $gene_annot_file --bed $output_dir/inferred_internal_exons.bed > $output_dir/inferred_internal_exons.txt 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "perl $scripts_dir/quantifyexons.pl $output_dir/inferred_internal_exons.txt $output_dir/RUM_Unique.sorted $output_dir/RUM_NU.sorted $output_dir/quant.1 -novel -countsonly 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir 1 $output_dir/novel_exon_quant_temp -header 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
 	    $shellscript = $shellscript . "grep -v transcript $output_dir/novel_exon_quant_temp > $output_dir/novel_inferred_internal_exons_quantifications_$name\n";
