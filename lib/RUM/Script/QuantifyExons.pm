@@ -6,13 +6,13 @@ use RUM::Logging;
 use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
+use strict;
+
 
 sub main {
 
     use RUM::Common qw(roman Roman isroman arabic);
     use RUM::Sort qw(cmpChrs);
-
-    use strict;
 
     if (@ARGV < 4) {
         die "
@@ -289,7 +289,7 @@ Options:
                 undef @A;
                 $A[0] = $EXON{$CHR}[$i]{start};
                 $A[1] = $EXON{$CHR}[$i]{end};
-                my $b = &do_they_overlap();
+                my $b = &do_they_overlap(\@A, \@B);
                 if ($b == 1) {
                     $EXON{$CHR}[$i]{$type}++;
                 }
@@ -298,82 +298,83 @@ Options:
         }
     }
 
-    sub do_they_overlap() {
-        # going to pass in two arrays as global vars, because don't want them
-        # to be copied every time, this function is going to be called a lot.
-        # the global vars @A and @B
+}
 
-        my $i=0;
-        my $j=0;
-
-        while (1==1) {
-            until (($B[$j] < $A[$i] && $i%2==0) || ($B[$j] <= $A[$i] && $i%2==1)) {
-                $i++;
-                if ($i == @A) {
-                    if ($B[$j] == $A[@A-1]) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-                }
+sub union () {
+    my ($spans1_u, $spans2_u) = @_;
+    
+    my %chash;
+    my @a = split(/, /,$spans1_u);
+    for (my $i=0;$i<@a;$i++) {
+        my @b = split(/-/,$a[$i]);
+        for (my $j=$b[0];$j<=$b[1];$j++) {
+            $chash{$j}++;
+        }
+    }
+    @a = split(/, /,$spans2_u);
+    for (my $i=0;$i<@a;$i++) {
+        my @b = split(/-/,$a[$i]);
+        for (my $j=$b[0];$j<=$b[1];$j++) {
+            $chash{$j}++;
+        }
+    }
+    my $first = 1;
+    my $spans_union;
+    my $pos_prev;
+    foreach my $pos (sort {$a<=>$b} keys %chash) {
+        if ($first == 1) {
+            $spans_union = $pos;
+            $first = 0;
+        } else {
+            if ($pos > $pos_prev + 1) {
+                $spans_union = $spans_union . "-$pos_prev, $pos";
             }
-            if (($i-1) % 2 == 0) {
-                return 1;
-            } else {
-                $j++;
-                if ($j%2==1 && $A[$i] <= $B[$j]) {
+        }
+        $pos_prev = $pos;
+    }
+    $spans_union = $spans_union . "-$pos_prev";
+    return $spans_union;
+}
+
+
+sub do_they_overlap() {
+
+    my ($A, $B) = @_;
+
+    my $i=0;
+    my $j=0;
+    
+    while (1==1) {
+        until (($B->[$j] < $A->[$i] && $i%2==0) || ($B->[$j] <= $A->[$i] && $i%2==1)) {
+            $i++;
+            if ($i == @$A) {
+                if ($B->[$j] == $A->[@$A-1]) {
                     return 1;
-                }
-                if ($j >= @B) {
+                } else {
                     return 0;
                 }
             }
         }
+        if (($i-1) % 2 == 0) {
+            return 1;
+        } else {
+            $j++;
+            if ($j%2==1 && $A->[$i] <= $B->[$j]) {
+                return 1;
+            }
+            if ($j >= @$B) {
+                return 0;
+            }
+        }
     }
-
-    # seq.35669       chr1    3206742-3206966 -       GCCCACCACCATGTCAAACACAATCTCTTCCCATTTGGTGATACAGAATTCTGTCTCACAGTGGACAATCCAGAAAGTCATGATGCACCAATGGAGGACAATAAATATCCCAAAATACAGCTGGAAAACCGAGGCAAAGAGGGCGAATGTGATGACCCTGGCAGCGATGGTGAAGAAATGCCAGCAGAACTGAATGATGACAGCCATTTAGCTGATGGGCTTTTT
-    # 
-    # 
-    # chr1    -       3195981 3206425 2       3195981,3203689,        3197398,3206425,        OTTMUST00000086625(vega)
-
-
 }
 
-    sub union () {
-        my ($spans1_u, $spans2_u) = @_;
+# seq.35669       chr1    3206742-3206966 -       GCCCACCACCATGTCAAACACAATCTCTTCCCATTTGGTGATACAGAATTCTGTCTCACAGTGGACAATCCAGAAAGTCATGATGCACCAATGGAGGACAATAAATATCCCAAAATACAGCTGGAAAACCGAGGCAAAGAGGGCGAATGTGATGACCCTGGCAGCGATGGTGAAGAAATGCCAGCAGAACTGAATGATGACAGCCATTTAGCTGATGGGCTTTTT
+# 
+# 
+# chr1    -       3195981 3206425 2       3195981,3203689,        3197398,3206425,        OTTMUST00000086625(vega)
 
-        my %chash;
-        my @a = split(/, /,$spans1_u);
-        for (my $i=0;$i<@a;$i++) {
-            my @b = split(/-/,$a[$i]);
-            for (my $j=$b[0];$j<=$b[1];$j++) {
-                $chash{$j}++;
-            }
-        }
-        @a = split(/, /,$spans2_u);
-        for (my $i=0;$i<@a;$i++) {
-            my @b = split(/-/,$a[$i]);
-            for (my $j=$b[0];$j<=$b[1];$j++) {
-                $chash{$j}++;
-            }
-        }
-        my $first = 1;
-        my $spans_union;
-        my $pos_prev;
-        foreach my $pos (sort {$a<=>$b} keys %chash) {
-            if ($first == 1) {
-                $spans_union = $pos;
-                $first = 0;
-            } else {
-                if ($pos > $pos_prev + 1) {
-                    $spans_union = $spans_union . "-$pos_prev, $pos";
-                }
-            }
-            $pos_prev = $pos;
-        }
-        $spans_union = $spans_union . "-$pos_prev";
-        return $spans_union;
-    }
+
 
 
 1;

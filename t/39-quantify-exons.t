@@ -47,7 +47,7 @@ for my $test (@tests) {
 #    RUM::Script::QuantifyExons->main();
     my @cmd = ("perl", "bin/quantifyexons.pl", @ARGV);
 
-    system(@cmd);
+    system(@cmd) == 0 or die;
     no_diffs($out,  "$EXPECTED_DIR/$name", $name);
 }
 
