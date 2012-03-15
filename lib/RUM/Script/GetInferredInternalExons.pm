@@ -4,102 +4,45 @@ no warnings;
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
-use RUM::Common qw(roman Roman);
+use RUM::Common qw(roman Roman arabic isroman);
+use RUM::Sort qw(cmpChrs by_chromosome);
 
 our $log = RUM::Logging->get_logger();
 
 sub main {
 
-    if (@ARGV<3) {
-        die "
-Usage: perl get_inferred_internal_exons.pl <junctions file> <coverage file> <annot file> [options]
+    GetOptions(
+        "junctions=s" => \(my $junctionsinfile),
+        "coverage=s"  => \(my $covinfile),
+        "genes=s"     => \(my $annotfile),
+        "bed=s"       => \(my $bedfile),
+        "rum=s"       => \(my $rumoutfile),
+        "min-score=s" => \(my $minscore = 1),
+        "max-exon=s"  => \(my $maxexon = 500),
+        "help|h"      => sub { RUM::Usage->help },
+        "verbose|v"   => sub { $log->more_logging(1) },
+        "quiet|q"     => sub { $log->less_logging(1) });
 
-Where:
+    $junctionsinfile or RUM::Usage->bad(
+        "Please provide a junctions input file with --junctions");
 
-  <junctions file>  : The high-quality junctions file output by RUM, sorted
-                      by chromosome (it should be sorted already when it comes
-                      out of RUM).  It does not matter what gene annotation
-                      was used to generate it, the annotation used to aid in
-                      inferring exons is taken from the <annnot file> parameter.
+    $covinfile or RUM::Usage->bad(
+        "Please provide a coverage file with --coverage");
 
-  <coverage file>   : The coverage file output by RUM, sorted by chromosome
-                      (it should be sorted already when it comes out of RUM).
-
-  <rum unique file> : RUM_Unique file output by RUM, the one that is sorted
-                      by chromosome/location.
-
-  <annot file>      : Transcript models file, in the format of the RUM gene
-                      info file.
-
-Options:
-
-  -minscore : don't use junctions unless they have at least this score
-              (default = 1).  Note: this will only be applied to things
-              with coverage at the junction of at least 5 times the minscore.
-
-  -maxexon  : Don't infer exons larger than this (default = 500 bp)
-
-  -bed f    : Output as bed file to file named f
-";
-    }
+    $annotfile or RUM::Usage->bad(
+        "Please provide an annotation file with --genes");
 
     my %debughash;              # xxx get rid of this later...
 
     my $min_intron = 35;
     my @junctions_file;
-    my $junctionsinfile = $ARGV[0];
-    my $covinfile = $ARGV[1];
-    my $annotfile = $ARGV[2];
+
     my %count_coverage_in_span_cache;
     my %ave_coverage_in_span_cache;
-    my $minscore = 1;
-    my $maxexon = 500;
     my @inferredTranscript;
     my $firstchr = "true";
-    my $bed = "false";
-    my $rum = "false";
-    my $bedfile;
-    my $rumoutfile;
-    for (my $i=3; $i<@ARGV; $i++) {
-        my $optionrecognized = 0;
-        my $double = "false";
-        if ($ARGV[$i] eq "-minscore") {
-            $minscore = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-            $double = "true";
-        }
-        if ($ARGV[$i] eq "-bed") {
-            $bed = "true";
-            $bedfile = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-            $double = "true";
-        }
-        if ($ARGV[$i] eq "-rum") {
-            $rum = "true";
-            $rumoutfile = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-            $double = "true";
-        }
-        if ($ARGV[$i] eq "-maxexon") {
-            $maxexon = $ARGV[$i+1];
-            $i++;
-            $optionrecognized = 1;
-            $double = "true";
-        }
-        if ($optionrecognized == 0) {
-            if ($double eq "true") {
-                my $temp = $ARGV[$i-1];
-                die "\nERROR: option '$temp $ARGV[$i]' not recognized\n";
-            } else {
-                die "\nERROR: option '$ARGV[$i]' not recognized\n";
-            }
-        }
-    }
 
-    open(INFILE, $annotfile) or die "Error: cannot open '$annotfile' for reading.\n\n";
+    open(INFILE, $annotfile) or die "Can't open $annotfile for reading: $!";
 
     # read in the transcript models
 
@@ -171,7 +114,8 @@ Options:
     #    print "$key\n";
     #}
 
-    open(INFILE, $junctionsinfile) or die "Error: cannot open '$junctionsinfile' for reading\n\n";
+    open(INFILE, $junctionsinfile) 
+        or die "Can't open $junctionsinfile for reading: $!";
     my $junctions_ref = &filter_junctions_file();
     my @ARR = @{$junctions_ref};
     my %junctions = %{$ARR[0]};
@@ -188,7 +132,7 @@ Options:
     my %ANNOTATEDEXON; # this guy is a highly structured hash mapping chr to
     # an ordered list of exons feature details
     my %ANNOTATEDEXONS;    # this guy is a simple hash with keys=exons
-    foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON_temp) {
+    foreach my $chr (sort by_chromosome keys %EXON_temp) {
         $ecnt{$chr} = 0;
         foreach my $exon (sort {$EXON_temp{$chr}{$a}{start} <=> $EXON_temp{$chr}{$b}{start}} keys %{$EXON_temp{$chr}}) {
             $ANNOTATEDEXON{$chr}[$ecnt{$chr}]{start} = $EXON_temp{$chr}{$exon}{start};
@@ -203,7 +147,7 @@ Options:
     }
 
     my %INTRON;
-    foreach my $chr (sort {cmpChrs($a,$b)} keys %INTRON_temp) {
+    foreach my $chr (sort by_chromosome keys %INTRON_temp) {
         $icnt{$chr} = 0;
         foreach my $intron (sort {$INTRON_temp{$chr}{$a}{start} <=> $INTRON_temp{$chr}{$b}{start}} keys %{$INTRON_temp{$chr}}) {
             $INTRON{$chr}[$icnt{$chr}]{start} = $INTRON_temp{$chr}{$intron}{start};
@@ -213,7 +157,8 @@ Options:
         }
     }
 
-    open(COVFILE, $covinfile) or die "Error: cannot open '$covinfile' for reading\n\n";
+    open(COVFILE, $covinfile)
+        or die "Can't open $covinfile for reading: $!";
     my $line = <INFILE>;
     chomp($line);
     my @a = split(/\t/,$line);
@@ -266,15 +211,15 @@ Options:
 
     # going to step through the chromosomes in sorted order
 
-    if ($bed eq "true") {
+    if ($bedfile) {
         open(BEDFILE, ">$bedfile");
         print "track\tname=\"Inferred Internal Exons\"  description=\"Inferred Internal Exons\"   visibility=3    itemRgb=\"On\"\n";
     }
-    if ($rum eq "true") {
+    if ($rumoutfile) {
         open(RUMFILE, ">$rumoutfile");
     }
 
-    foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
+    foreach my $chr (sort by_chromosome keys %junctions) {
 
         #    print STDERR "working on chromosome '$chr'\n";
 
@@ -456,18 +401,18 @@ Options:
             my $chr;
             my $start;
             my $end;
-            if ($rum eq "true" || $bed eq "true") {
+            if ($rumoutfile || $bedfile) {
                 $exon =~ /^(.*):(\d+)-(\d+)/;
                 $chr = $1;
                 $start = $2 - 1;
                 $end = $3;
             }
-            if ($rum eq "true") {
+            if ($rumoutfile) {
                 if ($ANNOTATEDEXONS{$exon} + 0 == 0) {
                     print RUMFILE "$chr\t+\t$start\t$end\t1\t$start,\t$end,\t$exon\n";
                 }	    
             }
-            if ($bed eq "true") {
+            if ($bedfile) {
                 if ($ANNOTATEDEXONS{$exon} + 0 == 1) {
                     print BEDFILE "$chr\t$start\t$end\t.\t0\t.\t$start\t$end\t16,78,139\n";
                 } else {
@@ -477,39 +422,42 @@ Options:
         }
     }
 
-    sub attach () {
-        my ($exonlist_ref) = @_;
-        my @exonlist = @{$exonlist_ref};
-        my $lastexon = $exonlist[@exonlist-1];
-        my @returnarray;
-        my $N2;
-        if (defined $adjacent{$lastexon}) {
-            $N2 = @{$adjacent{$lastexon}};
-        } else {
-            $N2 = 0;
-        }
-        if (defined $terminal_exons{$lastexon} || $N2 == 0) {
-            my $N1 = @returnarray;
-            push(@{$returnarray[$N1]}, @exonlist);
-        }
-        for (my $i=0; $i<$N2; $i++) {
-            my $y = $adjacent{$lastexon}[$i];
-        }
-        for (my $i=0; $i<$N2; $i++) {
-            my $exon = $adjacent{$lastexon}[$i];
-            my @exonlist2 = @exonlist;
-            push(@exonlist2, $exon);
-            my $temp_ref = &attach(\@exonlist2);
-            my @temp = @{$temp_ref};
-            my $M = @returnarray;
-            for (my $i=0; $i<@temp; $i++) {
-                for (my $j=0; $j<@{$temp[$i]}; $j++) {
-                    $returnarray[$M+$i][$j] = $temp[$i][$j];
-                }
-            }
-        }
-        return \@returnarray;
-    }
+
+#    This doesn't seem to be used at all
+#    
+#    sub  attach () {
+#         my ($exonlist_ref) = @_;
+#         my @exonlist = @{$exonlist_ref};
+#         my $lastexon = $exonlist[@exonlist-1];
+#         my @returnarray;
+#         my $N2;
+#         if (defined $adjacent{$lastexon}) {
+#             $N2 = @{$adjacent{$lastexon}};
+#         } else {
+#             $N2 = 0;
+#         }
+#         if (defined $terminal_exons{$lastexon} || $N2 == 0) {
+#             my $N1 = @returnarray;
+#             push(@{$returnarray[$N1]}, @exonlist);
+#         }
+#         for (my $i=0; $i<$N2; $i++) {
+#             my $y = $adjacent{$lastexon}[$i];
+#         }
+#         for (my $i=0; $i<$N2; $i++) {
+#             my $exon = $adjacent{$lastexon}[$i];
+#             my @exonlist2 = @exonlist;
+#             push(@exonlist2, $exon);
+#             my $temp_ref = &attach(\@exonlist2);
+#             my @temp = @{$temp_ref};
+#             my $M = @returnarray;
+#             for (my $i=0; $i<@temp; $i++) {
+#                 for (my $j=0; $j<@{$temp[$i]}; $j++) {
+#                     $returnarray[$M+$i][$j] = $temp[$i][$j];
+#                 }
+#             }
+#         }
+#         return \@returnarray;
+#     }
 
     sub count_coverage_in_span () {
         # This will return the number of bases in the span that
@@ -529,21 +477,24 @@ Options:
         return $num_below;
     }
 
-    sub ave_coverage_in_span () {
-        # This will return the average depth over bases in the span
-        my ($start, $end, $coverage_cutoff) = @_;
-        my $tmp = $start . ":" . $end . ":" . $coverage_cutoff;
-        my $sum = 0;
-        if (defined $ave_coverage_in_span_cache{$tmp}) {
-            return $ave_coverage_in_span_cache{$tmp};
-        }
-        for (my $i=$start; $i<=$end; $i++) {
-            $sum = $sum + $coverage{$i};
-        }
-        my $ave = $sum / ($end - $start + 1);
-        $ave_coverage_in_span_cache{$tmp}=$ave;
-        return $ave;
-    }
+
+#    This doesn't seem to be used at all
+#
+#    sub  ave_coverage_in_span () {
+#         # This will return the average depth over bases in the span
+#         my ($start, $end, $coverage_cutoff) = @_;
+#         my $tmp = $start . ":" . $end . ":" . $coverage_cutoff;
+#         my $sum = 0;
+#         if (defined $ave_coverage_in_span_cache{$tmp}) {
+#             return $ave_coverage_in_span_cache{$tmp};
+#         }
+#         for (my $i=$start; $i<=$end; $i++) {
+#             $sum = $sum + $coverage{$i};
+#         }
+#         my $ave = $sum / ($end - $start + 1);
+#         $ave_coverage_in_span_cache{$tmp}=$ave;
+#         return $ave;
+#     }
 
     # Initial filtering to remove low scoring stuff that does not seem
     # like it should be part of a transcript:
@@ -699,210 +650,6 @@ Options:
             }
         }
     }
-
-    sub cmpChrs () {
-        my $a2_c = lc($b);
-        my $b2_c = lc($a);
-        if ($a2_c =~ /^\d+$/ && !($b2_c =~ /^\d+$/)) {
-            return 1;
-        }
-        if ($b2_c =~ /^\d+$/ && !($a2_c =~ /^\d+$/)) {
-            return -1;
-        }
-        if ($a2_c =~ /^[ivxym]+$/ && !($b2_c =~ /^[ivxym]+$/)) {
-            return 1;
-        }
-        if ($b2_c =~ /^[ivxym]+$/ && !($a2_c =~ /^[ivxym]+$/)) {
-            return -1;
-        }
-        if ($a2_c eq 'm' && ($b2_c eq 'y' || $b2_c eq 'x')) {
-            return -1;
-        }
-        if ($b2_c eq 'm' && ($a2_c eq 'y' || $a2_c eq 'x')) {
-            return 1;
-        }
-        if ($a2_c =~ /^[ivx]+$/ && $b2_c =~ /^[ivx]+$/) {
-            $a2_c = "chr" . $a2_c;
-            $b2_c = "chr" . $b2_c;
-        }
-        if ($a2_c =~ /$b2_c/) {
-            return -1;
-        }
-        if ($b2_c =~ /$a2_c/) {
-            return 1;
-        }
-        # dealing with roman numerals starts here
-
-        if ($a2_c =~ /chr([ivx]+)/ && $b2_c =~ /chr([ivx]+)/) {
-            $a2_c =~ /chr([ivx]+)/;
-            my $a2_roman = $1;
-            $b2_c =~ /chr([ivx]+)/;
-            my $b2_roman = $1;
-            my $a2_arabic = arabic($a2_roman);
-            my $b2_arabic = arabic($b2_roman);
-            if ($a2_arabic > $b2_arabic) {
-                return -1;
-            } 
-            if ($a2_arabic < $b2_arabic) {
-                return 1;
-            }
-            if ($a2_arabic == $b2_arabic) {
-                my $tempa = $a2_c;
-                my $tempb = $b2_c;
-                $tempa =~ s/chr([ivx]+)//;
-                $tempb =~ s/chr([ivx]+)//;
-                my %temphash;
-                $temphash{$tempa}=1;
-                $temphash{$tempb}=1;
-                foreach my $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
-                    if ($tempkey eq $tempa) {
-                        return 1;
-                    } else {
-                        return -1;
-                    }
-                }
-            }
-        }
-
-        if ($b2_c =~ /chr([ivx]+)/ && !($a2_c =~ /chr([a-z]+)/) && !($a2_c =~ /chr(\d+)/)) {
-            return -1;
-        }
-        if ($a2_c =~ /chr([ivx]+)/ && !($b2_c =~ /chr([a-z]+)/) && !($b2_c =~ /chr(\d+)/)) {
-            return 1;
-        }
-        if ($b2_c =~ /m$/ && $a2_c =~ /vi+/) {
-            return 1;
-        }
-        if ($a2_c =~ /m$/ && $b2_c =~ /vi+/) {
-            return -1;
-        }
-
-        # roman numerals ends here
-        if ($a2_c =~ /chr(\d+)$/ && $b2_c =~ /chr.*_/) {
-            return 1;
-        }
-        if ($b2_c =~ /chr(\d+)$/ && $a2_c =~ /chr.*_/) {
-            return -1;
-        }
-        if ($a2_c =~ /chr([a-z])$/ && $b2_c =~ /chr.*_/) {
-            return 1;
-        }
-        if ($b2_c =~ /chr([a-z])$/ && $a2_c =~ /chr.*_/) {
-            return -1;
-        }
-        if ($a2_c =~ /chr(\d+)/) {
-            my $numa = $1;
-            if ($b2_c =~ /chr(\d+)/) {
-                my $numb = $1;
-                if ($numa < $numb) {
-                    return 1;
-                }
-                if ($numa > $numb) {
-                    return -1;
-                }
-                if ($numa == $numb) {
-                    my $tempa = $a2_c;
-                    my $tempb = $b2_c;
-                    $tempa =~ s/chr\d+//;
-                    $tempb =~ s/chr\d+//;
-                    my %temphash;
-                    $temphash{$tempa}=1;
-                    $temphash{$tempb}=1;
-                    foreach my $tempkey (sort {cmpChrs($a,$b)} keys %temphash) {
-                        if ($tempkey eq $tempa) {
-                            return 1;
-                        } else {
-                            return -1;
-                        }
-                    }
-                }
-            } else {
-                return 1;
-            }
-        }
-        if ($a2_c =~ /chrx(.*)/ && ($b2_c =~ /chr(y|m)$1/)) {
-            return 1;
-        }
-        if ($b2_c =~ /chrx(.*)/ && ($a2_c =~ /chr(y|m)$1/)) {
-            return -1;
-        }
-        if ($a2_c =~ /chry(.*)/ && ($b2_c =~ /chrm$1/)) {
-            return 1;
-        }
-        if ($b2_c =~ /chry(.*)/ && ($a2_c =~ /chrm$1/)) {
-            return -1;
-        }
-        if ($a2_c =~ /chr\d/ && !($b2_c =~ /chr[^\d]/)) {
-            return 1;
-        }
-        if ($b2_c =~ /chr\d/ && !($a2_c =~ /chr[^\d]/)) {
-            return -1;
-        }
-        if ($a2_c =~ /chr[^xy\d]/ && (($b2_c =~ /chrx/) || ($b2_c =~ /chry/))) {
-            return -1;
-        }
-        if ($b2_c =~ /chr[^xy\d]/ && (($a2_c =~ /chrx/) || ($a2_c =~ /chry/))) {
-            return 1;
-        }
-        if ($a2_c =~ /chr(\d+)/ && !($b2_c =~ /chr(\d+)/)) {
-            return 1;
-        }
-        if ($b2_c =~ /chr(\d+)/ && !($a2_c =~ /chr(\d+)/)) {
-            return -1;
-        }
-        if ($a2_c =~ /chr([a-z])/ && !($b2_c =~ /chr(\d+)/) && !($b2_c =~ /chr[a-z]+/)) {
-            return 1;
-        }
-        if ($b2_c =~ /chr([a-z])/ && !($a2_c =~ /chr(\d+)/) && !($a2_c =~ /chr[a-z]+/)) {
-            return -1;
-        }
-        if ($a2_c =~ /chr([a-z]+)/) {
-            my $letter_a = $1;
-            if ($b2_c =~ /chr([a-z]+)/) {
-                my $letter_b = $1;
-                if ($letter_a lt $letter_b) {
-                    return 1;
-                }
-                if ($letter_a gt $letter_b) {
-                    return -1;
-                }
-            } else {
-                return -1;
-            }
-        }
-        my $flag_c = 0;
-        while ($flag_c == 0) {
-            $flag_c = 1;
-            if ($a2_c =~ /^([^\d]*)(\d+)/) {
-                my $stem1_c = $1;
-                my $num1_c = $2;
-                if ($b2_c =~ /^([^\d]*)(\d+)/) {
-                    my $stem2_c = $1;
-                    my $num2_c = $2;
-                    if ($stem1_c eq $stem2_c && $num1_c < $num2_c) {
-                        return 1;
-                    }
-                    if ($stem1_c eq $stem2_c && $num1_c > $num2_c) {
-                        return -1;
-                    }
-                    if ($stem1_c eq $stem2_c && $num1_c == $num2_c) {
-                        $a2_c =~ s/^$stem1_c$num1_c//;
-                        $b2_c =~ s/^$stem2_c$num2_c//;
-                        $flag_c = 0;
-                    }
-                }
-            }
-        }
-        if ($a2_c le $b2_c) {
-            return 1;
-        }
-        if ($b2_c le $a2_c) {
-            return -1;
-        }
-
-        return 1;
-    }
-
 
 }
 
