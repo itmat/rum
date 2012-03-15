@@ -8,7 +8,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
 use RUM::TestUtils;
-use_ok "RUM::Script::MakeRumJunctionsFile";
+use_ok "RUM::Script::QuantifyExons";
 
 my $exons = "$INPUT_DIR/inferred_internal_exons.txt";
 our $unique = "$SHARED_INPUT_DIR/RUM_Unique.sorted.1";
@@ -44,7 +44,7 @@ for my $test (@tests) {
 
     @ARGV = ($exons, $unique, $non_unique, $out, @options);
 
-#    RUM::Script::MakeRumJunctionsFile->main();
+#    RUM::Script::QuantifyExons->main();
     my @cmd = ("perl", "bin/quantifyexons.pl", @ARGV);
 
     system(@cmd);
