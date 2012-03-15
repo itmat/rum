@@ -8,7 +8,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
 use RUM::TestUtils;
-#use_ok "RUM::Script::GetInferredInternalExons";
+use_ok "RUM::Script::MakeRumJunctionsFile";
 
 our $annotations = "_testing/indexes/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
 
@@ -49,11 +49,10 @@ for my $test (@tests) {
     my $all_bed_out  = temp_filename("all-bed.XXXXXX");
     my $high_bed_out = temp_filename("high-bed.XXXXXX");
 
-    my @cmd = ("perl", "$Bin/../bin/make_RUM_junctions_file.pl",
-               $unique, $non_unique, $genome, $annotations,
-               $all_rum_out, $all_bed_out, $high_bed_out,
-               "-faok", @{ $test->{options} } );
-    system(@cmd) == 0 or fail("@cmd");
+    @ARGV = ($unique, $non_unique, $genome, $annotations,
+             $all_rum_out, $all_bed_out, $high_bed_out,
+             "-faok", @{ $test->{options} } );
+    RUM::Script::MakeRumJunctionsFile->main();
     
     no_diffs($all_rum_out,  $all_rum,  "$test->{name}: all rum");
     no_diffs($all_bed_out,  $all_bed,  "$test->{name}: all bed");

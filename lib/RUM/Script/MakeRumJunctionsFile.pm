@@ -299,6 +299,7 @@ specified by -signal) are colored a shade lighter.
     close(GENOMESEQ);
 
     sub printjunctions () {
+
         foreach $intron (keys %allintrons) {
             $amb{$intron} = $amb{$intron} + 0;
             $badoverlapU{$intron} = $badoverlapU{$intron} + 0;
@@ -393,6 +394,15 @@ specified by -signal) are colored a shade lighter.
 
 
     sub getjunctions () {
+        undef %allintrons;
+        undef %goodsplicesignal;
+        undef %amb;
+        undef %badoverlapU;
+        undef %badoverlapNU;
+        undef %goodoverlapU;
+        undef %goodoverlapNU;
+        undef %knownintron;
+            
         open(INFILE, $rumU) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$rumU' for reading\n\n";
         #    print "please wait...\n";
         while ($line = <INFILE>) {
