@@ -14,6 +14,8 @@ use RUM::Sort qw(by_chromosome);
 use RUM::Subproc qw(spawn check pids_by_command_re kill_all procs
                     child_pids can_kill kill_runaway_procs);
 
+use RUM::Logging;
+
 if($ARGV[0] eq '-version' || $ARGV[0] eq '-v' || $ARGV[0] eq '--version' || $ARGV[0] eq '--v') {
     die "RUM version: $version\n";
 }
@@ -646,8 +648,7 @@ for($i=0; $i<@a; $i++) {
     if($temp4 eq $temp6 || $temp5 eq $temp6) {
 	$CNT++;
 	if($CNT > 1) {
-            print ERRORLOG "\nERROR: You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\nExiting.\n\nTry killing by running the same command with -kill.\nIf that doesn't work use kill -9 on the process ID.\n\n";
-	    die "\nERROR: You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\nExiting.\n\nTry killing by running the same command with -kill.\nIf that doesn't work use kill -9 on the process ID.\n\n";
+            $log->logdie("You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\nExiting.\n\nTry killing by running the same command with -kill.\nIf that doesn't work use kill -9 on the process ID.");
 	}
     }
 }
@@ -1637,6 +1638,8 @@ if($postprocess eq "false") {
     	   $pipeline_file =~ s!2>\s*[^\s]*!!gs;
         }
 
+        print OUTFILE "export RUM_CHUNK_ERROR_LOG=$output_dir/errorlog.$i;\n";
+        print OUTFILE "export RUM_CHUNK_LOG=$output_dir/rum.log_chunk.$i;\n";
         print OUTFILE $pipeline_file;
 
         # Add postprocessing steps to the last chunk only:
