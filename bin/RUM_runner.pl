@@ -5,14 +5,19 @@ $version = "1.11.  Released March 5, 2012";
 
 $| = 1;
 
+our $PAUSE_TIME = 1;
+
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use File::Spec;
 use Carp;
+use RUM::Logging;
 use RUM::Common qw(Roman roman isroman arabic format_large_int);
 use RUM::Sort qw(by_chromosome);
 use RUM::Subproc qw(spawn check pids_by_command_re kill_all procs
                     child_pids can_kill kill_runaway_procs);
+
+our $ui = RUM::Logging->get_logger("RUM::UI");
 
 use RUM::Logging;
 
@@ -56,8 +61,10 @@ is installed.
     $Bin/../lib
 EOF
 
+
 if(@ARGV == 1 && @ARGV[0] eq "config") {
-    print $CONFIG_DESC;
+    $ui->info($CONFIG_DESC);
+    exit;
 }
 if(@ARGV < 5) {
     print "
@@ -259,7 +266,7 @@ $readsfile = $ARGV[1];
 $output_dir = $ARGV[2];
 $output_dir =~ s!/$!!;
 if(!(-d $output_dir)) {
-    die "\nERROR: The directory '$output_dir' does not seem to exists...\n\n";
+    $ui->logdie("The directory '$output_dir' does not seem to exist...");
 }
 
 $kill = "false";
@@ -287,8 +294,7 @@ if($numchunks =~ /(\d+)s/) {
 }
 $name = $ARGV[4];
 if($name =~ /^-/) {
-    print ERRORLOG "\nERROR: The name '$name' is invalid, probably you forgot a required argument\n\n";
-    die "\nERROR: The name '$name' is invalid, probably you forgot a required argument\n\n";
+    $ui->logdie("The name '$name' is invalid, probably you forgot a required argument");
 }
 
 $name_o = $ARGV[4];
@@ -296,10 +302,11 @@ $name =~ s/\s+/_/g;
 $name =~ s/^[^a-zA-Z0-9_.-]//;
 $name =~ s/[^a-zA-Z0-9_.-]$//g;
 $name =~ s/[^a-zA-Z0-9_.-]/_/g;
+
 if($name ne $name_o) {
-    print "\nWarning: name changed from '$name_o' to '$name'.\n\n";
+    $ui->warn("Name changed from '$name_o' to '$name'.");
     if(length($name) > 250) {
-        die "\nError: The name must be less than 250 characters.\n\n";
+        $ui->logdie("The name must be less than 250 characters.");
     }
 }
 
@@ -442,8 +449,7 @@ if(@ARGV > 5) {
             $i++;
             $altgene_file = $ARGV[$i];
             if(!(open(TESTIN, $altgene_file))) {
-                print ERRORLOG "\nERROR: cannot open '$altgene_file' for reading.\n\n";
-                die "\nERROR: cannot open '$altgene_file' for reading.\n\n";
+                $ui->logdie("Cannot open '$altgene_file' for reading.");
             }
             close(TESTIN);
 	    $optionrecognized = 1;
@@ -453,8 +459,7 @@ if(@ARGV > 5) {
             $i++;
             $altquant_file = $ARGV[$i];
             if(!(open(TESTIN, $altquant_file))) {
-                print ERRORLOG "\nERROR: cannot open '$altquant_file' for reading.\n\n";
-                die "\nERROR: cannot open '$altquant_file' for reading.\n\n";
+                $ui->logdie("Can't open '$altquant_file' for reading: $!");
             }
             close(TESTIN);
 	    $optionrecognized = 1;
@@ -466,8 +471,7 @@ if(@ARGV > 5) {
             $quals_file = $ARGV[$i];
             $quals = "true";
             if($quals_file =~ /\//) {
-               print ERRORLOG "ERROR: do not specify -quals file with a full path, put it in the '$output_dir' directory.\n\n";
-               die "ERROR: do not specify -quals file with a full path, put it in the '$output_dir' directory.\n\n";
+                RUM::Usage->bad("do not specify -quals file with a full path, put it in the '$output_dir' directory.");
             }
 	    $optionrecognized = 1;
 	}
@@ -477,7 +481,7 @@ if(@ARGV > 5) {
 	    $i++;
 	    if(!($minidentity =~ /^\d+$/ && $minidentity <= 100)) {
                 print ERRORLOG "\nERROR: minidentity must be an integer between zero and 100.\nYou have given '$minidentity'.\n\n";
-		die "\nERROR: minidentity must be an integer between zero and 100.\nYou have given '$minidentity'.\n\n";
+		RUM::Usage->bad("ERROR: minidentity must be an integer between zero and 100.\nYou have given '$minidentity'.");
 	    }
 	    $optionrecognized = 1;
 	}
@@ -510,8 +514,7 @@ if(@ARGV > 5) {
 	    $minlength = $ARGV[$i+1];
 	    $i++;
 	    if(!($minlength =~ /^\d+$/ && $minlength >= 10)) {
-                print ERRORLOG "\nERROR: minlength must be an integer >= 10.\nYou have given '$minlength'.\n\n";
-		die "\nERROR: minlength must be an integer >= 10.\nYou have given '$minlength'.\n\n";
+		RUM::Usage->bad("ERROR: minlength must be an integer >= 10.\nYou have given '$minlength'.");
 	    }
 	    $optionrecognized = 1;
 	}
@@ -520,14 +523,12 @@ if(@ARGV > 5) {
 	    $i++;
 	    $limitNUhard = "true";
 	    if(!($NU_limit =~ /^\d+$/ && $NU_limit > 0)) {
-                print ERRORLOG "\nERROR: -limitNU must be an integer greater than zero.\nYou have given '$NU_limit'.\n\n";
-		die "\nERROR: -limitNU must be an integer greater than zero.\nYou have given '$NU_limit'.\n\n";
+                RUM::Usage->bad("-limitNU must be an integer greater than zero.\nYou have given '$NU_limit'.");
 	    }
 	    $optionrecognized = 1;
 	}
 	if($optionrecognized == 0) {
-            print ERRORLOG "\nERROR: option $ARGV[$i] not recognized.\n\n";
-	    die "\nERROR: option $ARGV[$i] not recognized.\n\n";
+	    RUM::Usage->bad("ERROR: option $ARGV[$i] not recognized.");
 	}
     }
 }
@@ -538,8 +539,7 @@ if(!($starttime =~ /\S/)) {
 
 $H = `hostname`;
 if($H =~ /login.genomics.upenn.edu/ && $qsub eq "false") {
-    print ERRORLOG "ERROR: you cannot run RUM on the PGFI cluster without using the -qsub option.\n\n";
-    die "ERROR: you cannot run RUM on the PGFI cluster without using the -qsub option.\n\n";
+    $log->logdie("you cannot run RUM on the PGFI cluster without using the -qsub option.");
 }
 
 if($dna eq "false") {
@@ -548,8 +548,7 @@ if($dna eq "false") {
 }
 
 if($preserve_names eq "true" && $variable_length_reads eq "true") {
-    print ERRORLOG "ERROR: Cannot use both -preserve_names and -variable_read_lengths at the same time.\nSorry, we will fix this eventually.\n\n";
-    die "ERROR: Cannot use both -preserve_names and -variable_read_lengths at the same time.\nSorry, we will fix this eventually.\n\n";
+    RUM::Usage->bad("ERROR: Cannot use both -preserve_names and -variable_read_lengths at the same time.\nSorry, we will fix this eventually.");
 }
 
 if($genomeonly eq "true") {
@@ -653,8 +652,9 @@ for($i=0; $i<@a; $i++) {
     }
 }
 
-print "\nIf this is a big job, you should keep an eye on the rum.error-log file as it runs,\nbecause errors in the various chunks will be reported there that might indicate a\nfailure that will require a restart that you otherwise might not become aware of\nuntil it's finished.\n\n";
-
+$ui->info("");
+$ui->info("If this is a big job, you should keep an eye on the rum.error-log file as it runs, because errors in the various chunks will be reported there that might indicate a failure that will require a restart that you otherwise might not become aware of until it's finished.");
+$ui->info("");
 if($qsub eq "true") {
      $q = `qstat`;
      @b = split(/\n/,$q);
@@ -669,14 +669,14 @@ if($qsub eq "true") {
          @c = split(/,/,$args);
          $dir = $c[3];
          if($dir eq $output_dir) {
-             print ERRORLOG "\nERROR: You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\nExiting.\n\nTry killing by running the same command with -kill.\nIf that doesn't work use kill -9 on the process ID.\n\n";
-             die "\nERROR: You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\n";
+             $ui->logdie("You seem to already have an instance of RUM_runner.pl running on the same working directory.  This will cause collisions of the temporary files.  Exiting.  Try killing by running the same command with -kill. If that doesn't work use kill -9 on the process ID.");
+
           }
     }
 
-     print "\nWarning: You are using qsub - so if you have installed RUM somewhere other than your\nhome directory, then you will probably need to specify everything with full paths,\nincluding in the <rum config> file, nor this may not work.\n\n";
+     $ui->info("You are using qsub - so if you have installed RUM somewhere other than your home directory, then you will probably need to specify everything with full paths, including in the <rum config> file, nor this may not work.  ");
 
-     print "You have chosen to submit the jobs using 'qsub'.  I'm going to assume each node has\nsufficient RAM for this.  If you are running a mammalian genome then you should have\nat least 6 Gigs per node.\n\n";
+     $ui->info("You have chosen to submit the jobs using 'qsub'.  I'm going to assume each node has sufficient RAM for this.  If you are running a mammalian genome then you should have at least 6 Gigs per node.  ");
 
      $starttime = time();
      $clusterID  = $name . "." . $starttime . ".";
@@ -723,12 +723,8 @@ sub read_config_path {
     my $maybe_rel_path = <$in>;
     unless (defined($maybe_rel_path)) {
         print $CONFIG_DESC;
-        die <<EOF;
+        $ui->logdie("The configuration file seems to be missing some lines. Please see the instructions for the configuration file above.");
 
-The configuration file seems to be missing some lines.
-Please see the instructions for the configuration file above.
-
-EOF
     }
     chomp $maybe_rel_path;
     my $root = "$Bin/../";
@@ -741,27 +737,26 @@ open my $config_in, "<", $configfile
 $gene_annot_file = read_config_path($config_in);
 if($dna eq "false") {
     if(!(-e $gene_annot_file)) {
-       print ERRORLOG "\nERROR: the file '$gene_annot_file' does not seem to exist.\n\n";
-       die "\nERROR: the file '$gene_annot_file' does not seem to exist.\n\n";
+       $ui->logdie("the file '$gene_annot_file' does not seem to exist.");
     }
 }
 $bowtie_exe = read_config_path($config_in);
 if(!(-e $bowtie_exe)) {
-    print ERRORLOG "\nERROR: the executable '$bowtie_exe' does not seem to exist.\n\n";
+    $ui->error("the executable '$bowtie_exe' does not seem to exist.");
 }
 $blat_exe = read_config_path($config_in);
 if(!(-e $blat_exe)) {
-    print ERRORLOG "\nERROR: the executable '$blat_exe' does not seem to exist.\n\n";
+    $ui->error("the executable '$blat_exe' does not seem to exist.");
 }
 $mdust_exe = read_config_path($config_in);
 if(!(-e $mdust_exe)) {
-    print ERRORLOG "\nERROR: the executable '$mdust_exe' does not seem to exist.\n\n";
+    $ui->error("the executable '$mdust_exe' does not seem to exist.");
 }
 $genome_bowtie = read_config_path($config_in);
 $transcriptome_bowtie = read_config_path($config_in);
 $genome_blat = read_config_path($config_in);
 if(!(-e $genome_blat)) {
-    print ERRORLOG "\nERROR: the file '$genome_blat' does not seem to exist.\n\n";
+    $ui->error("the file '$genome_blat' does not seem to exist.");
 }
 
 # We can now find the scripts dir and lib dir based on the location of
@@ -898,8 +893,7 @@ $preformatted = "false";
 if(!($readsfile =~ /,,,/)) {
 
     if(!(-e $readsfile)) {
-        print ERRORLOG "\nERROR: The reads file '$readsfile' does not seem to exist\n\n";
-        die "\nERROR: The reads file '$readsfile' does not seem to exist\n\n";
+        $ui->logdie("The reads file '$readsfile' does not seem to exist");
     }
 
     open(INFILE, $readsfile);
@@ -909,8 +903,7 @@ if(!($readsfile =~ /,,,/)) {
              $line = <INFILE>;
              chomp($ine);
              if($line =~ /^--$/) {
-                  print ERRORLOG "\nERROR: you appear to have entries in your fastq file \"$readsfile\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
-                  die "ERROR: you appear to have entries in your fastq file \"$readsfile\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
+                  $ui->logdie("you appear to have entries in your fastq file \"$readsfile\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...");
              }
         }
     }
@@ -937,8 +930,7 @@ if(!($readsfile =~ /,,,/)) {
 }
 
 if($num_insertions_allowed > 1 && $paired_end eq "true") {
-    print ERRORLOG "\nERROR: for paired end data, you cannot set -max_insertions_per_read to be greater than 1.\n\n";
-    die "\nERROR: for paired end data, you cannot set -max_insertions_per_read to be greater than 1.\n\n";
+    $ui->logdie("for paired end data, you cannot set -max_insertions_per_read to be greater than 1.");
 }
 
 if($paired_end eq "true") {
@@ -951,20 +943,18 @@ $quals = "false";
 if($readsfile =~ /,,,/ && $postprocess eq "false") {
     @a = split(/,,,/, $readsfile);
     if(@a > 2) {
-        print ERRORLOG "\nERROR: You've given more than two files separated by three commas, should be at most two files.\n\n";
-	die "\nERROR: You've given more than two files separated by three commas, should be at most two files.\n\n";
+	$ui->logdie("ERROR: You've given more than two files separated by three commas, should be at most two files.");
     }
     if(!(-e $a[0])) {
         print ERRORLOG "\nERROR: The reads file '$a[0]' does not seem to exist\n\n";
-	die "\nERROR: The reads file '$a[0]' does not seem to exist\n\n";
+	$ui->logdie("The reads file '$a[0]' does not seem to exist");
     }
     if(!(-e $a[1])) {
         print ERRORLOG "\nERROR: The reads file '$a[1]' does not seem to exist\n\n";
-	die "\nERROR: The reads file '$a[1]' does not seem to exist\n\n";
+	$ui->logdie("The reads file '$a[1]' does not seem to exist");
     }
     if($a[0] eq $a[1]) {
-        print ERRORLOG "\nERROR: You specified the same file for the forward and reverse reads, must be an error...\n\n";
-	die "\nERROR: You specified the same file for the forward and reverse reads, must be an error...\n\n";
+	$ui->logdie("You specified the same file for the forward and reverse reads, must be an error...");
     }
 
     # Make sure these aren't fastq files with entries that didn't pass quality:
@@ -972,8 +962,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
     $size1 = -s $a[0];
     $size2 = -s $a[1];
     if($size1 != $size2) {
-          print ERRORLOG "\nERROR: The fowards and reverse files are different sizes.\n$size1 versus $size2.  They should be the exact same size.\n\n";
-          die "\nERROR: The fowards and reverse files are different sizes.\n$size1 versus $size2.  They should be the exact same size.\n\n";
+          $ui->logdie("The fowards and reverse files are different sizes.\n$size1 versus $size2.  They should be the exact same size.");
     }
 
     open(INFILE, $a[0]);
@@ -983,8 +972,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
              $line = <INFILE>;
              chomp($ine);
              if($line =~ /^--$/) {
-                  print ERRORLOG "\nERROR: you appear to have entries in your fastq file \"$a[0]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
-                  die "ERROR: you appear to have entries in your fastq file e \"$a[0]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
+                  $ui->logdie("ERROR: you appear to have entries in your fastq file e \"$a[0]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n");
              }
         }
     }
@@ -1054,8 +1042,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
             chomp($line1);
             chomp($line2);
             if(length($line1) != length($line2)) {
-               print ERRORLOG "ERROR: It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.\n\n";
-               die "ERROR: It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.\n\n";
+               $ui->logdie("It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.");
             }
         }
     }
@@ -1203,8 +1190,7 @@ if($paired_end eq 'false' && $postprocess eq "false") {
                 chomp($line1);
                 chomp($line2);
                 if(length($line1) != length($line2)) {
-                   print ERRORLOG "ERROR: It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.\n\n";
-                   die "ERROR: It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.\n\n";
+                    $ui->logdie("ERROR: It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.\n\n");
                 }
             }
         }
@@ -1277,8 +1263,7 @@ if($paired_end eq 'false' && $postprocess eq "false") {
 
 $X = `grep -c "This does not appear to be a valid file" $readsfile`;
 if($X > 0) {
-       print ERRORLOG "ERROR: This does not appear to be a valid input file.\nFastQ files must have FOUR lines for each entry (do not include entries that do not have all four lines).\nFastA must have TWO lines for each entry.\n\n";
-       die "ERROR: This does not appear to be a valid input file.\nFastQ files must have FOUR lines for each entry (do not include entries that do not have all four lines).\nFastA must have TWO lines for each entry.\n\n";
+       $ui->logdie("ERROR: This does not appear to be a valid input file.\nFastQ files must have FOUR lines for each entry (do not include entries that do not have all four lines).\nFastA must have TWO lines for each entry.\n\n");
 }
 
 $head = `head -2 $readsfile | tail -1`;
@@ -1287,8 +1272,7 @@ chomp($head);
 if($variable_read_lengths eq "false") {
    $readlength = @a;
    if($minlength > $readlength) {
-       print ERRORLOG "ERROR: you specified a minimum length alignment to report as '$minlength', however\nyour read length is only $readlength\n";
-       die "ERROR: you specified a minimum length alignment to report as '$minlength', however\nyour read length is only $readlength\n";
+       $ui->logdie("ERROR: you specified a minimum length alignment to report as '$minlength', however\nyour read length is only $readlength\n");
    }
 } else {
    $readlength = "v";
@@ -1339,8 +1323,7 @@ if($minlength == 0) {
 
 if($quals_specified eq 'true') {
     if(!(open(TESTIN, "$output_dir/$quals_file"))) {
-       print ERRORLOG "\nERROR: cannot open '$quals_file' for reading, it should be in the '$output_dir' directory.\n\n";
-       die "\nERROR: cannot open '$quals_file' for reading, it should be in the '$output_dir' directory.\n\n";
+       $ui->logdie("cannot open '$quals_file' for reading, it should be in the '$output_dir' directory.");
     }
     close(TESTIN);
     $qualsfile = "$output_dir/$quals_file";
@@ -1464,7 +1447,7 @@ if($blatonly eq "true" && $dna eq "true") {
 }
 
 if($dna eq "true" && $genomeonly eq "true") {
-    die "\nError: Sorry it makes no sense to set both -dna and -genome_only to be true.\n";
+    RUM::Usage->bad("\nError: Sorry it makes no sense to set both -dna and -genome_only to be true.\n");
 }
 
 if($postprocess eq "false") {
@@ -1521,8 +1504,7 @@ if($postprocess eq "false") {
 
     for($i=1; $i<=$numchunks; $i++) {
         if(!(open(EOUT, ">$output_dir/errorlog.$i"))) {
-            print ERRORLOG "\nERROR: cannot open '$output_dir/errorlog.$i' for writing\n\n";
-            die "\nERROR: cannot open '$output_dir/errorlog.$i' for writing\n\n";
+            $ui->logdie("cannot open '$output_dir/errorlog.$i' for writing");
         }
         close(EOUT);
         $pipeline_file = $pipeline_template;
@@ -1630,8 +1612,7 @@ if($postprocess eq "false") {
         }
         $outfile = $name . "." . $starttime . "." . $i . ".sh";
         if(!(open(OUTFILE, ">$output_dir/$outfile"))) {
-            print ERRORLOG "\nERROR: cannot open '$output_dir/$outfile' for writing\n\n";
-            die "\nERROR: cannot open '$output_dir/$outfile' for writing\n\n";
+            $ui->logdie("cannot open '$output_dir/$outfile' for writing");
         }
         if($qsub2 eq "true") {
     	   $pipeline_file =~ s!2>>\s*[^\s]*!!gs;
@@ -1934,10 +1915,10 @@ if($postprocess eq "false") {
                                    $t = 10;
                                 } else {
                                    if($t<=7) {
-                                        print "Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n";
+                                        $ui->warn("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n");
                                    }
                                    if($t==8) {
-                                        print "Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n";
+                                       $ui->warn("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n");
                                    }
                                    sleep(3);
                                    if($t == 8) {
@@ -2416,13 +2397,11 @@ if($nocat eq "false") {
        if(defined $restarted{$i}) {
            $R = $restarted{$i};
            if(!(open(SAMHEADER, "$output_dir/sam_header.$i.$R"))) {
-              print ERRORLOG "\nERROR: Cannot open '$output_dir/sam_header.$i.$R' for reading.\n\n";
-              die "\nERROR: Cannot open '$output_dir/sam_header.$i.$R' for reading.\n\n";
+              $ui->logdie("Cannot open '$output_dir/sam_header.$i.$R' for reading.");
            }
        } else {
            if(!(open(SAMHEADER, "$output_dir/sam_header.$i"))) {
-              print ERRORLOG "\nERROR: Cannot open '$output_dir/sam_header.$i' for reading.\n\n";
-              die "\nERROR: Cannot open '$output_dir/sam_header.$i' for reading.\n\n";
+              $ui->logdie("Cannot open '$output_dir/sam_header.$i' for reading.");
            }
        }
        while($line = <SAMHEADER>) {
@@ -2433,8 +2412,7 @@ if($nocat eq "false") {
        close(SAMHEADER);
     }
     if(!(open(SAMOUT, ">$output_dir/RUM.sam"))) {
-        print ERRORLOG "\nERROR: Cannot open '$output_dir/RUM.sam' for writing.\n\n";
-        die "\nERROR: Cannot open '$output_dir/RUM.sam' for writing.\n\n";
+        $ui->logdie("Cannot open '$output_dir/RUM.sam' for writing.");
     }
     foreach $key (sort by_chromosome keys %samheader) {
         $shout = $samheader{$key};
@@ -2471,8 +2449,7 @@ print LOGFILE "\nStarted postprocessing at $date\n";
 # Once that is written, wait.pl finishes and the postprocessing will start.
 
 if(!(open(OUTFILE, ">$output_dir/$JID"))) {
-    print ERRORLOG "\nERROR: Cannot open '$output_dir/$JID' for writing.\n\n";
-    die "\nERROR: Cannot open '$output_dir/$JID' for writing.\n\n";
+    $ui->logdie("Cannot open '$output_dir/$JID' for writing.");
 }
 print OUTFILE "$JID\n";
 close(OUTFILE);
@@ -2524,10 +2501,10 @@ while($doneflag == 0) {
                     $t = 10;
                  } else {
                     if($t<=7) {
-                        print "Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n";
+                        $ui->warn("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n");
                     }
                     if($t==8) {
-                        print "Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n";
+                        $ui->warn( "Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n");
                     }
                     sleep(3);
                     if($t == 8) {
@@ -2980,8 +2957,7 @@ sub breakup_file () {
     ($FILE, $numpieces) = @_;
 
     if(!(open(INFILE, $FILE))) {
-       print ERRORLOG "\nERROR: Cannot open '$FILE' for reading.\n\n";
-       die "\nERROR: Cannot open '$FILE' for reading.\n\n";
+       $ui->logdie("Cannot open '$FILE' for reading.");
     }
     $tail = `tail -2 $FILE | head -1`;
     $tail =~ /seq.(\d+)/s;
