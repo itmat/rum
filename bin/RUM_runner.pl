@@ -5,7 +5,7 @@ $version = "1.11.  Released March 5, 2012";
 
 $| = 1;
 
-our $PAUSE_TIME = 1;
+our $PAUSE_TIME = 0;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
@@ -17,7 +17,14 @@ use RUM::Sort qw(by_chromosome);
 use RUM::Subproc qw(spawn check pids_by_command_re kill_all procs
                     child_pids can_kill kill_runaway_procs);
 
+
+# INFO level and higher messages sent to $ui will be shown on the
+# screen as well as in the master log file.
 our $ui = RUM::Logging->get_logger("RUM::UI");
+
+# Messages sent to $log will only be appended to the master log file,
+# not shown on the screen.
+our $log = RUM::Logging->get_logger("RUM::Script::RumRunner");
 
 use RUM::Logging;
 
@@ -539,7 +546,7 @@ if(!($starttime =~ /\S/)) {
 
 $H = `hostname`;
 if($H =~ /login.genomics.upenn.edu/ && $qsub eq "false") {
-    $log->logdie("you cannot run RUM on the PGFI cluster without using the -qsub option.");
+    $ui->logdie("you cannot run RUM on the PGFI cluster without using the -qsub option.");
 }
 
 if($dna eq "false") {
@@ -566,7 +573,7 @@ if($kill eq "true") {
     $DT = `date`;
     print ERRORLOG "\nRUM Job $JID killed using -kill option at $DT\n";
     open(LOGFILE, ">>$output_dir/rum.log_master");
-    print LOGFILE "\nRUM Job $JID killed using -kill option at $DT\n";
+    $log->info("\nRUM Job $JID killed using -kill option at $DT\n");
     close(ERRORLOG);
     close(LOGFILE);
 
@@ -647,7 +654,7 @@ for($i=0; $i<@a; $i++) {
     if($temp4 eq $temp6 || $temp5 eq $temp6) {
 	$CNT++;
 	if($CNT > 1) {
-            $log->logdie("You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\nExiting.\n\nTry killing by running the same command with -kill.\nIf that doesn't work use kill -9 on the process ID.");
+            $ui->logdie("You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\nExiting.\n\nTry killing by running the same command with -kill.\nIf that doesn't work use kill -9 on the process ID.");
 	}
     }
 }
@@ -704,11 +711,13 @@ if($qsub eq "true") {
 }
 
 if($postprocess eq "false") {
-     sleep(1);
-     print "Please wait while I check that everything is in order.\n\n";
-     sleep(1);
-     print "This could take a few minutes.\n\n";
-     sleep(1);
+     sleep($PAUSE_TIME);
+     $ui->info("Please wait while I check that everything is in order.");
+     $ui->info();
+     sleep($PAUSE_TIME);
+     $ui->info("This could take a few minutes.");
+     $ui->info();
+     sleep($PAUSE_TIME);
 }
 
 
@@ -722,7 +731,7 @@ sub read_config_path {
     my ($in) = @_;
     my $maybe_rel_path = <$in>;
     unless (defined($maybe_rel_path)) {
-        print $CONFIG_DESC;
+        $ui->info($CONFIG_DESC);
         $ui->logdie("The configuration file seems to be missing some lines. Please see the instructions for the configuration file above.");
 
     }
@@ -791,8 +800,8 @@ $min_ram = int($gsz * 1.67)+1;
 
 if($postprocess eq "false") {
      if($qsub2 eq "false") {
-          print "I'm going to try to figure out how much RAM you have.\nIf you see some error messages here, don't worry, these are harmless.\n\n";
-          sleep(2);
+         $ui->info("I'm going to try to figure out how much RAM you have.\nIf you see some error messages here, don't worry, these are harmless.");
+         sleep($PAUSE_TIME * 2);
           # figure out how much RAM is available:
           if($user_ram eq "false") {
                $did_not_figure_out_ram = "false";
@@ -833,7 +842,7 @@ if($postprocess eq "false") {
                }
                if(!($totalram =~ /\d+/)) { # so above didn't work, warning user
                    $did_not_figure_out_ram = "true";
-                   print "\nWarning: I could not determine how much RAM you have.  If you have less\nthan $min_ram gigs per chunk this might not work.  I'm going to proceed with fingers crossed.\n\n";
+                   $ui->warn("\nWarning: I could not determine how much RAM you have.  If you have less\nthan $min_ram gigs per chunk this might not work.  I'm going to proceed with fingers crossed.\n\n");
                    $ram = $min_ram;
                } else {
                    $RAMperchunk = int($totalram / $numchunks);
@@ -842,10 +851,10 @@ if($postprocess eq "false") {
 
           if($did_not_figure_out_ram eq "false") {
               if($RAMperchunk >= $min_ram) {
-                  print "It seems like you have $totalram Gb of RAM on your machine.\n";
-                  print "\nUnless you have too much other stuff running, RAM should not be a problem.\n";
+                  $ui->info("It seems like you have $totalram Gb of RAM on your machine.");
+                  $ui->info("Unless you have too much other stuff running, RAM should not be a problem.");
               } else {
-                  print "\nWarning: you have only $RAMperchunk Gb of RAM per chunk.  Based on the\nsize of your genome you will probably need more like $min_ram Gb per chunk.\nAnyway I can try and see what happens.\n\n";
+                  $ui->warn("Warning: you have only $RAMperchunk Gb of RAM per chunk.  Based on the\nsize of your genome you will probably need more like $min_ram Gb per chunk.\nAnyway I can try and see what happens.");
                   print "Do you really want me to proceed?  Enter 'Y' or 'N' ";
                   $answer = <STDIN>;
                   if($answer eq "n" || $answer eq "N") {
@@ -859,21 +868,21 @@ if($postprocess eq "false") {
                        $ram = 6;
                    }
               }
-              sleep(1);
+              sleep($PAUSE_TIME);
           }
      }
 }
 
 if($kill eq "false") {
-    sleep(1);
-    print "\nChecking for phantom processes from prior runs that might need to be killed.\n\n";
+    sleep($PAUSE_TIME);
+    $ui->info("Checking for phantom processes from prior runs that might need to be killed.");
     $cleanedflag = kill_runaway_procs($output_dir);
 }
 if($cleanedflag == 1) {
     sleep(2);
-    print "OK there was some cleaning up to do, hopefully that worked.\n\n";
+    $ui->warn("OK there was some cleaning up to do, hopefully that worked.\n\n");
 }
-sleep(2);
+sleep($PAUSE_TIME * 2);
 
 if($postprocess eq "false") {
     for($i=1; $i<=$numchunks; $i++) {
@@ -933,11 +942,9 @@ if($num_insertions_allowed > 1 && $paired_end eq "true") {
     $ui->logdie("for paired end data, you cannot set -max_insertions_per_read to be greater than 1.");
 }
 
-if($paired_end eq "true") {
-     print "Processing as paired-end data\n";
-} else {
-     print "Processing as single-end data\n";
-}
+
+$ui->info(sprintf("Processing as %s-end data",
+                   $paired_end eq "true" ? "paired" : "single"));
 
 $quals = "false";
 if($readsfile =~ /,,,/ && $postprocess eq "false") {
@@ -946,11 +953,9 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
 	$ui->logdie("ERROR: You've given more than two files separated by three commas, should be at most two files.");
     }
     if(!(-e $a[0])) {
-        print ERRORLOG "\nERROR: The reads file '$a[0]' does not seem to exist\n\n";
 	$ui->logdie("The reads file '$a[0]' does not seem to exist");
     }
     if(!(-e $a[1])) {
-        print ERRORLOG "\nERROR: The reads file '$a[1]' does not seem to exist\n\n";
 	$ui->logdie("The reads file '$a[1]' does not seem to exist");
     }
     if($a[0] eq $a[1]) {
@@ -985,8 +990,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
              $line = <INFILE>;
              chomp($ine);
              if($line =~ /^--$/) {
-                  print ERRORLOG "\nERROR: you appear to have entries in your fastq file e \"$a[1]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
-                  die "ERROR: you appear to have entries in your fastq file e \"$a[1]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n";
+                  $ui->logdie("ERROR: you appear to have entries in your fastq file e \"$a[1]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n");
              }
         }
     }
@@ -1060,8 +1064,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
                  $length_flag = 1;
             }
             if(length($line1) != $length_hold && $variable_read_lengths eq 'false') {
-               print ERRORLOG "\nWARNING: It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.\n\n";
-               print "\nWARNING: It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.\n\n";
+                $ui->warn("It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.");
                $variable_read_lengths = "true";
             }
             $length_hold = length($line1);
@@ -1075,7 +1078,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
 
     # Done checking
 
-    print "\nReformatting reads file... please be patient.\n";
+    $ui->info("Reformatting reads file... please be patient.");
 
     if($fastq eq "true" && $variable_read_lengths eq "false" && $FL == 50000) {
         if($preserve_names eq "false") {
@@ -1140,7 +1143,7 @@ $type2 = $4;
 
 if($paired_end eq 'false' && $postprocess eq "false") {
     if($type1 ne "a" || $type2 ne "a") {
-        print "\nReformatting reads file... please be patient.\n";
+        $ui->info("\nReformatting reads file... please be patient.\n");
 
         $head40 = `head -40 $readsfile`;
         $head40 =~ s/^\s*//s;
@@ -1208,8 +1211,7 @@ if($paired_end eq 'false' && $postprocess eq "false") {
                      $length_flag = 1;
                 }
                 if(length($line1) != $length_hold && $variable_read_lengths eq 'false') {
-                   print ERRORLOG "\nWARNING: It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.\n\n";
-                   print "\nWARNING: It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.\n\n";
+                    $ui->warn("\nWARNING: It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.\n\n");
                    $variable_read_lengths = "true";
                 }
                 $length_hold = length($line1);
@@ -1284,10 +1286,10 @@ if($NUMCHUNKS =~ /(\d+)s/) {
 
 if($file_needs_splitting eq "true" && $postprocess eq "false") {
     $x = &breakup_file($readsfile, $numchunks);
-    print "Splitting files ... please be patient.\n\n";
+    $ui->info("Splitting files ... please be patient.\n\n");
     $qualflag = 0;
     if($quals eq "true" || $quals_specified eq "true") {
-        print "Half done splitting...\n\n";
+        $ui->info( "Half done splitting...\n\n");
         $qualflag = 1;
         if($quals_specified eq 'true') {
        	    $x = &breakup_file("$output_dir/$quals_file", $numchunks);
@@ -1341,86 +1343,86 @@ if($postprocess eq "true") {
 
 if($postprocess eq "false") {
     open(LOGFILE, ">$output_dir/rum.log_master");
-    print LOGFILE "RUM version: $version\n";
-    print LOGFILE "\nJob ID: $JID\n";
-    print LOGFILE "\nstart: $date\n";
-    print LOGFILE "name: $name\n";
+    $log->info("RUM version: $version\n");
+    $log->info("\nJob ID: $JID\n");
+    $log->info("\nstart: $date\n");
+    $log->info("name: $name\n");
     if($configfile =~ /hg(18)/ || $configfile =~ /hg(19)/) {
-        print LOGFILE "config file: $configfile  [human - build $1]\n";
+        $log->info("config file: $configfile  [human - build $1]\n");
     } elsif($configfile =~ /mm(8)/ || $configfile =~ /mm(9)/) {
-        print LOGFILE "config file: $configfile  [mouse build $1]\n";
+        $log->info("config file: $configfile  [mouse build $1]\n");
     } else {
-        print LOGFILE "config file: $configfile\n";
+        $log->info("config file: $configfile\n");
     }
 
-    print LOGFILE "paired_end: $paired_end\n";
+    $log->info("paired_end: $paired_end\n");
     if($ARGV[1] =~ /,,,/) {
         @RF = split(/,,,/,$ARGV[1]);
-        print LOGFILE "forward reads file: $RF[0]\n";
-        print LOGFILE "reverse reads file: $RF[1]\n";
+        $log->info("forward reads file: $RF[0]\n");
+        $log->info("reverse reads file: $RF[1]\n");
     } else {
-        print LOGFILE "reads file: $ARGV[1]\n";
+        $log->info("reads file: $ARGV[1]\n");
     }
     if($gene_annot_file =~ /\S/) {
-       print LOGFILE "transcript db: $gene_annot_file\n";
+       $log->info("transcript db: $gene_annot_file\n");
     }
     if($altquant_file =~ /\S/) {
-       print LOGFILE "alternate transcript db: $altquant_file\n";
+       $log->info("alternate transcript db: $altquant_file\n");
     }
-    print LOGFILE "genome db: $genomefa\n";
+    $log->info("genome db: $genomefa\n");
     if($fasta eq "true") {
-       print LOGFILE "input file format: fasta\n";
+       $log->info("input file format: fasta\n");
     }
     if($fastq eq "true") {
-       print LOGFILE "input file format: fastq\n";
+       $log->info("input file format: fastq\n");
     }
-    print LOGFILE "output_dir: $output_dir\n";
+    $log->info("output_dir: $output_dir\n");
     if($variable_read_lengths eq "false") {
-        print LOGFILE "readlength: $rl\n";
+        $log->info("readlength: $rl\n");
     } else {
-        print LOGFILE "readlength: variable\n";
+        $log->info("readlength: variable\n");
     }
     $NR = &format_large_int($nr);
     if($paired_end eq 'false') {
-        print LOGFILE "number of reads: $NR\n";
+        $log->info("number of reads: $NR\n");
     } else {
-        print LOGFILE "number of read pairs: $NR\n";
+        $log->info("number of read pairs: $NR\n");
     }
 
     if($variable_read_lengths eq "false" || $minlength > 0) {
         if($minlength == 0) {
-            print LOGFILE "minimum length alignment to report: $match_length_cutoff\n  *** NOTE: If you want to change the min size of alignment reported, use the -minlength option.\n";
+            $log->info("minimum length alignment to report: $match_length_cutoff\n  *** NOTE: If you want to change the min size of alignment reported, use the -minlength option.\n");
         } else {
-            print LOGFILE "minimum length alignment to report: $match_length_cutoff.\n";
+            $log->info("minimum length alignment to report: $match_length_cutoff.\n");
         }
         print "\n *** NOTE: I am going to report alginments of length $match_length_cutoff.\n";
         print "If you want to change the minimum size of alignments reported, use the -minlength option.\n\n";
     } else {
-        print LOGFILE "minimum length alignment to report: NA since read length is variable\n";
+        $log->info("minimum length alignment to report: NA since read length is variable\n");
     }
     $nc = $numchunks;
     $nc =~ s/s//;
-    print LOGFILE "number of chunks: $nc\n";
-    print LOGFILE "ram per chunk: $ram\n";
-    print LOGFILE "limitBowtieNU: $limitNU\n";
+    $log->info("number of chunks: $nc\n");
+    $log->info("ram per chunk: $ram\n");
+    $log->info("limitBowtieNU: $limitNU\n");
     if($limitNUhard eq "true") {
-        print LOGFILE "limitNU: $limitNUhard (no alignments reported if more than $NU_limit locations)\n";
+        $log->info("limitNU: $limitNUhard (no alignments reported if more than $NU_limit locations)\n");
     } else {
-        print LOGFILE "limitNU: $limitNUhard\n";
+        $log->info("limitNU: $limitNUhard\n");
     }
-    print LOGFILE "dna: $dna\n";
-    print LOGFILE "output junctions: $junctions\n";
-    print LOGFILE "output quantified values: $quantify\n";
-    print LOGFILE "strand specific: $strandspecific\n";
-    print LOGFILE "number of insertions allowed per read: $num_insertions_allowed\n";
-    print LOGFILE "count mismatches: $countmismatches\n";
-    print LOGFILE "genome only: $genomeonly\n";
-    print LOGFILE "qsub: $qsub2\n";
-    print LOGFILE "blat minidentity: $minidentity\n";
-    print LOGFILE "blat tileSize: $tileSize\n";
-    print LOGFILE "blat stepSize: $stepSize\n";
-    print LOGFILE "blat repMatch: $repMatch\n";
-    print LOGFILE "blat maxIntron: $maxIntron\n";
+    $log->info("dna: $dna\n");
+    $log->info("output junctions: $junctions\n");
+    $log->info("output quantified values: $quantify\n");
+    $log->info("strand specific: $strandspecific\n");
+    $log->info("number of insertions allowed per read: $num_insertions_allowed\n");
+    $log->info("count mismatches: $countmismatches\n");
+    $log->info("genome only: $genomeonly\n");
+    $log->info("qsub: $qsub2\n");
+    $log->info("blat minidentity: $minidentity\n");
+    $log->info("blat tileSize: $tileSize\n");
+    $log->info("blat stepSize: $stepSize\n");
+    $log->info("blat repMatch: $repMatch\n");
+    $log->info("blat maxIntron: $maxIntron\n");
 
     print ERRORLOG "\nNOTE: I am going to report alginments of length $match_length_cutoff.\n";
     print ERRORLOG "  *** If you want to change the min size of alignment reported, use the -minlength option.\n\n";
@@ -2443,7 +2445,7 @@ if($cleanup eq 'true') {
 #   - not yet implemented..
 
 print "\nStarted postprocessing at $date\n";
-print LOGFILE "\nStarted postprocessing at $date\n";
+$log->info("\nStarted postprocessing at $date\n");
 
 # Write file that wait.pl is watching for, in the shell script for the last chunk.
 # Once that is written, wait.pl finishes and the postprocessing will start.
@@ -2701,9 +2703,9 @@ $UFp = int($uf / $genome_size * 10000) / 100;
 $NUFp = int($nuf / $genome_size * 10000) / 100;
 
 $gs4 = &format_large_int($genome_size);
-print LOGFILE "genome size: $gs4\n";
-print LOGFILE "number of bases covered by unique mappers: $UF ($UFp%)\n";
-print LOGFILE "number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n";
+$log->info("genome size: $gs4\n");
+$log->info("number of bases covered by unique mappers: $UF ($UFp%)\n");
+$log->info("number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n");
 
 open(INFILE, "$output_dir/mapping_stats.txt");
 $newfile = "";
@@ -2949,7 +2951,7 @@ if($cleanup eq 'true') {
 print "\nOkay, all finished.\n\n";
 
 $date = `date`;
-print LOGFILE "pipeline finished: $date\n";
+$log->info("pipeline finished: $date\n");
 close(LOGFILE);
 close(ERRORLOG);
 
@@ -2970,10 +2972,10 @@ sub breakup_file () {
     $piecesize2 = &format_large_int($piecesize);
     if(!($FILE =~ /qual/)) {
 	if($numchunks > 1) {
-	    print LOGFILE "processing in $numchunks pieces of approx $piecesize2 reads each\n";
+	    $log->info("processing in $numchunks pieces of approx $piecesize2 reads each\n");
 	} else {
 	    $NS2 = &format_large_int($NS);
-	    print LOGFILE "processing in one piece of $NS2 reads\n";
+	    $log->info("processing in one piece of $NS2 reads\n");
 	}
     }
     if($piecesize % 2 == 1) {
