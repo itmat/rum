@@ -1,0 +1,20 @@
+#!/usr/bin/env perl 
+
+package RUM::Script::Log;
+
+use strict;
+use warnings;
+
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+
+use RUM::Logging;
+
+my $log = RUM::Logging->get_logger;
+
+$_ = "@ARGV";
+my @lines = split /\n/;
+
+for (@lines) {
+    $log->info($_);
+}
