@@ -6,32 +6,20 @@ use warnings;
 use Test::More tests => 45;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use Log::Log4perl qw(:easy);
-use RUM::Config;
-use RUM::Workflow qw(make_paths shell report is_dry_run with_settings is_on_cluster);
-use RUM::TestUtils qw(download_file download_test_data);
+use RUM::Workflow qw(shell is_on_cluster);
+use RUM::TestUtils;
 use RUM::Repository;
 use Carp;
 use Getopt::Long;
 use File::Spec;
-
-
-Log::Log4perl->easy_init($WARN);
+use File::Temp qw(tempdir);
 
 ################################################################################
 ###
 ### Configuration
 ###
 
-my $ROOT = "$Bin/../_testing";
-
-my $repo = RUM::Repository->new(root_dir => $ROOT)->setup;
-
-my $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tar.gz";
-
-# Locations of input files and dirs
-my $TEST_DATA_TARBALL   = "$ROOT/rum-test-data.tar.gz";
-my $RESOURCES_DIR       = "$ROOT/rum-test-data";
+my $repo = RUM::Repository->new(root_dir => "$Bin/../_testing")->setup;
 
 # These files are produced by Rum
 my @RUM_OUTPUT_FILES = qw(PostProcessing-errorlog        
@@ -58,185 +46,97 @@ my @IGNORED_RUM_OUTPUT_FILES = qw(rum.log_chunk.1
                                   postprocessing_test.log
                                   rum.log_master);
 
-my %CONFIGS = (
-    "arabidopsis-1k" => {
-        
-        genome_build => "TAIR10" ,
-        input_files => ["$RESOURCES_DIR/arabidopsis-1k/forward.fq",
-                        "$RESOURCES_DIR/arabidopsis-1k/reverse.fq"],
-        rum_options => ["-noclean"],
+our @INPUT_FILES = map "$INPUT_DIR/$_.fq", qw(forward reverse);
+
+my @TESTS = (
+    {
+        name => "arabidopsis-1k",
+        genome_build  => "TAIR10" ,
+        input_files   => \@INPUT_FILES,
+        rum_options   => ["-noclean"],
         needs_cluster => 0
     },
 
-    "arabidopsis-1k-split" => {
-        
-        genome_build => "TAIR10" ,
-        input_files => ["$RESOURCES_DIR/arabidopsis-1k/forward.fq",
-                        "$RESOURCES_DIR/arabidopsis-1k/reverse.fq"],
-        rum_options => ["-noclean"],
-        chunks => 2,
+    {
+        name => "arabidopsis-1k-split",
+        genome_build  => "TAIR10" ,
+        input_files   => \@INPUT_FILES,
+        rum_options   => ["-noclean"],
+        chunks        => 2,
         needs_cluster => 0
     },
 
-    "arabidopsis-1k-grid" => {
-        
-        genome_build => "TAIR10" ,
-        input_files => ["$RESOURCES_DIR/arabidopsis-1k/forward.fq",
-                        "$RESOURCES_DIR/arabidopsis-1k/reverse.fq"],
-        rum_options => ["-qsub", "-noclean"],
+    {
+        name => "arabidopsis-1k-grid",
+        genome_build  => "TAIR10" ,
+        input_files   => \@INPUT_FILES,
+        rum_options   => ["-qsub", "-noclean"],
         needs_cluster => 1
     }
 );
 
-
-###############################################################################
-###
-### Helper functions for getting configuration settings
-###
-
-sub output_data_dir {
-    my ($test_name) = @_;
-    croak "Can't get output data dir without test name" unless $test_name;
-    return "$ROOT/data/$test_name";
-}
-
-sub config {
-    my $test_name = shift 
-        or confess "I need a test name to get the config";
-    my $config = $CONFIGS{$test_name} 
-        or confess "I don't have a configuration for $test_name";
-}
-
-sub input_files {
-    my ($test_name) = @_;
-    return @{ config($test_name)->{input_files} };
-}
-
-sub rum_options {
-    my ($test_name) = @_;
-    return config($test_name)->{rum_options} || [];
-}
-
-sub chunks {
-    my ($test_name) = @_;
-    return config($test_name)->{chunks} || 1;
-}
-
-=head2 Actions
-
-All these functions should respect the $DRY_RUN flag and not perform
-any actions if it is set to a true value.
-
-=cut
-
-sub make_test_paths {
-    my ($run_name) = @_;
-    my @paths = (output_data_dir($run_name));
-    make_paths(@paths);
-}
-
 sub find_index {
-    my ($run_name) = @_;
-    my $build_name = config($run_name)->{genome_build}
-        or croak "I don't have a genome build id for run name $run_name";
+    my ($genome_build) = @_;
 
-    my @indexes = grep { $_->build eq $build_name } $repo->indexes();
+    my @indexes = grep { $_->build eq $genome_build } $repo->indexes();
 
     croak "I didn't find exactly one index" unless @indexes == 1;
     return $indexes[0];
 }
 
-=item run_rum RUN_NAME
-
-Run RUM with the appropriate parameters for the given RUN_NAME, unless
-all the run output already exists or $DRY_RUN is set.
-
-=cut
-
-sub run_rum {
-    my ($run_name) = @_;
-
-    my $output_dir = output_data_dir($run_name);
-    my @output = map "$output_dir/$_", @RUM_OUTPUT_FILES;
-    #unless (grep { not -e } @output) {
-    #    report "All RUM output exists, skipping";
-    #    return;
-    #}
-
-    make_test_paths($run_name);
-    download_test_data($TEST_DATA_TARBALL);
-
-    my $index = find_index($run_name);
-    if ($repo->has_index($index)) {
-        diag "I already have the index $index";
-    }
-    else {
-        diag "Getting index $index->{build}";
-        $repo->install_index($index);
-    }
-
-    diag "Getting binaries";
-    $repo->fetch_binaries;
-
-    my $config = $repo->config_filename($index);
-    my $inputs = join(",,,", input_files($run_name));
-    my $out_dir = output_data_dir($run_name);
-    my $chunks = chunks($run_name);
-    my $name = "test";
-    my @options = @{ rum_options($run_name) };
-
-    shell("perl", "bin/RUM_runner.pl", 
-          $config, $inputs, $out_dir, $chunks, $name, @options);
-}
-
-=item compare_rum_output RUN_NAME
-
-Compare the RUM output for the given test run name against what we
-expect. This will cause the tests to fail if there are any
-differences.
-
-=cut
-
-sub compare_rum_output {
-    my ($run_name) = @_;
-    diag "Downloading test data";
-    download_test_data($TEST_DATA_TARBALL);
-    diag "Running rum";
-    run_rum($run_name);
-    my $output_dir   = output_data_dir($run_name);
-    for my $file (@RUM_OUTPUT_FILES) {
-        ok(-f "$output_dir/$file", "$file exists");
-    }
-}
 
 sub main {
 
-    GetOptions(
-        "dry-run|n" => \(my $dry_run),
-        "verbose|v" => \(my $verbose));
+    my @run_names = @ARGV;
 
-    my (@run_names) = @ARGV;
+    @run_names ||= map $_->{name}, @TESTS;
 
-    unless (@run_names) {
-      @run_names = qw(arabidopsis-1k
-                      arabidopsis-1k-split
-                      arabidopsis-1k-grid
-                 );
-    }
+    my %should_run = map { ($_ => 1) } @run_names;
 
-    for my $run_name (@run_names) {
+    for my $test (@TESTS) {
+
+        my %test = %{ $test };
+        my $name          =    $test{name};
+        my $config        =    $test{config};
+        my $needs_cluster =    $test{needs_cluster};
+        my $genome_build  =    $test{genome_build};
+        my @input_files   = @{ $test{input_files} };
+        my $chunks        =    $test{chunks} || 1;
+        my @options       = @{ $test{rum_options} };
+
       SKIP: {
-            if (config($run_name)->{needs_cluster} && !is_on_cluster) {
-                skip "Not on the cluster", 15;
+            skip "requested by user", 15 unless $should_run{$name};
+            skip "not on cluster", 15 if $needs_cluster && !is_on_cluster;
+            
+            # Download the index if we don't already have it
+            my $index = find_index($genome_build);
+            unless ($repo->has_index($index)) {
+                diag "Getting index $index->{build}";
+                $repo->install_index($index);
             }
-            else {
-                
-                with_settings({dry_run => $dry_run},
-                              sub {
-                                  compare_rum_output($run_name)
-                              });
+            
+            diag "Getting binaries";
+            $repo->fetch_binaries;
+            
+            my $dir = tempdir(DIR => "$Bin/tmp");
+            
+            my $config = $repo->config_filename($index);
+
+            my @args = ($config,
+                        join(",,,", @input_files),
+                        $dir,
+                        $chunks,
+                        $name, 
+                        @options);
+
+            diag "Running rum with @args";
+            shell("perl", "bin/RUM_runner.pl", @args);
+            
+            for my $file (@RUM_OUTPUT_FILES) {
+                ok(-f "$dir/$file", "$file exists");
             }
         }
     }
 }
+
 main();
