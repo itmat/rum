@@ -84,10 +84,11 @@ sub main {
             $max_count_at_once = 1500000;
         }
     }
-    my $chr_counts = doEverything(max_count_at_once => $max_count_at_once,
-                                  separate => $separate,
-                                  outfile => $outfile,
-                                  infile  => $infile);
+    my %options = (max_count_at_once => $max_count_at_once,
+                   separate => $separate,
+                   outfile => $outfile,
+                   infile  => $infile);
+    my $chr_counts = doEverything(%options);
 
     my $size_input = -s $infile;
     my $size_output = -s $outfile;
@@ -96,7 +97,7 @@ sub main {
     for (my $i=0; $i<2; $i++) {
         if ($size_input != $size_output) {
             $log->warn("Sorting \"$infile\":  failed, trying again.");
-            &doEverything();
+            &doEverything(%options);
             unlink($running_indicator_file);
             $size_output = -s $outfile;
         } else {
