@@ -4,7 +4,7 @@
 
 # genome bowtie starts here.  Remove from xxx0 to xxx2 for blat only mapping
 
-log=SCRIPTSDIR/rum_log
+log='SCRIPTSDIR/rum_log -d --'
 
 $log starting...
 BOWTIEEXE -a --best --strata -f GENOMEBOWTIE READSFILE.CHUNK -v 3 --suppress 6,7,8 -p 1 --quiet > OUTDIR/X.CHUNK || exit 1

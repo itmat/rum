@@ -16,15 +16,31 @@ use RUM::Common qw(Roman roman isroman arabic format_large_int);
 use RUM::Sort qw(by_chromosome);
 use RUM::Subproc qw(spawn check pids_by_command_re kill_all procs
                     child_pids can_kill kill_runaway_procs);
-
+use Text::Wrap;
 
 # INFO level and higher messages sent to $ui will be shown on the
-# screen as well as in the master log file.
+# screen as well as in the master log file. DEBUG level messages and
+# higher will be sent to the log file.
 our $ui = RUM::Logging->get_logger("RUM::UI");
 
-# Messages sent to $log will only be appended to the master log file,
-# not shown on the screen.
-our $log = RUM::Logging->get_logger("RUM::Script::RumRunner");
+# These functions can be used to print messages the screen and the log
+# file. Use DEBUG for messages that should only go to the log
+# file. Use INFO for general progress messages. WARN is for situations
+# that are possibly bad. ERROR is for situations that are definately
+# bad but that we might be able to recover from. FATAL is for
+# conditions that will cause this program to exit. LOGDIE just does a
+# FATAL log and then dies in one step.
+#
+# These will automatically break long lines at word boundaries, so you
+# do not need to embed newlines in the message unless you need it
+# formatted in a particular way.
+
+sub DEBUG  { $ui->debug(wrap("", "", @_))  }
+sub INFO   { $ui->info(wrap("", "", @_))   }
+sub WARN   { $ui->warn(wrap("", "", @_))   }
+sub ERROR  { $ui->error(wrap("", "", @_))  }
+sub FATAL  { $ui->fatal(wrap("", "", @_))  }
+sub LOGDIE { $ui->logdie(wrap("", "", @_)) }
 
 use RUM::Logging;
 
@@ -70,7 +86,7 @@ EOF
 
 
 if(@ARGV == 1 && @ARGV[0] eq "config") {
-    $ui->info($CONFIG_DESC);
+    INFO($CONFIG_DESC);
     exit;
 }
 if(@ARGV < 5) {
@@ -273,7 +289,7 @@ $readsfile = $ARGV[1];
 $output_dir = $ARGV[2];
 $output_dir =~ s!/$!!;
 if(!(-d $output_dir)) {
-    $ui->logdie("The directory '$output_dir' does not seem to exist...");
+    LOGDIE("The directory '$output_dir' does not seem to exist...");
 }
 
 $kill = "false";
@@ -301,7 +317,7 @@ if($numchunks =~ /(\d+)s/) {
 }
 $name = $ARGV[4];
 if($name =~ /^-/) {
-    $ui->logdie("The name '$name' is invalid, probably you forgot a required argument");
+    LOGDIE("The name '$name' is invalid, probably you forgot a required argument");
 }
 
 $name_o = $ARGV[4];
@@ -311,9 +327,9 @@ $name =~ s/[^a-zA-Z0-9_.-]$//g;
 $name =~ s/[^a-zA-Z0-9_.-]/_/g;
 
 if($name ne $name_o) {
-    $ui->warn("Name changed from '$name_o' to '$name'.");
+    WARN("Name changed from '$name_o' to '$name'.");
     if(length($name) > 250) {
-        $ui->logdie("The name must be less than 250 characters.");
+        LOGDIE("The name must be less than 250 characters.");
     }
 }
 
@@ -456,7 +472,7 @@ if(@ARGV > 5) {
             $i++;
             $altgene_file = $ARGV[$i];
             if(!(open(TESTIN, $altgene_file))) {
-                $ui->logdie("Cannot open '$altgene_file' for reading.");
+                LOGDIE("Cannot open '$altgene_file' for reading.");
             }
             close(TESTIN);
 	    $optionrecognized = 1;
@@ -466,7 +482,7 @@ if(@ARGV > 5) {
             $i++;
             $altquant_file = $ARGV[$i];
             if(!(open(TESTIN, $altquant_file))) {
-                $ui->logdie("Can't open '$altquant_file' for reading: $!");
+                LOGDIE("Can't open '$altquant_file' for reading: $!");
             }
             close(TESTIN);
 	    $optionrecognized = 1;
@@ -487,7 +503,6 @@ if(@ARGV > 5) {
 	    $minidentity = $ARGV[$i+1];
 	    $i++;
 	    if(!($minidentity =~ /^\d+$/ && $minidentity <= 100)) {
-                print ERRORLOG "\nERROR: minidentity must be an integer between zero and 100.\nYou have given '$minidentity'.\n\n";
 		RUM::Usage->bad("ERROR: minidentity must be an integer between zero and 100.\nYou have given '$minidentity'.");
 	    }
 	    $optionrecognized = 1;
@@ -546,7 +561,7 @@ if(!($starttime =~ /\S/)) {
 
 $H = `hostname`;
 if($H =~ /login.genomics.upenn.edu/ && $qsub eq "false") {
-    $ui->logdie("you cannot run RUM on the PGFI cluster without using the -qsub option.");
+    LOGDIE("you cannot run RUM on the PGFI cluster without using the -qsub option.");
 }
 
 if($dna eq "false") {
@@ -555,7 +570,7 @@ if($dna eq "false") {
 }
 
 if($preserve_names eq "true" && $variable_length_reads eq "true") {
-    RUM::Usage->bad("ERROR: Cannot use both -preserve_names and -variable_read_lengths at the same time.\nSorry, we will fix this eventually.");
+    RUM::Usage->bad("Cannot use both -preserve_names and -variable_read_lengths at the same time.\nSorry, we will fix this eventually.");
 }
 
 if($genomeonly eq "true") {
@@ -569,13 +584,7 @@ if($genomeonly eq "true") {
 
 if($kill eq "true") {
 
-    open(ERRORLOG, ">>$output_dir/rum.error-log");
-    $DT = `date`;
-    print ERRORLOG "\nRUM Job $JID killed using -kill option at $DT\n";
-    open(LOGFILE, ">>$output_dir/rum.log_master");
-    $log->info("\nRUM Job $JID killed using -kill option at $DT\n");
-    close(ERRORLOG);
-    close(LOGFILE);
+    WARN("RUM Job $JID killed using -kill option");
 
     if(-e "$output_dir/kill_command") {
         $K = `cat "$output_dir/kill_command"`;
@@ -591,7 +600,6 @@ if($kill eq "true") {
 
     kill_runaway_procs($output_dir, name => $name, starttime => $starttime);
 
-    print "\nRUM Job $JID killed using -kill option at $DT\n";
     exit();
 }
 
@@ -654,14 +662,14 @@ for($i=0; $i<@a; $i++) {
     if($temp4 eq $temp6 || $temp5 eq $temp6) {
 	$CNT++;
 	if($CNT > 1) {
-            $ui->logdie("You seem to already have an instance of RUM_runner.pl running on the\nsame working directory.  This will cause collisions of the temporary files.\n\nExiting.\n\nTry killing by running the same command with -kill.\nIf that doesn't work use kill -9 on the process ID.");
+            LOGDIE("You seem to already have an instance of RUM_runner.pl running on the same working directory.  This will cause collisions of the temporary files.  Exiting.  Try killing by running the same command with -kill. If that doesn't work use kill -9 on the process ID.");
 	}
     }
 }
 
-$ui->info("");
-$ui->info("If this is a big job, you should keep an eye on the rum.error-log file as it runs, because errors in the various chunks will be reported there that might indicate a failure that will require a restart that you otherwise might not become aware of until it's finished.");
-$ui->info("");
+INFO("");
+INFO("If this is a big job, you should keep an eye on the rum.error-log file as it runs, because errors in the various chunks will be reported there that might indicate a failure that will require a restart that you otherwise might not become aware of until it's finished.");
+INFO("");
 if($qsub eq "true") {
      $q = `qstat`;
      @b = split(/\n/,$q);
@@ -676,14 +684,14 @@ if($qsub eq "true") {
          @c = split(/,/,$args);
          $dir = $c[3];
          if($dir eq $output_dir) {
-             $ui->logdie("You seem to already have an instance of RUM_runner.pl running on the same working directory.  This will cause collisions of the temporary files.  Exiting.  Try killing by running the same command with -kill. If that doesn't work use kill -9 on the process ID.");
+             LOGDIE("You seem to already have an instance of RUM_runner.pl running on the same working directory.  This will cause collisions of the temporary files.  Exiting.  Try killing by running the same command with -kill. If that doesn't work use kill -9 on the process ID.");
 
           }
     }
 
-     $ui->info("You are using qsub - so if you have installed RUM somewhere other than your home directory, then you will probably need to specify everything with full paths, including in the <rum config> file, nor this may not work.  ");
+     INFO("You are using qsub - so if you have installed RUM somewhere other than your home directory, then you will probably need to specify everything with full paths, including in the <rum config> file, nor this may not work.  ");
 
-     $ui->info("You have chosen to submit the jobs using 'qsub'.  I'm going to assume each node has sufficient RAM for this.  If you are running a mammalian genome then you should have at least 6 Gigs per node.  ");
+     INFO("You have chosen to submit the jobs using 'qsub'.  I'm going to assume each node has sufficient RAM for this.  If you are running a mammalian genome then you should have at least 6 Gigs per node.  ");
 
      $starttime = time();
      $clusterID  = $name . "." . $starttime . ".";
@@ -712,11 +720,11 @@ if($qsub eq "true") {
 
 if($postprocess eq "false") {
      sleep($PAUSE_TIME);
-     $ui->info("Please wait while I check that everything is in order.");
-     $ui->info();
+     INFO("Please wait while I check that everything is in order.");
+     INFO();
      sleep($PAUSE_TIME);
-     $ui->info("This could take a few minutes.");
-     $ui->info();
+     INFO("This could take a few minutes.");
+     INFO();
      sleep($PAUSE_TIME);
 }
 
@@ -731,8 +739,8 @@ sub read_config_path {
     my ($in) = @_;
     my $maybe_rel_path = <$in>;
     unless (defined($maybe_rel_path)) {
-        $ui->info($CONFIG_DESC);
-        $ui->logdie("The configuration file seems to be missing some lines. Please see the instructions for the configuration file above.");
+        INFO($CONFIG_DESC);
+        LOGDIE("The configuration file seems to be missing some lines. Please see the instructions for the configuration file above.");
 
     }
     chomp $maybe_rel_path;
@@ -746,26 +754,26 @@ open my $config_in, "<", $configfile
 $gene_annot_file = read_config_path($config_in);
 if($dna eq "false") {
     if(!(-e $gene_annot_file)) {
-       $ui->logdie("the file '$gene_annot_file' does not seem to exist.");
+       LOGDIE("the file '$gene_annot_file' does not seem to exist.");
     }
 }
 $bowtie_exe = read_config_path($config_in);
 if(!(-e $bowtie_exe)) {
-    $ui->error("the executable '$bowtie_exe' does not seem to exist.");
+    ERROR("the executable '$bowtie_exe' does not seem to exist.");
 }
 $blat_exe = read_config_path($config_in);
 if(!(-e $blat_exe)) {
-    $ui->error("the executable '$blat_exe' does not seem to exist.");
+    ERROR("the executable '$blat_exe' does not seem to exist.");
 }
 $mdust_exe = read_config_path($config_in);
 if(!(-e $mdust_exe)) {
-    $ui->error("the executable '$mdust_exe' does not seem to exist.");
+    ERROR("the executable '$mdust_exe' does not seem to exist.");
 }
 $genome_bowtie = read_config_path($config_in);
 $transcriptome_bowtie = read_config_path($config_in);
 $genome_blat = read_config_path($config_in);
 if(!(-e $genome_blat)) {
-    $ui->error("the file '$genome_blat' does not seem to exist.");
+    ERROR("the file '$genome_blat' does not seem to exist.");
 }
 
 # We can now find the scripts dir and lib dir based on the location of
@@ -800,7 +808,7 @@ $min_ram = int($gsz * 1.67)+1;
 
 if($postprocess eq "false") {
      if($qsub2 eq "false") {
-         $ui->info("I'm going to try to figure out how much RAM you have.\nIf you see some error messages here, don't worry, these are harmless.");
+         INFO("I'm going to try to figure out how much RAM you have. If you see some error messages here, don't worry, these are harmless.");
          sleep($PAUSE_TIME * 2);
           # figure out how much RAM is available:
           if($user_ram eq "false") {
@@ -842,7 +850,7 @@ if($postprocess eq "false") {
                }
                if(!($totalram =~ /\d+/)) { # so above didn't work, warning user
                    $did_not_figure_out_ram = "true";
-                   $ui->warn("\nWarning: I could not determine how much RAM you have.  If you have less\nthan $min_ram gigs per chunk this might not work.  I'm going to proceed with fingers crossed.\n\n");
+                   WARN("Warning: I could not determine how much RAM you have.  If you have less than $min_ram gigs per chunk this might not work. I'm going to proceed with fingers crossed.");
                    $ram = $min_ram;
                } else {
                    $RAMperchunk = int($totalram / $numchunks);
@@ -851,10 +859,9 @@ if($postprocess eq "false") {
 
           if($did_not_figure_out_ram eq "false") {
               if($RAMperchunk >= $min_ram) {
-                  $ui->info("It seems like you have $totalram Gb of RAM on your machine.");
-                  $ui->info("Unless you have too much other stuff running, RAM should not be a problem.");
+                  INFO("It seems like you have $totalram Gb of RAM on your machine. Unless you have too much other stuff running, RAM should not be a problem.");
               } else {
-                  $ui->warn("Warning: you have only $RAMperchunk Gb of RAM per chunk.  Based on the\nsize of your genome you will probably need more like $min_ram Gb per chunk.\nAnyway I can try and see what happens.");
+                  WARN("Warning: you have only $RAMperchunk Gb of RAM per chunk.  Based on the\nsize of your genome you will probably need more like $min_ram Gb per chunk.\nAnyway I can try and see what happens.");
                   print "Do you really want me to proceed?  Enter 'Y' or 'N' ";
                   $answer = <STDIN>;
                   if($answer eq "n" || $answer eq "N") {
@@ -875,12 +882,13 @@ if($postprocess eq "false") {
 
 if($kill eq "false") {
     sleep($PAUSE_TIME);
-    $ui->info("Checking for phantom processes from prior runs that might need to be killed.");
+    INFO();
+    INFO("Checking for phantom processes from prior runs that might need to be killed.");
     $cleanedflag = kill_runaway_procs($output_dir);
 }
 if($cleanedflag == 1) {
     sleep(2);
-    $ui->warn("OK there was some cleaning up to do, hopefully that worked.\n\n");
+    WARN("OK there was some cleaning up to do, hopefully that worked.");
 }
 sleep($PAUSE_TIME * 2);
 
@@ -902,7 +910,7 @@ $preformatted = "false";
 if(!($readsfile =~ /,,,/)) {
 
     if(!(-e $readsfile)) {
-        $ui->logdie("The reads file '$readsfile' does not seem to exist");
+        LOGDIE("The reads file '$readsfile' does not seem to exist");
     }
 
     open(INFILE, $readsfile);
@@ -912,7 +920,7 @@ if(!($readsfile =~ /,,,/)) {
              $line = <INFILE>;
              chomp($ine);
              if($line =~ /^--$/) {
-                  $ui->logdie("you appear to have entries in your fastq file \"$readsfile\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...");
+                  LOGDIE("you appear to have entries in your fastq file \"$readsfile\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...");
              }
         }
     }
@@ -939,27 +947,27 @@ if(!($readsfile =~ /,,,/)) {
 }
 
 if($num_insertions_allowed > 1 && $paired_end eq "true") {
-    $ui->logdie("for paired end data, you cannot set -max_insertions_per_read to be greater than 1.");
+    LOGDIE("for paired end data, you cannot set -max_insertions_per_read to be greater than 1.");
 }
 
-
-$ui->info(sprintf("Processing as %s-end data",
+INFO();
+INFO(sprintf("Processing as %s-end data",
                    $paired_end eq "true" ? "paired" : "single"));
 
 $quals = "false";
 if($readsfile =~ /,,,/ && $postprocess eq "false") {
     @a = split(/,,,/, $readsfile);
     if(@a > 2) {
-	$ui->logdie("ERROR: You've given more than two files separated by three commas, should be at most two files.");
+	LOGDIE("ERROR: You've given more than two files separated by three commas, should be at most two files.");
     }
     if(!(-e $a[0])) {
-	$ui->logdie("The reads file '$a[0]' does not seem to exist");
+	LOGDIE("The reads file '$a[0]' does not seem to exist");
     }
     if(!(-e $a[1])) {
-	$ui->logdie("The reads file '$a[1]' does not seem to exist");
+	LOGDIE("The reads file '$a[1]' does not seem to exist");
     }
     if($a[0] eq $a[1]) {
-	$ui->logdie("You specified the same file for the forward and reverse reads, must be an error...");
+	LOGDIE("You specified the same file for the forward and reverse reads, must be an error...");
     }
 
     # Make sure these aren't fastq files with entries that didn't pass quality:
@@ -967,7 +975,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
     $size1 = -s $a[0];
     $size2 = -s $a[1];
     if($size1 != $size2) {
-          $ui->logdie("The fowards and reverse files are different sizes.\n$size1 versus $size2.  They should be the exact same size.");
+          LOGDIE("The fowards and reverse files are different sizes.\n$size1 versus $size2.  They should be the exact same size.");
     }
 
     open(INFILE, $a[0]);
@@ -977,7 +985,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
              $line = <INFILE>;
              chomp($ine);
              if($line =~ /^--$/) {
-                  $ui->logdie("ERROR: you appear to have entries in your fastq file e \"$a[0]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n");
+                  LOGDIE("ERROR: you appear to have entries in your fastq file e \"$a[0]\" for reads that didn't pass quality. These are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\". You first need to remove all such lines from the file, including the ones with the two dashes...  ");
              }
         }
     }
@@ -990,7 +998,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
              $line = <INFILE>;
              chomp($ine);
              if($line =~ /^--$/) {
-                  $ui->logdie("ERROR: you appear to have entries in your fastq file e \"$a[1]\" for reads that didn't pass quality.\nThese are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\".\nYou first need to remove all such lines from the file, including the ones with the two dashes...\n\n");
+                  LOGDIE("ERROR: you appear to have entries in your fastq file e \"$a[1]\" for reads that didn't pass quality. These are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\". You first need to remove all such lines from the file, including the ones with the two dashes...  ");
              }
         }
     }
@@ -1046,7 +1054,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
             chomp($line1);
             chomp($line2);
             if(length($line1) != length($line2)) {
-               $ui->logdie("It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.");
+               LOGDIE("It seems your read lengths differ from your quality string lengths. Check line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.");
             }
         }
     }
@@ -1064,7 +1072,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
                  $length_flag = 1;
             }
             if(length($line1) != $length_hold && $variable_read_lengths eq 'false') {
-                $ui->warn("It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.");
+                WARN("It seems your read lengths vary, but you didn't set -variable_length_reads. I'm going to set it for you, but it's generally safer to set it on the command-line since I only spot check the file.");
                $variable_read_lengths = "true";
             }
             $length_hold = length($line1);
@@ -1078,7 +1086,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
 
     # Done checking
 
-    $ui->info("Reformatting reads file... please be patient.");
+    INFO("Reformatting reads file... please be patient.");
 
     if($fastq eq "true" && $variable_read_lengths eq "false" && $FL == 50000) {
         if($preserve_names eq "false") {
@@ -1143,7 +1151,7 @@ $type2 = $4;
 
 if($paired_end eq 'false' && $postprocess eq "false") {
     if($type1 ne "a" || $type2 ne "a") {
-        $ui->info("\nReformatting reads file... please be patient.\n");
+        INFO("Reformatting reads file... please be patient. ");
 
         $head40 = `head -40 $readsfile`;
         $head40 =~ s/^\s*//s;
@@ -1193,7 +1201,7 @@ if($paired_end eq 'false' && $postprocess eq "false") {
                 chomp($line1);
                 chomp($line2);
                 if(length($line1) != length($line2)) {
-                    $ui->logdie("ERROR: It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.\n\n");
+                    LOGDIE("ERROR: It seems your read lengths differ from your quality string lengths.\nCheck line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.\n\n");
                 }
             }
         }
@@ -1211,7 +1219,7 @@ if($paired_end eq 'false' && $postprocess eq "false") {
                      $length_flag = 1;
                 }
                 if(length($line1) != $length_hold && $variable_read_lengths eq 'false') {
-                    $ui->warn("\nWARNING: It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.\n\n");
+                    WARN("\nWARNING: It seems your read lengths vary, but you didn't set -variable_length_reads.\nI'm going to set it for you, but it's generally safer to set it on the command-line since\nI only spot check the file.\n\n");
                    $variable_read_lengths = "true";
                 }
                 $length_hold = length($line1);
@@ -1265,7 +1273,7 @@ if($paired_end eq 'false' && $postprocess eq "false") {
 
 $X = `grep -c "This does not appear to be a valid file" $readsfile`;
 if($X > 0) {
-       $ui->logdie("ERROR: This does not appear to be a valid input file.\nFastQ files must have FOUR lines for each entry (do not include entries that do not have all four lines).\nFastA must have TWO lines for each entry.\n\n");
+       LOGDIE("ERROR: This does not appear to be a valid input file.\nFastQ files must have FOUR lines for each entry (do not include entries that do not have all four lines).\nFastA must have TWO lines for each entry.\n\n");
 }
 
 $head = `head -2 $readsfile | tail -1`;
@@ -1274,7 +1282,7 @@ chomp($head);
 if($variable_read_lengths eq "false") {
    $readlength = @a;
    if($minlength > $readlength) {
-       $ui->logdie("ERROR: you specified a minimum length alignment to report as '$minlength', however\nyour read length is only $readlength\n");
+       LOGDIE("ERROR: you specified a minimum length alignment to report as '$minlength', however\nyour read length is only $readlength\n");
    }
 } else {
    $readlength = "v";
@@ -1286,10 +1294,10 @@ if($NUMCHUNKS =~ /(\d+)s/) {
 
 if($file_needs_splitting eq "true" && $postprocess eq "false") {
     $x = &breakup_file($readsfile, $numchunks);
-    $ui->info("Splitting files ... please be patient.\n\n");
+    INFO("Splitting files ... please be patient.\n\n");
     $qualflag = 0;
     if($quals eq "true" || $quals_specified eq "true") {
-        $ui->info( "Half done splitting...\n\n");
+        INFO( "Half done splitting...\n\n");
         $qualflag = 1;
         if($quals_specified eq 'true') {
        	    $x = &breakup_file("$output_dir/$quals_file", $numchunks);
@@ -1325,7 +1333,7 @@ if($minlength == 0) {
 
 if($quals_specified eq 'true') {
     if(!(open(TESTIN, "$output_dir/$quals_file"))) {
-       $ui->logdie("cannot open '$quals_file' for reading, it should be in the '$output_dir' directory.");
+       LOGDIE("cannot open '$quals_file' for reading, it should be in the '$output_dir' directory.");
     }
     close(TESTIN);
     $qualsfile = "$output_dir/$quals_file";
@@ -1343,104 +1351,92 @@ if($postprocess eq "true") {
 
 if($postprocess eq "false") {
     open(LOGFILE, ">$output_dir/rum.log_master");
-    $log->info("RUM version: $version\n");
-    $log->info("\nJob ID: $JID\n");
-    $log->info("\nstart: $date\n");
-    $log->info("name: $name\n");
+    DEBUG("RUM version: $version\n");
+    DEBUG("\nJob ID: $JID\n");
+    DEBUG("\nstart: $date\n");
+    DEBUG("name: $name\n");
     if($configfile =~ /hg(18)/ || $configfile =~ /hg(19)/) {
-        $log->info("config file: $configfile  [human - build $1]\n");
+        DEBUG("config file: $configfile  [human - build $1]\n");
     } elsif($configfile =~ /mm(8)/ || $configfile =~ /mm(9)/) {
-        $log->info("config file: $configfile  [mouse build $1]\n");
+        DEBUG("config file: $configfile  [mouse build $1]\n");
     } else {
-        $log->info("config file: $configfile\n");
+        DEBUG("config file: $configfile\n");
     }
 
-    $log->info("paired_end: $paired_end\n");
+    DEBUG("paired_end: $paired_end\n");
     if($ARGV[1] =~ /,,,/) {
         @RF = split(/,,,/,$ARGV[1]);
-        $log->info("forward reads file: $RF[0]\n");
-        $log->info("reverse reads file: $RF[1]\n");
+        DEBUG("forward reads file: $RF[0]\n");
+        DEBUG("reverse reads file: $RF[1]\n");
     } else {
-        $log->info("reads file: $ARGV[1]\n");
+        DEBUG("reads file: $ARGV[1]\n");
     }
     if($gene_annot_file =~ /\S/) {
-       $log->info("transcript db: $gene_annot_file\n");
+       DEBUG("transcript db: $gene_annot_file\n");
     }
     if($altquant_file =~ /\S/) {
-       $log->info("alternate transcript db: $altquant_file\n");
+       DEBUG("alternate transcript db: $altquant_file\n");
     }
-    $log->info("genome db: $genomefa\n");
+    DEBUG("genome db: $genomefa\n");
     if($fasta eq "true") {
-       $log->info("input file format: fasta\n");
+       DEBUG("input file format: fasta\n");
     }
     if($fastq eq "true") {
-       $log->info("input file format: fastq\n");
+       DEBUG("input file format: fastq\n");
     }
-    $log->info("output_dir: $output_dir\n");
+    DEBUG("output_dir: $output_dir\n");
     if($variable_read_lengths eq "false") {
-        $log->info("readlength: $rl\n");
+        DEBUG("readlength: $rl\n");
     } else {
-        $log->info("readlength: variable\n");
+        DEBUG("readlength: variable\n");
     }
     $NR = &format_large_int($nr);
     if($paired_end eq 'false') {
-        $log->info("number of reads: $NR\n");
+        DEBUG("number of reads: $NR\n");
     } else {
-        $log->info("number of read pairs: $NR\n");
+        DEBUG("number of read pairs: $NR\n");
     }
 
     if($variable_read_lengths eq "false" || $minlength > 0) {
         if($minlength == 0) {
-            $log->info("minimum length alignment to report: $match_length_cutoff\n  *** NOTE: If you want to change the min size of alignment reported, use the -minlength option.\n");
+            INFO("minimum length alignment to report: $match_length_cutoff\n  *** NOTE: If you want to change the min size of alignment reported, use the -minlength option.");
         } else {
-            $log->info("minimum length alignment to report: $match_length_cutoff.\n");
+            INFO("minimum length alignment to report: $match_length_cutoff.");
         }
-        print "\n *** NOTE: I am going to report alginments of length $match_length_cutoff.\n";
-        print "If you want to change the minimum size of alignments reported, use the -minlength option.\n\n";
+        INFO("*** NOTE: I am going to report alginments of length $match_length_cutoff. If you want to change the minimum size of alignments reported, use the -minlength option.");
     } else {
-        $log->info("minimum length alignment to report: NA since read length is variable\n");
+        INFO("minimum length alignment to report: NA since read length is variable");
     }
     $nc = $numchunks;
     $nc =~ s/s//;
-    $log->info("number of chunks: $nc\n");
-    $log->info("ram per chunk: $ram\n");
-    $log->info("limitBowtieNU: $limitNU\n");
+    DEBUG("number of chunks: $nc");
+    DEBUG("ram per chunk: $ram");
+    DEBUG("limitBowtieNU: $limitNU");
     if($limitNUhard eq "true") {
-        $log->info("limitNU: $limitNUhard (no alignments reported if more than $NU_limit locations)\n");
+        DEBUG("limitNU: $limitNUhard (no alignments reported if more than $NU_limit locations)");
     } else {
-        $log->info("limitNU: $limitNUhard\n");
+        DEBUG("limitNU: $limitNUhard");
     }
-    $log->info("dna: $dna\n");
-    $log->info("output junctions: $junctions\n");
-    $log->info("output quantified values: $quantify\n");
-    $log->info("strand specific: $strandspecific\n");
-    $log->info("number of insertions allowed per read: $num_insertions_allowed\n");
-    $log->info("count mismatches: $countmismatches\n");
-    $log->info("genome only: $genomeonly\n");
-    $log->info("qsub: $qsub2\n");
-    $log->info("blat minidentity: $minidentity\n");
-    $log->info("blat tileSize: $tileSize\n");
-    $log->info("blat stepSize: $stepSize\n");
-    $log->info("blat repMatch: $repMatch\n");
-    $log->info("blat maxIntron: $maxIntron\n");
+    DEBUG("dna: $dna");
+    DEBUG("output junctions: $junctions");
+    DEBUG("output quantified values: $quantify");
+    DEBUG("strand specific: $strandspecific");
+    DEBUG("number of insertions allowed per read: $num_insertions_allowed");
+    DEBUG("count mismatches: $countmismatches");
+    DEBUG("genome only: $genomeonly");
+    DEBUG("qsub: $qsub2");
+    DEBUG("blat minidentity: $minidentity");
+    DEBUG("blat tileSize: $tileSize");
+    DEBUG("blat stepSize: $stepSize");
+    DEBUG("blat repMatch: $repMatch");
+    DEBUG("blat maxIntron: $maxIntron");
 
-    print ERRORLOG "\nNOTE: I am going to report alginments of length $match_length_cutoff.\n";
-    print ERRORLOG "  *** If you want to change the min size of alignment reported, use the -minlength option.\n\n";
+    print ERRORLOG "\nNOTE: I am going to report alginments of length $match_length_cutoff.";
+    print ERRORLOG "  *** If you want to change the min size of alignment reported, use the -minlength option.\n";
 
     if($readlength ne "v" && $readlength < 55 && $limitNU eq "false") {
-        print ERRORLOG "\nWARNING: you have pretty short reads ($readlength bases).  If you have a large\n";
-        print ERRORLOG "genome such as mouse or human then the files of ambiguous mappers could grow\n";
-        print ERRORLOG "very large, in this case it's recommended to run with the -limitBowtieNU option.  You\n";
-        print ERRORLOG "can watch the files that start with 'X' and 'Y' to see if they are growing\n";
-        print ERRORLOG "larger than 10 gigabytes per million reads at which point you might want to use.\n";
-        print ERRORLOG "-limitNU\n\n";
-
-        print "\n\nWARNING: you have pretty short reads ($readlength bases).  If you have a large\n";
-        print "genome such as mouse or human then the files of ambiguous mappers could grow\n";
-        print "very large, in this case it's recommended to run with the -limitBowtieNU option.  You\n";
-        print "can watch the files that start with 'X' and 'Y' to see if they are growing\n";
-        print "larger than 10 gigabytes per million reads at which point you might want to use.\n";
-        print "-limitNU\n\n";
+        my $msg = "WARNING: you have pretty short reads ($readlength bases).  If you have a large genome such as mouse or human then the files of ambiguous mappers could grow very large, in this case it's recommended to run with the -limitBowtieNU option.  You can watch the files that start with 'X' and 'Y' to see if they are growing larger than 10 gigabytes per million reads at which point you might want to use -limitNU.";
+        WARN($msg);
     }
 }
 
@@ -1449,7 +1445,7 @@ if($blatonly eq "true" && $dna eq "true") {
 }
 
 if($dna eq "true" && $genomeonly eq "true") {
-    RUM::Usage->bad("\nError: Sorry it makes no sense to set both -dna and -genome_only to be true.\n");
+    RUM::Usage->bad("\nError: Sorry it makes no sense to set both -dna and -genome_only to be true.");
 }
 
 if($postprocess eq "false") {
@@ -1473,15 +1469,15 @@ if($postprocess eq "false") {
         $pipeline_template =~ s!# cp OUTDIR/GNU.CHUNK OUTDIR/BowtieNU.CHUNK!echo `` >> OUTDIR/BowtieNU.CHUNK!s;
     }
 
-    print "Number of Chunks: $numchunks\n";
+    INFO("Number of Chunks: $numchunks");
     if($ARGV[1] =~ /,,,/) {
         @RF = split(/,,,/,$ARGV[1]);
-        print "Forward Reads File: $RF[0]\n";
-        print "Reverse Reads File: $RF[1]\n";
+        INFO("Forward Reads File: $RF[0]");
+        INFO("Reverse Reads File: $RF[1]");
     } else {
-        print "Reads File: $ARGV[1]\n";
+        INFO("Reads File: $ARGV[1]");
     }
-    print "Paired End: $paired_end\n";
+    INFO("Paired End: $paired_end");
 
     $readsfile =~ s!.*/!!;
     $readsfile = $output_dir . "/" . $readsfile;
@@ -1490,12 +1486,12 @@ if($postprocess eq "false") {
     $NumSeqs = $1;
     $f = &format_large_int($NumSeqs);
     if($paired_end eq 'true') {
-       print "Number of Read Pairs: $f\n";
+        INFO("Number of Read Pairs: $f");
     } else {
-       print "Number of Reads: $f\n";
+        INFO("Number of Reads: $f");
     }
 
-    print "\nEverything seems okay, I am going to fire off the job.\n\n";
+    INFO("Everything seems okay, I am going to fire off the job.");
 
     if($qsub2 eq "true") {
 	open(KF, ">>$output_dir/kill_command");
@@ -1506,7 +1502,7 @@ if($postprocess eq "false") {
 
     for($i=1; $i<=$numchunks; $i++) {
         if(!(open(EOUT, ">$output_dir/errorlog.$i"))) {
-            $ui->logdie("cannot open '$output_dir/errorlog.$i' for writing");
+            LOGDIE("cannot open '$output_dir/errorlog.$i' for writing");
         }
         close(EOUT);
         $pipeline_file = $pipeline_template;
@@ -1614,7 +1610,7 @@ if($postprocess eq "false") {
         }
         $outfile = $name . "." . $starttime . "." . $i . ".sh";
         if(!(open(OUTFILE, ">$output_dir/$outfile"))) {
-            $ui->logdie("cannot open '$output_dir/$outfile' for writing");
+            LOGDIE("cannot open '$output_dir/$outfile' for writing");
         }
         if($qsub2 eq "true") {
     	   $pipeline_file =~ s!2>>\s*[^\s]*!!gs;
@@ -1775,15 +1771,15 @@ if($postprocess eq "false") {
         } else {
            $jobid{$i} = spawn("/bin/bash", "$output_dir/$outfile");
       }
-        print "Chunk $i initiated\n";
+        INFO("Chunk $i initiated");
         $status{$i} = 1;
     }
     if($numchunks > 1) {
-        print "\nAll chunks initiated, now the long wait...\n";
-        print "\nI'm going to watch for all chunks to finish, then I will merge everything...\n\n";
+        INFO("All chunks initiated, now the long wait...");
+        INFO("I'm going to watch for all chunks to finish, then I will merge everything...");
         sleep(2);
     } else {
-        print "\nThe job has been initiated, now the long wait...\n";
+        INFO("The job has been initiated, now the long wait...");
         sleep(2);
     }
 
@@ -1845,7 +1841,7 @@ if($postprocess eq "false") {
         	    $numdone++;
     		    if($status{$i} == 1) {
     		        $status{$i} = 2;
-		        print "\n *** Chunk $i has finished.\n";
+		        INFO("*** Chunk $i has finished.");
                         if($i != $numchunks) {
                             delete $jobid{$i};
                         }
@@ -1861,40 +1857,33 @@ if($postprocess eq "false") {
     	    if($currenttime - $lastannouncetime > 3600) {
 	        $lastannouncetime = $currenttime;
 	        $numannouncements++;
-	        if($numannouncements == 1) {
-		    if($numdone == 1) {
-		        print "\nIt has been $numannouncements hour, $numdone chunk has finished.\n";
-		    } else {
-		        print "\nIt has been $numannouncements hour, $numdone chunks have finished.\n";
-		    }
-	        } else {
-		    if($numdone == 1) {
-		        print "\nIt has been $numannouncements hours, $numdone chunk has finished.\n";
-		    } else {
-		        print "\nIt has been $numannouncements hours, $numdone chunks have finished.\n";
-		    }
-	        }
+
+                my $hours = $numannouncements == 1 ? "hour" : "hours";
+                my $chunks_have  = $numdone == 1 ? "chunk has" : "chunks have";
+
+                INFO("It has been $numannouncements $hours, ".
+                              "$numdone $chunks_have finished.");
     	    }
         }
         for($i=1; $i<=$numchunks; $i++) {
-           $efile = $output_dir . "/errorlog.$i";
-           $efile_content = `cat $efile`;
-           $efile_content =~ s/stdin: is not a tty[^\n]*\n//sg;
-           if(!($efile_content eq $efiles_hash{$i})) {
-                 $efile_temp = $efiles_hash{$i};
-                 warn "The error file content is $efile_content";
-                 $efiles_hash{$i} = $efile_content;
-                 $efile_content =~ s/^$efile_temp//s;
-                 $time = `date`;
-                 $time =~ s/\s*$//;
-                 print ERRORLOG "--------------------------------------------------------------------------\n";
-                 print ERRORLOG "The following was reported to chunk $i";
-                 print ERRORLOG "'s errorlog (errorlog.$i) around $time:\n\n";
-                 print ERRORLOG "$efile_content\n";
-                 print ERRORLOG "*** This may be innocuous, having no effect at all, or at worst indicating\nan error that lead to a node restart.\n";
-                 print ERRORLOG "*** Or this may be more serious, which sometimes is clear from the message,\nor usually from the rum.error-log when the run finishes.\n";
-                 print ERRORLOG "--------------------------------------------------------------------------\n";
-             }
+            $efile = $output_dir . "/errorlog.$i";
+            $efile_content = `cat $efile`;
+            $efile_content =~ s/stdin: is not a tty[^\n]*\n//sg;
+            if(!($efile_content eq $efiles_hash{$i})) {
+                $efile_temp = $efiles_hash{$i};
+                warn "The error file content is $efile_content";
+                $efiles_hash{$i} = $efile_content;
+                $efile_content =~ s/^$efile_temp//s;
+                $time = `date`;
+                $time =~ s/\s*$//;
+                print ERRORLOG "--------------------------------------------------------------------------\n";
+                print ERRORLOG "The following was reported to chunk $i";
+                print ERRORLOG "'s errorlog (errorlog.$i) around $time:\n\n";
+                print ERRORLOG "$efile_content\n";
+                print ERRORLOG "*** This may be innocuous, having no effect at all, or at worst indicating\nan error that lead to a node restart.\n";
+                print ERRORLOG "*** Or this may be more serious, which sometimes is clear from the message,\nor usually from the rum.error-log when the run finishes.\n";
+                print ERRORLOG "--------------------------------------------------------------------------\n";
+            }
         }
         for($i=1; $i<=$numchunks; $i++) {
           # Check here to make sure node still running
@@ -1917,10 +1906,10 @@ if($postprocess eq "false") {
                                    $t = 10;
                                 } else {
                                    if($t<=7) {
-                                        $ui->warn("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n");
+                                        WARN("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n");
                                    }
                                    if($t==8) {
-                                       $ui->warn("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n");
+                                       WARN("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n");
                                    }
                                    sleep(3);
                                    if($t == 8) {
@@ -1935,6 +1924,7 @@ if($postprocess eq "false") {
                        } else {
                             $PID = $jobid{$i};
                             if (my $child_status = check($PID)) {
+                                WARN("Chunk $i seems to have failed with status $child_status: $x");
                                 $DIED = "true";
                                 kill_all(keys %{$child{$i}});
                             }
@@ -1950,8 +1940,7 @@ if($postprocess eq "false") {
                             $DATE = `date`;
                             $DATE =~ s/^\s+//;
                             $DATE =~ s/\s+$//;
-                            print ERRORLOG "\n *** Chunk $i seems to have failed sometime around $DATE!  Trying to restart it...\n";
-                            print "\n *** Chunk $i seems to have failed sometime around $DATE!\nDon't panic, I'm going to try to restart it.\n";
+                            ERROR("*** Chunk $i seems to have failed sometime around $DATE!  Trying to restart it...");
                             # check that didn't run out of disk space
                             $mcheck = `df -h $output_dir | grep -vi Avai`;
                             chomp($mcheck);
@@ -1960,8 +1949,7 @@ if($postprocess eq "false") {
                             $mc[3] =~ /(\d+)/;
                             $mfree = $1 + 0;
                             if($mfree == 0) {
-                                  print ERRORLOG "\n *** You seem to have run out of disk space: exiting.\n";
-                                  print "\n *** You seem to have run out of disk space: exiting.\n";
+                                FATAL("*** You seem to have run out of disk space: exiting.");
                                   if(-e "$output_dir/kill_command") {
                                       $K = `cat "$output_dir/kill_command"`;
                                       @a = split(/\n/,$K);
@@ -2312,14 +2300,12 @@ if($postprocess eq "false") {
                                   $DATE =~ s/^\s+//;
                                   $DATE =~ s/\s+$//;
                                   sleep(2);
-                                  print ERRORLOG " *** Chunk $i seems to have restarted successfully at $DATE.\n\n";
-                                  print " *** OK chunk $i seems to have restarted.\n\n";
+                                  INFO("*** Chunk $i seems to have restarted successfully at $DATE.");
                                   $number_consecutive_restarts{$i}=0;
                                   if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
                                        $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
                                        if($Q =~ /pipeline complete/) {
-                                            print ERRORLOG " *** Well, there was really nothing to do, chunk $i seems to have finished.\n\n";
-                                            print " *** Well, there was really nothing to do, chunk $i seems to have finished.\n\n";
+                                            INFO("*** Well, there was really nothing to do, chunk $i seems to have finished.");
                                             $doneflag = 1;
                                        }
                                   } else {
@@ -2328,8 +2314,7 @@ if($postprocess eq "false") {
                             } else {
                                   $number_consecutive_restarts{$i}++;
                                   if($number_consecutive_restarts{$i} > 20) {
-                                       print ERRORLOG " *** Hmph, I tried 20 times, I'm going to give up because I'm afraid I'm caught in an infinite loop.  Could be a bug.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
-                                       print " *** Hmph, I tried 20 times, I'm going to give up because I'm afraid I'm caught in an infinite loop.  Could be a bug.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
+                                       FATAL("*** Hmph, I tried 20 times, I'm going to give up because I'm afraid I'm caught in an infinite loop.  Could be a bug.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.");
                                        if(-e "$output_dir/kill_command") {
                                            $K = `cat "$output_dir/kill_command"`;
                                            @a = split(/\n/,$K);
@@ -2352,8 +2337,7 @@ if($postprocess eq "false") {
                                                           starttime => $starttime);
                                         exit(0);
                                   }
-                                  print ERRORLOG " *** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
-                                  print " *** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.\n\n";
+                                  ERROR("*** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.");
                             }
                       }
                  }
@@ -2363,9 +2347,9 @@ if($postprocess eq "false") {
 
 
 if($postprocess eq "false") {
-     print "\nWhew, all chunks have finished.\n\nNext I will merge everything, create the coverage plots and\ncalculate the quantified values, etc.  This could take some time...\n\n";
+    INFO("\nWhew, all chunks have finished.\n\nNext I will merge everything, create the coverage plots and\ncalculate the quantified values, etc.  This could take some time...\n\n");
 } else {
-     print "\nOK, will now merge everything, create the coverage plots and\ncalculate the quantified values, etc.  This could take some time...\n\n";
+    INFO("\nOK, will now merge everything, create the coverage plots and\ncalculate the quantified values, etc.  This could take some time...\n\n");
 }
 
 if($qsub2 eq "true") {
@@ -2399,11 +2383,11 @@ if($nocat eq "false") {
        if(defined $restarted{$i}) {
            $R = $restarted{$i};
            if(!(open(SAMHEADER, "$output_dir/sam_header.$i.$R"))) {
-              $ui->logdie("Cannot open '$output_dir/sam_header.$i.$R' for reading.");
+              LOGDIE("Cannot open '$output_dir/sam_header.$i.$R' for reading.");
            }
        } else {
            if(!(open(SAMHEADER, "$output_dir/sam_header.$i"))) {
-              $ui->logdie("Cannot open '$output_dir/sam_header.$i' for reading.");
+              LOGDIE("Cannot open '$output_dir/sam_header.$i' for reading.");
            }
        }
        while($line = <SAMHEADER>) {
@@ -2414,7 +2398,7 @@ if($nocat eq "false") {
        close(SAMHEADER);
     }
     if(!(open(SAMOUT, ">$output_dir/RUM.sam"))) {
-        $ui->logdie("Cannot open '$output_dir/RUM.sam' for writing.");
+        LOGDIE("Cannot open '$output_dir/RUM.sam' for writing.");
     }
     foreach $key (sort by_chromosome keys %samheader) {
         $shout = $samheader{$key};
@@ -2445,13 +2429,13 @@ if($cleanup eq 'true') {
 #   - not yet implemented..
 
 print "\nStarted postprocessing at $date\n";
-$log->info("\nStarted postprocessing at $date\n");
+INFO("\nStarted postprocessing at $date\n");
 
 # Write file that wait.pl is watching for, in the shell script for the last chunk.
 # Once that is written, wait.pl finishes and the postprocessing will start.
 
 if(!(open(OUTFILE, ">$output_dir/$JID"))) {
-    $ui->logdie("Cannot open '$output_dir/$JID' for writing.");
+    LOGDIE("Cannot open '$output_dir/$JID' for writing.");
 }
 print OUTFILE "$JID\n";
 close(OUTFILE);
@@ -2503,10 +2487,10 @@ while($doneflag == 0) {
                     $t = 10;
                  } else {
                     if($t<=7) {
-                        $ui->warn("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n");
+                        WARN("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n");
                     }
                     if($t==8) {
-                        $ui->warn( "Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n");
+                        WARN( "Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n");
                     }
                     sleep(3);
                     if($t == 8) {
@@ -2703,9 +2687,9 @@ $UFp = int($uf / $genome_size * 10000) / 100;
 $NUFp = int($nuf / $genome_size * 10000) / 100;
 
 $gs4 = &format_large_int($genome_size);
-$log->info("genome size: $gs4\n");
-$log->info("number of bases covered by unique mappers: $UF ($UFp%)\n");
-$log->info("number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n");
+INFO("genome size: $gs4\n");
+INFO("number of bases covered by unique mappers: $UF ($UFp%)\n");
+INFO("number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n");
 
 open(INFILE, "$output_dir/mapping_stats.txt");
 $newfile = "";
@@ -2951,7 +2935,7 @@ if($cleanup eq 'true') {
 print "\nOkay, all finished.\n\n";
 
 $date = `date`;
-$log->info("pipeline finished: $date\n");
+INFO("pipeline finished: $date\n");
 close(LOGFILE);
 close(ERRORLOG);
 
@@ -2959,7 +2943,7 @@ sub breakup_file () {
     ($FILE, $numpieces) = @_;
 
     if(!(open(INFILE, $FILE))) {
-       $ui->logdie("Cannot open '$FILE' for reading.");
+       LOGDIE("Cannot open '$FILE' for reading.");
     }
     $tail = `tail -2 $FILE | head -1`;
     $tail =~ /seq.(\d+)/s;
@@ -2972,10 +2956,10 @@ sub breakup_file () {
     $piecesize2 = &format_large_int($piecesize);
     if(!($FILE =~ /qual/)) {
 	if($numchunks > 1) {
-	    $log->info("processing in $numchunks pieces of approx $piecesize2 reads each\n");
+	    INFO("processing in $numchunks pieces of approx $piecesize2 reads each\n");
 	} else {
 	    $NS2 = &format_large_int($NS);
-	    $log->info("processing in one piece of $NS2 reads\n");
+	    INFO("processing in one piece of $NS2 reads\n");
 	}
     }
     if($piecesize % 2 == 1) {

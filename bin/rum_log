@@ -7,8 +7,15 @@ use warnings;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-
+use Getopt::Long;
 use RUM::Logging;
+
+GetOptions(
+    "debug|d" => \(my $debug),
+    "info|i" => \(my $info),
+    "warn|w" => \(my $warn),
+    "error|e" => \(my $error),
+    "fatal|f" => \(my $fatal));
 
 my $log = RUM::Logging->get_logger;
 
@@ -16,5 +23,9 @@ $_ = "@ARGV";
 my @lines = split /\n/;
 
 for (@lines) {
-    $log->info($_);
+    $log->debug($_) if $debug;
+    $log->info($_)  if $info;
+    $log->warn($_)  if $warn;
+    $log->error($_) if $error;
+    $log->fatal($_) if $fatal;
 }
