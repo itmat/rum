@@ -29,6 +29,7 @@ SKIP: {
     my $index = $indexes[0];
     my $config = RUM::ChunkConfig->new(
         genome_bowtie => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_genome",
+        genome_fa   => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs.fa",
         transcriptome_bowtie => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_ensembl_genes",
         annotations          => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt",
         bin_dir       => $repo->bin_dir,
@@ -40,6 +41,7 @@ SKIP: {
     );
     
     is($config->genome_bowtie_out, "$out_dir/X.1", "genome bowtie out");
+    is($config->blat_output, "$out_dir/R.1.blat", "blat out");
     
     my $chunk = RUM::ChunkMachine->new($config);
 
