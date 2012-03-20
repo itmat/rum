@@ -1,7 +1,12 @@
 use Test::More tests => 20;
 use Test::Exception;
-use lib "lib";
 
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use RUM::Repository;
+use RUM::TestUtils;
+use File::Path;
+use File::Temp qw(tempdir);
 use strict;
 use warnings;
 
@@ -10,19 +15,37 @@ BEGIN {
     use_ok('RUM::ChunkConfig');
 }                                               
 
-my $config = RUM::ChunkConfig->new(
-    genome_bowtie => "/Users/midel/src/rum/bin/../indexes/Arabidopsis_thaliana_TAIR10_genome",
-    transcriptome_bowtie => "/Users/midel/src/rum/bin/../indexes/Arabidopsis_thaliana_TAIR10_ensembl_genes",
-    reads         => "reads",
-    chunk         => 1,
-    output_dir    => "out",
-    paired_end    => 1,
-    read_length   => 1,
-    min_overlap   => 1
-);
+my $repo = RUM::Repository->new(root_dir => "$Bin/../_testing");
+my @indexes = $repo->indexes(pattern => qr/TAIR/);
 
-is($config->genome_bowtie_out, "out/X.1", "genome bowtie out");
+my $out_dir = "$Bin/tmp/40-chunk-machine";
+my $state_dir = "$out_dir/state";
+rmtree($out_dir);
+mkpath($state_dir);
 
-my $chunk = RUM::ChunkMachine->new($config);
-my $script = $chunk->shell_script("foo");
+SKIP: {
 
+    skip "no index", 1 unless @indexes == 1;
+    my $index = $indexes[0];
+    my $config = RUM::ChunkConfig->new(
+        genome_bowtie => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_genome",
+        transcriptome_bowtie => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_ensembl_genes",
+        annotations          => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt",
+        bin_dir       => $repo->bin_dir,
+        reads         => "$INPUT_DIR/reads.fa",
+        chunk         => 1,
+        output_dir    => $out_dir,
+        paired_end    => 1,
+        read_length   => 75
+    );
+    
+    is($config->genome_bowtie_out, "$out_dir/X.1", "genome bowtie out");
+    
+    my $chunk = RUM::ChunkMachine->new($config);
+
+    my $script = $chunk->shell_script("$out_dir/state");
+
+    open my $script_file, ">", "$out_dir/run.sh" or die "Can't open script";
+    print $script_file $script;
+    close $script_file;
+}

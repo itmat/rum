@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Carp;
 use FindBin qw($Bin);
-FindBin->again();
+FindBin->again;
 
 sub new {
     my ($class, %options) = @_;
@@ -13,7 +13,9 @@ sub new {
 
     my @required = qw(genome_bowtie reads chunk output_dir
                       transcriptome_bowtie paired_end read_length
-                      min_overlap);
+                      bin_dir annotations);
+
+    my @optional = qw(min_overlap);
 
     for (@required) {
         my $val = delete $options{$_};
@@ -25,15 +27,23 @@ sub new {
     
 }
 
+sub bin { $_[0]->bin_dir . "/" . $_[1] }
+
+sub script { "$Bin/../bin/" . $_[1] }
+
+sub bin_dir { $_[0]->{bin_dir} }
+
 sub output_dir { $_[0]->{output_dir} }
 
 sub chunk { $_[0]->{chunk} }
 
-sub bowtie_bin { "$Bin/bowtie" }
+sub bowtie_bin { $_[0]->bin("bowtie") }
 
 sub genome_bowtie { shift->{genome_bowtie} }
 
 sub transcriptome_bowtie { shift->{transcriptome_bowtie} }
+
+sub annotations { shift->{annotations} }
 
 sub reads_file { shift->{reads} }
 

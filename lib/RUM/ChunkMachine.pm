@@ -22,6 +22,7 @@ sub new {
     my $gnu            = $m->flag("gnu");
     my $tu             = $m->flag("tu");
     my $tnu            = $m->flag("tnu");
+    my $cnu            = $m->flag("cnu");
     my $bowtie_unique  = $m->flag("bowtie_unique");
     my $bowtie_nu      = $m->flag("bowtie_nu");
     my $unmapped       = $m->flag("unmapped");
@@ -41,17 +42,17 @@ sub new {
 
     # If we have the non-unique files for both the genome and the
     # transcriptome, we can merge them.
-    $m->add($tnu | $gnu, $bowtie_nu, "merge_gnu_tnu_cnu");
+    $m->add($tnu | $gnu | $cnu, $bowtie_nu, "merge_gnu_tnu_cnu");
 
     # If we have the unique files for both the genome and the
     # transcriptome, we can merge them.
-    $m->add($tu | $gu, $bowtie_unique, "merge_gu_tu");
+    $m->add($tu | $gu | $tnu | $gnu, $bowtie_unique | $cnu, "merge_gu_tu");
 
     # If we have the merged bowtie unique mappers and the merged
     # bowtie non-unique mappers, we can create the unmapped file.
     $m->add($bowtie_unique | $bowtie_nu,
             $unmapped,
-            \&make_unmapped_file);
+            "make_unmapped_file");
 
     $m->set_goal($bowtie_unique | $bowtie_nu);
 
@@ -59,16 +60,6 @@ sub new {
     $self->{config} = $config;
 
     return bless $self, $class;
-}
-
-sub make_unmapped_file {
-    my ($conf) = @_;
-    [["perl", "$Bin/make_unmapped_file.pl",
-      "--reads", "READSFILE.CHUNK",
-      "--unique", "OUTDIR/BowtieUnique.CHUNK",
-      "--non-unique", "OUTDIR/BowtieNU.CHUNK",
-      "-o", "OUTDIR/R.CHUNK",
-      "--PAIREDEND"]];
 }
 
 sub run_bowtie_on_genome {
@@ -106,7 +97,7 @@ sub run_bowtie_on_transcriptome {
 
 sub make_gu_and_gnu {
     my ($chunk) = @_;
-    [["perl", "$Bin/make_GU_and_GNU.pl", 
+    [["perl", $chunk->script("make_GU_and_GNU.pl"), 
       "--unique", $chunk->gu,
       "--non-unique", $chunk->gnu,
       $chunk->paired_end_option(),
@@ -115,31 +106,35 @@ sub make_gu_and_gnu {
 
 sub make_tu_and_tnu {
     my ($chunk) = @_;
-    [["perl", "$Bin/make_TU_and_TNU.pl", 
+    [["perl", $chunk->script("make_TU_and_TNU.pl"), 
       "--unique",        $chunk->tu,
-      "--non-unique",    $chunk->gnu,
-      "--bowtie-output", $chunk->genome_bowtie_out,
-      "--genes",         $chunk->transcriptome_bowtie,
+      "--non-unique",    $chunk->tnu,
+      "--bowtie-output", $chunk->transcriptome_bowtie_out,
+      "--genes",         $chunk->annotations,
       $chunk->paired_end_option]];
 }
 
 sub merge_gu_tu {
     my ($chunk) = @_;
-    [["perl", "$Bin/merge_GU_and_TU.pl",
-      "--gu", $chunk->gu,
-      "--tu", $chunk->tu,
-      "--gnu", $chunk->gnu,
-      "--tnu", $chunk->tnu,
-      "--bowtie-unique", $chunk->bowtie_unique,
-      "--cnu",           $chunk->cnu,
-      $chunk->paired_end_option,
-      "--read-length", $chunk->read_length,
-      "--min-overlap", $chunk->min_overlap]];
+    my @cmd = (
+
+        "perl", $chunk->script("merge_GU_and_TU.pl"),
+        "--gu", $chunk->gu,
+        "--tu", $chunk->tu,
+        "--gnu", $chunk->gnu,
+        "--tnu", $chunk->tnu,
+        "--bowtie-unique", $chunk->bowtie_unique,
+        "--cnu",           $chunk->cnu,
+        $chunk->paired_end_option,
+        "--read-length", $chunk->read_length);
+    push @cmd, "--min-overlap", $chunk->min_overlap
+        if defined($chunk->min_overlap);
+    return [[@cmd]];
 }
 
 sub merge_gnu_tnu_cnu {
     my ($chunk) = @_;
-    [["perl", "$Bin/merge_GNU_and_TNU_and_CNU.pl",
+    [["perl", $chunk->script("merge_GNU_and_TNU_and_CNU.pl"),
       "--gnu", $chunk->gnu,
       "--tnu", $chunk->tnu,
       "--cnu", $chunk->cnu,
@@ -148,7 +143,7 @@ sub merge_gnu_tnu_cnu {
 
 sub make_unmapped_file {
     my ($chunk) = @_;
-    [["perl", "$Bin/make_unmapped_file.pl",
+    [["perl", $chunk->script("make_unmapped_file.pl"),
       "--reads", $chunk->reads_file,
       "--unique", $chunk->bowtie_unique, 
       "--non-unique", $chunk->bowtie_nu,
@@ -164,10 +159,8 @@ sub shell_script {
     my $machine = $self->{sm};
     my $plan = $machine->generate;
     
-    print "My plan is @$plan\n";
-
     my $state = $machine->start;
-
+    my $res;
     for my $step (@$plan) {
 
         my $name = "RUM::ChunkMachine::$step";
@@ -175,9 +168,9 @@ sub shell_script {
         no strict 'refs';
         my $cmds = $name->($self->{config});
         
-        print "# $step\n";
+        $res .= "# $step\n";
         for my $cmd (@$cmds) {
-            print "@$cmd\n";
+            $res .= "@$cmd || exit 1\n";
         }
 
         my $old_state = $state;
@@ -185,10 +178,11 @@ sub shell_script {
 
         my @flags = $machine->flags($state & ~$old_state);
         my @state_files = map "$dir/$_", @flags;
-        print "touch @state_files\n";
+        $res .= "touch @state_files\n";
 
-        print "\n";
+        $res .= "\n";
     }
+    return $res;
 
 }
 

@@ -89,7 +89,9 @@ sub main {
 
     my @run_names = @ARGV;
 
-    @run_names ||= map $_->{name}, @TESTS;
+    unless (@run_names) {
+        @run_names = map { $_->{name} } @TESTS;
+    }
 
     my %should_run = map { ($_ => 1) } @run_names;
 

@@ -617,7 +617,7 @@ sub main {
             $i++;
             $s[$i] = $s[$i-1] + $ends[$i-1] - $starts[$i-1];
             if ($i > 100000) {
-                print STDERR "\n\nERROR: in script make_TU_and_TNU.pl: Something is wrong, probably with the gene annotation file: $ARGV[1].  Are you sure it is zero-based, half-open?  Script make_TU_and_TNU is exiting due to this error.\n\n";
+                die "Something is wrong, probably with the gene annotation file: $ARGV[1].  Are you sure it is zero-based, half-open?  Script make_TU_and_TNU is exiting due to this error.";
                 exit(1);
             }
         }
@@ -630,7 +630,7 @@ sub main {
             $cnt++;
             $readstart[$cnt] = $starts[$i-1] + 1;
             if ($i > 100000) {
-                print STDERR "\n\nERROR: in script make_TU_and_TNU.pl: Something is wrong, probably with the gene annotation file: $ARGV[1].  Are you sure it is zero-based, half-open?  Script make_TU_and_TNU is exiting due to this error.\n\n";
+                die "Something is wrong, probably with the gene annotation file: $ARGV[1].  Are you sure it is zero-based, half-open?  Script make_TU_and_TNU is exiting due to this error.";
                 exit(1);
             }
         }
