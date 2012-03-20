@@ -1885,465 +1885,472 @@ if($postprocess eq "false") {
                 print ERRORLOG "--------------------------------------------------------------------------\n";
             }
         }
+        INFO("Checking chunks");
         for($i=1; $i<=$numchunks; $i++) {
-          # Check here to make sure node still running
-                  $DIED = "false";
-                  if($restarted{$i} =~ /\S/) {
-                      $logfile = "$output_dir/rum.log_chunk.$i.$restarted{$i}";
-                  } else {
-                      $logfile = "$output_dir/rum.log_chunk.$i";
-                  }
-                  $x = "";
-                  if (-e $logfile) {
-        	        $x = `cat $logfile`;
-                  }
-                  $Jobid = $jobid{$i};
-                  if(!($x =~ /pipeline complete/s) || ($x =~ /pipeline complete/s && $i == $numchunks && $status{$i} == 2)) {
-                       if($qsub2 eq 'true') {
-                            for($t=0; $t<10; $t++) {
-                                $X = `qstat -j $Jobid | grep job_number`;
-                                if($X =~ /job_number:\s+$Jobid/s) {
-                                   $t = 10;
-                                } else {
-                                   if($t<=7) {
-                                        WARN("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n");
-                                   }
-                                   if($t==8) {
-                                       WARN("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n");
-                                   }
-                                   sleep(3);
-                                   if($t == 8) {
-                                      sleep(300);  # try one last time waiting five minutes
-                                   }
-                                }
+            # Check here to make sure node still running
+            $DIED = "false";
+            my $logfile;
+            if($restarted{$i} =~ /\S/) {
+                $logfile = "$output_dir/rum.log_chunk.$i.$restarted{$i}";
+            } else {
+                $logfile = "$output_dir/rum.log_chunk.$i";
+            }
+            $x = "";
+            my @errors;
+            if (-e $logfile) {
+                use strict;
+                my $log_in;
+                open $log_in, "<", $logfile or die "Can't open log file: $log_in";
+                @errors = grep { /ERROR|FATAL/ } (<$log_in>);
+            }
+            $Jobid = $jobid{$i};
+
+            if (!($x =~ /pipeline complete/s) || ($x =~ /pipeline complete/s && $i == $numchunks && $status{$i} == 2)) {
+                if($qsub2 eq 'true') {
+                    for($t=0; $t<10; $t++) {
+                        $X = `qstat -j $Jobid | grep job_number`;
+                        if($X =~ /job_number:\s+$Jobid/s) {
+                            $t = 10;
+                        } else {
+                            if($t<=7) {
+                                WARN("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to try to get the status again.\n");
                             }
-                            if(!($X =~ /job_number:\s+$Jobid/s) && (!($x =~ /pipeline complete/s) || ($x =~ /pipeline complete/s && $i == $numchunks && $status{$i} == 2))) {
-                                 $DIED = "true";
-                                 $X = `qdel $Jobid`;
+                            if($t==8) {
+                                WARN("Hmm, couldn't get status on job $Jobid, the job might have died, or maybe just the\nstatus failed.  Going to wait 5 minutes and try to get the status again.\n");
                             }
-                       } else {
-                            $PID = $jobid{$i};
-                            if (my $child_status = check($PID)) {
-                                WARN("Chunk $i seems to have failed with status $child_status: $x");
-                                $DIED = "true";
-                                kill_all(keys %{$child{$i}});
+                            sleep(3);
+                            if($t == 8) {
+                                sleep(300);  # try one last time waiting five minutes
                             }
                         }
-                       sleep(2);
-                       if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
-                            $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
-                            if($Q =~ /pipeline complete/) {
-                                  $DIED = "false";
+                    }
+                    if(!($X =~ /job_number:\s+$Jobid/s) && (!($x =~ /pipeline complete/s) || ($x =~ /pipeline complete/s && $i == $numchunks && $status{$i} == 2))) {
+                        $DIED = "true";
+                        $X = `qdel $Jobid`;
+                    }
+                } else {
+                    $PID = $jobid{$i};
+                    if (my $child_status = check($PID)) {
+                        WARN("Chunk $i seems to have failed with status $child_status: $x]n");
+                        $DIED = "true";
+                        kill_all(keys %{$child{$i}});
+                    }
+                }
+                sleep(2);
+                if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
+                    $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
+                    if($Q =~ /pipeline complete/) {
+                        $DIED = "false";
+                    }
+                }
+                if($DIED eq "true") {
+                    $DATE = `date`;
+                    $DATE =~ s/^\s+//;
+                    $DATE =~ s/\s+$//;
+                    ERROR("*** Chunk $i seems to have failed sometime around $DATE!  Trying to restart it...");
+                    # check that didn't run out of disk space
+                    $mcheck = `df -h $output_dir | grep -vi Avai`;
+                    chomp($mcheck);
+                    $mcheck =~ s/^\s*//;
+                    @mc = split(/\s+/,$mcheck);
+                    $mc[3] =~ /(\d+)/;
+                    $mfree = $1 + 0;
+                    if($mfree == 0) {
+                        FATAL("*** You seem to have run out of disk space: exiting.");
+                        if(-e "$output_dir/kill_command") {
+                            $K = `cat "$output_dir/kill_command"`;
+                            @a = split(/\n/,$K);
+                            $A = $a[0] . "\n";
+                            $R = `$A`;
+                            print "$R\n";
+                            $A = $a[1] . "\n";
+                            $R = `$A`;
+                            print "$R\n";
+                            exit(0);
+                        }
+                        # I should kill any shell scripts
+                        # with my start time running in this
+                        # directory, then any other
+                        # processes running in this
+                        # directory.
+                        kill_runaway_procs($output_dir, 
+                                           name => $name,
+                                           startime => $starttime);
+                        exit(0);
+                    }
+                    $ofile = $output_dir . "/chunk.restart.$i" . ".o";
+                    $efile = $output_dir . "/chunk.restart.$i" . ".e";
+                    $outfile = "$name" . "." . $starttime . "." . $i . ".sh";
+                    $FILE = `cat $output_dir/$outfile`;
+                    $restarted{$i}++;
+                    open(OUT, ">$output_dir/restart.ids");
+                    foreach $key (keys %restarted) {
+                        print OUT "$key\t$restarted{$key}\n";
+                    }
+                    close(OUT);
+                    # changing the names of the files of this chunk to avoid possible collision with
+                    # phantom processes that didn't die properly..
+                    
+                    # Note, can't modify the postprocessing scripts to reflect the new file names, since it
+                    # has already been submmitted.  Instead the postprocessing scripts that need file names
+                    # will recover the correct ones from the restart.ids file
+                    
+                    if(!($i == $numchunks && $status{$i} == 2)) { # otherwise it's postprocessing node in waiting state, don't change names in this case
+                        if($restarted{$i} == 1) {
+                            $J1 = $i;
+                            $J3 = $i;
+                            $FILE =~ s/\.$i/.$i.1/g;
+                            $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
+                            $suffixold = $i;
+                            $suffixnew = "$i.1";
+                        } else {
+                            $J1 = $restarted{$i} - 1;
+                            $J2 = $restarted{$i};
+                            $J3 = "$i.$J1";
+                            $FILE =~ s/\.$i\.$J1/.$i.$J2/g;
+                            $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
+                            $suffixold = "$i.$J1";
+                            $suffixnew = "$i.$J2";
+                        }
+                        # rename reads and quals files with new suffix
+                        `mv $output_dir/reads.fa.$suffixold $output_dir/reads.fa.$suffixnew`;
+                        if(-e "$output_dir/quals.fa.$suffixold") {
+                            `mv $output_dir/quals.fa.$suffixold $output_dir/quals.fa.$suffixnew`;
+                        }
+                        if(-e "$output_dir/read_names_mapping.$suffixold") {
+                            `mv $output_dir/read_names_mapping.$suffixold $output_dir/read_names_mapping.$suffixnew`;
+                        }
+                        
+                        # move things that have already finished to new suffix, so don't have to redo them
+                        # and remove the things that have finished from the shell script $FILE so don't get redone
+                        
+                        $LOGFILE = `cat $output_dir/rum.log_chunk.$suffixold`;
+                        `mv $output_dir/rum.log_chunk.$suffixold $output_dir/rum.log_chunk.$suffixnew`;
+                        if($LOGFILE =~ /finished first bowtie/s) {
+                            if(-e "$output_dir/X.$suffixold") {
+                                `mv $output_dir/X.$suffixold $output_dir/X.$suffixnew`;
                             }
-                       }
-                       if($DIED eq "true") {
-                            $DATE = `date`;
-                            $DATE =~ s/^\s+//;
-                            $DATE =~ s/\s+$//;
-                            ERROR("*** Chunk $i seems to have failed sometime around $DATE!  Trying to restart it...");
-                            # check that didn't run out of disk space
-                            $mcheck = `df -h $output_dir | grep -vi Avai`;
-                            chomp($mcheck);
-                            $mcheck =~ s/^\s*//;
-                            @mc = split(/\s+/,$mcheck);
-                            $mc[3] =~ /(\d+)/;
-                            $mfree = $1 + 0;
-                            if($mfree == 0) {
-                                FATAL("*** You seem to have run out of disk space: exiting.");
-                                  if(-e "$output_dir/kill_command") {
-                                      $K = `cat "$output_dir/kill_command"`;
-                                      @a = split(/\n/,$K);
-                                      $A = $a[0] . "\n";
-                                      $R = `$A`;
-                                      print "$R\n";
-                                      $A = $a[1] . "\n";
-                                      $R = `$A`;
-                                      print "$R\n";
-                                      exit(0);
-                                  }
-                                  # I should kill any shell scripts
-                                  # with my start time running in this
-                                  # directory, then any other
-                                  # processes running in this
-                                  # directory.
-                                  kill_runaway_procs($output_dir, 
-                                                     name => $name,
-                                                     startime => $starttime);
-                                  exit(0);
+                            $FILE =~ s/echo .starting.*finished first bowtie run[^\n]*\n//s;
+                        }                                 
+                        
+                        if($LOGFILE =~ /finished parsing genome bowtie/s) {
+                            if(-e "$output_dir/GU.$suffixold") {
+                                `mv $output_dir/GU.$suffixold $output_dir/GU.$suffixnew`;
                             }
-                            $ofile = $output_dir . "/chunk.restart.$i" . ".o";
-                            $efile = $output_dir . "/chunk.restart.$i" . ".e";
-                            $outfile = "$name" . "." . $starttime . "." . $i . ".sh";
-                            $FILE = `cat $output_dir/$outfile`;
-                            $restarted{$i}++;
+                            if(-e "$output_dir/GNU.$suffixold") {
+                                `mv $output_dir/GNU.$suffixold $output_dir/GNU.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.make_GU_and_GNU.pl.*finished parsing genome bowtie run[^\n]*\n[^\n]+\n[^\n]+\n//s;
+                        }                                 
+                        if($LOGFILE =~ /finished second bowtie/s) {
+                            if(-e "$output_dir/Y.$suffixold") {
+                                `mv $output_dir/Y.$suffixold $output_dir/Y.$suffixnew`;
+                            }
+                            $FILE =~ s/..transcriptome bowtie starts here.*finished second bowtie run[^\n]*\n//s;
+                        }
+                        if($LOGFILE =~ /finished parsing transcriptome bowtie/s) {
+                            if(-e "$output_dir/TU.$suffixold") {
+                                `mv $output_dir/TU.$suffixold $output_dir/TU.$suffixnew`;
+                            }
+                            if(-e "$output_dir/TNU.$suffixold") {
+                                `mv $output_dir/TNU.$suffixold $output_dir/TNU.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.make_TU_and_TNU.pl[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n//s;
+                        }
+                        if($LOGFILE =~ /finished merging TU and GU/s) {
+                            if(-e "$output_dir/BowtieUnique.$suffixold") {
+                                `mv $output_dir/BowtieUnique.$suffixold $output_dir/BowtieUnique.$suffixnew`;
+                            }
+                            if(-e "$output_dir/CNU.$suffixold") {
+                                `mv $output_dir/CNU.$suffixold $output_dir/CNU.$suffixnew`;
+                            }
+                            $FILE =~ s/..merging starts here.*finished merging TU and GU[^\n]+\n//s;
+                        }
+                        if($LOGFILE =~ /finished merging GNU, TNU and CNU/s) {
+                            if(-e "$output_dir/BowtieNU.$suffixold") {
+                                `mv $output_dir/BowtieNU.$suffixold $output_dir/BowtieNU.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.merge_GNU_and_TNU_and_CNU.pl[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
+                        }
+                        if($LOGFILE =~ /checkpoint 1/s) {
+                            if($dna eq "true" || $genomeonly eq "true") {
+                                if((-e  "$output_dir/$GU.$i.$suffix_old") && (-e "$output_dir/BowtieUnique.$suffixold")) {
+                                    $s1 = -s "$output_dir/$GU.$i.$suffix_old";
+                                    $s2 = -s "$output_dir/BowtieUnique.$suffixold";
+                                    if($s1 != $s2) {
+                                        $x = `cp $output_dir/$GU.$i.$suffix_old $output_dir/BowtieUnique.$suffixold`;
+                                    }
+                                }
+                                if((-e  "$output_dir/$GNU.$i.$suffix_old") && (-e "$output_dir/BowtieNU.$suffixold")) {
+                                    $s1 = -s "$output_dir/$GNU.$i.$suffix_old";
+                                    $s2 = -s "$output_dir/BowtieNU.$suffixold";
+                                    if($s1 != $s2) {
+                                        $x = `cp $output_dir/$GNU.$i.$suffix_old $output_dir/BowtieNU.$suffixold`;
+                                    }
+                                }
+                                if(-e "$output_dir/BowtieUnique.$suffixold") {
+                                    `mv $output_dir/BowtieUnique.$suffixold $output_dir/BowtieUnique.$suffixnew`;
+                                }
+                                if(-e "$output_dir/BowtieNU.$suffixold") {
+                                    `mv $output_dir/BowtieNU.$suffixold $output_dir/BowtieNU.$suffixnew`;
+                                }
+                                $FILE =~ s/..uncomment the following for dna or genome only mapping.*checkpoint 1[^\n]+\n\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;  # one less line to remove becuase the CNU line has been revmoed in this case
+                            } else {
+                                $FILE =~ s/..uncomment the following for dna or genome only mapping.*checkpoint 1[^\n]+\n\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
+                            }
+                        }
+                        
+                        if($LOGFILE =~ /finished making R/s) {
+                            if(-e "$output_dir/R.$suffixold") {
+                                `mv $output_dir/R.$suffixold $output_dir/R.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.make_unmapped_file[^\n]+\n[^\n]+\n//s;
+                        }
+                        if($LOGFILE =~ /finished running BLAT/s) {
+                            if(-e "$output_dir/R.$suffixold.blat") {
+                                `mv $output_dir/R.$suffixold.blat $output_dir/R.$suffixnew.blat`;
+                            }
+                            $bt = $blat_exe;
+                            $bt =~ s!/!.!g;
+                            $FILE =~ s/$bt[^\n]+\n[^\n]+\n//s;
+                        }
+                        if($LOGFILE =~ /finished running mdust/s) {
+                            if(-e "$output_dir/R.mdust.$suffixold") {
+                                `mv $output_dir/R.mdust.$suffixold $output_dir/R.mdust.$suffixnew`;
+                            }
+                            $bt = $mdust_exe;
+                            $bt =~ s!/!.!g;
+                            $FILE =~ s/$bt[^\n]+\n[^\n]+\n//s;
+                        }
+                        if($LOGFILE =~ /finished parsing BLAT/s) {
+                            if(-e "$output_dir/BlatUnique.$suffixold") {
+                                `mv $output_dir/BlatUnique.$suffixold $output_dir/BlatUnique.$suffixnew`;
+                            }
+                            if(-e "$output_dir/BlatNU.$suffixold") {
+                                `mv $output_dir/BlatNU.$suffixold $output_dir/BlatNU.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.parse_blat_out.pl[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
+                        }
+                        if ($LOGFILE =~ /finished merging Bowtie and Blat/s) {
+                            if (-e "$output_dir/RUM_Unique_temp.$suffixold") {
+                                `mv $output_dir/RUM_Unique_temp.$suffixold $output_dir/RUM_Unique_temp.$suffixnew`;
+                            }
+                            if (-e "$output_dir/RUM_NU_temp.$suffixold") {
+                                `mv $output_dir/RUM_NU_temp.$suffixold $output_dir/RUM_NU_temp.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.merge_Bowtie_and_Blat.pl[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
+                        }
+                        if ($LOGFILE =~ /finished cleaning up final results/s) {
+                            if (-e "$output_dir/RUM_Unique_temp2.$suffixold") {
+                                `mv $output_dir/RUM_Unique_temp2.$suffixold $output_dir/RUM_Unique_temp2.$suffixnew`;
+                            }
+                            if (-e "$output_dir/RUM_NU_temp.$suffixold") {
+                                `mv $output_dir/RUM_NU_temp2.$suffixold $output_dir/RUM_NU_temp2.$suffixnew`;
+                            }
+                            if (-e "$output_dir/sam_header.$suffixold") {
+                                `mv $output_dir/sam_header.$suffixold $output_dir/sam_header.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.RUM_finalcleanup.pl[^\n]+\n[^\n]+\n//s;
+                        }
+                        if ($LOGFILE =~ /finished sorting NU/s) {
+                            if (-e "$output_dir/RUM_NU_idsorted.$suffixold") {
+                                `mv $output_dir/RUM_NU_idsorted.$suffixold $output_dir/RUM_NU_idsorted.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.sort_RUM_by_id.pl.*finished sorting NU[^\n]+\n//s;
+                        }
+                        if ($LOGFILE =~ /finished removing dups/s) {
+                            if (-e "$output_dir/RUM_NU_temp3.$suffixold") {
+                                `mv $output_dir/RUM_NU_temp3.$suffixold $output_dir/RUM_NU_temp3.$suffixnew`;
+                            }
+                            if ($limitNU eq "false") {
+                                if (-e "$output_dir/RUM_NU.$suffixold") {
+                                    `mv $output_dir/RUM_NU.$suffixold $output_dir/RUM_NU.$suffixnew`;
+                                }
+                                $FILE =~ s/perl $scripts_dir.removedups.pl.*finished removing dups[^\n]+\n\n[^\n]+\n//s;
+                            } else {
+                                $FILE =~ s/perl $scripts_dir.removedups.pl.*finished removing dups[^\n]+\n//s;
+                            }
+                        }
+                        if ($LOGFILE =~ /finished sorting Unique/s) {
+                            if (-e "$output_dir/RUM_Unique.$suffixold") {
+                                `mv $output_dir/RUM_Unique.$suffixold $output_dir/RUM_Unique.$suffixnew`;
+                            }
+                            $FILE =~ s!perl $scripts_dir/sort_RUM_by_id.pl.*perl $scripts_dir.rum2sam.pl!perl $scripts_dir/rum2sam.pl!s;
+                        }
+                        if ($LOGFILE =~ /finished converting to SAM/s) {
+                            if (-e "$output_dir/RUM.sam.$suffixold") {
+                                `mv $output_dir/RUM.sam.$suffixold $output_dir/RUM.sam.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.rum2sam.pl.*finished converting to SAM[^\n]+\n//s;
+                        }
+                        if ($LOGFILE =~ /finished counting the nu mappers/s) {
+                            if (-e "$output_dir/nu_stats.$suffixold") {
+                                `mv $output_dir/nu_stats.$suffixold $output_dir/nu_stats.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.get_nu_stats.pl.*finished counting the nu mappers[^\n]+\n//s;
+                        }
+                        if ($LOGFILE =~ /finished sorting RUM_Unique/s) {
+                            if (-e "$output_dir/RUM_Unique.sorted.$suffixold") {
+                                `mv $output_dir/RUM_Unique.sorted.$suffixold $output_dir/RUM_Unique.sorted.$suffixnew`;
+                            }
+                            if (-e "$output_dir/chr_counts_u.$suffixold") {
+                                `mv $output_dir/chr_counts_u.$suffixold $output_dir/chr_counts_u.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.sort_RUM_by_location.pl.*finished sorting RUM_Unique[^\n]+\n[^\n]+\n//s;
+                        }
+                        if ($LOGFILE =~ /finished sorting RUM_NU/s) {
+                            if (-e "$output_dir/RUM_NU.sorted.$suffixold") {
+                                `mv $output_dir/RUM_NU.sorted.$suffixold $output_dir/RUM_NU.sorted.$suffixnew`;
+                            }
+                            if (-e "$output_dir/chr_counts_nu.$suffixold") {
+                                `mv $output_dir/chr_counts_nu.$suffixold $output_dir/chr_counts_nu.$suffixnew`;
+                            }
+                            $FILE =~ s/perl $scripts_dir.sort_RUM_by_location.pl.*finished sorting RUM_NU[^\n]+\n[^\n]+\n//s;
+                        }
+                        if ($LOGFILE =~ /finished quantification/s) {
+                            if (-e "$output_dir/quant.$suffixold" && $strandspecific eq "false") {
+                                `mv $output_dir/quant.$suffixold $output_dir/quant.$suffixnew`;
+                                if (-e "$output_dir/quant.altquant.$suffixold") {
+                                    `mv $output_dir/quant.altquant.$suffixold $output_dir/quant.altquant.$suffixnew`;
+                                }
+                            }
+                            if (-e "$output_dir/quant.ps.$suffixold" && $strandspecific eq "true") {
+                                `mv $output_dir/quant.ps.$suffixold $output_dir/quant.ps.$suffixnew`;
+                                if (-e "$output_dir/quant.ps.altquant.$suffixold") {
+                                    `mv $output_dir/quant.ps.altquant.$suffixold $output_dir/quant.ps.altquant.$suffixnew`;
+                                }
+                            }
+                            if (-e "$output_dir/quant.ms.$suffixold" && $strandspecific eq "true") {
+                                `mv $output_dir/quant.ms.$suffixold $output_dir/quant.ms.$suffixnew`;
+                                if (-e "$output_dir/quant.ms.altquant.$suffixold") {
+                                    `mv $output_dir/quant.ms.altquant.$suffixold $output_dir/quant.ms.altquant.$suffixnew`;
+                                }
+                            }
+                            if (-e "$output_dir/quant.pa.$suffixold" && $strandspecific eq "true") {
+                                `mv $output_dir/quant.pa.$suffixold $output_dir/quant.pa.$suffixnew`;
+                                if (-e "$output_dir/quant.pa.altquant.$suffixold") {
+                                    `mv $output_dir/quant.pa.altquant.$suffixold $output_dir/quant.pa.altquant.$suffixnew`;
+                                }
+                            }
+                            if (-e "$output_dir/quant.ma.$suffixold" && $strandspecific eq "true") {
+                                `mv $output_dir/quant.ma.$suffixold $output_dir/quant.ma.$suffixnew`;
+                                if (-e "$output_dir/quant.ma.altquant.$suffixold") {
+                                    `mv $output_dir/quant.ma.altquant.$suffixold $output_dir/quant.ma.altquant.$suffixnew`;
+                                }
+                            }
+                            $FILE =~ s/perl $scripts_dir.rum2quantifications.pl.*pipeline complete./echo "pipeline complete"/s;
+                        }
+                        open(OUTX, ">$output_dir/$outfile");
+                        print OUTX $FILE;
+                        close(OUTX);
+                    }
+                    # cache errorlogs and initiate new ones
+                    open(OUT, ">>$output_dir/restart_error_log");
+                    print OUT "------ chunk $i restarted, here is its error log before it was deleted --------\n";
+                    close(OUT);
+                    `cat $output_dir/errorlog.$i >> $output_dir/restart_error_log`;
+                    `yes|rm $output_dir/errorlog.$i`;
+                    open(EOUT, ">$output_dir/errorlog.$i");
+                    close(EOUT);
+
+                    $leave_last_chunk_log = "false";
+                    if ($i == $numchunks) {
+                                # this is the post-processing node.  Check if it finished up to the
+                                # post-processing, if so then remove that part so as not to repeat it.
+                        if ($status{$i} == 2) { # it has finished
+                            $Q = `ps a | grep wait.pl`;
+                            $Q =~ /^\s*(\d+)/;
+                            $PID = $1;
+                            $w = `kill -9 $PID`;
+                            $FILE =~ s/# xxx0.*Postprocessing stuff starts here.../# Postprocessing stuff starts here.../s;
+                            open(OUTFILE, ">$output_dir/$outfile");
+                            print OUTFILE $FILE;
+                            close(OUTFILE);
+                            $restarted{$i}--;
+                            if ($restarted{$i} < 1) {
+                                delete $restarted{$i};
+                            }
                             open(OUT, ">$output_dir/restart.ids");
                             foreach $key (keys %restarted) {
                                 print OUT "$key\t$restarted{$key}\n";
                             }
                             close(OUT);
-                            # changing the names of the files of this chunk to avoid possible collision with
-                            # phantom processes that didn't die properly..
+                            $leave_last_chunk_log = "true";
+                        }
+                    }
 
-                            # Note, can't modify the postprocessing scripts to reflect the new file names, since it
-                            # has already been submmitted.  Instead the postprocessing scripts that need file names
-                            # will recover the correct ones from the restart.ids file
+                    # remove the old files...
+                    &deletefiles($output_dir, $J3, $leave_last_chunk_log);
 
-                            if(!($i == $numchunks && $status{$i} == 2)) { # otherwise it's postprocessing node in waiting state, don't change names in this case
-                                 if($restarted{$i} == 1) {
-                                     $J1 = $i;
-                                     $J3 = $i;
-                                     $FILE =~ s/\.$i/.$i.1/g;
-                                     $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
-                                     $suffixold = $i;
-                                     $suffixnew = "$i.1";
-                                 } else {
-                                     $J1 = $restarted{$i} - 1;
-                                     $J2 = $restarted{$i};
-                                     $J3 = "$i.$J1";
-                                     $FILE =~ s/\.$i\.$J1/.$i.$J2/g;
-                                     $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
-                                     $suffixold = "$i.$J1";
-                                     $suffixnew = "$i.$J2";
-                                 }
-                                 # rename reads and quals files with new suffix
-                                 `mv $output_dir/reads.fa.$suffixold $output_dir/reads.fa.$suffixnew`;
-                                 if(-e "$output_dir/quals.fa.$suffixold") {
-                                    `mv $output_dir/quals.fa.$suffixold $output_dir/quals.fa.$suffixnew`;
-                                 }
-                                 if(-e "$output_dir/read_names_mapping.$suffixold") {
-                                    `mv $output_dir/read_names_mapping.$suffixold $output_dir/read_names_mapping.$suffixnew`;
-                                 }
-
-                                 # move things that have already finished to new suffix, so don't have to redo them
-                                 # and remove the things that have finished from the shell script $FILE so don't get redone
-
-                                 $LOGFILE = `cat $output_dir/rum.log_chunk.$suffixold`;
-                                 `mv $output_dir/rum.log_chunk.$suffixold $output_dir/rum.log_chunk.$suffixnew`;
-                                 if($LOGFILE =~ /finished first bowtie/s) {
-                                        if(-e "$output_dir/X.$suffixold") {
-                                           `mv $output_dir/X.$suffixold $output_dir/X.$suffixnew`;
-                                       }
-                                       $FILE =~ s/echo .starting.*finished first bowtie run[^\n]*\n//s;
-                                 }                                 
-
-                                 if($LOGFILE =~ /finished parsing genome bowtie/s) {
-                                       if(-e "$output_dir/GU.$suffixold") {
-                                            `mv $output_dir/GU.$suffixold $output_dir/GU.$suffixnew`;
-                                       }
-                                       if(-e "$output_dir/GNU.$suffixold") {
-                                            `mv $output_dir/GNU.$suffixold $output_dir/GNU.$suffixnew`;
-                                       }
-                                       $FILE =~ s/perl $scripts_dir.make_GU_and_GNU.pl.*finished parsing genome bowtie run[^\n]*\n[^\n]+\n[^\n]+\n//s;
-                                 }                                 
-                                 if($LOGFILE =~ /finished second bowtie/s) {
-                                        if(-e "$output_dir/Y.$suffixold") {
-                                             `mv $output_dir/Y.$suffixold $output_dir/Y.$suffixnew`;
-                                        }
-                                        $FILE =~ s/..transcriptome bowtie starts here.*finished second bowtie run[^\n]*\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished parsing transcriptome bowtie/s) {
-                                        if(-e "$output_dir/TU.$suffixold") {
-                                             `mv $output_dir/TU.$suffixold $output_dir/TU.$suffixnew`;
-                                        }
-                                        if(-e "$output_dir/TNU.$suffixold") {
-                                             `mv $output_dir/TNU.$suffixold $output_dir/TNU.$suffixnew`;
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.make_TU_and_TNU.pl[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished merging TU and GU/s) {
-                                        if(-e "$output_dir/BowtieUnique.$suffixold") {
-                                             `mv $output_dir/BowtieUnique.$suffixold $output_dir/BowtieUnique.$suffixnew`;
-                                        }
-                                        if(-e "$output_dir/CNU.$suffixold") {
-                                             `mv $output_dir/CNU.$suffixold $output_dir/CNU.$suffixnew`;
-                                        }
-                                        $FILE =~ s/..merging starts here.*finished merging TU and GU[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished merging GNU, TNU and CNU/s) {
-                                        if(-e "$output_dir/BowtieNU.$suffixold") {
-                                             `mv $output_dir/BowtieNU.$suffixold $output_dir/BowtieNU.$suffixnew`;
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.merge_GNU_and_TNU_and_CNU.pl[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /checkpoint 1/s) {
-                                     if($dna eq "true" || $genomeonly eq "true") {
-                                             if((-e  "$output_dir/$GU.$i.$suffix_old") && (-e "$output_dir/BowtieUnique.$suffixold")) {
-                                                  $s1 = -s "$output_dir/$GU.$i.$suffix_old";
-                                                  $s2 = -s "$output_dir/BowtieUnique.$suffixold";
-                                                  if($s1 != $s2) {
-                                                      $x = `cp $output_dir/$GU.$i.$suffix_old $output_dir/BowtieUnique.$suffixold`;
-                                                  }
-                                             }
-                                             if((-e  "$output_dir/$GNU.$i.$suffix_old") && (-e "$output_dir/BowtieNU.$suffixold")) {
-                                                  $s1 = -s "$output_dir/$GNU.$i.$suffix_old";
-                                                  $s2 = -s "$output_dir/BowtieNU.$suffixold";
-                                                  if($s1 != $s2) {
-                                                      $x = `cp $output_dir/$GNU.$i.$suffix_old $output_dir/BowtieNU.$suffixold`;
-                                                  }
-                                             }
-                                             if(-e "$output_dir/BowtieUnique.$suffixold") {
-                                                  `mv $output_dir/BowtieUnique.$suffixold $output_dir/BowtieUnique.$suffixnew`;
-                                             }
-                                             if(-e "$output_dir/BowtieNU.$suffixold") {
-                                                  `mv $output_dir/BowtieNU.$suffixold $output_dir/BowtieNU.$suffixnew`;
-                                             }
-                                             $FILE =~ s/..uncomment the following for dna or genome only mapping.*checkpoint 1[^\n]+\n\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;  # one less line to remove becuase the CNU line has been revmoed in this case
-                                      } else {
-                                             $FILE =~ s/..uncomment the following for dna or genome only mapping.*checkpoint 1[^\n]+\n\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
-                                      }
-                                 }
-
-                                 if($LOGFILE =~ /finished making R/s) {
-                                        if(-e "$output_dir/R.$suffixold") {
-                                             `mv $output_dir/R.$suffixold $output_dir/R.$suffixnew`;
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.make_unmapped_file[^\n]+\n[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished running BLAT/s) {
-                                        if(-e "$output_dir/R.$suffixold.blat") {
-                                             `mv $output_dir/R.$suffixold.blat $output_dir/R.$suffixnew.blat`;
-                                        }
-                                        $bt = $blat_exe;
-                                        $bt =~ s!/!.!g;
-                                        $FILE =~ s/$bt[^\n]+\n[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished running mdust/s) {
-                                        if(-e "$output_dir/R.mdust.$suffixold") {
-                                             `mv $output_dir/R.mdust.$suffixold $output_dir/R.mdust.$suffixnew`;
-                                        }
-                                        $bt = $mdust_exe;
-                                        $bt =~ s!/!.!g;
-                                        $FILE =~ s/$bt[^\n]+\n[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished parsing BLAT/s) {
-                                        if(-e "$output_dir/BlatUnique.$suffixold") {
-                                             `mv $output_dir/BlatUnique.$suffixold $output_dir/BlatUnique.$suffixnew`;
-                                        }
-                                        if(-e "$output_dir/BlatNU.$suffixold") {
-                                             `mv $output_dir/BlatNU.$suffixold $output_dir/BlatNU.$suffixnew`;
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.parse_blat_out.pl[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished merging Bowtie and Blat/s) {
-                                        if(-e "$output_dir/RUM_Unique_temp.$suffixold") {
-                                             `mv $output_dir/RUM_Unique_temp.$suffixold $output_dir/RUM_Unique_temp.$suffixnew`;
-                                        }
-                                        if(-e "$output_dir/RUM_NU_temp.$suffixold") {
-                                             `mv $output_dir/RUM_NU_temp.$suffixold $output_dir/RUM_NU_temp.$suffixnew`;
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.merge_Bowtie_and_Blat.pl[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished cleaning up final results/s) {
-                                        if(-e "$output_dir/RUM_Unique_temp2.$suffixold") {
-                                             `mv $output_dir/RUM_Unique_temp2.$suffixold $output_dir/RUM_Unique_temp2.$suffixnew`;
-                                        }
-                                        if(-e "$output_dir/RUM_NU_temp.$suffixold") {
-                                             `mv $output_dir/RUM_NU_temp2.$suffixold $output_dir/RUM_NU_temp2.$suffixnew`;
-                                        }
-                                        if(-e "$output_dir/sam_header.$suffixold") {
-                                             `mv $output_dir/sam_header.$suffixold $output_dir/sam_header.$suffixnew`;
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.RUM_finalcleanup.pl[^\n]+\n[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished sorting NU/s) {
-                                        if(-e "$output_dir/RUM_NU_idsorted.$suffixold") {
-                                             `mv $output_dir/RUM_NU_idsorted.$suffixold $output_dir/RUM_NU_idsorted.$suffixnew`;
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.sort_RUM_by_id.pl.*finished sorting NU[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished removing dups/s) {
-                                        if(-e "$output_dir/RUM_NU_temp3.$suffixold") {
-                                             `mv $output_dir/RUM_NU_temp3.$suffixold $output_dir/RUM_NU_temp3.$suffixnew`;
-                                        }
-                                        if($limitNU eq "false") {
-                                             if(-e "$output_dir/RUM_NU.$suffixold") {
-                                                  `mv $output_dir/RUM_NU.$suffixold $output_dir/RUM_NU.$suffixnew`;
-                                             }
-                                             $FILE =~ s/perl $scripts_dir.removedups.pl.*finished removing dups[^\n]+\n\n[^\n]+\n//s;
-                                        } else {
-                                             $FILE =~ s/perl $scripts_dir.removedups.pl.*finished removing dups[^\n]+\n//s;
-                                        }
-                                 }
-                                 if($LOGFILE =~ /finished sorting Unique/s) {
-                                        if(-e "$output_dir/RUM_Unique.$suffixold") {
-                                             `mv $output_dir/RUM_Unique.$suffixold $output_dir/RUM_Unique.$suffixnew`;
-                                        }
-                                        $FILE =~ s!perl $scripts_dir/sort_RUM_by_id.pl.*perl $scripts_dir.rum2sam.pl!perl $scripts_dir/rum2sam.pl!s;
-                                 }
-                                 if($LOGFILE =~ /finished converting to SAM/s) {
-                                        if(-e "$output_dir/RUM.sam.$suffixold") {
-                                             `mv $output_dir/RUM.sam.$suffixold $output_dir/RUM.sam.$suffixnew`;
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.rum2sam.pl.*finished converting to SAM[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished counting the nu mappers/s) {
-                                        if(-e "$output_dir/nu_stats.$suffixold") {
-                                             `mv $output_dir/nu_stats.$suffixold $output_dir/nu_stats.$suffixnew`;
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.get_nu_stats.pl.*finished counting the nu mappers[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished sorting RUM_Unique/s) {
-                                        if(-e "$output_dir/RUM_Unique.sorted.$suffixold") {
-                                             `mv $output_dir/RUM_Unique.sorted.$suffixold $output_dir/RUM_Unique.sorted.$suffixnew`;
-                                        }
-                                        if(-e "$output_dir/chr_counts_u.$suffixold") {
-                                             `mv $output_dir/chr_counts_u.$suffixold $output_dir/chr_counts_u.$suffixnew`;
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.sort_RUM_by_location.pl.*finished sorting RUM_Unique[^\n]+\n[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished sorting RUM_NU/s) {
-                                        if(-e "$output_dir/RUM_NU.sorted.$suffixold") {
-                                             `mv $output_dir/RUM_NU.sorted.$suffixold $output_dir/RUM_NU.sorted.$suffixnew`;
-                                        }
-                                        if(-e "$output_dir/chr_counts_nu.$suffixold") {
-                                             `mv $output_dir/chr_counts_nu.$suffixold $output_dir/chr_counts_nu.$suffixnew`;
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.sort_RUM_by_location.pl.*finished sorting RUM_NU[^\n]+\n[^\n]+\n//s;
-                                 }
-                                 if($LOGFILE =~ /finished quantification/s) {
-                                        if(-e "$output_dir/quant.$suffixold" && $strandspecific eq "false") {
-                                             `mv $output_dir/quant.$suffixold $output_dir/quant.$suffixnew`;
-                                             if(-e "$output_dir/quant.altquant.$suffixold") {
-                                                 `mv $output_dir/quant.altquant.$suffixold $output_dir/quant.altquant.$suffixnew`;
-                                             }
-                                        }
-                                        if(-e "$output_dir/quant.ps.$suffixold" && $strandspecific eq "true") {
-                                             `mv $output_dir/quant.ps.$suffixold $output_dir/quant.ps.$suffixnew`;
-                                             if(-e "$output_dir/quant.ps.altquant.$suffixold") {
-                                                   `mv $output_dir/quant.ps.altquant.$suffixold $output_dir/quant.ps.altquant.$suffixnew`;
-                                             }
-                                        }
-                                        if(-e "$output_dir/quant.ms.$suffixold" && $strandspecific eq "true") {
-                                             `mv $output_dir/quant.ms.$suffixold $output_dir/quant.ms.$suffixnew`;
-                                             if(-e "$output_dir/quant.ms.altquant.$suffixold") {
-                                                   `mv $output_dir/quant.ms.altquant.$suffixold $output_dir/quant.ms.altquant.$suffixnew`;
-                                             }
-                                        }
-                                        if(-e "$output_dir/quant.pa.$suffixold" && $strandspecific eq "true") {
-                                             `mv $output_dir/quant.pa.$suffixold $output_dir/quant.pa.$suffixnew`;
-                                             if(-e "$output_dir/quant.pa.altquant.$suffixold") {
-                                                   `mv $output_dir/quant.pa.altquant.$suffixold $output_dir/quant.pa.altquant.$suffixnew`;
-                                             }
-                                        }
-                                        if(-e "$output_dir/quant.ma.$suffixold" && $strandspecific eq "true") {
-                                             `mv $output_dir/quant.ma.$suffixold $output_dir/quant.ma.$suffixnew`;
-                                             if(-e "$output_dir/quant.ma.altquant.$suffixold") {
-                                                   `mv $output_dir/quant.ma.altquant.$suffixold $output_dir/quant.ma.altquant.$suffixnew`;
-                                             }
-                                        }
-                                        $FILE =~ s/perl $scripts_dir.rum2quantifications.pl.*pipeline complete./echo "pipeline complete"/s;
-                                 }
-                                 open(OUTX, ">$output_dir/$outfile");
-                                 print OUTX $FILE;
-                                 close(OUTX);
-                            }
-                            # cache errorlogs and initiate new ones
-                            open(OUT, ">>$output_dir/restart_error_log");
-                            print OUT "------ chunk $i restarted, here is its error log before it was deleted --------\n";
-                            close(OUT);
-                            `cat $output_dir/errorlog.$i >> $output_dir/restart_error_log`;
-                            `yes|rm $output_dir/errorlog.$i`;
-                            open(EOUT, ">$output_dir/errorlog.$i");
-                            close(EOUT);
-
-                            $leave_last_chunk_log = "false";
-                            if($i == $numchunks) {
-                                # this is the post-processing node.  Check if it finished up to the
-                                # post-processing, if so then remove that part so as not to repeat it.
-                                if($status{$i} == 2) {  # it has finished
-                                    $Q = `ps a | grep wait.pl`;
-                                    $Q =~ /^\s*(\d+)/;
-                                    $PID = $1;
-                                    $w = `kill -9 $PID`;
-                                    $FILE =~ s/# xxx0.*Postprocessing stuff starts here.../# Postprocessing stuff starts here.../s;
-                                    open(OUTFILE, ">$output_dir/$outfile");
-                                    print OUTFILE $FILE;
-                                    close(OUTFILE);
-                                    $restarted{$i}--;
-                                    if($restarted{$i} < 1) {
-                                        delete $restarted{$i};
-                                    }
-                                    open(OUT, ">$output_dir/restart.ids");
-                                    foreach $key (keys %restarted) {
-                                        print OUT "$key\t$restarted{$key}\n";
-                                    }
-                                    close(OUT);
-                                    $leave_last_chunk_log = "true";
-                                }
-                            }
-
-                            # remove the old files...
-                            &deletefiles($output_dir, $J3, $leave_last_chunk_log);
-
-                            sleep(3);
-                            $MEM = $ram . "G";
-                            $Dflag = 0;
-                            if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
-                                $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
-                                if($Q =~ /pipeline complete/) {
-                                    $Dflag = 1;
-                                }
-                            }
-                            if($Dflag == 0) {
-                                if($qsub2 eq "true") {
-                                    $Q = `qsub -l mem_free=$MEM,h_vmem=$MEM -o $ofile -e $efile $output_dir/$outfile`;
-                                    $Q =~ /Your job (\d+)/;
-                                    $jobid{$i} = $1;
-                                } else {
-                                    $jobid{$i} = spawn("/bin/bash", "$output_dir/$outfile");
+                    sleep(3);
+                    $MEM = $ram . "G";
+                    $Dflag = 0;
+                    if (-e "$output_dir/$rum.log_chunk.$suffixnew") {
+                        $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
+                        if ($Q =~ /pipeline complete/) {
+                            $Dflag = 1;
+                        }
+                    }
+                    if ($Dflag == 0) {
+                        if ($qsub2 eq "true") {
+                            $Q = `qsub -l mem_free=$MEM,h_vmem=$MEM -o $ofile -e $efile $output_dir/$outfile`;
+                            $Q =~ /Your job (\d+)/;
+                            $jobid{$i} = $1;
+                        } else {
+                            $jobid{$i} = spawn("/bin/bash", "$output_dir/$outfile");
                                     
-                                }
+                        }
+                    }
+                    sleep(3);
+                    if ($jobid{$i} =~ /^\d+$/ && $Dflag == 0) {
+                        $DATE = `date`;
+                        $DATE =~ s/^\s+//;
+                        $DATE =~ s/\s+$//;
+                        sleep(2);
+                        INFO("*** Chunk $i seems to have restarted successfully at $DATE.");
+                        $number_consecutive_restarts{$i}=0;
+                        if (-e "$output_dir/$rum.log_chunk.$suffixnew") {
+                            $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
+                            if ($Q =~ /pipeline complete/) {
+                                INFO("*** Well, there was really nothing to do, chunk $i seems to have finished.");
+                                $doneflag = 1;
                             }
-                            sleep(3);
-                            if($jobid{$i} =~ /^\d+$/ && $Dflag == 0) {
-                                  $DATE = `date`;
-                                  $DATE =~ s/^\s+//;
-                                  $DATE =~ s/\s+$//;
-                                  sleep(2);
-                                  INFO("*** Chunk $i seems to have restarted successfully at $DATE.");
-                                  $number_consecutive_restarts{$i}=0;
-                                  if(-e "$output_dir/$rum.log_chunk.$suffixnew") {
-                                       $Q = `grep "pipeline complete" $output_dir/$rum.log_chunk.$suffixnew`;
-                                       if($Q =~ /pipeline complete/) {
-                                            INFO("*** Well, there was really nothing to do, chunk $i seems to have finished.");
-                                            $doneflag = 1;
-                                       }
-                                  } else {
-                                  }
+                        } else {
+                        }
 
-                            } else {
-                                  $number_consecutive_restarts{$i}++;
-                                  if($number_consecutive_restarts{$i} > 20) {
-                                       FATAL("*** Hmph, I tried 20 times, I'm going to give up because I'm afraid I'm caught in an infinite loop.  Could be a bug.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.");
-                                       if(-e "$output_dir/kill_command") {
-                                           $K = `cat "$output_dir/kill_command"`;
-                                           @a = split(/\n/,$K);
-                                           $A = $a[0] . "\n";
-                                           $R = `$A`;
-                                           print "$R\n";
-                                           $A = $a[1] . "\n";
-                                           $R = `$A`;
-                                           print "$R\n";
-                                           exit();
-                                       }
-
-                                       # I should kill any shell
-                                       # scripts running in this
-                                       # directory, than any other
-                                       # processes running in this
-                                       # directory.
-                                       kill_runaway_procs($output_dir,
-                                                          name => $name,
-                                                          starttime => $starttime);
-                                        exit(0);
-                                  }
-                                  ERROR("*** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.");
+                    } else {
+                        $number_consecutive_restarts{$i}++;
+                        if ($number_consecutive_restarts{$i} > 20) {
+                            FATAL("*** Hmph, I tried 20 times, I'm going to give up because I'm afraid I'm caught in an infinite loop.  Could be a bug.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.");
+                            if (-e "$output_dir/kill_command") {
+                                $K = `cat "$output_dir/kill_command"`;
+                                @a = split(/\n/,$K);
+                                $A = $a[0] . "\n";
+                                $R = `$A`;
+                                print "$R\n";
+                                $A = $a[1] . "\n";
+                                $R = `$A`;
+                                print "$R\n";
+                                exit();
                             }
-                      }
-                 }
-             }
-         }
+
+                            # I should kill any shell
+                            # scripts running in this
+                            # directory, than any other
+                            # processes running in this
+                            # directory.
+                            kill_runaway_procs($output_dir,
+                                               name => $name,
+                                               starttime => $starttime);
+                            exit(0);
+                        }
+                        ERROR("*** Hmph, that didn't seem to work.  I'm going to try again in 30 seconds.\nIf this keeps happening then something bigger might be wrong.  If you\ncan't figure it out, write ggrant@pcbi.upenn.edu and let him know.");
+                    }
+                }
+            }
+        }
     }
+}
 
 
 if($postprocess eq "false") {

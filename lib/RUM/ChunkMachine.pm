@@ -26,6 +26,7 @@ sub new {
     my $bowtie_unique  = $m->flag("bowtie_unique");
     my $bowtie_nu      = $m->flag("bowtie_nu");
     my $unmapped       = $m->flag("unmapped");
+    my $blat           = $m->flag("blat");
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -54,7 +55,9 @@ sub new {
             $unmapped,
             "make_unmapped_file");
 
-    $m->set_goal($bowtie_unique | $bowtie_nu);
+    $m->add($unmapped, $blat, "run_blat");
+
+    $m->set_goal($blat);
 
     $self->{sm} = $m;
     $self->{config} = $config;
@@ -149,6 +152,15 @@ sub make_unmapped_file {
       "--non-unique", $chunk->bowtie_nu,
       "-o", $chunk->bowtie_unmapped,
       $chunk->paired_end_option]];
+}
+
+sub run_blat {
+    my ($chunk) = @_;
+    [[$chunk->blat_bin,
+      $chunk->genome_blat,
+      $chunk->bowtie_unmapped,
+      $chunk->blat_output,
+      $chunk->blat_options]];
 }
 
 sub shell_script {
