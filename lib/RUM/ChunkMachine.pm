@@ -39,6 +39,7 @@ sub new {
     my $sam_header         = $m->flag("sam_header");
     my $sorted_nu          = $m->flag("sorted_nu");
     my $deduped_nu         = $m->flag("deduped_nu");
+    my $rum_nu             = $m->flag("rum_nu");
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -116,9 +117,11 @@ sub new {
         "Remove duplicates from sorted NU file",
         $sorted_nu | $cleaned_unique, $deduped_nu, "remove_dups");
 
-    $m->set_goal($cleaned_unique | $deduped_nu);
+    $m->add(
+        "Produce the RUM_NU file",
+        $deduped_nu, $rum_nu, "limit_nu");
 
-
+    $m->set_goal($cleaned_unique | $rum_nu);
 
     $self->{sm} = $m;
     $self->{config} = $config;
@@ -291,6 +294,13 @@ sub remove_dups {
       $c->rum_nu_id_sorted]];
 }
 
+sub limit_nu {
+    my ($c) = @_;
+    [["perl", $c->script("limit_NU.pl"),
+      $c->limit_nu_cutoff_opt,
+      "-o", $c->rum_nu,
+      $c->rum_nu_deduped]]
+}
 
 sub shell_script {
     my ($self, $dir) = @_;
