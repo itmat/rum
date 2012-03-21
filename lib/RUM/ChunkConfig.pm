@@ -106,6 +106,19 @@ sub rum_nu_deduped     { $_[0]->chunk_suffixed("RUM_NU_temp3") }
 sub rum_nu             { $_[0]->chunk_suffixed("RUM_NU") }
 sub rum_unique         { $_[0]->chunk_suffixed("RUM_Unique") }
 sub quals_file         { $_[0]->chunk_suffixed("quals") }
+sub sam_file           { $_[0]->chunk_suffixed("RUM.sam") }
+sub nu_stats           { $_[0]->chunk_suffixed("nu_stats") }
+sub rum_unique_sorted  { $_[0]->chunk_suffixed("RUM_Unique.sorted") }
+sub rum_nu_sorted      { $_[0]->chunk_suffixed("RUM_Unique.sorted") }
 
+sub chr_counts_u       { $_[0]->chunk_suffixed("chr_counts_u") }
+sub chr_counts_nu      { $_[0]->chunk_suffixed("chr_counts_nu") }
 
+sub quant_s1s { $_[0]->chunk_suffixed("quant.S1s") }
+sub quant_s2s { $_[0]->chunk_suffixed("quant.S2s") }
+sub quant_s1a { $_[0]->chunk_suffixed("quant.S1a") }
+sub quant_s2a { $_[0]->chunk_suffixed("quant.S2a") }
+
+# TODO: Maybe support name mapping?
+sub name_mapping_opt   { "" } 
 1;

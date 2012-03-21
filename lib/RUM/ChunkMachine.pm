@@ -40,6 +40,8 @@ sub new {
     my $sorted_nu          = $m->flag("sorted_nu");
     my $deduped_nu         = $m->flag("deduped_nu");
     my $rum_nu             = $m->flag("rum_nu");
+    my $rum_unique         = $m->flag("rum_unique");
+    my $sam                = $m->flag("sam");
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -121,7 +123,15 @@ sub new {
         "Produce the RUM_NU file",
         $deduped_nu, $rum_nu, "limit_nu");
 
-    $m->set_goal($cleaned_unique | $rum_nu);
+    $m->add(
+        "Produce the RUM_Unique file",
+        $deduped_nu | $cleaned_unique, $rum_unique, "sort_unique_by_id");
+
+    $m->add(
+        "Create the sam file",
+        $rum_unique | $rum_nu, $sam, "rum2sam");
+
+    $m->set_goal($rum_unique | $rum_nu | $sam);
 
     $self->{sm} = $m;
     $self->{config} = $config;
@@ -301,6 +311,26 @@ sub limit_nu {
       "-o", $c->rum_nu,
       $c->rum_nu_deduped]]
 }
+
+sub sort_unique_by_id {
+    my ($c) = @_;
+    [["perl", $c->script("sort_RUM_by_id.pl"),
+      $c->cleaned_unique,
+      "-o", $c->rum_unique]];
+}
+
+sub rum2sam {
+    my ($c) = @_;
+    [["perl", $c->script("rum2sam.pl"),
+      "--unique-in", $c->rum_unique,
+      "--non-unique-in", $c->rum_nu,
+      "--reads-in", $c->reads_file,
+      "--quals-in", $c->quals_file,
+      "--sam-out", $c->sam_file,
+      $c->name_mapping_opt]]
+}
+
+
 
 sub shell_script {
     my ($self, $dir) = @_;
