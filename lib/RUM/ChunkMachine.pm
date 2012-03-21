@@ -159,12 +159,20 @@ sub new {
         $rum_unique_sorted | $chr_counts_u, 
         "sort_unique_by_location");
 
-    $m->add(
-        "Sort RUM_NU", 
-        $rum_nu, 
-        $rum_nu_sorted | $chr_counts_nu, 
-        "sort_nu_by_location");
-
+    $self->add_transition(
+        instruction => "sort_nu_by_location",
+        comment     => "Sort RUM_NU", 
+        pre         => $rum_nu, 
+        post        => $rum_nu_sorted | $chr_counts_nu, 
+        code => sub {
+            my ($c) = @_;
+            [["perl", $c->script("sort_RUM_by_location.pl"),
+              $c->rum_nu,
+              "-o", $c->rum_nu_sorted,
+              ">>", $c->chr_counts_nu]];
+        });
+    
+    
     for my $strand (keys %quants_flags) {
         for my $sense (keys %{ $quants_flags{$strand} }) {
             $self->add_transition(
@@ -412,14 +420,6 @@ sub sort_unique_by_location {
       ">>", $c->chr_counts_u]];
 }
 
-sub sort_nu_by_location {
-    my ($c) = @_;
-    [["perl", $c->script("sort_RUM_by_location.pl"),
-      $c->rum_nu,
-      "-o", $c->rum_nu_sorted,
-      ">>", $c->chr_counts_nu]];
-}
-
 sub rum2quantifications {
     my ($strand, $sense) = @_;
 
@@ -461,7 +461,7 @@ sub shell_script {
         else {
             no strict 'refs';
             my $name = "RUM::ChunkMachine::$step";
-            my $cmds = $name->($self->{config});
+            $cmds = $name->($self->{config});
         }
 
         my $old_state = $state;
