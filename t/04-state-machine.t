@@ -20,8 +20,8 @@ my $numbers = $m->flag("numbers");
 my $combined = $m->flag("combined");
 my $sorted = $m->flag("sorted");
 
-$m->add($start, $letters, "cut_first_col");
-$m->add($start, $numbers, "cut_second_col");
+$m->add("Cut the letters column out", $start, $letters, "cut_first_col");
+$m->add("Cut the numbers column out", $start, $numbers, "cut_second_col");
 $m->add($letters | $numbers, $combined, "cat_cols");
 $m->add($combined, $sorted, "sort");
 
@@ -50,6 +50,14 @@ is($m->transition($start, "cut_first_col"), $letters,
    "start, cut_first_col -> letters");
 is($m->transition($start, "cut_second_col"), $numbers,
    "start, cut_second_col -> numbers");
+
+my ($new_state, $comment) = $m->transition($start, "cut_first_col");
+is($new_state, $letters, "Transition in array context");
+is($comment, "Cut the letters column out", "Get comment");
+
+my ($same_state, $same_comment) = $m->transition($start, "sort");
+is($same_state, $start, "Invalid transition");
+is($same_comment, "", "Comment for invalid transition");
 
 my %adj = $m->_adjacent($start);
 is_deeply({$m->_adjacent($start)},
@@ -80,6 +88,8 @@ is_deeply({$m->_adjacent($letters | $numbers | $combined)},
 my @plan = qw(cut_first_col cut_second_col cat_cols sort);
 
 is_deeply($m->generate(), \@plan, "Generate plan");
+
+
 
 __END__
 

@@ -6,6 +6,7 @@ use warnings;
 use RUM::StateMachine;
 use RUM::ChunkConfig;
 use FindBin qw($Bin);
+use Text::Wrap qw(fill wrap);
 FindBin->again();
 
 sub new {
@@ -31,34 +32,55 @@ sub new {
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
-    $m->add($start, $genome_bowtie, "run_bowtie_on_genome");
-    $m->add($start, $trans_bowtie,  "run_bowtie_on_transcriptome");
+    $m->add(
+        "Run bowtie on the genome",
+        $start, $genome_bowtie, "run_bowtie_on_genome");
+
+    $m->add(
+        "Run bowtie on the transcriptome",
+        $start, $trans_bowtie,  "run_bowtie_on_transcriptome");
 
     # If we have the genome bowtie output, we can make the unique and
     # non-unique files for it.
-    $m->add($genome_bowtie,        $gu | $gnu, "make_gu_and_gnu");
+    $m->add(
+        "Separate unique and non-unique mappers from the output of
+        running bowtie on the genome",
+        $genome_bowtie,        $gu | $gnu, "make_gu_and_gnu");
 
     # If we have the transcriptome bowtie output, we can make the
     # unique and non-unique files for it.
-    $m->add($trans_bowtie, $tu | $tnu, "make_tu_and_tnu");
+    $m->add(
+        "Separate unique and non-unique mappers from the output of
+        running bowtie on the transcriptome",
+        $trans_bowtie, $tu | $tnu, "make_tu_and_tnu");
 
     # If we have the non-unique files for both the genome and the
     # transcriptome, we can merge them.
-    $m->add($tnu | $gnu | $cnu, $bowtie_nu, "merge_gnu_tnu_cnu");
+    $m->add(
+        "Take the non-unique and merge them together",
+        $tnu | $gnu | $cnu, $bowtie_nu, "merge_gnu_tnu_cnu");
 
     # If we have the unique files for both the genome and the
     # transcriptome, we can merge them.
-    $m->add($tu | $gu | $tnu | $gnu, $bowtie_unique | $cnu, "merge_gu_tu");
+    $m->add(
+        "Merge the unique mappers together",
+        $tu | $gu | $tnu | $gnu, $bowtie_unique | $cnu, "merge_gu_tu");
 
     # If we have the merged bowtie unique mappers and the merged
     # bowtie non-unique mappers, we can create the unmapped file.
-    $m->add($bowtie_unique | $bowtie_nu,
+    $m->add(
+        "Make a file containing the unmapped reads, to be passed into blat",
+        $bowtie_unique | $bowtie_nu,
             $unmapped,
             "make_unmapped_file");
 
-    $m->add($unmapped, $blat, "run_blat");
+    $m->add(
+        "Run blat on the unmapped reads",
+        $unmapped, $blat, "run_blat");
 
-    $m->add($unmapped, $mdust, "run_mdust");
+    $m->add(
+        "Run mdust on th unmapped reads",
+        $unmapped, $mdust, "run_mdust");
 
     $m->set_goal($blat | $mdust);
 
@@ -92,13 +114,13 @@ sub run_bowtie_on_transcriptome {
       "-a", 
       "--best", 
       "--strata",
-      "-f", $chunk->transcriptome_bowtie,
+      "-f", $chunk->trans_bowtie,
       $chunk->reads_file,
       "-v", 3,
       "--suppress", "6,7,8",
       "-p", 1,
       "--quiet",
-      "> ", $chunk->transcriptome_bowtie_out]];
+      "> ", $chunk->trans_bowtie_out]];
 }      
 
 sub make_gu_and_gnu {
@@ -115,7 +137,7 @@ sub make_tu_and_tnu {
     [["perl", $chunk->script("make_TU_and_TNU.pl"), 
       "--unique",        $chunk->tu,
       "--non-unique",    $chunk->tnu,
-      "--bowtie-output", $chunk->transcriptome_bowtie_out,
+      "--bowtie-output", $chunk->trans_bowtie_out,
       "--genes",         $chunk->annotations,
       $chunk->paired_end_option]];
 }
@@ -185,19 +207,22 @@ sub shell_script {
     my $state = $machine->start;
     my $res;
     for my $step (@$plan) {
-
+        my $comment;
         my $name = "RUM::ChunkMachine::$step";
 
         no strict 'refs';
         my $cmds = $name->($self->{config});
-        
-        $res .= "# $step\n";
+
+        my $old_state = $state;
+        ($state, $comment) = $machine->transition($state, $step);
+
+        $comment =~ s/\n//g;
+
+        $comment = fill('# ', '# ', $comment);
+        $res .= "$comment\n";
         for my $cmd (@$cmds) {
             $res .= "@$cmd || exit 1\n";
         }
-
-        my $old_state = $state;
-        $state = $machine->transition($state, $step);
 
         my @flags = $machine->flags($state & ~$old_state);
         my @state_files = map "$dir/$_", @flags;

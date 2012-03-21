@@ -88,8 +88,12 @@ comment, which will be associated with this transition.
 =cut
 
 sub add {
-    my ($self, $pre, $post, $instruction) = @_;
-    $self->{transitions}{$instruction}{$pre} = $post;
+    my $self = shift;
+    my $comment = @_ == 4 ? shift : "";
+    my ($pre, $post, $instruction) = @_;
+    $self->{transitions}{$instruction} ||= [];
+    push @{ $self->{transitions}{$instruction} },
+        [$pre, $post, $comment];
 }
 
 =back
@@ -171,26 +175,33 @@ state $state.
 =cut
 
 sub transition {
-    my ($self, $state, $instruction) = @_;
+    my ($self, $from, $instruction) = @_;
 
-    for my $pre ($self->_requirements($instruction)) {
-        my $post = $self->_production($instruction, $pre);
+    my $transitions = $self->{transitions}{$instruction}
+        or croak "Unknown instruction $instruction";
 
+    my $to = $from;
+
+    for my $t (@$transitions) {
+        
+        my ($pre, $post, $comment) = @$t;
 
         # If all the bits in $pre aren't set in $state, then we can't
         # use this transition.
-        next unless ($state & $pre) == $pre;
+        next unless ($from & $pre) == $pre;
         
+        $to = $from | $post;
+
         # If all the bits in $post are already set in $state, this
         # transition would just keep us in the same $state.
-        next if ($state & $post) == $post;
+        next if $to == $from;
 
         # Otherwise we have a valid transition; the new state is the
         # old $state with all the bits in $post set.
-        return $state | $post;
+        return wantarray ? ($to, $comment) : $to;
     }
     
-    return $state;
+    return wantarray ? ($from, "") : $from;
 }
 
 sub _requirements {
