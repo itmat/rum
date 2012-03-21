@@ -42,6 +42,7 @@ sub new {
     my $rum_nu             = $m->flag("rum_nu");
     my $rum_unique         = $m->flag("rum_unique");
     my $sam                = $m->flag("sam");
+    my $nu_stats           = $m->flag("nu_stats");
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -131,7 +132,11 @@ sub new {
         "Create the sam file",
         $rum_unique | $rum_nu, $sam, "rum2sam");
 
-    $m->set_goal($rum_unique | $rum_nu | $sam);
+    $m->add(
+        "Create non-unique stats",
+        $sam, $nu_stats, "get_nu_stats");
+
+    $m->set_goal($rum_unique | $rum_nu | $sam | $nu_stats);
 
     $self->{sm} = $m;
     $self->{config} = $config;
@@ -330,7 +335,13 @@ sub rum2sam {
       $c->name_mapping_opt]]
 }
 
+sub get_nu_stats {
+    my ($c) = @_;
 
+    [["perl", $c->script("get_nu_stats.pl"),
+      $c->sam_file,
+      "> ", $c->nu_stats]]
+}
 
 sub shell_script {
     my ($self, $dir) = @_;
