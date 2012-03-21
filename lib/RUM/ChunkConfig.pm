@@ -114,10 +114,11 @@ sub rum_nu_sorted      { $_[0]->chunk_suffixed("RUM_Unique.sorted") }
 sub chr_counts_u       { $_[0]->chunk_suffixed("chr_counts_u") }
 sub chr_counts_nu      { $_[0]->chunk_suffixed("chr_counts_nu") }
 
-sub quant_s1s { $_[0]->chunk_suffixed("quant.S1s") }
-sub quant_s2s { $_[0]->chunk_suffixed("quant.S2s") }
-sub quant_s1a { $_[0]->chunk_suffixed("quant.S1a") }
-sub quant_s2a { $_[0]->chunk_suffixed("quant.S2a") }
+sub quant {
+    my ($self, $strand, $sense) = @_;
+    return $self->chunk_suffixed("quant.$strand$sense");
+}
+
 
 # TODO: Maybe support name mapping?
 sub name_mapping_opt   { "" } 

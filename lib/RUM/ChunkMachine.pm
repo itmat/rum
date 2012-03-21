@@ -12,7 +12,7 @@ FindBin->again();
 sub new {
     my ($class, $config) = @_;
 
-    my $self = {};
+    my $self = bless {}, $class;
 
     my $m = RUM::StateMachine->new();
 
@@ -47,6 +47,19 @@ sub new {
     my $rum_nu_sorted      = $m->flag("rum_nu_sorted");
     my $chr_counts_u       = $m->flag("chr_counts_u");
     my $chr_counts_nu      = $m->flag("chr_counts_nu");
+
+
+    $self->{sm} = $m;
+    $self->{config} = $config;
+
+    my %quants_flags;
+    my $all_quants = 0;
+    for my $strand ('p', 'm') {
+        for my $sense ('s', 'a') {
+            $quants_flags{$strand}{$sense} = $m->flag("quants_$strand$sense");
+            $all_quants |= $quants_flags{$strand}{$sense};
+        }
+    }
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -152,12 +165,44 @@ sub new {
         $rum_nu_sorted | $chr_counts_nu, 
         "sort_nu_by_location");
 
-    $m->set_goal($rum_unique_sorted | $rum_nu_sorted | $sam | $nu_stats);
+    for my $strand (keys %quants_flags) {
+        for my $sense (keys %{ $quants_flags{$strand} }) {
+            $self->add_transition(
+                instruction => "quants_$strand$sense",
+                comment => "Generate quants for strand $strand, sense $sense",
+                pre => $rum_nu_sorted | $rum_unique_sorted, 
+                post => $quants_flags{$strand}{$sense},
+                code => sub {
+                    my ($c) = @_;
+                    [["perl", $c->script("rum2quantifications.pl"),
+                      "--genes-in", $c->annotations,
+                      "--unique-in", $c->rum_unique_sorted,
+                      "--non-unique-in", $c->rum_nu_sorted,
+                      "-o", $c->quant($strand, $sense),
+                      "-countsonly",
+                      "--strand", $strand,
+                      $sense eq 'a' ? "--anti" : ""]];
+                });                 
+        }
+    }
 
-    $self->{sm} = $m;
-    $self->{config} = $config;
+    $m->set_goal($all_quants | $rum_unique_sorted | $rum_nu_sorted | $sam | $nu_stats);
 
-    return bless $self, $class;
+    return $self;
+}
+
+
+sub add_transition {
+    my ($self, %options) = @_;
+
+    my $name    = delete $options{instruction};
+    my $code    = delete $options{code};
+    my $comment = delete $options{comment};
+    my $pre     = delete $options{pre};
+    my $post    = delete $options{post};
+
+    $self->{instructions}{$name} = $code;
+    $self->{sm}->add($comment, $pre, $post, $name);
 }
 
 sub run_bowtie_on_genome {
@@ -375,7 +420,21 @@ sub sort_nu_by_location {
       ">>", $c->chr_counts_nu]];
 }
 
+sub rum2quantifications {
+    my ($strand, $sense) = @_;
 
+    return sub {
+        my ($c) = @_;
+        [["perl", $c->script("rum2quantifications.pl"),
+          "--genes-in", $c->annotations,
+          "--unique-in", $c->rum_unique_sorted,
+          "--non-unique-in", $c->rum_nu_sorted,
+          "-o", $c->quant($strand, $sense),
+          "-countsonly",
+          "--strand", $strand,
+          "--sense", $sense]];
+    }
+}
 
 sub shell_script {
     my ($self, $dir) = @_;
@@ -389,11 +448,21 @@ sub shell_script {
 
     my $res;
     for my $step (@$plan) {
-        my $comment = "";
-        my $name = "RUM::ChunkMachine::$step";
 
-        no strict 'refs';
-        my $cmds = $name->($self->{config});
+        my $cmds;
+
+        my $comment = "";
+
+        print "Step is $step\n";
+
+        if (my $code = $self->{instructions}{$step}) {
+            $cmds = $code->($self->{config});
+        }
+        else {
+            no strict 'refs';
+            my $name = "RUM::ChunkMachine::$step";
+            my $cmds = $name->($self->{config});
+        }
 
         my $old_state = $state;
         ($state, $comment) = $machine->transition($state, $step);
