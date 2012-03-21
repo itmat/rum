@@ -34,6 +34,9 @@ sub new {
     my $blat_nu        = $m->flag("blat_nu");
     my $bowtie_blat_unique = $m->flag("bowtie_blat_unique");
     my $bowtie_blat_nu     = $m->flag("bowtie_blat_nu");
+    my $cleaned_unique     = $m->flag("cleaned_unique");
+    my $cleaned_nu         = $m->flag("cleaned_nu");
+    my $sam_header         = $m->flag("sam_header");
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -97,7 +100,17 @@ sub new {
         $bowtie_blat_unique | $bowtie_blat_nu,
         "merge_bowtie_and_blat");
 
-    $m->set_goal($bowtie_blat_unique | $bowtie_blat_nu);
+    $m->add(
+        "Cleanup",
+        $bowtie_blat_unique | $bowtie_blat_nu,
+        $cleaned_unique | $cleaned_nu | $sam_header,
+        "rum_final_cleanup");
+
+
+
+    $m->set_goal($cleaned_unique | $cleaned_nu | $sam_header);
+
+
 
     $self->{sm} = $m;
     $self->{config} = $config;
@@ -240,6 +253,19 @@ sub merge_bowtie_and_blat {
 
 }
 
+sub rum_final_cleanup {
+    my ($c) = @_;
+    [["perl", $c->script("RUM_finalcleanup.pl"),
+      "--unique-in", $c->bowtie_blat_unique,
+      "--non-unique-in", $c->bowtie_blat_nu,
+      "--unique-out", $c->cleaned_unique,
+      "--non-unique-out", $c->cleaned_nu,
+      "--genome", $c->genome_fa,
+      "--sam-header-out", $c->sam_header,
+      $c->faok_opt,
+      $c->count_mismatches_opt,
+      $c->match_length_cutoff_opt]];
+}
 
 sub shell_script {
     my ($self, $dir) = @_;
