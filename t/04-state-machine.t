@@ -51,28 +51,28 @@ is($m->transition($start, "cut_first_col"), $letters,
 is($m->transition($start, "cut_second_col"), $numbers,
    "start, cut_second_col -> numbers");
 
-my %adj = $m->adjacent($start);
-is_deeply({$m->adjacent($start)},
+my %adj = $m->_adjacent($start);
+is_deeply({$m->_adjacent($start)},
           {cut_first_col => $letters,
            cut_second_col => $numbers},
           "States adjacent to start");
 
-is_deeply({$m->adjacent($letters)},
+is_deeply({$m->_adjacent($letters)},
           {
               cut_second_col => $letters | $numbers},
           "States adjacent to $letters");
 
-is_deeply({$m->adjacent($numbers)},
+is_deeply({$m->_adjacent($numbers)},
           {
               cut_first_col => $letters | $numbers},
           "States adjacent to $numbers");
 
-is_deeply({$m->adjacent($letters | $numbers)},
+is_deeply({$m->_adjacent($letters | $numbers)},
           {
               cat_cols => $letters | $numbers | $combined},
           "States reachable from letters | numbers");
 
-is_deeply({$m->adjacent($letters | $numbers | $combined)},
+is_deeply({$m->_adjacent($letters | $numbers | $combined)},
           {
               sort => $letters | $numbers | $combined | $sorted},
           "States reachable from letters | numbers | combined");
