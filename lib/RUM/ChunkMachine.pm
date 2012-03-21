@@ -37,6 +37,8 @@ sub new {
     my $cleaned_unique     = $m->flag("cleaned_unique");
     my $cleaned_nu         = $m->flag("cleaned_nu");
     my $sam_header         = $m->flag("sam_header");
+    my $sorted_nu          = $m->flag("sorted_nu");
+    my $deduped_nu         = $m->flag("deduped_nu");
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -106,9 +108,15 @@ sub new {
         $cleaned_unique | $cleaned_nu | $sam_header,
         "rum_final_cleanup");
 
+    $m->add(
+        "Sort cleaned non-unique mappers by ID",
+        $cleaned_nu, $sorted_nu, "sort_non_unique_by_id");
+    
+    $m->add(
+        "Remove duplicates from sorted NU file",
+        $sorted_nu | $cleaned_unique, $deduped_nu, "remove_dups");
 
-
-    $m->set_goal($cleaned_unique | $cleaned_nu | $sam_header);
+    $m->set_goal($cleaned_unique | $deduped_nu);
 
 
 
@@ -266,6 +274,23 @@ sub rum_final_cleanup {
       $c->count_mismatches_opt,
       $c->match_length_cutoff_opt]];
 }
+
+sub sort_non_unique_by_id {
+    my ($c) = @_;
+    [["perl", $c->script("sort_RUM_by_id.pl"),
+      "-o", $c->rum_nu_id_sorted,
+      $c->cleaned_nu]];
+}
+
+sub remove_dups {
+    # TODO: This step is not idempotent; it appends to $c->cleaned_unique
+    my ($c) = @_;
+    [["perl", $c->script("removedups.pl"),
+      "--non-unique-out", $c->rum_nu_deduped,
+      "--unique-out", $c->cleaned_unique,
+      $c->rum_nu_id_sorted]];
+}
+
 
 sub shell_script {
     my ($self, $dir) = @_;
