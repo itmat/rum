@@ -43,6 +43,10 @@ sub new {
     my $rum_unique         = $m->flag("rum_unique");
     my $sam                = $m->flag("sam");
     my $nu_stats           = $m->flag("nu_stats");
+    my $rum_unique_sorted  = $m->flag("rum_unique_sorted");
+    my $rum_nu_sorted      = $m->flag("rum_nu_sorted");
+    my $chr_counts_u       = $m->flag("chr_counts_u");
+    my $chr_counts_nu      = $m->flag("chr_counts_nu");
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -136,7 +140,19 @@ sub new {
         "Create non-unique stats",
         $sam, $nu_stats, "get_nu_stats");
 
-    $m->set_goal($rum_unique | $rum_nu | $sam | $nu_stats);
+    $m->add(
+        "Sort RUM_Unique", 
+        $rum_unique, 
+        $rum_unique_sorted | $chr_counts_u, 
+        "sort_unique_by_location");
+
+    $m->add(
+        "Sort RUM_NU", 
+        $rum_nu, 
+        $rum_nu_sorted | $chr_counts_nu, 
+        "sort_nu_by_location");
+
+    $m->set_goal($rum_unique_sorted | $rum_nu_sorted | $sam | $nu_stats);
 
     $self->{sm} = $m;
     $self->{config} = $config;
@@ -342,6 +358,24 @@ sub get_nu_stats {
       $c->sam_file,
       "> ", $c->nu_stats]]
 }
+
+sub sort_unique_by_location {
+    my ($c) = @_;
+    [["perl", $c->script("sort_RUM_by_location.pl"),
+      $c->rum_unique,
+      "-o", $c->rum_unique_sorted,
+      ">>", $c->chr_counts_u]];
+}
+
+sub sort_nu_by_location {
+    my ($c) = @_;
+    [["perl", $c->script("sort_RUM_by_location.pl"),
+      $c->rum_nu,
+      "-o", $c->rum_nu_sorted,
+      ">>", $c->chr_counts_nu]];
+}
+
+
 
 sub shell_script {
     my ($self, $dir) = @_;
