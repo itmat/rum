@@ -59,11 +59,16 @@ sub max_insertions          { $_[0]->{max_insertions} }
 sub match_length_cutoff     { $_[0]->{match_length_cutoff} }
 sub limit_nu_cutoff         { $_[0]->{limit_nu_cutoff} }
 
-sub read_length_opt         { ("--read-length",         $_[0]->read_length) }
-sub min_overlap_opt         { ("--min-overlap",         $_[0]->min_overlap) }
-sub max_insertions_opt      { ("--max-insertions",      $_[0]->max_insertions) }
-sub match_length_cutoff_opt { ("--match-length-cutoff", $_[0]->match_length_cutoff) }
-sub limit_nu_cutoff_opt     { ("--limit-nu",            $_[0]->limit_nu_cutoff) }
+sub opt {
+    my ($self, $opt, $arg) = @_;
+    return defined($arg) ? ($opt, $arg) : "";
+}
+
+sub read_length_opt         { $_[0]->opt("--read-length", $_[0]->read_length) }
+sub min_overlap_opt         { $_[0]->opt("--min-overlap", $_[0]->min_overlap) }
+sub max_insertions_opt      { $_[0]->opt("--max-insertions", $_[0]->max_insertions) }
+sub match_length_cutoff_opt { $_[0]->opt("--match-length-cutoff", $_[0]->match_length_cutoff) }
+sub limit_nu_cutoff_opt     { $_[0]->opt("--limit-nu", $_[0]->limit_nu_cutoff) }
 sub faok_opt                { $_[0]->{faok} ? "--faok" : ":" }
 sub count_mismatches_opt    { $_[0]->{count_mismatches} ? "--count-mismatches" : "" } 
 sub paired_end_opt          { $_[0]->{paired_end} ? "--paired" : "--single" }

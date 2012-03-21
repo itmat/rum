@@ -20,8 +20,8 @@ my @indexes = $repo->indexes(pattern => qr/TAIR/);
 
 my $out_dir = "$Bin/tmp/40-chunk-machine";
 my $state_dir = "$out_dir/state";
-rmtree($out_dir);
-mkpath($state_dir);
+#rmtree($out_dir);
+#mkpath($state_dir);
 
 SKIP: {
 

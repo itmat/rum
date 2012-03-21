@@ -16,6 +16,7 @@ sub new {
 
     my $m = RUM::StateMachine->new();
 
+    # Flags
     my $start          = $m->start;      
     my $genome_bowtie  = $m->flag("genome_bowtie");
     my $trans_bowtie   = $m->flag("genome_transcriptome");
@@ -31,6 +32,8 @@ sub new {
     my $mdust          = $m->flag("mdust");
     my $blat_unique    = $m->flag("blat_unique");
     my $blat_nu        = $m->flag("blat_nu");
+    my $bowtie_blat_unique = $m->flag("bowtie_blat_unique");
+    my $bowtie_blat_nu     = $m->flag("bowtie_blat_nu");
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -88,7 +91,13 @@ sub new {
         "Parse blat output",
         $blat | $mdust, $blat_unique | $blat_nu, "parse_blat_out");
 
-    $m->set_goal($blat_unique | $blat_nu);
+    $m->add(
+        "Merge bowtie and blat results",
+        $bowtie_unique | $blat_unique | $bowtie_nu | $blat_nu,
+        $bowtie_blat_unique | $bowtie_blat_nu,
+        "merge_bowtie_and_blat");
+
+    $m->set_goal($bowtie_blat_unique | $bowtie_blat_nu);
 
     $self->{sm} = $m;
     $self->{config} = $config;
@@ -216,6 +225,21 @@ sub parse_blat_out {
       $chunk->match_length_cutoff_opt,
       $chunk->dna_opt]];
 }
+sub merge_bowtie_and_blat {
+    my ($c) = @_;
+    [["perl", $c->script("merge_Bowtie_and_Blat.pl"),
+      "--bowtie-unique", $c->bowtie_unique,
+      "--blat-unique", $c->blat_unique,
+      "--bowtie-non-unique", $c->bowtie_nu,
+      "--blat-non-unique", $c->blat_nu,
+      "--unique-out", $c->bowtie_blat_unique,
+      "--non-unique-out", $c->bowtie_blat_nu,
+      $c->paired_end_opt,
+      $c->read_length_opt,
+      $c->min_overlap_opt]];
+
+}
+
 
 sub shell_script {
     my ($self, $dir) = @_;
@@ -226,9 +250,10 @@ sub shell_script {
     my $plan = $machine->generate;
     
     my $state = $machine->start;
+
     my $res;
     for my $step (@$plan) {
-        my $comment;
+        my $comment = "";
         my $name = "RUM::ChunkMachine::$step";
 
         no strict 'refs';
@@ -238,17 +263,27 @@ sub shell_script {
         ($state, $comment) = $machine->transition($state, $step);
 
         $comment =~ s/\n//g;
-
         $comment = fill('# ', '# ', $comment);
         $res .= "$comment\n";
-        for my $cmd (@$cmds) {
-            $res .= "@$cmd || exit 1\n";
+
+        my $indent = "";
+        my @post = $machine->flags($state & ~$old_state);
+        my @files = map "$dir/$_", @post;
+        my @tests = join(" || ", map("[ ! -e $_ ]", @files));
+                         
+        if (@tests) {
+            $res .= "if @tests; then\n";
+            $indent = "  ";
         }
 
-        my @flags = $machine->flags($state & ~$old_state);
-        my @state_files = map "$dir/$_", @flags;
-        $res .= "touch @state_files\n";
+        for my $cmd (@$cmds) {
+            $res .= "$indent@$cmd || exit 1\n";
+        }
 
+        if (@files) {
+            $res .= "${indent}touch @files\n";
+            $res .= "fi\n";
+        }
         $res .= "\n";
     }
     return $res;
