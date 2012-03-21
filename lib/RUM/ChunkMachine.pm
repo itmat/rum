@@ -29,6 +29,8 @@ sub new {
     my $unmapped       = $m->flag("unmapped");
     my $blat           = $m->flag("blat");
     my $mdust          = $m->flag("mdust");
+    my $blat_unique    = $m->flag("blat_unique");
+    my $blat_nu        = $m->flag("blat_nu");
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -82,7 +84,11 @@ sub new {
         "Run mdust on th unmapped reads",
         $unmapped, $mdust, "run_mdust");
 
-    $m->set_goal($blat | $mdust);
+    $m->add(
+        "Parse blat output",
+        $blat | $mdust, $blat_unique | $blat_nu, "parse_blat_out");
+
+    $m->set_goal($blat_unique | $blat_nu);
 
     $self->{sm} = $m;
     $self->{config} = $config;
@@ -128,7 +134,7 @@ sub make_gu_and_gnu {
     [["perl", $chunk->script("make_GU_and_GNU.pl"), 
       "--unique", $chunk->gu,
       "--non-unique", $chunk->gnu,
-      $chunk->paired_end_option(),
+      $chunk->paired_end_opt(),
       $chunk->genome_bowtie_out()]];
 }
 
@@ -139,7 +145,7 @@ sub make_tu_and_tnu {
       "--non-unique",    $chunk->tnu,
       "--bowtie-output", $chunk->trans_bowtie_out,
       "--genes",         $chunk->annotations,
-      $chunk->paired_end_option]];
+      $chunk->paired_end_opt]];
 }
 
 sub merge_gu_tu {
@@ -153,7 +159,7 @@ sub merge_gu_tu {
         "--tnu", $chunk->tnu,
         "--bowtie-unique", $chunk->bowtie_unique,
         "--cnu",           $chunk->cnu,
-        $chunk->paired_end_option,
+        $chunk->paired_end_opt,
         "--read-length", $chunk->read_length);
     push @cmd, "--min-overlap", $chunk->min_overlap
         if defined($chunk->min_overlap);
@@ -176,7 +182,7 @@ sub make_unmapped_file {
       "--unique", $chunk->bowtie_unique, 
       "--non-unique", $chunk->bowtie_nu,
       "-o", $chunk->bowtie_unmapped,
-      $chunk->paired_end_option]];
+      $chunk->paired_end_opt]];
 }
 
 sub run_blat {
@@ -185,7 +191,7 @@ sub run_blat {
       $chunk->genome_blat,
       $chunk->bowtie_unmapped,
       $chunk->blat_output,
-      $chunk->blat_options]];
+      $chunk->blat_opts]];
 }
 
 sub run_mdust {
@@ -194,6 +200,21 @@ sub run_mdust {
       $chunk->bowtie_unmapped,
       " > ",
       $chunk->mdust_output]];
+}
+
+sub parse_blat_out {
+
+    my ($chunk) = @_;
+
+    [["perl", $chunk->script("parse_blat_out.pl"),
+      "--reads-in", $chunk->bowtie_unmapped,
+      "--blat-in", $chunk->blat_output, 
+      "--mdust-in", $chunk->mdust_output,
+      "--unique-out", $chunk->blat_unique,
+      "--non-unique-out", $chunk->blat_nu,
+      $chunk->max_insertions_opt,
+      $chunk->match_length_cutoff_opt,
+      $chunk->dna_opt]];
 }
 
 sub shell_script {
@@ -231,7 +252,6 @@ sub shell_script {
         $res .= "\n";
     }
     return $res;
-
 }
 
 1;

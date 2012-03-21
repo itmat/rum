@@ -39,7 +39,7 @@ SKIP: {
         paired_end    => 1,
         read_length   => 75,
         match_length_cutoff => 35,
-        max_insertions_allowed => 1
+        max_insertions => 1
     );
     
     is($config->genome_bowtie_out, "$out_dir/X.1", "genome bowtie out");
