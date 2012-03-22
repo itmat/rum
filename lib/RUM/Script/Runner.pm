@@ -32,17 +32,27 @@ sub main {
     $self->get_options();
 }
 
+
 sub get_options {
+
+    my $c = RUM::ChunkConfig->new();
+
+    my $set = sub {
+        my ($name) = @_;
+        return sub {
+            $c->set("name", @_);
+        }
+    };
+
 
     GetOptions(
 
-        "version"   => \(my $do_version),
-        "kill"      => \(my $do_kill),
+        "version"     => \(my $do_version),
+        "kill"        => \(my $do_kill),
         "postprocess" => \(my $do_postprocess),
 
         "config=s"    => \(my $rum_config_file),
-        "forward=s"   => \(my $forward),
-        "reverse=s"   => \(my $reverse),
+
         "output|o=s"  => \(my $output_dir),
         "name=s"      => \(my $name),
         "chunks=s"    => \(my $num_chunks = 1),
@@ -84,6 +94,8 @@ sub get_options {
         "quiet|q"     => sub { $log->less_logging(1) }
     );
 
+    my @reads = @ARGV;
+
     if ($do_version) {
         print "RUM version $RUM::Pipeline::VERSION, released $RUM::Pipeline::RELEASE_DATE\n";
         return;
@@ -114,10 +126,10 @@ sub get_options {
         "Cannot use both -preserve_names and -variable_read_lengths at the same time.\nSorry, we will fix this eventually.");
 
     if ($alt_genes) {
-        -r $alt_genes or die "Can't read from $alt_genes: $!";
+        -r $alt_genes or LOGDIE "Can't read from $alt_genes: $!";
     }
     if ($alt_quant) {
-        -r $alt_quant or die "Can't read from $alt_quant: $!";
+        -r $alt_quant or LOGDIE "Can't read from $alt_quant: $!";
     }
 
     $rum_config_file or RUM::Usage->bad(
@@ -130,34 +142,63 @@ sub get_options {
         "Please provide a name with --name");
     $name = fix_name($name);
 
+    @reads == 1 or @reads == 2 or RUM::Usage->bad(
+        "Please provide one or two read files");
+
+    my $config = RUM::ChunkConfig->new(
+        config_file => $rum_config_file,
+        reads => \@reads,
+        preserve_names => $preserve_names,
+        min_length => $min_length,
+        output_dir => $output_dir,
+        num_chunks => $num_chunks
+    );
+
+    show_logo();
+    my $runner = __PACKAGE__->new(config => $config);
+    $runner->preprocess;
+}
+
+sub preprocess {
+    my ($self) = @_;
+    $self->setup;
+    $self->check_reads_for_quality;
+    $self->check_reads();
+    $self->reformat_reads();
+    $self->check_read_length();
+    $self->run_chunks();
+}
+
+sub check_read_length {
+    
+    my ($self) = @_;
+
+    my @lines = head($self->config->reads_fa, 2);
+    my $read = $lines[1];
+    my $len = split(//,$read);
+    my $min = $self->config->min_length;
+    if ($self->config->variable_read_lengths) {
+        $self->config->set("read_length", "v");
+    }
+    else{
+        $self->config->set("read_length", $len);
+        if (($min || 0) > $len) {
+            LOGDIE("You specified a minimum length alignment to report as '$min', however your read length is only $len");
+        }
+    }
 }
 
 sub setup {
     my ($self) = @_;
     my $output_dir = $self->config->output_dir;
     unless (-d $output_dir) {
-        mkpath($output_dir) or die "mkdir $output_dir: $!";
+        mkpath($output_dir) or LOGDIE "mkdir $output_dir: $!";
     }
-
 
 }
 
 sub config {
     return $_[0]->{config};
-}
-
-sub prepare_chunks {
-
-    my ($self) = @_;
-
-    for my $chunk_num (1 .. $self->num_chunks) {
-        my $config = RUM::ChunkConfig->new(config_file => $self->rum_config_file,
-                                           forward     => $self->forward_reads,
-                                           chunk       => $chunk_num,
-                                           output_dir  => $self->output_dir,
-                                           paired_end  => $self->reverse_reads ? 1 : 0);
-    }
-
 }
 
 sub new {
@@ -211,22 +252,17 @@ our $READ_CHECK_LINES = 50000;
 sub check_reads {
     my ($self) = @_;
 
-    my @reads  = $self->reads;
+    my @reads  = @{ $self->config->reads };
 
     return if @reads == 2;
-
-    $self->check_reads_for_quality;
 
     $self->{$_} = 0 for qw(paired_end needs_splitting preformatted);
 
     my $head = join("\n", head($reads[0], 4));
-    $head =~ /seq.(\d+)(.).*seq.(\d+)(.)/s or die
-        "I can't seem to find sequence identifiers in file @reads\n";
+    $head =~ /seq.(\d+)(.).*seq.(\d+)(.)/s or return;
 
     my @nums  = ($1, $3);
     my @types = ($2, $4);
-
-
 
     if($nums[0] == 1 && $nums[1] == 1 && $types[0] eq 'a' && $types[1] eq 'b') {
         $self->{$_} = 1 for qw(paired_end file_needs_splitting preformatted);
@@ -243,29 +279,19 @@ sub scripts_dir {
     return "$Bin/../bin";
 }
 
-sub reads {
-    return @{ $_[0]->{reads} };
-}
-
 sub check_reads_for_quality {
     my ($self, $fh, $name) = @_;
 
-    for my $filename ($self->reads) {
+    for my $filename (@{ $self->config->reads }) {
         
-        open my $fh, "<", $filename or die
+        open my $fh, "<", $filename or LOGDIE
             "Can't open reads file $filename for reading: $!";
 
         while (local $_ = <$fh>) {
             next unless /:Y:/;
             $_ = <$fh>;
             chomp;
-            /^--$/ and die
-                "you appear to have entries in your fastq file
-                \"$name\" for reads that didn't pass quality. These
-                are lines that have \":Y:\" in them, probably followed
-                by lines that just have two dashes \"--\". You first
-                need to remove all such lines from the file, including
-                the ones with the two dashes...";
+            /^--$/ and LOGDIE "you appear to have entries in your fastq file \"$name\" for reads that didn't pass quality. These are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\". You first need to remove all such lines from the file, including the ones with the two dashes...";
             }
     }
 }
@@ -274,17 +300,15 @@ sub check_reads_2 {
 
     my ($self) = @_;
 
-    my @reads = $self->reads;
+    my @reads = @{ $self->config->reads };
 
     return if @reads == 1 || $self->postprocess_only;
 
     @reads <= 2 or RUM::Usage->bad(
-        "You've given more than two files of reads, should be at most
-            two files.");
+        "You've given more than two files of reads, should be at most two files.");
 
     $reads[0] ne $reads[1] or RUM::Usage->bad(
-        "You specified the same file for the forward and reverse
-        reads, must be an error...");
+        "You specified the same file for the forward and reverse reads, must be an error...");
 
     
     my @sizes = map -s, @reads;
@@ -293,8 +317,6 @@ sub check_reads_2 {
         versus $sizes[1].  They should be the exact same size.";
 
     my $config = $self->config;
-
-    $self->check_reads_for_quality;
 
     # Check here that the quality scores are the same length as the reads.
 
@@ -338,7 +360,7 @@ sub check_reads_2 {
             }
             if(length($line1) != $length_hold && !$config->variable_read_lengths) {
                 WARN("It seems your read lengths vary, but you didn't set -variable_length_reads. I'm going to set it for you, but it's generally safer to set it on the command-line since I only spot check the file.");
-                $config->{variable_read_lengths} = 1;
+                $config->set('variable_read_lengths', 1);
             }
             $length_hold = length($line1);
         }
@@ -365,7 +387,7 @@ sub reformat_reads {
     my $parse_2_quals = $config->script("fastq2qualities.pl");
     my $num_chunks = $config->num_chunks;
 
-    my @reads = $self->reads;
+    my @reads = @{ $config->reads };
 
     my $reads_fa = $config->reads_fa;
     my $quals_fa = $config->quals_fa;
@@ -388,12 +410,7 @@ sub reformat_reads {
 
     my $reads_in = join(",,,", @reads);
 
-    my $len = `head -50000 $reads[0] | wc -l`;
-    chomp($len);
-    $len =~ s/[^\d]//gs;
-    my $is_big_file = $len == 50000;
-
-    if($is_fastq  && !$config->variable_read_lengths && $is_big_file) {
+    if($is_fastq  && !$config->variable_read_lengths && $num_chunks > 1) {
         INFO("Splitting fastq file into $num_chunks chunks with separate reads and quals");
         shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $output_dir/rum.error-log");
         my @errors = `grep -A 2 "something wrong with line" $error_log`;
@@ -402,7 +419,7 @@ sub reformat_reads {
         $self->{file_needs_splitting} = 0;
     }
  
-    elsif ($is_fasta && !$config->variable_read_lengths && !$preformatted && $is_big_file) {
+    elsif ($is_fasta && !$config->variable_read_lengths && !$preformatted && $num_chunks > 1) {
         INFO("Splitting fasta file into $num_chunks chunks");
         shell("perl $parse_fasta $reads_in $num_chunks $reads_fa $name_mapping_opt 2>> $error_log");
         $self->{quals} = 0;
@@ -425,10 +442,6 @@ sub run_chunks {
     my ($self) = @_;
     my $config = $self->config;
 
-    print "My chunks are ", $config->num_chunks;
-
-
-
     my @configs = ($config);
     if ($config->num_chunks > 1) {
         @configs = map { $config->for_chunk($_) } (1 .. $config->num_chunks);
@@ -436,6 +449,7 @@ sub run_chunks {
     
     my @machines = map { RUM::ChunkMachine->new($_) } @configs;
 
+    INFO("Generating pipeline shell script for each chunk");
     for my $m (@machines) {
         my $file = $m->config->pipeline_sh;
         open my $out, ">", $file or die "Can't open $file for writing: $!";

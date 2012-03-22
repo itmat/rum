@@ -47,7 +47,9 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  match_length_cutoff max_insertions num_chunks bin_dir genome_bowtie
  genome_fa transcriptome_bowtie annotations num_chunks read_length
  min_overlap max_insertions match_length_cutoff limit_nu_cutoff
- preserve_names variable_length_reads config_file);
+ preserve_names variable_length_reads config_file
+ bowtie_bin mdust_bin blat_bin trans_bowtie min_length reads
+                         );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (
     genome_bowtie_out  => "X",
@@ -82,6 +84,16 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     quals_fa           => "quals.fa"
 );
 
+our %DEFAULTS = (
+    num_chunks            => 1,
+    preserve_names        => 0,
+    variable_length_reads => 0,
+    min_length            => undef,
+    min_overlap           => undef,
+    max_insertions        => undef,
+    match_length_cutoff   => undef,
+    limit_nu_cutoff       => undef);
+
 
 sub variable_read_lengths {
     $_[0]->variable_length_reads
@@ -94,7 +106,7 @@ sub default {
 
 sub new {
     my ($class, %options) = @_;
-    my %data;
+    my %data = %DEFAULTS;
     
     # TODO: Add read_length, match_length_cutoff
 
@@ -105,7 +117,7 @@ sub new {
     }
     
     if (my @extra = keys(%options)) {
-        die "Extra arguments to ChunkConfig->new: @extra";
+        croak "Extra arguments to ChunkConfig->new: @extra";
     }
 
     if ($data{config_file}) {
@@ -123,9 +135,9 @@ sub new {
         $data{blat_bin} = $config->blat_bin;
         $data{mdust_bin} = $config->mdust_bin;
         $data{genome_bowtie} = $config->bowtie_genome_index;
-        $data{transcriptome_bowtie} = $config->bowtie_gene_index;
+        $data{trans_bowtie} = $config->bowtie_gene_index;
         $data{genome_fa} = $config->blat_genome_index;
-        
+
         -e $data{bowtie_bin} or die("the executable '$data{bowtie_bin}' does not seem to exist.");
         -e $data{blat_bin} or die("the executable '$data{blat_bin}' does not seem to exist.");
         -e $data{mdust_bin} or die("the executable '$data{mdust_bin}' does not seem to exist.");        
@@ -134,7 +146,6 @@ sub new {
 
     return bless \%data, $class;
 }
-
 
 sub for_chunk {
     my ($self, $chunk) = @_;
@@ -217,6 +228,13 @@ sub is_property {
     grep { $name eq $_ } (@LITERAL_PROPERTIES, keys %CHUNK_SUFFIXED_PROPERTIES)
 }
 
+sub set {
+    my ($self, $key, $value) = @_;
+    die "No such property $key" unless is_property($key);
+    $self->{$key} = $value;
+}
+
+
 sub AUTOLOAD {
     my ($self) = @_;
     
@@ -225,12 +243,12 @@ sub AUTOLOAD {
     
     return if $name eq "DESTROY";
     
-    is_property($name) or die "No such property $name";
+    is_property($name) or croak "No such property $name";
 
     if ($CHUNK_SUFFIXED_PROPERTIES{$name}) {
         return $self->chunk_suffixed($CHUNK_SUFFIXED_PROPERTIES{$name});
     }
-    exists $self->{$name} or die "Property $name was not set";
+    exists $self->{$name} or croak "Property $name was not set";
 
     return $self->{$name};
 }

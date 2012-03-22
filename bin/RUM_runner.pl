@@ -1061,8 +1061,14 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
     # Done checking
 
     INFO("Reformatting reads file... please be patient.");
+    INFO;
+    INFO("fastq is $fastq");
+    INFO("fasta is $fasta");
+    INFO("variable length is $variable_read_lengths");
+    INFO("FL is $FL");
 
     if($fastq eq "true" && $variable_read_lengths eq "false" && $FL == 50000) {
+        INFO("In the first block");
         if($preserve_names eq "false") {
             `perl $scripts_dir/parsefastq.pl $a[0],,,$a[1] $numchunks $output_dir/reads.fa $output_dir/quals.fa 2>> $output_dir/rum.error-log`;
         } else {
@@ -1076,6 +1082,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
    	$quals = "true";
         $file_needs_splitting = "false";
     } elsif($fasta eq "true" && $variable_read_lengths eq "false" && $FL == 50000 && $preformatted eq "false") {
+        INFO("In the second block");
         if($preserve_names eq "false") {
             `perl $scripts_dir/parsefasta.pl $a[0],,,$a[1] $numchunks $output_dir/reads.fa 2>> $output_dir/rum.error-log`;
         } else {
@@ -1084,6 +1091,7 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
    	$quals = "false";
         $file_needs_splitting = "false";
     } elsif($preformatted eq "false") {
+        INFO("In the third block");
         `perl $scripts_dir/parse2fasta.pl $a[0] $a[1] > $output_dir/reads.fa 2>> $output_dir/rum.error-log`;
         `perl $scripts_dir/fastq2qualities.pl $a[0] $a[1] > $output_dir/quals.fa 2>> $output_dir/rum.error-log`;
         $file_needs_splitting = "true";

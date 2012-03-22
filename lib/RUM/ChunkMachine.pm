@@ -305,7 +305,7 @@ sub make_unmapped_file {
 sub run_blat {
     my ($chunk) = @_;
     [[$chunk->blat_bin,
-      $chunk->genome_blat,
+      $chunk->genome_fa,
       $chunk->bowtie_unmapped,
       $chunk->blat_output,
       $chunk->blat_opts]];
@@ -456,8 +456,6 @@ sub shell_script {
         my $cmds;
 
         my $comment = "";
-
-        print "Step is $step\n";
 
         if (my $code = $self->{instructions}{$step}) {
             $cmds = $code->($self->{config});
