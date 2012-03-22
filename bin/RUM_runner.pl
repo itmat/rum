@@ -12,7 +12,7 @@ use lib "$Bin/../lib";
 use File::Spec;
 use Carp;
 use RUM::Logging;
-use RUM::Common qw(Roman roman isroman arabic format_large_int);
+use RUM::Common qw(Roman roman isroman arabic format_large_int is_fastq is_fasta head);
 use RUM::Sort qw(by_chromosome);
 use RUM::Subproc qw(spawn check pids_by_command_re kill_all procs
                     child_pids can_kill kill_runaway_procs);
@@ -1005,35 +1005,9 @@ if($readsfile =~ /,,,/ && $postprocess eq "false") {
     close(INFILE);
 
     # Going to figure out here if these are standard fastq files
+    $fastq = is_fastq($a[0]) ? "true" : "false";
+    $fasta = is_fasta($a[0]) ? "true" : "false";
 
-    $head40 = `head -40 $a[0]`;
-    $head40 =~ s/^\s*//s;
-    $head40 =~ s/\s*$//s;
-    @b = split(/\n/, $head40);
-    $fastq = "true";
-    for($i=0; $i<10; $i++) {
-        if(!($b[$i*4] =~ /^@/)) {
-            $fastq = "false";
-        }
-        if(!($b[$i*4+1] =~ /^[acgtnACGTN.]+$/)) {
-            $fastq = "false";
-        }
-        if(!($b[$i*4+2] =~ /^\+/)) {
-            $fastq = "false";
-        }
-    }
-
-   # Check to see if it's fasta
-
-    $fasta = "true";
-    for($i=0; $i<10; $i++) {
-        if(!($b[$i*2] =~ /^>/)) {
-            $fasta = "false";
-        }
-        if(!($b[$i*2+1] =~ /^[acgtnACGTN.]+$/)) {
-            $fasta = "false";
-        }
-    }
 
     # Check here that the quality scores are the same length as the reads.
 

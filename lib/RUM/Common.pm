@@ -2,11 +2,11 @@ package RUM::Common;
 
 use strict;
 no warnings;
-
+use Carp;
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
                     reversecomplement format_large_int spansTotalLength
-                    reversesignal read_chunk_id_mapping);
+                    reversesignal read_chunk_id_mapping is_fasta is_fastq head);
 
 =head1 FUNCTIONS
 
@@ -292,6 +292,63 @@ sub read_chunk_id_mapping {
         $chunk_ids_mapping{$old} = $new;
     }
     return %chunk_ids_mapping;
+}
+
+sub head {
+    my ($fh, $lines) = @_;
+
+    unless (ref($fh)) {
+        open my $in, "<", $fh or croak "Can't open $fh for reading: $!";
+        return head($in, $lines);
+    }
+
+    seek $fh, 0, 0;
+    my @lines;
+    for (1 .. $lines) {
+        defined(local $_ = <$fh>) or last;
+        chomp;
+        push @lines, $_;
+    }
+    return @lines;
+}
+
+=item is_fastq($fh)
+
+Returns true if the given filehandle appears to contain fastq data,
+false otherwise.
+
+=cut
+
+sub is_fastq {
+    shift if $_[0] eq __PACKAGE__;
+    my ($fh) = @_;
+
+    my @lines = head($fh, 40);
+
+    for my $i (0 .. $#lines / 4) {
+        $lines[$i*4]   =~ /^@/               or return 0;
+        $lines[$i*4+1] =~ /^[acgtnACGTN.]+$/ or return 0;
+        $lines[$i*4+2] =~ /^\+/              or return 0;
+    }
+
+    return 1;
+}
+
+=item is_fasta
+
+Returns true if the given filehandle appears to contain fasta data,
+false otherwise.
+
+=cut
+
+sub is_fasta {
+    shift if $_[0] eq __PACKAGE__;
+    my ($fh) = @_;
+    my @lines = head($fh, 40);
+    for my $i (1 .. $#lines / 2) {
+        $lines[$i*2]   =~ /^>/               or return 0;
+        $lines[$i*2+1] =~ /^[acgtnACGTN.]+$/ or return 0;
+    }    
 }
 
 1;
