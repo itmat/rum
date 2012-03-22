@@ -333,6 +333,7 @@ sub parse_blat_out {
       $chunk->match_length_cutoff_opt,
       $chunk->dna_opt]];
 }
+
 sub merge_bowtie_and_blat {
     my ($c) = @_;
     [["perl", $c->script("merge_Bowtie_and_Blat.pl"),
@@ -436,8 +437,11 @@ sub rum2quantifications {
     }
 }
 
+
 sub shell_script {
-    my ($self, $dir) = @_;
+    my ($self) = @_;
+
+    my $dir = $self->{config}->state_dir;
 
     mkdir $dir;
 

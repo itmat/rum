@@ -4,18 +4,78 @@ use strict;
 use warnings;
 use Carp;
 use FindBin qw($Bin);
+use RUM::Logging;
+our $log = RUM::Logging->get_logger;
 FindBin->again;
+
+our $CONFIG_DESC = <<EOF;
+The following describes the configuration file:
+
+Note: All entries can be absolute path, or relative path to where RUM
+is installed.
+
+1) gene annotation file, can be absolute, or relative to where RUM is installed
+   e.g.: indexes/mm9_ucsc_refseq_gene_info.txt
+
+2) bowtie executable, can be absolute, or relative to where RUM is installed
+   e.g.: bowtie/bowtie
+
+3) blat executable, can be absolute, or relative to where RUM is installed
+   e.g.: blat/blat
+
+4) mdust executable, can be absolute, or relative to where RUM is installed
+   e.g.: mdust/mdust
+
+5) bowtie genome index, can be absolute, or relative to where RUM is installed
+   e.g.: indexes/mm9
+
+6) bowtie gene index, can be absolute, or relative to where RUM is installed
+   e.g.: indexes/mm9_genes_ucsc_refseq
+
+7) blat genome index, can be absolute, or relative to where RUM is installed
+   e.g. indexes/mm9_genome_sequence_single-line-seqs.fa
+
+8) [DEPRECATED] perl scripts directory. This is now ignored, and this script
+    will use $Bin/../bin
+
+9) [DEPRECATED] lib directory. This is now ignored, and this script will use
+    $Bin/../lib
+EOF
+
+
 
 sub new {
     my ($class, %options) = @_;
     my $self = {};
 
-
-    my @required = qw(genome_bowtie reads chunk output_dir
-                      transcriptome_bowtie paired_end read_length
-                      bin_dir annotations genome_fa
+    # TODO: Add read_length, match_length_cutoff
+    my @required = qw(forward chunk output_dir paired_end 
                       match_length_cutoff max_insertions);
 
+    open my $config_in, "<", $options{config_file}
+        or croak "Can't open $options{config_file} for reading: $!";
+
+    $self->{annotations} = read_config_path($config_in);
+    unless ($self->{dna}) {
+        -e $self->{annotations} or
+            die("the file '$self->{annotations}' does not seem to exist.");
+    }
+
+    $self->{bowtie_bin} = read_config_path($config_in);
+    -e $self->{bowtie_bin} or die("the executable '$self->{bowtie_bin}' does not seem to exist.");
+
+    $self->{blat_bin} = read_config_path($config_in);
+    -e $self->{blat_bin} or die("the executable '$self->{blat_bin}' does not seem to exist.");
+
+    $self->{mdust_bin} = read_config_path($config_in);
+    -e $self->{mdust_bin} or die("the executable '$self->{mdust_bin}' does not seem to exist.");
+
+    $self->{genome_bowtie} = read_config_path($config_in);
+    $self->{transcriptome_bowtie} = read_config_path($config_in);
+    $self->{genome_fa} = read_config_path($config_in);
+
+    -e $self->{genome_fa} or die("the file '$self->{genome_fa}' does not seem to exist.");
+    
     my @optional = qw(min_overlap);
 
     for (@required) {
@@ -24,8 +84,31 @@ sub new {
         $self->{$_} = $val;
     };
 
+    # TODO: combine forward and reverse reads?
+    $self->{reads} = $self->{forward};
+
     return bless $self, $class;
 }
+
+# Reads a path from the config file and returns it, making sure it's
+# an absolute path. If it's specified as a relative path, we turn it
+# into an absolute path by prepending the root directory of the RUM
+# installation to it.
+sub read_config_path {
+
+    my ($in) = @_;
+    my $maybe_rel_path = <$in>;
+    unless (defined($maybe_rel_path)) {
+        $log->info($CONFIG_DESC);
+        die("The configuration file seems to be missing some lines. Please see the instructions for the configuration file above.");
+    }
+    chomp $maybe_rel_path;
+    my $root = "$Bin/../";
+    my $abs_path = File::Spec->rel2abs($maybe_rel_path, $root);
+    return $abs_path;
+}
+
+
 
 # Utilities for modifying a filename
 
@@ -113,6 +196,8 @@ sub rum_nu_sorted      { $_[0]->chunk_suffixed("RUM_Unique.sorted") }
 
 sub chr_counts_u       { $_[0]->chunk_suffixed("chr_counts_u") }
 sub chr_counts_nu      { $_[0]->chunk_suffixed("chr_counts_nu") }
+
+sub state_dir { $_[0]->chunk_replaced("state-%03d") }
 
 sub quant {
     my ($self, $strand, $sense) = @_;

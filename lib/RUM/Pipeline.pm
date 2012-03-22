@@ -16,3 +16,4 @@ Version 1.11-pre
 =cut
 
 our $VERSION = '1.11.0';
+our $RELEASE_DATE = "March 5, 2012";
