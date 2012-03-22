@@ -277,8 +277,6 @@ and returns it as a hash, otherwise returns undef.
 
 =cut
 
-
-
 sub read_chunk_id_mapping {
     my ($chunk_ids_file) = @_;
     my %chunk_ids_mapping;

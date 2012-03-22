@@ -46,7 +46,7 @@ my @IGNORED_RUM_OUTPUT_FILES = qw(rum.log_chunk.1
                                   postprocessing_test.log
                                   rum.log_master);
 
-our @INPUT_FILES = map "$INPUT_DIR/$_.fq", qw(forward reverse);
+our @INPUT_FILES = map "$SHARED_INPUT_DIR/$_.fq", qw(forward reverse);
 
 my @TESTS = (
     {

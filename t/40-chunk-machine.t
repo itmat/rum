@@ -20,8 +20,6 @@ my @indexes = $repo->indexes(pattern => qr/TAIR/);
 
 my $out_dir = "$Bin/tmp/40-chunk-machine";
 my $state_dir = "$out_dir/state";
-rmtree($out_dir);
-mkpath($state_dir);
 
 SKIP: {
 
@@ -41,6 +39,9 @@ SKIP: {
         match_length_cutoff => 35,
         max_insertions => 1
     );
+
+    rmtree($out_dir);
+    mkpath($config->state_dir);
     
     is($config->genome_bowtie_out, "$out_dir/X.1", "genome bowtie out");
     is($config->blat_output, "$out_dir/R.1.blat", "blat out");

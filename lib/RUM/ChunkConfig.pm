@@ -50,7 +50,8 @@ sub new {
 
     # TODO: Add read_length, match_length_cutoff
     my @required = qw(forward chunk output_dir paired_end 
-                      match_length_cutoff max_insertions);
+                      match_length_cutoff max_insertions num_chunks
+                      bin_dir);
 
     open my $config_in, "<", $options{config_file}
         or croak "Can't open $options{config_file} for reading: $!";
@@ -80,7 +81,7 @@ sub new {
 
     for (@required) {
         my $val = delete $options{$_};
-        croak "Need a value for $_" unless defined $val;
+        $log->warn("Need a value for $_") unless defined $val;
         $self->{$_} = $val;
     };
 
@@ -88,6 +89,13 @@ sub new {
     $self->{reads} = $self->{forward};
 
     return bless $self, $class;
+}
+
+sub for_chunk {
+    my ($self, $chunk) = @_;
+    my %options = %{ $self };
+    $options{chunk} = $chunk;
+    return __PACKAGE__->new(%options);
 }
 
 # Reads a path from the config file and returns it, making sure it's
@@ -108,18 +116,17 @@ sub read_config_path {
     return $abs_path;
 }
 
-
-
 # Utilities for modifying a filename
 
 sub bin { $_[0]->bin_dir . "/" . $_[1] }
 sub script { "$Bin/../bin/" . $_[1] }
-sub chunk_suffixed { $_[0]->output_dir . "/" . $_[1] . "." . $_[0]->{chunk} }
-sub chunk_replaced { $_[0]->output_dir . sprintf("/".$_[1], $_[0]->{chunk}) }
+sub chunk_suffix { $_[0]->{chunk} ? "._[0]->{chunk}" : "" }
+sub chunk_suffixed { $_[0]->output_dir . "/" . $_[1] . $_[0]->chunk_suffix }
+sub chunk_replaced { $_[0]->output_dir . sprintf("/".$_[1], $_[0]->{chunk} || 0) }
 
 # Directory and executable locations
 
-sub bin_dir    { $_[0]->{bin_dir} }
+sub bin_dir    { $_[0]->{bin_dir} or croak "No bin_dir for config" }
 sub output_dir { $_[0]->{output_dir} }
 sub bowtie_bin { $_[0]->bin("bowtie") }
 sub blat_bin   { $_[0]->bin("blat") }
@@ -132,7 +139,11 @@ sub genome_blat   { $_[0]->genome_fa }
 sub genome_fa     { $_[0]->{genome_fa} }
 sub trans_bowtie  { $_[0]->{transcriptome_bowtie} }
 sub annotations   { $_[0]->{annotations} }
-sub reads_file    { $_[0]->{reads} }
+sub num_chunks    { $_[0]->{num_chunks} }
+
+sub reads_fa    { $_[0]->chunk_suffixed("reads") }
+sub quals_fa    { $_[0]->chunk_suffixed("quals") }
+
 
 # These functions return options that the user can control.
 
@@ -141,6 +152,8 @@ sub min_overlap             { $_[0]->{min_overlap} }
 sub max_insertions          { $_[0]->{max_insertions} }
 sub match_length_cutoff     { $_[0]->{match_length_cutoff} }
 sub limit_nu_cutoff         { $_[0]->{limit_nu_cutoff} }
+sub preserve_names          { $_[0]->{preserve_names} }
+sub variable_read_lengths   { $_[0]->{variable_read_lengths}}
 
 sub opt {
     my ($self, $opt, $arg) = @_;
@@ -204,6 +217,7 @@ sub quant {
     return $self->chunk_suffixed("quant.$strand$sense");
 }
 
+sub pipeline_sh { $_[0]->chunk_suffixed("pipeline.sh") }
 
 # TODO: Maybe support name mapping?
 sub name_mapping_opt   { "" } 

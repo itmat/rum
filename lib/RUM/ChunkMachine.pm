@@ -221,7 +221,7 @@ sub run_bowtie_on_genome {
       "--best", 
       "--strata",
       "-f", $chunk->genome_bowtie,
-      $chunk->reads_file,
+      $chunk->reads_fa,
       "-v", 3,
       "--suppress", "6,7,8",
       "-p", 1,
@@ -238,7 +238,7 @@ sub run_bowtie_on_transcriptome {
       "--best", 
       "--strata",
       "-f", $chunk->trans_bowtie,
-      $chunk->reads_file,
+      $chunk->reads_fa,
       "-v", 3,
       "--suppress", "6,7,8",
       "-p", 1,
@@ -295,7 +295,7 @@ sub merge_gnu_tnu_cnu {
 sub make_unmapped_file {
     my ($chunk) = @_;
     [["perl", $chunk->script("make_unmapped_file.pl"),
-      "--reads", $chunk->reads_file,
+      "--reads", $chunk->reads_fa,
       "--unique", $chunk->bowtie_unique, 
       "--non-unique", $chunk->bowtie_nu,
       "-o", $chunk->bowtie_unmapped,
@@ -399,7 +399,7 @@ sub rum2sam {
     [["perl", $c->script("rum2sam.pl"),
       "--unique-in", $c->rum_unique,
       "--non-unique-in", $c->rum_nu,
-      "--reads-in", $c->reads_file,
+      "--reads-in", $c->reads_fa,
       "--quals-in", $c->quals_file,
       "--sam-out", $c->sam_file,
       $c->name_mapping_opt]]
@@ -496,6 +496,10 @@ sub shell_script {
         $res .= "\n";
     }
     return $res;
+}
+
+sub config {
+    $_[0]->{config};
 }
 
 1;
