@@ -5,6 +5,7 @@ use warnings;
 use Carp;
 use FindBin qw($Bin);
 use RUM::Logging;
+our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
 FindBin->again;
 
@@ -42,118 +43,132 @@ is installed.
     $Bin/../lib
 EOF
 
+our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
+ match_length_cutoff max_insertions num_chunks bin_dir genome_bowtie
+ genome_fa transcriptome_bowtie annotations num_chunks read_length
+ min_overlap max_insertions match_length_cutoff limit_nu_cutoff
+ preserve_names variable_length_reads config_file);
 
+our %CHUNK_SUFFIXED_PROPERTIES = (
+    genome_bowtie_out  => "X",
+    trans_bowtie_out   => "Y",
+    bowtie_unmapped    => "R",
+    blat_unique        => "BlatUnique",
+    blat_nu            => "BlatNU",
+    gu                 => "GU",
+    tu                 => "TU",
+    gnu                => "GNU",
+    tnu                => "TNU",
+    cnu                => "CNU",
+    bowtie_unique      => "BowtieUnique",
+    bowtie_nu          => "BowtieNU",
+    bowtie_blat_unique => "RUM_Unique_temp",
+    bowtie_blat_nu     => "RUM_NU_temp",
+    cleaned_unique     => "RUM_Unique_temp2",
+    cleaned_nu         => "RUM_NU_temp2",
+    sam_header         => "sam_header",
+    rum_nu_id_sorted   => "RUM_NU_idsorted",
+    rum_nu_deduped     => "RUM_NU_temp3",
+    rum_nu             => "RUM_NU",
+    rum_unique         => "RUM_Unique",
+    quals_file         => "quals",
+    sam_file           => "RUM.sam",
+    nu_stats           => "nu_stats",
+    rum_unique_sorted  => "RUM_Unique.sorted",
+    rum_nu_sorted      => "RUM_Unique.sorted",
+    chr_counts_u       => "chr_counts_u",
+    chr_counts_nu      => "chr_counts_nu",
+    reads_fa           => "reads.fa",
+    quals_fa           => "quals.fa"
+);
+
+
+sub variable_read_lengths {
+    $_[0]->variable_length_reads
+}
+
+sub default {
+    my ($class) = @_;
+    return $class->new();
+}
 
 sub new {
     my ($class, %options) = @_;
-    my $self = {};
-
+    my %data;
+    
     # TODO: Add read_length, match_length_cutoff
-    my @required = qw(forward chunk output_dir paired_end 
-                      match_length_cutoff max_insertions num_chunks
-                      bin_dir);
 
-    open my $config_in, "<", $options{config_file}
-        or croak "Can't open $options{config_file} for reading: $!";
-
-    $self->{annotations} = read_config_path($config_in);
-    unless ($self->{dna}) {
-        -e $self->{annotations} or
-            die("the file '$self->{annotations}' does not seem to exist.");
+    for (@LITERAL_PROPERTIES) {
+        if (exists $options{$_}) {
+            $data{$_} = delete $options{$_};
+        }
+    }
+    
+    if (my @extra = keys(%options)) {
+        die "Extra arguments to ChunkConfig->new: @extra";
     }
 
-    $self->{bowtie_bin} = read_config_path($config_in);
-    -e $self->{bowtie_bin} or die("the executable '$self->{bowtie_bin}' does not seem to exist.");
+    if ($data{config_file}) {
+        open my $in, "<", $data{config_file}
+            or croak "Can't open config file $data{config_file}: $!";
+        my $config = RUM::Config->parse($in);
+        
+        $data{annotations} = $config->gene_annotation_file;
+        unless ($data{dna}) {
+            -e $data{annotations} or
+                die("the file '$data{annotations}' does not seem to exist.");
+        }
+        
+        $data{bowtie_bin} = $config->bowtie_bin;
+        $data{blat_bin} = $config->blat_bin;
+        $data{mdust_bin} = $config->mdust_bin;
+        $data{genome_bowtie} = $config->bowtie_genome_index;
+        $data{transcriptome_bowtie} = $config->bowtie_gene_index;
+        $data{genome_fa} = $config->blat_genome_index;
+        
+        -e $data{bowtie_bin} or die("the executable '$data{bowtie_bin}' does not seem to exist.");
+        -e $data{blat_bin} or die("the executable '$data{blat_bin}' does not seem to exist.");
+        -e $data{mdust_bin} or die("the executable '$data{mdust_bin}' does not seem to exist.");        
+        -e $data{genome_fa} or die("the file '$data{genome_fa}' does not seem to exist.");
+    }
 
-    $self->{blat_bin} = read_config_path($config_in);
-    -e $self->{blat_bin} or die("the executable '$self->{blat_bin}' does not seem to exist.");
-
-    $self->{mdust_bin} = read_config_path($config_in);
-    -e $self->{mdust_bin} or die("the executable '$self->{mdust_bin}' does not seem to exist.");
-
-    $self->{genome_bowtie} = read_config_path($config_in);
-    $self->{transcriptome_bowtie} = read_config_path($config_in);
-    $self->{genome_fa} = read_config_path($config_in);
-
-    -e $self->{genome_fa} or die("the file '$self->{genome_fa}' does not seem to exist.");
-    
-    my @optional = qw(min_overlap);
-
-    for (@required) {
-        my $val = delete $options{$_};
-        $log->warn("Need a value for $_") unless defined $val;
-        $self->{$_} = $val;
-    };
-
-    # TODO: combine forward and reverse reads?
-    $self->{reads} = $self->{forward};
-
-    return bless $self, $class;
+    return bless \%data, $class;
 }
+
 
 sub for_chunk {
     my ($self, $chunk) = @_;
     my %options = %{ $self };
     $options{chunk} = $chunk;
+
     return __PACKAGE__->new(%options);
-}
-
-# Reads a path from the config file and returns it, making sure it's
-# an absolute path. If it's specified as a relative path, we turn it
-# into an absolute path by prepending the root directory of the RUM
-# installation to it.
-sub read_config_path {
-
-    my ($in) = @_;
-    my $maybe_rel_path = <$in>;
-    unless (defined($maybe_rel_path)) {
-        $log->info($CONFIG_DESC);
-        die("The configuration file seems to be missing some lines. Please see the instructions for the configuration file above.");
-    }
-    chomp $maybe_rel_path;
-    my $root = "$Bin/../";
-    my $abs_path = File::Spec->rel2abs($maybe_rel_path, $root);
-    return $abs_path;
 }
 
 # Utilities for modifying a filename
 
-sub bin { $_[0]->bin_dir . "/" . $_[1] }
-sub script { "$Bin/../bin/" . $_[1] }
-sub chunk_suffix { $_[0]->{chunk} ? "._[0]->{chunk}" : "" }
-sub chunk_suffixed { $_[0]->output_dir . "/" . $_[1] . $_[0]->chunk_suffix }
-sub chunk_replaced { $_[0]->output_dir . sprintf("/".$_[1], $_[0]->{chunk} || 0) }
+sub script {
+    "$Bin/../bin/" . $_[1] 
+}
 
-# Directory and executable locations
+sub chunk_suffix {
+    $_[0]->{chunk} ? ".$_[0]->{chunk}" : "" 
+}
 
-sub bin_dir    { $_[0]->{bin_dir} or croak "No bin_dir for config" }
-sub output_dir { $_[0]->{output_dir} }
-sub bowtie_bin { $_[0]->bin("bowtie") }
-sub blat_bin   { $_[0]->bin("blat") }
-sub mdust_bin  { $_[0]->bin("mdust") }
+sub chunk_suffixed { 
+    my ($self, $file) = @_;
+    if (my $dir = $self->output_dir) {
+        return "$dir/$file" . $self->chunk_suffix;
+    }
+}
 
-# The raw input for the job
-
-sub genome_bowtie { $_[0]->{genome_bowtie} }
-sub genome_blat   { $_[0]->genome_fa }
-sub genome_fa     { $_[0]->{genome_fa} }
-sub trans_bowtie  { $_[0]->{transcriptome_bowtie} }
-sub annotations   { $_[0]->{annotations} }
-sub num_chunks    { $_[0]->{num_chunks} }
-
-sub reads_fa    { $_[0]->chunk_suffixed("reads") }
-sub quals_fa    { $_[0]->chunk_suffixed("quals") }
-
+sub chunk_replaced {
+    my ($self, $file) = @_;
+    my $dir = $self->output_dir;
+    $dir = "$dir/" if $dir;
+    sprintf("$dir/$file", $_[0]->{chunk} || 0)
+}
 
 # These functions return options that the user can control.
-
-sub read_length             { $_[0]->{read_length} }
-sub min_overlap             { $_[0]->{min_overlap} }
-sub max_insertions          { $_[0]->{max_insertions} }
-sub match_length_cutoff     { $_[0]->{match_length_cutoff} }
-sub limit_nu_cutoff         { $_[0]->{limit_nu_cutoff} }
-sub preserve_names          { $_[0]->{preserve_names} }
-sub variable_read_lengths   { $_[0]->{variable_read_lengths}}
 
 sub opt {
     my ($self, $opt, $arg) = @_;
@@ -178,37 +193,8 @@ sub blat_opts {
 # These functions return filenames that are named uniquely for this
 # chunk.
 
-sub genome_bowtie_out  { $_[0]->chunk_suffixed("X") }
-sub trans_bowtie_out   { $_[0]->chunk_suffixed("Y") }
-sub bowtie_unmapped    { $_[0]->chunk_suffixed("R") }
-sub blat_unique        { $_[0]->chunk_suffixed("BlatUnique") }
-sub blat_nu            { $_[0]->chunk_suffixed("BlatNU") }
-sub gu                 { $_[0]->chunk_suffixed("GU") }
-sub tu                 { $_[0]->chunk_suffixed("TU") }
-sub gnu                { $_[0]->chunk_suffixed("GNU") }
-sub tnu                { $_[0]->chunk_suffixed("TNU") }
-sub cnu                { $_[0]->chunk_suffixed("CNU") }
-sub blat_output        { $_[0]->chunk_replaced("R.%d.blat") }
-sub mdust_output       { $_[0]->chunk_replaced("R.%d.mdust") }
-sub bowtie_unique      { $_[0]->chunk_suffixed("BowtieUnique") }
-sub bowtie_nu          { $_[0]->chunk_suffixed("BowtieNU") }
-sub bowtie_blat_unique { $_[0]->chunk_suffixed("RUM_Unique_temp") }
-sub bowtie_blat_nu     { $_[0]->chunk_suffixed("RUM_NU_temp") }
-sub cleaned_unique     { $_[0]->chunk_suffixed("RUM_Unique_temp2") }
-sub cleaned_nu         { $_[0]->chunk_suffixed("RUM_NU_temp2") }
-sub sam_header         { $_[0]->chunk_suffixed("sam_header") }
-sub rum_nu_id_sorted   { $_[0]->chunk_suffixed("RUM_NU_idsorted") }
-sub rum_nu_deduped     { $_[0]->chunk_suffixed("RUM_NU_temp3") }
-sub rum_nu             { $_[0]->chunk_suffixed("RUM_NU") }
-sub rum_unique         { $_[0]->chunk_suffixed("RUM_Unique") }
-sub quals_file         { $_[0]->chunk_suffixed("quals") }
-sub sam_file           { $_[0]->chunk_suffixed("RUM.sam") }
-sub nu_stats           { $_[0]->chunk_suffixed("nu_stats") }
-sub rum_unique_sorted  { $_[0]->chunk_suffixed("RUM_Unique.sorted") }
-sub rum_nu_sorted      { $_[0]->chunk_suffixed("RUM_Unique.sorted") }
-
-sub chr_counts_u       { $_[0]->chunk_suffixed("chr_counts_u") }
-sub chr_counts_nu      { $_[0]->chunk_suffixed("chr_counts_nu") }
+sub blat_output  { $_[0]->chunk_replaced("R.%d.blat") }
+sub mdust_output { $_[0]->chunk_replaced("R.%d.mdust") }
 
 sub state_dir { $_[0]->chunk_replaced("state-%03d") }
 
@@ -221,4 +207,32 @@ sub pipeline_sh { $_[0]->chunk_suffixed("pipeline.sh") }
 
 # TODO: Maybe support name mapping?
 sub name_mapping_opt   { "" } 
+
+sub properties {
+    (@LITERAL_PROPERTIES, keys %CHUNK_SUFFIXED_PROPERTIES)
+}
+
+sub is_property {
+    my $name = shift;
+    grep { $name eq $_ } (@LITERAL_PROPERTIES, keys %CHUNK_SUFFIXED_PROPERTIES)
+}
+
+sub AUTOLOAD {
+    my ($self) = @_;
+    
+    my @parts = split /::/, $AUTOLOAD;
+    my $name = $parts[-1];
+    
+    return if $name eq "DESTROY";
+    
+    is_property($name) or die "No such property $name";
+
+    if ($CHUNK_SUFFIXED_PROPERTIES{$name}) {
+        return $self->chunk_suffixed($CHUNK_SUFFIXED_PROPERTIES{$name});
+    }
+    exists $self->{$name} or die "Property $name was not set";
+
+    return $self->{$name};
+}
+
 1;
