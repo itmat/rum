@@ -5,6 +5,8 @@ use warnings;
 use Carp;
 use FindBin qw($Bin);
 use RUM::Logging;
+use File::Spec;
+
 our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
 FindBin->again;
@@ -59,7 +61,9 @@ our %DEFAULTS = (
     min_overlap           => undef,
     max_insertions        => undef,
     match_length_cutoff   => undef,
-    limit_nu_cutoff       => undef);
+    limit_nu_cutoff       => undef,
+    chunk                 => undef,
+);
 
 
 sub variable_read_lengths {
@@ -71,7 +75,7 @@ sub load_rum_config_file {
     
     open my $in, "<", $path or croak "Can't open config file $path: $!";
     my $cf = RUM::ConfigFile->parse($in);
-    
+    $cf->make_absolute;
     my %data;
     $data{annotations}   = $cf->gene_annotation_file;
     $data{bowtie_bin}    = $cf->bowtie_bin;
@@ -118,30 +122,6 @@ sub new {
         croak "Extra arguments to Config->new: @extra";
     }
 
-    if ($data{config_file}) {
-        open my $in, "<", $data{config_file}
-            or croak "Can't open config file $data{config_file}: $!";
-        my $config = RUM::ConfigFile->parse($in);
-        
-        $data{annotations} = $config->gene_annotation_file;
-        unless ($data{dna}) {
-            -e $data{annotations} or
-                die("the file '$data{annotations}' does not seem to exist.");
-        }
-        
-        $data{bowtie_bin} = $config->bowtie_bin;
-        $data{blat_bin} = $config->blat_bin;
-        $data{mdust_bin} = $config->mdust_bin;
-        $data{genome_bowtie} = $config->bowtie_genome_index;
-        $data{trans_bowtie} = $config->bowtie_gene_index;
-        $data{genome_fa} = $config->blat_genome_index;
-
-        -e $data{bowtie_bin} or die("the executable '$data{bowtie_bin}' does not seem to exist.");
-        -e $data{blat_bin} or die("the executable '$data{blat_bin}' does not seem to exist.");
-        -e $data{mdust_bin} or die("the executable '$data{mdust_bin}' does not seem to exist.");        
-        -e $data{genome_fa} or die("the file '$data{genome_fa}' does not seem to exist.");
-    }
-
     return bless \%data, $class;
 }
 
@@ -156,25 +136,24 @@ sub for_chunk {
 # Utilities for modifying a filename
 
 sub script {
-    "$Bin/../bin/" . $_[1] 
+    return File::Spec->catfile("$Bin/../bin", $_[1]);
 }
 
-sub chunk_suffix {
-    $_[0]->{chunk} ? ".$_[0]->{chunk}" : "" 
+sub in_output_dir {
+    my ($self, $file) = @_;
+    my $dir = $self->output_dir;
+    return $dir ? File::Spec->catfile($dir, $file) : $file;
 }
 
 sub chunk_suffixed { 
     my ($self, $file) = @_;
-    if (my $dir = $self->output_dir) {
-        return "$dir/$file" . $self->chunk_suffix;
-    }
+    my $chunk = $self->chunk;
+    return $self->in_output_dir(defined($chunk) ? "$file.$chunk" : $file);
 }
 
 sub chunk_replaced {
-    my ($self, $file) = @_;
-    my $dir = $self->output_dir;
-    $dir = "$dir/" if $dir;
-    sprintf("$dir/$file", $_[0]->{chunk} || 0)
+    my ($self, $format) = @_;
+    return $self->in_output_dir(sprintf($format, $self->chunk || 0));
 }
 
 # These functions return options that the user can control.

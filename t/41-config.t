@@ -14,12 +14,18 @@ BEGIN {
     use_ok('RUM::Config');
 }                                               
 
-my $config = RUM::Config->new(output_dir => "foo");
+my $c;
 
-is($config->output_dir, "foo");
-is($config->reads_fa, "foo/reads.fa", "Getting property");
+$c = RUM::Config->new();
+throws_ok {
+    $c->reads_fa;
+} qr/not set/;
 
-my $chunk = $config->for_chunk(1);
-is($chunk->reads_fa, "foo/reads.fa.1", "Getting property for chunk");
+$c = RUM::Config->new(output_dir => "foo");
+is($c->output_dir, "foo");
+is($c->reads_fa, "foo/reads.fa", "Chunk suffixed with no chunk");
 
+$c = $c->for_chunk(1);
+is($c->chunk, 1, "Chunk setting");
+is($c->reads_fa, "foo/reads.fa.1", "Getting property for chunk");
 
