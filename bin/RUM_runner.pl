@@ -789,6 +789,7 @@ $gs1 = -s $genome_blat;
 $gs2 = -s "$output_dir/temp.1";
 $gs3 = `wc -l $output_dir/temp.1`;
 $genome_size = $gs1 - $gs2 - $gs3;
+$gs4 = &format_large_int($genome_size);
 `yes|rm $output_dir/temp.1`;
 $gsz = $genome_size / 1000000000;
 $min_ram = int($gsz * 1.67)+1;
@@ -1384,6 +1385,7 @@ if($postprocess eq "false") {
        print LOGFILE "alternate transcript db: $altquant_file\n";
     }
     print LOGFILE "genome db: $genomefa\n";
+       print LOGFILE "genome size: $gs4\n";
     if($fasta eq "true") {
        print LOGFILE "input file format: fasta\n";
     }
@@ -2718,7 +2720,6 @@ $NUF = &format_large_int($nuf);
 $UFp = int($uf / $genome_size * 10000) / 100;
 $NUFp = int($nuf / $genome_size * 10000) / 100;
 
-$gs4 = &format_large_int($genome_size);
 print LOGFILE "genome size: $gs4\n";
 print LOGFILE "number of bases covered by unique mappers: $UF ($UFp%)\n";
 print LOGFILE "number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n";

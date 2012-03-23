@@ -67,9 +67,13 @@ for($i=0; $i<$numfiles; $i++) {
 for($i=0; $i<$numfiles; $i++) {
     open(INFILE, $file[$i]);
     $line = <INFILE>;
-    $line = <INFILE>;
-    $line = <INFILE>;
-    $line = <INFILE>;
+    chomp($line);
+    $cnt = 0;
+    until(($line =~ /chr_name/) || ($cnt > 500)) {
+	$line = <INFILE>;
+ 	chomp($line);
+	$cnt++;
+    }
     while($line = <INFILE>) {
 	chomp($line);
 	@a1 = split(/\t/,$line);

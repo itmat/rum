@@ -16,9 +16,6 @@ Where:
   <coverage file>   : The coverage file output by RUM, sorted by chromosome
                       (it should be sorted already when it comes out of RUM).
 
-  <rum unique file> : RUM_Unique file output by RUM, the one that is sorted
-                      by chromosome/location.
-
   <annot file>      : Transcript models file, in the format of the RUM gene
                       info file.
 
