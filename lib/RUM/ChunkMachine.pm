@@ -4,7 +4,8 @@ use strict;
 use warnings;
 
 use RUM::StateMachine;
-use RUM::ChunkConfig;
+use RUM::Config
+    ;
 use FindBin qw($Bin);
 use Text::Wrap qw(fill wrap);
 FindBin->again();

@@ -38,7 +38,7 @@ sub main {
 
 sub get_options {
 
-    my $c = RUM::ChunkConfig->new();
+    my $c = RUM::Config->new();
 
     my $set = sub {
         my ($name) = @_;
@@ -59,7 +59,7 @@ sub get_options {
         "output|o=s"  => \(my $output_dir),
         "name=s"      => \(my $name),
         "chunks=s"    => \(my $num_chunks = 1),
-        "help"        => sub { RUM::Usage->help },
+        "help|h"        => sub { RUM::Usage->help },
         "help-config" => \(my $do_help_config),
         "read-lengths=s" => \(my $read_lengths),
 
@@ -102,7 +102,7 @@ sub get_options {
         return;
     }
     if ($do_help_config) {
-        print $RUM::ChunkConfig::CONFIG_DESC;
+        print $RUM::Config::CONFIG_DESC;
         return;
     }
 
@@ -150,8 +150,7 @@ sub get_options {
     $reads[0] ne $reads[1] or RUM::Usage->bad(
         "You specified the same file for the forward and reverse reads, must be an error...");
 
-    return RUM::ChunkConfig->new(
-        config_file => $rum_config_file,
+    my $config = RUM::Config->new(
         reads => \@reads,
         preserve_names => $preserve_names,
         min_length => $min_length,
@@ -159,6 +158,8 @@ sub get_options {
         num_chunks => $num_chunks
     );
 
+    $config->load_rum_config_file($rum_config_file);
+    return $config;
 }
 
 

@@ -3,7 +3,7 @@
 use Test::More tests => 12;
 use Test::Exception;
 use lib "lib";
-
+use FindBin qw($Bin);
 use strict;
 use warnings;
 use Log::Log4perl qw(:easy);
@@ -34,7 +34,6 @@ do {
     is($config->bowtie_genome_index, "e");
     is($config->bowtie_gene_index, "f");
     is($config->blat_genome_index, "g");
-
 
     $config->make_absolute("/foo/bar");
     is("/foo/bar/a", $config->gene_annotation_file);

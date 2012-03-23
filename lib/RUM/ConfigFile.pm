@@ -38,8 +38,6 @@ no warnings;
 
 use Getopt::Long;
 use Carp;
-use FindBin qw($Bin);
-FindBin->again;
 
 our @FIELDS = qw(gene_annotation_file
                  bowtie_bin
@@ -71,9 +69,7 @@ sub parse {
         local $_ = <$in>;
         croak "Not enough lines in config file" unless defined $_;
         chomp;
-        my $root = "$Bin/../";
-        my $abs_path = File::Spec->rel2abs($_, $root);
-        $self{$field} = $abs_path;
+        $self{$field} = $_;
     }
 
     while (defined(local $_ = <$in>)) {

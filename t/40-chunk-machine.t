@@ -12,7 +12,7 @@ use warnings;
 
 BEGIN { 
     use_ok('RUM::ChunkMachine');
-    use_ok('RUM::ChunkConfig');
+    use_ok('RUM::Config');
 }                                               
 
 my $repo = RUM::Repository->new(root_dir => "$Bin/../_testing");
@@ -25,7 +25,7 @@ SKIP: {
 
     skip "no index", 1 unless @indexes == 1;
     my $index = $indexes[0];
-    my $config = RUM::ChunkConfig->new(
+    my $config = RUM::Config->new(
         genome_bowtie => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_genome",
         genome_fa   => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs.fa",
         transcriptome_bowtie => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_ensembl_genes",

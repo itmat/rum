@@ -11,10 +11,10 @@ use strict;
 use warnings;
 
 BEGIN { 
-    use_ok('RUM::ChunkConfig');
+    use_ok('RUM::Config');
 }                                               
 
-my $config = RUM::ChunkConfig->new(output_dir => "foo");
+my $config = RUM::Config->new(output_dir => "foo");
 
 is($config->output_dir, "foo");
 is($config->reads_fa, "foo/reads.fa", "Getting property");

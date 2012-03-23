@@ -1,4 +1,4 @@
-package RUM::ChunkConfig;
+package RUM::Config;
 
 use strict;
 use warnings;
@@ -99,9 +99,42 @@ sub variable_read_lengths {
     $_[0]->variable_length_reads
 }
 
-sub default {
-    my ($class) = @_;
-    return $class->new();
+sub load_rum_config_file {
+    my ($self, $path) = @_;
+    
+    open my $in, "<", $path or croak "Can't open config file $path: $!";
+    my $cf = RUM::ConfigFile->parse($in);
+    
+    my %data;
+    $data{annotations}   = $cf->gene_annotation_file;
+    $data{bowtie_bin}    = $cf->bowtie_bin;
+    $data{blat_bin}      = $cf->blat_bin;
+    $data{mdust_bin}     = $cf->mdust_bin;
+    $data{genome_bowtie} = $cf->bowtie_genome_index;
+    $data{trans_bowtie}  = $cf->bowtie_gene_index;
+    $data{genome_fa}     = $cf->blat_genome_index;
+
+    -e $data{annotations} || $self->dna or die
+        "the file '$data{annotations}' does not seem to exist.";         
+
+    -e $data{bowtie_bin} or die
+        "the executable '$data{bowtie_bin}' does not seem to exist.";
+
+    -e $data{blat_bin} or die
+        "the executable '$data{blat_bin}' does not seem to exist.";
+
+    -e $data{mdust_bin} or die
+        "the executable '$data{mdust_bin}' does not seem to exist.";        
+
+    -e $data{genome_fa} or die
+        "the file '$data{genome_fa}' does not seem to exist.";
+    
+    $self->set("config_file", $path);
+    local $_;
+    for (keys %data) {
+        $self->set($_, $data{$_});
+    }
+    
 }
 
 sub new {
@@ -115,7 +148,7 @@ sub new {
     }
     
     if (my @extra = keys(%options)) {
-        croak "Extra arguments to ChunkConfig->new: @extra";
+        croak "Extra arguments to Config->new: @extra";
     }
 
     if ($data{config_file}) {
