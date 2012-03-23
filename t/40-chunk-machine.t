@@ -20,18 +20,13 @@ my @indexes = $repo->indexes(pattern => qr/TAIR/);
 
 my $out_dir = "$Bin/tmp/40-chunk-machine";
 my $state_dir = "$out_dir/state";
+my $conf_dir = $repo->conf_dir;
 
 SKIP: {
 
     skip "no index", 1 unless @indexes == 1;
     my $index = $indexes[0];
     my $config = RUM::Config->new(
-        genome_bowtie => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_genome",
-        genome_fa   => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs.fa",
-        transcriptome_bowtie => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_ensembl_genes",
-        annotations          => $repo->indexes_dir . "/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt",
-        bin_dir       => $repo->bin_dir,
-        reads         => "$INPUT_DIR/reads.fa",
         chunk         => 1,
         output_dir    => $out_dir,
         paired_end    => 1,
@@ -39,7 +34,7 @@ SKIP: {
         match_length_cutoff => 35,
         max_insertions => 1
     );
-
+    $config->load_rum_config_file("$conf_dir/rum.config_Arabidopsis");
     rmtree($out_dir);
     mkpath($config->state_dir);
     
