@@ -116,6 +116,15 @@ via "cpan -i $LOG4PERL" so you can use advanced logging features.
 
 EOF
 
+$SIG{__DIE__} = sub {
+    if($^S) {
+        # We're in an eval {} and don't want log
+        # this message but catch it later
+        return;
+    }
+    RUM::Logging->get_logger("RUM::Script")->logdie("Called fatal: ", @_);
+};
+
 sub _init {
     $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
 }
@@ -132,7 +141,10 @@ sub _init_log4perl {
     # Try to load Log::Log4perl, and if we can't just return so we
     # fall back to RUM::Logger.
     eval {
-        require "Log/Log4perl.pm"; # qw(:no_extra_logdie_message);
+        require "Log/Log4perl.pm";
+        my $resp = "LOG::Log4perl"->import(qw(:no_extra_logdie_message));
+        # This prevents a duplicate die message from being printed
+        $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR = 0;
         die if $ENV{RUM_HIDE_LOG4PERL};
     };
     if ($@) {

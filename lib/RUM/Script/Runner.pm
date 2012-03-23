@@ -16,7 +16,8 @@ use RUM::Common qw(is_fasta is_fastq head);
 use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
 use RUM::Workflow qw(shell);
-our $log = RUM::Logging->get_logger("RUM::UI");
+use Carp;
+our $log = RUM::Logging->get_logger();
 
 our $LOGO;
 
@@ -28,8 +29,7 @@ sub FATAL  { $log->fatal(wrap("", "", @_))  }
 sub LOGDIE { $log->logdie(wrap("", "", @_)) }
 
 sub main {
-    
-    my $config = __PACKAGE__->get_options() or return;
+    my $config = __PACKAGE__->get_options();
     my $self = __PACKAGE__->new(config => $config);
     $self->show_logo();
     $self->preprocess();
@@ -37,7 +37,7 @@ sub main {
 
 
 sub get_options {
-
+    
     my $c = RUM::Config->new();
 
     my $set = sub {
@@ -59,7 +59,6 @@ sub get_options {
         "output|o=s"  => \(my $output_dir),
         "name=s"      => \(my $name),
         "chunks=s"    => \(my $num_chunks = 1),
-        "help|h"        => sub { RUM::Usage->help },
         "help-config" => \(my $do_help_config),
         "read-lengths=s" => \(my $read_lengths),
 
@@ -94,7 +93,9 @@ sub get_options {
 
         "quals-file|qual-file=s" => \(my $quals_file),
         "verbose|v"   => sub { $log->more_logging(1) },
-        "quiet|q"     => sub { $log->less_logging(1) }
+        "quiet|q"     => sub { $log->less_logging(1) },
+        "help|h"        => sub { RUM::Usage->help }
+
     );
 
     if ($do_version) {
@@ -301,7 +302,7 @@ sub check_reads_for_quality {
 
     for my $filename (@{ $self->config->reads }) {
         
-        open my $fh, "<", $filename or LOGDIE
+        open my $fh, "<", $filename or croak
             "Can't open reads file $filename for reading: $!";
 
         while (local $_ = <$fh>) {
