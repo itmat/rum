@@ -1770,7 +1770,7 @@ if($postprocess eq "false") {
             $shellscript = $shellscript . "perl $scripts_dir/quantifyexons.pl $output_dir/inferred_internal_exons.txt $output_dir/RUM_Unique.sorted $output_dir/RUM_NU.sorted $output_dir/quant.1 -novel -countsonly 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir 1 $output_dir/novel_exon_quant_temp -header 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
 	    $shellscript = $shellscript . "grep -v transcript $output_dir/novel_exon_quant_temp > $output_dir/novel_inferred_internal_exons_quantifications_$name\n";
-            $shellscript = $shellscript . "echo post-processing finished >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "echo post-processing finished for $JID >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
             if($qsub2 eq "true") {
         	   $shellscript =~ s!2>>\s*[^\s]*!!gs;
@@ -2018,7 +2018,7 @@ if($postprocess eq "false") {
                                  if($restarted{$i} == 1) {
                                      $J1 = $i;
                                      $J3 = $i;
-                                     $FILE =~ s/\.$i/.$i.1/g;
+                                     $FILE =~ s/\.$i([\s])/.$i.1$1/g;
                                      $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
                                      $suffixold = $i;
                                      $suffixnew = "$i.1";
@@ -2026,7 +2026,7 @@ if($postprocess eq "false") {
                                      $J1 = $restarted{$i} - 1;
                                      $J2 = $restarted{$i};
                                      $J3 = "$i.$J1";
-                                     $FILE =~ s/\.$i\.$J1/.$i.$J2/g;
+                                     $FILE =~ s/\.$i\.$J1([\s])/.$i.$J2$1/g;
                                      $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
                                      $suffixold = "$i.$J1";
                                      $suffixnew = "$i.$J2";
@@ -2482,12 +2482,13 @@ undef %child;
 
 $finished = 0;
 $number_consecutive_restarts_pp = 0;
-while($doneflag == 0) {
+while (!$doneflag) {
     $doneflag = 1;
     $x = "";
     if (-e "$output_dir/$PPlog") {
+
 	$x = `cat $output_dir/$PPlog`;
-	if(!($x =~ /post-processing finished/s)) {
+	if(!($x =~ /post-processing finished for $JID/s)) {
   	    $doneflag = 0;
 	}
     } else {
