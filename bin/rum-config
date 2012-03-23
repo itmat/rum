@@ -11,7 +11,7 @@ use FindBin '$Bin';
 use lib "$Bin/../lib";
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init($WARN);
-use RUM::Config qw(config_defaults config_fields format_config);
+use RUM::ConfigFile qw(config_defaults config_fields format_config);
 use RUM::Script qw(show_usage);
 
 my %options = %{ config_defaults() };

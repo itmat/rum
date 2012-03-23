@@ -3,23 +3,23 @@
 
 =head1 NAME
 
-RUM::Config - A RUM configuration file
+RUM::ConfigFile - A RUM configuration file
 
 =head1 SYNOPSIS
 
-  use RUM::Config;
+  use RUM::ConfigFile;
 
 Parse a config file
 
   open my $in, "<", "rum.config_zebrafish";
-  my $config = RUM::Config->parse($in);
+  my $config = RUM::ConfigFile->parse($in);
 
 Format a configuration
 
   my $config_text = $config->to_str();
 
   # Get list of field names
-for my $field (RUM::Config->fields()) {
+for my $field (RUM::ConfigFile->fields()) {
   ...
 }
 
@@ -31,7 +31,7 @@ This package provides utilities for parsing and formatting a Rum config file.
 
 =cut
 
-package RUM::Config;
+package RUM::ConfigFile;
 
 use strict;
 no warnings;
@@ -55,9 +55,9 @@ our @FIELDS = qw(gene_annotation_file
 
 =cut
 
-=item RUM::Config->parse($in)
+=item RUM::ConfigFile->parse($in)
 
-Parse the open filehandle $in and return a RUM::Config object.
+Parse the open filehandle $in and return a RUM::ConfigFile object.
 
 =back
 

@@ -34,7 +34,7 @@ no warnings;
 
 use FindBin qw($Bin);
 use RUM::Repository::IndexSpec;
-use RUM::Config;
+use RUM::ConfigFile;
 use Carp;
 use File::Spec;
 use Exporter qw(import);
@@ -231,7 +231,7 @@ sub install_index {
         if ($self->is_config_filename($filename)) {
             open my $in, "<", $filename 
                 or croak "Can't open config file $filename for reading: $!";
-            my $config = RUM::Config->parse($in, quiet => 1);
+            my $config = RUM::ConfigFile->parse($in, quiet => 1);
             close $in;
             $config->make_absolute($self->root_dir);
             open my $out, ">", $filename 

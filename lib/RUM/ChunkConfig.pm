@@ -121,7 +121,7 @@ sub new {
     if ($data{config_file}) {
         open my $in, "<", $data{config_file}
             or croak "Can't open config file $data{config_file}: $!";
-        my $config = RUM::Config->parse($in);
+        my $config = RUM::ConfigFile->parse($in);
         
         $data{annotations} = $config->gene_annotation_file;
         unless ($data{dna}) {

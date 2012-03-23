@@ -9,7 +9,7 @@ use warnings;
 use Log::Log4perl qw(:easy);
 
 BEGIN { 
-  use_ok('RUM::Config');
+  use_ok('RUM::ConfigFile');
 }
 
 my $valid_config_text = join("", map("$_\n", ('a' .. 'g')));
@@ -26,7 +26,7 @@ my $valid_config_hashref = {
 # Parse a valid config file
 do {
     open my $config_in, "<", \$valid_config_text;
-    my $config = RUM::Config->parse($config_in);
+    my $config = RUM::ConfigFile->parse($config_in);
     is($config->gene_annotation_file, "a");
     is($config->bowtie_bin, "b");
     is($config->blat_bin, "c");
@@ -44,7 +44,7 @@ do {
 do {
     my $config_text = join("", map("$_\n", ('a' .. 'z')));
     open my $config_in, "<", \$config_text;
-    is_deeply(RUM::Config->parse($config_in, quiet=>1), $valid_config_hashref, 
+    is_deeply(RUM::ConfigFile->parse($config_in, quiet=>1), $valid_config_hashref, 
               "Parse valid config file");
 };
 
@@ -52,14 +52,14 @@ do {
 do {
     my $config_text = join("", map("$_\n", ('a' .. 'd')));
     open my $config_in, "<", \$config_text;
-    throws_ok { RUM::Config->parse($config_in) } qr/not enough lines/i,
+    throws_ok { RUM::ConfigFile->parse($config_in) } qr/not enough lines/i,
         "Throw when a config file is too short";
 };
 
 # Stringify a config file
 do {
     open my $config_in, "<", \$valid_config_text;
-    is(RUM::Config->parse($config_in)->to_str,
+    is(RUM::ConfigFile->parse($config_in)->to_str,
        $valid_config_text,
        "Stringify a config file");
 };
