@@ -18,7 +18,8 @@ RUM_runner
 
 =head1 SYNOPSIS
 
-  RUM_runner.pl [OPTIONS] --config <config_file> --forward <forward_reads> [--reverse <reverse_reads>] -o <output_dir> --name <name>
+  RUM_runner.pl [OPTIONS] --config <config_file> -o <output_dir> --name <name> READS
+  RUM_runner.pl [OPTIONS] --config <config_file> -o <output_dir> --name <name> FORWARD REVERSE
   RUM_runner.pl --help
   RUM_runner.pl --version
   RUM_runner.pl --kill

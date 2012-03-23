@@ -108,8 +108,6 @@ sub new {
     my ($class, %options) = @_;
     my %data = %DEFAULTS;
     
-    # TODO: Add read_length, match_length_cutoff
-
     for (@LITERAL_PROPERTIES) {
         if (exists $options{$_}) {
             $data{$_} = delete $options{$_};

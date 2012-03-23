@@ -28,8 +28,11 @@ sub FATAL  { $log->fatal(wrap("", "", @_))  }
 sub LOGDIE { $log->logdie(wrap("", "", @_)) }
 
 sub main {
-    my $self = __PACKAGE__->new();
-    $self->get_options();
+    
+    my $config = __PACKAGE__->get_options() or return;
+    my $self = __PACKAGE__->new(config => $config);
+    $self->show_logo();
+    $self->preprocess();
 }
 
 
@@ -44,10 +47,10 @@ sub get_options {
         }
     };
 
-
+    Getopt::Long::Configure(qw(no_ignore_case));
     GetOptions(
 
-        "version"     => \(my $do_version),
+        "version|V"   => \(my $do_version),
         "kill"        => \(my $do_kill),
         "postprocess" => \(my $do_postprocess),
 
@@ -93,8 +96,6 @@ sub get_options {
         "verbose|v"   => sub { $log->more_logging(1) },
         "quiet|q"     => sub { $log->less_logging(1) }
     );
-
-    my @reads = @ARGV;
 
     if ($do_version) {
         print "RUM version $RUM::Pipeline::VERSION, released $RUM::Pipeline::RELEASE_DATE\n";
@@ -142,10 +143,14 @@ sub get_options {
         "Please provide a name with --name");
     $name = fix_name($name);
 
+    # Check the values supplied as the reads
+    my @reads = @ARGV;
     @reads == 1 or @reads == 2 or RUM::Usage->bad(
         "Please provide one or two read files");
+    $reads[0] ne $reads[1] or RUM::Usage->bad(
+        "You specified the same file for the forward and reverse reads, must be an error...");
 
-    my $config = RUM::ChunkConfig->new(
+    return RUM::ChunkConfig->new(
         config_file => $rum_config_file,
         reads => \@reads,
         preserve_names => $preserve_names,
@@ -154,10 +159,13 @@ sub get_options {
         num_chunks => $num_chunks
     );
 
-    show_logo();
-    my $runner = __PACKAGE__->new(config => $config);
-    $runner->preprocess;
 }
+
+
+sub config {
+    return $_[0]->{config};
+}
+
 
 sub preprocess {
     my ($self) = @_;
@@ -168,6 +176,20 @@ sub preprocess {
     $self->check_read_length();
     $self->run_chunks();
 }
+
+sub setup {
+    my ($self) = @_;
+    my $output_dir = $self->config->output_dir;
+    unless (-d $output_dir) {
+        mkpath($output_dir) or LOGDIE "mkdir $output_dir: $!";
+    }
+
+}
+
+################################################################################
+##
+## Preprocessing checks on the input files
+##
 
 sub check_read_length {
     
@@ -188,18 +210,6 @@ sub check_read_length {
     }
 }
 
-sub setup {
-    my ($self) = @_;
-    my $output_dir = $self->config->output_dir;
-    unless (-d $output_dir) {
-        mkpath($output_dir) or LOGDIE "mkdir $output_dir: $!";
-    }
-
-}
-
-sub config {
-    return $_[0]->{config};
-}
 
 sub new {
     my ($class, %options) = @_;
@@ -252,11 +262,13 @@ our $READ_CHECK_LINES = 50000;
 sub check_reads {
     my ($self) = @_;
 
-    my @reads  = @{ $self->config->reads };
+    my $config = $self->config;
+    my @reads  = $self->reads;
 
+    # ??? I think if there are two read files, they are definitely
+    # paired end. Not sure what implications this has for
+    # file_needs_splitting or preformatted.
     return if @reads == 2;
-
-    $self->{$_} = 0 for qw(paired_end needs_splitting preformatted);
 
     my $head = join("\n", head($reads[0], 4));
     $head =~ /seq.(\d+)(.).*seq.(\d+)(.)/s or return;
@@ -265,19 +277,23 @@ sub check_reads {
     my @types = ($2, $4);
 
     if($nums[0] == 1 && $nums[1] == 1 && $types[0] eq 'a' && $types[1] eq 'b') {
-        $self->{$_} = 1 for qw(paired_end file_needs_splitting preformatted);
+        $config->set("paired_end", 1);
+        $config->set("file_needs_splitting", 1);
+        $config->set("preformatted", 1);
     }
     if($nums[0] == 1 && $nums[1] == 2 && $types[0] eq 'a' && $types[1] eq 'a') {
-        $self->{$_} = 1 for qw(file_needs_splitting preformatted);
+        $config->set("paired_end", 0);
+        $config->set("file_needs_splitting", 1);
+        $config->set("preformatted", 1);
+    }
+    else {
+        $config->set("paired_end", 0);
+        $config->set("file_needs_splitting", 0);
+        $config->set("preformatted", 0);
     }
 }
 
 sub postprocess_only { shift->{postprocess_only} }
-sub output_dir       { shift->{output_dir} }
-
-sub scripts_dir { 
-    return "$Bin/../bin";
-}
 
 sub check_reads_for_quality {
     my ($self, $fh, $name) = @_;
@@ -296,6 +312,18 @@ sub check_reads_for_quality {
     }
 }
 
+sub reads {
+    return @{ $_[0]->config->reads };
+}
+
+sub check_read_files_same_size {
+    my ($self) = @_;
+    my @sizes = map -s, $self->reads;
+    $sizes[0] == $sizes[1] or die
+        "The fowards and reverse files are different sizes. $sizes[0]
+        versus $sizes[1].  They should be the exact same size.";
+}
+
 sub check_reads_2 {
 
     my ($self) = @_;
@@ -304,17 +332,8 @@ sub check_reads_2 {
 
     return if @reads == 1 || $self->postprocess_only;
 
-    @reads <= 2 or RUM::Usage->bad(
-        "You've given more than two files of reads, should be at most two files.");
-
-    $reads[0] ne $reads[1] or RUM::Usage->bad(
-        "You specified the same file for the forward and reverse reads, must be an error...");
-
     
-    my @sizes = map -s, @reads;
-    $sizes[0] == $sizes[1] or die
-        "The fowards and reverse files are different sizes. $sizes[0]
-        versus $sizes[1].  They should be the exact same size.";
+    $self->check_read_files_same_size();
 
     my $config = $self->config;
 
@@ -324,11 +343,15 @@ sub check_reads_2 {
     chomp($len);
     $len =~ s/[^\d]//gs;
 
-    my $scripts_dir = $self->scripts_dir;
-    my $output_dir  = $self->output_dir;
+    my $parse2fasta = $config->script("parse2fasta.pl");
+    my $fastq2qualities = $config->script("fastq2qualities.pl");
+    my $output_dir  = $config->output_dir;
+    
+    my $reads_temp = "$output_dir/reads_temp.fa";
+    my $quals_temp = "$output_dir/quals_temp.fa";
 
-    `perl $scripts_dir/parse2fasta.pl     $reads[0] $reads[1] | head -$len > $output_dir/reads_temp.fa 2>> $output_dir/rum.error-log`;
-    `perl $scripts_dir/fastq2qualities.pl $reads[0] $reads[1] | head -$len > $output_dir/quals_temp.fa 2>> $output_dir/rum.error-log`;
+    shell("perl $parse2fasta     @reads | head -$len > $reads_temp 2>> $output_dir/rum.error-log");
+    shell("perl $fastq2qualities @reads | head -$len > $quals_temp 2>> $output_dir/rum.error-log");
     my $X = `head -20 $output_dir/quals_temp.fa`;
     if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
         open(RFILE, "$output_dir/reads_temp.fa");
@@ -340,13 +363,12 @@ sub check_reads_2 {
             chomp($line1);
             chomp($line2);
             if(length($line1) != length($line2)) {
-               LOGDIE("It seems your read lengths differ from your quality string lengths. Check line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.");
+                LOGDIE("It seems your read lengths differ from your quality string lengths. Check line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.");
             }
         }
     }
 
     # Check that reads are not variable length
-
     if($X =~ /\S/s) {
         open(RFILE, "$output_dir/reads_temp.fa");
         my $length_flag = 0;
