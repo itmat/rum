@@ -122,7 +122,7 @@ $SIG{__DIE__} = sub {
         # this message but catch it later
         return;
     }
-    RUM::Logging->get_logger("RUM::Script")->logdie("Called fatal: ", @_);
+    RUM::Logging->get_logger("RUM::Script")->logdie(@_);
 };
 
 sub _init {

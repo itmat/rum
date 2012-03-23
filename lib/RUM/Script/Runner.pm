@@ -175,7 +175,7 @@ sub preprocess {
     $self->check_reads_for_quality;
     $self->check_reads();
     $self->reformat_reads();
-    $self->check_read_length();
+    $self->set_read_length();
     $self->run_chunks();
 }
 
@@ -193,21 +193,24 @@ sub setup {
 ## Preprocessing checks on the input files
 ##
 
-sub check_read_length {
+sub set_read_length {
     
     my ($self) = @_;
+
 
     my @lines = head($self->config->reads_fa, 2);
     my $read = $lines[1];
     my $len = split(//,$read);
     my $min = $self->config->min_length;
+    $log->info("Read length is $len, min is $min");
     if ($self->config->variable_read_lengths) {
+        $log->info("Using variable read length");
         $self->config->set("read_length", "v");
     }
     else{
         $self->config->set("read_length", $len);
         if (($min || 0) > $len) {
-            LOGDIE("You specified a minimum length alignment to report as '$min', however your read length is only $len");
+            die "You specified a minimum length alignment to report as '$min', however your read length is only $len\n";
         }
     }
 }
