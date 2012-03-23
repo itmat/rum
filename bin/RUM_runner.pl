@@ -2016,7 +2016,7 @@ if($postprocess eq "false") {
                                  if($restarted{$i} == 1) {
                                      $J1 = $i;
                                      $J3 = $i;
-                                     $FILE =~ s/\.$i/.$i.1/g;
+                                     $FILE =~ s/\.$i([\s])/.$i.1$1/g;
                                      $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
                                      $suffixold = $i;
                                      $suffixnew = "$i.1";
@@ -2024,7 +2024,7 @@ if($postprocess eq "false") {
                                      $J1 = $restarted{$i} - 1;
                                      $J2 = $restarted{$i};
                                      $J3 = "$i.$J1";
-                                     $FILE =~ s/\.$i\.$J1/.$i.$J2/g;
+                                     $FILE =~ s/\.$i\.$J1([\s])/.$i.$J2$1/g;
                                      $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
                                      $suffixold = "$i.$J1";
                                      $suffixnew = "$i.$J2";
