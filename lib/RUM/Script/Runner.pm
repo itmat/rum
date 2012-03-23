@@ -172,10 +172,9 @@ sub config {
 sub preprocess {
     my ($self) = @_;
     $self->setup;
-    $self->check_reads_for_quality;
-    $self->check_reads();
+    $self->check_input();
     $self->reformat_reads();
-    $self->set_read_length();
+    $self->determine_read_length();
     $self->run_chunks();
 }
 
@@ -193,7 +192,155 @@ sub setup {
 ## Preprocessing checks on the input files
 ##
 
-sub set_read_length {
+our $READ_CHECK_LINES = 50000;
+
+
+sub check_input {
+    my ($self) = @_;
+    $self->info("Checking input files");
+    $self->check_reads_for_quality;
+
+    if ($self->reads == 1) {
+        $self->check_single_reads_file;
+    }
+    else {
+        $self->check_read_file_pair;
+    }
+
+}
+
+sub check_single_reads_file {
+    my ($self) = @_;
+
+    my $config = $self->config;
+    my @reads  = $self->reads;
+
+    # ??? I think if there are two read files, they are definitely
+    # paired end. Not sure what implications this has for
+    # input_needs_splitting or preformatted.
+    return if @reads == 2;
+
+    my $head = join("\n", head($reads[0], 4));
+    $head =~ /seq.(\d+)(.).*seq.(\d+)(.)/s or return;
+
+    my @nums  = ($1, $3);
+    my @types = ($2, $4);
+
+    my ($paired, $needs_splitting, $preformatted) = (0, 0, 0);
+
+    if($nums[0] == 1 && $nums[1] == 1 && $types[0] eq 'a' && $types[1] eq 'b') {
+        $log->info("Input appears to be paired-end");
+        ($paired, $needs_splitting, $preformatted) = (1, 1, 1);
+    }
+    if($nums[0] == 1 && $nums[1] == 2 && $types[0] eq 'a' && $types[1] eq 'a') {
+        $log->info("Input does not appear to be paired-end");
+        ($paired, $needs_splitting, $preformatted) = (0, 1, 1);
+    }
+    $config->set("paired_end", $paired);
+    $config->set("input_needs_splitting", $needs_splitting);
+    $config->set("input_is_preformatted", $preformatted);
+
+}
+
+
+sub check_reads_for_quality {
+    my ($self, $fh, $name) = @_;
+
+    for my $filename (@{ $self->config->reads }) {
+        
+        open my $fh, "<", $filename or croak
+            "Can't open reads file $filename for reading: $!";
+
+        while (local $_ = <$fh>) {
+            next unless /:Y:/;
+            $_ = <$fh>;
+            chomp;
+            /^--$/ and LOGDIE "you appear to have entries in your fastq file \"$name\" for reads that didn't pass quality. These are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\". You first need to remove all such lines from the file, including the ones with the two dashes...";
+            }
+    }
+}
+
+sub check_read_files_same_size {
+    my ($self) = @_;
+    my @sizes = map -s, $self->reads;
+    $sizes[0] == $sizes[1] or die
+        "The fowards and reverse files are different sizes. $sizes[0]
+        versus $sizes[1].  They should be the exact same size.";
+}
+
+sub check_read_file_pair {
+
+    my ($self) = @_;
+
+    my @reads = @{ $self->config->reads };
+
+    return if @reads == 1 || $self->postprocess_only;
+
+    
+    $self->check_read_files_same_size();
+
+    my $config = $self->config;
+
+    # Check here that the quality scores are the same length as the reads.
+
+    my $len = `head -50000 $reads[0] | wc -l`;
+    chomp($len);
+    $len =~ s/[^\d]//gs;
+
+    my $parse2fasta = $config->script("parse2fasta.pl");
+    my $fastq2qualities = $config->script("fastq2qualities.pl");
+
+    my $reads_temp = $config->in_output_dir("reads_temp.fa");
+    my $quals_temp = $config->in_output_dir("quals_temp.fa");
+    my $error_log  = $config->in_output_dir("rum.error-log");
+
+    $log->debug("Checking that reads and quality strings are the same length");
+    shell("perl $parse2fasta     @reads | head -$len > $reads_temp 2>> $error_log");
+    shell("perl $fastq2qualities @reads | head -$len > $quals_temp 2>> $error_log");
+    my $X = `head -20 $quals_temp`;
+    if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
+        open(RFILE, $reads_temp);
+        open(QFILE, $quals_temp);
+        while(my $linea = <RFILE>) {
+            my $lineb = <QFILE>;
+            my $line1 = <RFILE>;
+            my $line2 = <QFILE>;
+            chomp($line1);
+            chomp($line2);
+            if(length($line1) != length($line2)) {
+                LOGDIE("It seems your read lengths differ from your quality string lengths. Check line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.");
+            }
+        }
+    }
+
+    # Check that reads are not variable length
+    if($X =~ /\S/s) {
+        open(RFILE, $reads_temp);
+        my $length_flag = 0;
+        my $length_hold;
+        while(my $linea = <RFILE>) {
+            my $line1 = <RFILE>;
+            chomp($line1);
+            if($length_flag == 0) {
+                $length_hold = length($line1);
+                $length_flag = 1;
+            }
+            if(length($line1) != $length_hold && !$config->variable_read_lengths) {
+                WARN("It seems your read lengths vary, but you didn't set -variable_length_reads. I'm going to set it for you, but it's generally safer to set it on the command-line since I only spot check the file.");
+                $config->set('variable_read_lengths', 1);
+            }
+            $length_hold = length($line1);
+        }
+    }
+
+    # Clean up:
+
+    unlink($reads_temp);
+    unlink($quals_temp);
+
+}
+
+sub determine_read_length {
     
     my ($self) = @_;
 
@@ -261,143 +408,13 @@ sub check_gamma {
     }
 }
 
-our $READ_CHECK_LINES = 50000;
-
-
-sub check_reads {
-    my ($self) = @_;
-
-    my $config = $self->config;
-    my @reads  = $self->reads;
-
-    # ??? I think if there are two read files, they are definitely
-    # paired end. Not sure what implications this has for
-    # file_needs_splitting or preformatted.
-    return if @reads == 2;
-
-    my $head = join("\n", head($reads[0], 4));
-    $head =~ /seq.(\d+)(.).*seq.(\d+)(.)/s or return;
-
-    my @nums  = ($1, $3);
-    my @types = ($2, $4);
-
-    if($nums[0] == 1 && $nums[1] == 1 && $types[0] eq 'a' && $types[1] eq 'b') {
-        $config->set("paired_end", 1);
-        $config->set("file_needs_splitting", 1);
-        $config->set("preformatted", 1);
-    }
-    if($nums[0] == 1 && $nums[1] == 2 && $types[0] eq 'a' && $types[1] eq 'a') {
-        $config->set("paired_end", 0);
-        $config->set("file_needs_splitting", 1);
-        $config->set("preformatted", 1);
-    }
-    else {
-        $config->set("paired_end", 0);
-        $config->set("file_needs_splitting", 0);
-        $config->set("preformatted", 0);
-    }
-}
 
 sub postprocess_only { shift->{postprocess_only} }
 
-sub check_reads_for_quality {
-    my ($self, $fh, $name) = @_;
 
-    for my $filename (@{ $self->config->reads }) {
-        
-        open my $fh, "<", $filename or croak
-            "Can't open reads file $filename for reading: $!";
-
-        while (local $_ = <$fh>) {
-            next unless /:Y:/;
-            $_ = <$fh>;
-            chomp;
-            /^--$/ and LOGDIE "you appear to have entries in your fastq file \"$name\" for reads that didn't pass quality. These are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\". You first need to remove all such lines from the file, including the ones with the two dashes...";
-            }
-    }
-}
 
 sub reads {
     return @{ $_[0]->config->reads };
-}
-
-sub check_read_files_same_size {
-    my ($self) = @_;
-    my @sizes = map -s, $self->reads;
-    $sizes[0] == $sizes[1] or die
-        "The fowards and reverse files are different sizes. $sizes[0]
-        versus $sizes[1].  They should be the exact same size.";
-}
-
-sub check_reads_2 {
-
-    my ($self) = @_;
-
-    my @reads = @{ $self->config->reads };
-
-    return if @reads == 1 || $self->postprocess_only;
-
-    
-    $self->check_read_files_same_size();
-
-    my $config = $self->config;
-
-    # Check here that the quality scores are the same length as the reads.
-
-    my $len = `head -50000 $reads[0] | wc -l`;
-    chomp($len);
-    $len =~ s/[^\d]//gs;
-
-    my $parse2fasta = $config->script("parse2fasta.pl");
-    my $fastq2qualities = $config->script("fastq2qualities.pl");
-    my $output_dir  = $config->output_dir;
-    
-    my $reads_temp = "$output_dir/reads_temp.fa";
-    my $quals_temp = "$output_dir/quals_temp.fa";
-
-    shell("perl $parse2fasta     @reads | head -$len > $reads_temp 2>> $output_dir/rum.error-log");
-    shell("perl $fastq2qualities @reads | head -$len > $quals_temp 2>> $output_dir/rum.error-log");
-    my $X = `head -20 $output_dir/quals_temp.fa`;
-    if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
-        open(RFILE, "$output_dir/reads_temp.fa");
-        open(QFILE, "$output_dir/quals_temp.fa");
-        while(my $linea = <RFILE>) {
-            my $lineb = <QFILE>;
-            my $line1 = <RFILE>;
-            my $line2 = <QFILE>;
-            chomp($line1);
-            chomp($line2);
-            if(length($line1) != length($line2)) {
-                LOGDIE("It seems your read lengths differ from your quality string lengths. Check line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.");
-            }
-        }
-    }
-
-    # Check that reads are not variable length
-    if($X =~ /\S/s) {
-        open(RFILE, "$output_dir/reads_temp.fa");
-        my $length_flag = 0;
-        my $length_hold;
-        while(my $linea = <RFILE>) {
-            my $line1 = <RFILE>;
-            chomp($line1);
-            if($length_flag == 0) {
-                $length_hold = length($line1);
-                $length_flag = 1;
-            }
-            if(length($line1) != $length_hold && !$config->variable_read_lengths) {
-                WARN("It seems your read lengths vary, but you didn't set -variable_length_reads. I'm going to set it for you, but it's generally safer to set it on the command-line since I only spot check the file.");
-                $config->set('variable_read_lengths', 1);
-            }
-            $length_hold = length($line1);
-        }
-    }
-
-    # Clean up:
-
-    unlink("$output_dir/reads_temp.fa");
-    unlink("$output_dir/quals_temp.fa");
-
 }
 
 sub reformat_reads {
@@ -443,21 +460,21 @@ sub reformat_reads {
         my @errors = `grep -A 2 "something wrong with line" $error_log`;
         die "@errors" if @errors;
         $self->{quals} = 1;
-        $self->{file_needs_splitting} = 0;
+        $self->{input_needs_splitting} = 0;
     }
  
     elsif ($is_fasta && !$config->variable_read_lengths && !$preformatted && $num_chunks > 1) {
         INFO("Splitting fasta file into $num_chunks chunks");
         shell("perl $parse_fasta $reads_in $num_chunks $reads_fa $name_mapping_opt 2>> $error_log");
         $self->{quals} = 0;
-        $self->{file_needs_splitting} = 0;
+        $self->{input_needs_splitting} = 0;
      } 
 
     elsif (!$preformatted) {
         INFO("Splitting fasta file into reads and quals");
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
-        $self->{file_needs_splitting} = 1;
+        $self->{input_needs_splitting} = 1;
         my $X = join("\n", head($config->quals_fa, 20));
         if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
             $self->{quals} = "true";

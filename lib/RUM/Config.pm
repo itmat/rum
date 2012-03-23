@@ -11,13 +11,14 @@ our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
 FindBin->again;
 
-
 our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  match_length_cutoff max_insertions num_chunks bin_dir genome_bowtie
  genome_fa transcriptome_bowtie annotations num_chunks read_length
  min_overlap max_insertions match_length_cutoff limit_nu_cutoff
  preserve_names variable_length_reads config_file
  bowtie_bin mdust_bin blat_bin trans_bowtie min_length reads
+ input_needs_splitting
+ input_is_preformatted
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (
@@ -221,7 +222,7 @@ sub AUTOLOAD {
     return if $name eq "DESTROY";
     
     is_property($name) or croak "No such property $name";
-
+    
     if ($CHUNK_SUFFIXED_PROPERTIES{$name}) {
         return $self->chunk_suffixed($CHUNK_SUFFIXED_PROPERTIES{$name});
     }
