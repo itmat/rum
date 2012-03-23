@@ -9,39 +9,6 @@ our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
 FindBin->again;
 
-our $CONFIG_DESC = <<EOF;
-The following describes the configuration file:
-
-Note: All entries can be absolute path, or relative path to where RUM
-is installed.
-
-1) gene annotation file, can be absolute, or relative to where RUM is installed
-   e.g.: indexes/mm9_ucsc_refseq_gene_info.txt
-
-2) bowtie executable, can be absolute, or relative to where RUM is installed
-   e.g.: bowtie/bowtie
-
-3) blat executable, can be absolute, or relative to where RUM is installed
-   e.g.: blat/blat
-
-4) mdust executable, can be absolute, or relative to where RUM is installed
-   e.g.: mdust/mdust
-
-5) bowtie genome index, can be absolute, or relative to where RUM is installed
-   e.g.: indexes/mm9
-
-6) bowtie gene index, can be absolute, or relative to where RUM is installed
-   e.g.: indexes/mm9_genes_ucsc_refseq
-
-7) blat genome index, can be absolute, or relative to where RUM is installed
-   e.g. indexes/mm9_genome_sequence_single-line-seqs.fa
-
-8) [DEPRECATED] perl scripts directory. This is now ignored, and this script
-    will use $Bin/../bin
-
-9) [DEPRECATED] lib directory. This is now ignored, and this script will use
-    $Bin/../lib
-EOF
 
 our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  match_length_cutoff max_insertions num_chunks bin_dir genome_bowtie

@@ -183,6 +183,10 @@ sub missing_fields {
     return grep { not $self->{$_} } @FIELDS;
 }
 
+
+
+
+
 =back
 
 =head1 AUTHOR
@@ -194,6 +198,38 @@ Mike DeLaurentis (delaurentis@gmail.com)
 Copyright 2012, University of Pennsylvania
 
 =cut
+
+our $DOC = <<EOF;
+The following describes the configuration file:
+
+Note: All entries can be absolute path, or relative path to where RUM
+is installed.
+
+1) gene annotation file, can be absolute, or relative to where RUM is installed
+   e.g.: indexes/mm9_ucsc_refseq_gene_info.txt
+
+2) bowtie executable, can be absolute, or relative to where RUM is installed
+   e.g.: bowtie/bowtie
+
+3) blat executable, can be absolute, or relative to where RUM is installed
+   e.g.: blat/blat
+
+4) mdust executable, can be absolute, or relative to where RUM is installed
+   e.g.: mdust/mdust
+
+5) bowtie genome index, can be absolute, or relative to where RUM is installed
+   e.g.: indexes/mm9
+
+6) bowtie gene index, can be absolute, or relative to where RUM is installed
+   e.g.: indexes/mm9_genes_ucsc_refseq
+
+7) blat genome index, can be absolute, or relative to where RUM is installed
+   e.g. indexes/mm9_genome_sequence_single-line-seqs.fa
+
+8) [DEPRECATED] perl scripts directory. This is now ignored.
+
+9) [DEPRECATED] lib directory. This is now ignored.
+EOF
 
 
 1;

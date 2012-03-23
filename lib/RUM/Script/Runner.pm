@@ -102,7 +102,7 @@ sub get_options {
         return;
     }
     if ($do_help_config) {
-        print $RUM::Config::CONFIG_DESC;
+        print $RUM::ConfigFile::DOC;
         return;
     }
 
