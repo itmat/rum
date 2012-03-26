@@ -6,7 +6,8 @@ use Carp;
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
                     reversecomplement format_large_int spansTotalLength
-                    reversesignal read_chunk_id_mapping is_fasta is_fastq head);
+                    reversesignal read_chunk_id_mapping is_fasta is_fastq head
+                    num_digits);
 
 =head1 FUNCTIONS
 
@@ -354,6 +355,17 @@ sub is_fasta {
         $lines[$i*2]   =~ /^>/               or return 0;
         $lines[$i*2+1] =~ /^[acgtnACGTN.]+$/ or return 0;
     }    
+}
+
+sub num_digits {
+    my ($n) = (@_);
+    my $size = 0;
+
+    do {
+        $size++;
+        $n = int($n / 10);
+    } while ($n);
+    return $size;
 }
 
 1;

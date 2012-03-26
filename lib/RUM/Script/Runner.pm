@@ -515,9 +515,33 @@ sub reformat_reads {
 
 sub print_status {
     my ($self) = @_;
+    local $_;
     my $config = $self->config;
-    my $m = RUM::ChunkMachine->new($config);
-    $m->print_state();
+
+    my @steps;
+    my %num_completed;
+    my %comments;
+    my @machines = $self->chunk_machines;
+    for my $m (@machines) {
+
+        for my $row ($m->state_report) {
+            my ($completed, $name) = @$row;
+            unless (exists $num_completed{$name}) {
+                $num_completed{$name} = 0;
+                $comments{$name} = $m->step_comment($name);
+                push @steps, $name;
+            }
+            $num_completed{$name} += $completed;
+        }
+    }
+
+
+    for (@steps) {
+        my $comment   = $comments{$_};
+        my $completed = $num_completed{$_};
+        print "$completed $comment\n";
+    }
+
 }
 
 sub chunk_machines {

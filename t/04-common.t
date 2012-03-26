@@ -12,7 +12,7 @@ use Log::Log4perl qw(:easy);
 BEGIN { 
   use_ok('RUM::Common', qw(getave format_large_int reversesignal 
                            spansTotalLength addJunctionsToSeq Roman arabic
-                           isroman roman));
+                           isroman roman num_digits));
 }
 
 is(getave("10184-10303"), "10243.5");
@@ -56,3 +56,10 @@ is(Roman(0), undef, "Roman with 0 as input");
 is(Roman(100000), undef, "Roman with large input");
 is(arabic(""), undef, "arabic with empty input");
 is(isroman(""), "", "isroman with empty input");
+is(num_digits(0), 1);
+is(num_digits(1), 1);
+is(num_digits(9), 1);
+is(num_digits(10), 2);
+is(num_digits(99), 2);
+is(num_digits(100), 3);
+
