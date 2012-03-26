@@ -403,21 +403,30 @@ sub new {
     return $self;
 }
 
+sub state_machine {
+    return $_[0]->{sm};
+}
+
+sub state {
+    my ($self) = @_;
+    
+    local $_;
+    my $dir = $self->{config}->state_dir;
+    my $m = $self->state_machine;
+    my $state = 0;
+
+    for ($m->flags) {
+        if (-e "$dir/$_") {
+            $state |= $m->flag($_);
+        }
+    }
+    return $state;
+}
+
 sub print_state {
     my ($self) = @_;
 
-    local $_;
-    my $dir = $self->{config}->state_dir;
-
-    my $state = 0;
-
-    for ($self->{sm}->flags) {
-        my $indent = " ";
-        if (-e "$dir/$_") {
-            $state |= $self->{sm}->flag($_);
-            $indent = "X";
-        }
-    }
+    my $state = $self->state;
 
     my $callback = sub {
         my ($sm, $old, $step, $new, $comment) = @_;
@@ -431,6 +440,14 @@ sub print_state {
     $self->{sm}->walk($callback);
 }
 
+sub commands {
+    my ($self, $instruction) = @_;
+    my $code = $self->{instructions}{$instruction} or croak
+        "Undefined instruction $instruction";
+    my $cmds = $code->();
+    return map "@$_", @$cmds;
+}
+
 sub shell_script {
     my ($self) = @_;
 
@@ -442,9 +459,7 @@ sub shell_script {
     my $f = sub {
         my ($sm, $old, $step, $new, $comment) = @_;
         
-        my $code = $self->{instructions}{$step} or croak
-            "Undefined instruction $step";
-        my $cmds = $code->();
+        my @cmds = $self->commands($step);
 
         # Format the comment
         $comment =~ s/\n//g;
@@ -457,15 +472,15 @@ sub shell_script {
             my @files = map "$dir/$_", @post;
             my @tests = join(" || ", map("[ ! -e $_ ]", @files));
             $res .= "if @tests; then\n";
-            for my $cmd (@$cmds) {
-                $res .= "  @$cmd || exit 1\n";
+            for my $cmd (@cmds) {
+                $res .= "  $cmd || exit 1\n";
             }
             $res .= "  touch @files\n";
             $res .= "fi\n";            
         }
         else {
-            for my $cmd (@$cmds) {
-                $res .= "@$cmd || exit 1\n";
+            for my $cmd (@cmds) {
+                $res .= "$cmd || exit 1\n";
             }
         }
         $res .= "\n";
@@ -475,6 +490,47 @@ sub shell_script {
     $self->{sm}->walk($f);
 
     return $res;
+}
+
+sub execute {
+    my ($self) = @_;
+
+    my $dir = $self->{config}->state_dir;
+    my $sm = $self->state_machine;
+    mkdir $dir;
+
+    local $_;
+
+    my $f = sub {
+        my ($sm, $old, $step, $new, $comment) = @_;
+        
+        my @cmds = $self->commands($step);
+
+        # Format the comment
+        $comment =~ s/\n//g;
+        $comment = fill('# ', '# ', $comment);
+
+        if (($new & $self->state) == $new) {
+            print "Skipping $comment\n";
+        }
+        else {
+            print "Running $comment\n";
+            for my $cmd (@cmds) {
+                my $status = system(@cmds);
+                if ($status) {
+                    die "Error running $cmd: $!";
+                }
+                for ($sm->flags($new & ~$old)) {
+                    open my $file, ">", "$dir/$_"
+                        or die "Can't touch status file $dir/$_";
+                    close $file;
+                }
+            }
+        }
+
+    };
+
+    $self->{sm}->walk($f);
 }
 
 sub config {

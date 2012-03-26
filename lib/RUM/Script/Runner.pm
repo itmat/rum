@@ -39,6 +39,12 @@ sub main {
     }
 
     $self->preprocess  if $config->do_preprocess;
+
+    if ($config->do_shell_script) {
+        $self->export_shell_script;
+        return;
+    }
+
     $self->process     if $config->do_process;
     $self->postprocess if $config->do_postprocess;
 }
@@ -51,12 +57,13 @@ sub get_options {
     Getopt::Long::Configure(qw(no_ignore_case));
     GetOptions(
 
-        "version|V"   => \(my $do_version),
-        "kill"        => \(my $do_kill),
-        "preprocess"  => \(my $do_preprocess),
-        "process"     => \(my $do_process),
-        "postprocess" => \(my $do_postprocess),
-        "status"      => \(my $do_status),
+        "version|V"    => \(my $do_version),
+        "kill"         => \(my $do_kill),
+        "preprocess"   => \(my $do_preprocess),
+        "process"      => \(my $do_process),
+        "postprocess"  => \(my $do_postprocess),
+        "status"       => \(my $do_status),
+        "shell-script" => \(my $do_shell_script),
 
         "config=s"    => \(my $rum_config_file),
 
@@ -173,6 +180,7 @@ sub get_options {
     }
 
     $config->set('do_status', $do_status);
+    $config->set('do_shell_script', $do_shell_script);
 
     $config->load_rum_config_file($rum_config_file);
     return $config;
@@ -195,7 +203,9 @@ sub preprocess {
 
 sub process {
     my ($self) = @_;
-    $self->run_chunks();
+    for my $chunk ($self->chunk_machines) {
+        $chunk->execute;
+    }
 }
 
 sub postprocess {
@@ -510,24 +520,28 @@ sub print_status {
     $m->print_state();
 }
 
-sub run_chunks {
+sub chunk_machines {
     my ($self) = @_;
     my $config = $self->config;
-
     my @configs = ($config);
     if ($config->num_chunks > 1) {
         @configs = map { $config->for_chunk($_) } (1 .. $config->num_chunks);
     }
     
     my @machines = map { RUM::ChunkMachine->new($_) } @configs;
+}
+
+sub export_shell_script {
+    my ($self) = @_;
 
     INFO("Generating pipeline shell script for each chunk");
-    for my $m (@machines) {
+    for my $m ($self->chunk_machines) {
         my $file = $m->config->pipeline_sh;
         open my $out, ">", $file or die "Can't open $file for writing: $!";
         print $out $m->shell_script;
     }
 }
+
 
 $LOGO = <<'EOF';
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
