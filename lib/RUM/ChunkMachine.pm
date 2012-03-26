@@ -4,27 +4,11 @@ use strict;
 use warnings;
 use Carp;
 use RUM::StateMachine;
+use RUM::CommandMachine;
 use RUM::Config;
 use Text::Wrap qw(fill wrap);
 
-sub add_transition {
-    my ($self, %options) = @_;
 
-    my $name    = delete $options{instruction};
-    my $code    = delete $options{code};
-    my $comment = delete $options{comment};
-    my $pre     = delete $options{pre};
-    my $post    = delete $options{post};
-
-    $self->{instructions}{$name} = $code;
-    $self->{comments}{$name} = $comment;
-    $self->{sm}->add($comment, $pre, $post, $name);
-}
-
-sub step_comment {
-    my ($self, $step) = @_;
-    return $self->{comments}{$step};
-}
 
 sub new {
     my ($class, $config) = @_;
@@ -32,7 +16,7 @@ sub new {
     my $c = $config;
     my $self = bless {config => $config}, $class;
 
-    my $m = RUM::StateMachine->new();
+    my $m = RUM::CommandMachine->new($config->state_dir);
 
     # Flags
     my $start              = $m->start;      
@@ -80,7 +64,7 @@ sub new {
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
-    $self->add_transition(
+    $m->add_transition(
         instruction => "run_bowtie_on_genome",
         comment => "Run bowtie on the genome",
         pre => $start, 
@@ -99,7 +83,7 @@ sub new {
               "> ", $c->genome_bowtie_out]];
         });
     
-    $self->add_transition(
+    $m->add_transition(
         instruction =>  "run_bowtie_on_transcriptome",
         comment => "Run bowtie on the transcriptome",
         pre => $start, 
@@ -120,12 +104,12 @@ sub new {
 
     # If we have the genome bowtie output, we can make the unique and
     # non-unique files for it.
-    $self->add_transition(
+    $m->add_transition(
         instruction => "make_gu_and_gnu",
         comment => "Separate unique and non-unique mappers from the output ".
             "of running bowtie on the genome",
         pre => $genome_bowtie, 
-        post =>        $gu | $gnu, 
+        post => $gu | $gnu, 
         code => sub {
             [["perl", $c->script("make_GU_and_GNU.pl"), 
               "--unique", $c->gu,
@@ -136,7 +120,7 @@ sub new {
 
     # If we have the transcriptome bowtie output, we can make the
     # unique and non-unique files for it.
-    $self->add_transition(
+    $m->add_transition(
         instruction => "make_tu_and_tnu",
         comment => "Separate unique and non-unique mappers from the output ".
             "of running bowtie on the transcriptome",
@@ -153,7 +137,7 @@ sub new {
 
     # If we have the non-unique files for both the genome and the
     # transcriptome, we can merge them.
-    $self->add_transition(
+    $m->add_transition(
         instruction => "merge_gnu_tnu_cnu",
         comment => "Take the non-unique and merge them together",
         pre => $tnu | $gnu | $cnu, 
@@ -168,7 +152,7 @@ sub new {
 
     # If we have the unique files for both the genome and the
     # transcriptome, we can merge them.
-    $self->add_transition(
+    $m->add_transition(
         instruction => "merge_gu_tu",
         comment => "Merge the unique mappers together",
         pre => $tu | $gu | $tnu | $gnu, 
@@ -192,7 +176,7 @@ sub new {
 
     # If we have the merged bowtie unique mappers and the merged
     # bowtie non-unique mappers, we can create the unmapped file.
-    $self->add_transition(
+    $m->add_transition(
         instruction =>             "make_unmapped_file",
         comment => "Make a file containing the unmapped reads, to be passed ".
             "into blat",
@@ -207,7 +191,7 @@ sub new {
               $c->paired_end_opt]];
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction => "run_blat",
         comment => "Run blat on the unmapped reads",
         pre => $unmapped, 
@@ -220,7 +204,7 @@ sub new {
               $c->blat_opts]];
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction => "run_mdust",
         comment => "Run mdust on th unmapped reads",
         pre => $unmapped, 
@@ -232,7 +216,7 @@ sub new {
               $c->mdust_output]];
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction => "parse_blat_out",
         comment => "Parse blat output",
         pre => $blat | $mdust, 
@@ -249,7 +233,7 @@ sub new {
               $c->dna_opt]];
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction =>         "merge_bowtie_and_blat",
         comment => "Merge bowtie and blat results",
         pre => $bowtie_unique | $blat_unique | $bowtie_nu | $blat_nu,
@@ -267,7 +251,7 @@ sub new {
               $c->min_overlap_opt]];
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction =>         "rum_final_cleanup",
         comment => "Cleanup",
         pre => $bowtie_blat_unique | $bowtie_blat_nu,
@@ -285,7 +269,7 @@ sub new {
               $c->match_length_cutoff_opt]];
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction => "sort_non_unique_by_id",
         comment => "Sort cleaned non-unique mappers by ID",
         pre => $cleaned_nu, 
@@ -296,7 +280,7 @@ sub new {
               $c->cleaned_nu]];
         });
     
-    $self->add_transition(
+    $m->add_transition(
         instruction => "remove_dups",
         comment => "Remove duplicates from sorted NU file",
         pre => $sorted_nu | $cleaned_unique, 
@@ -309,7 +293,7 @@ sub new {
               $c->rum_nu_id_sorted]];
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction => "limit_nu",
         comment => "Produce the RUM_NU file",
         pre => $deduped_nu, 
@@ -321,7 +305,7 @@ sub new {
               $c->rum_nu_deduped]]
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction => "sort_unique_by_id",
         comment => "Produce the RUM_Unique file",
         pre => $deduped_nu | $cleaned_unique, 
@@ -332,7 +316,7 @@ sub new {
               "-o", $c->rum_unique]];
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction => "rum2sam",
         instruction => "get_nu_stats",
         comment => "Create the sam file",
@@ -348,7 +332,7 @@ sub new {
               $c->name_mapping_opt]]
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction => "sort_unique_by_location",
         comment => "Create non-unique stats",
         pre => $sam,
@@ -359,7 +343,7 @@ sub new {
               "> ", $c->nu_stats]]
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction => "sort_nu_by_location",
         comment     => "Sort RUM_Unique", 
         pre         => $rum_unique, 
@@ -371,7 +355,7 @@ sub new {
               ">>", $c->chr_counts_u]];
         });
 
-    $self->add_transition(
+    $m->add_transition(
         instruction => "sort_rum_nu",
         comment     => "Sort RUM_NU", 
         pre         => $rum_nu, 
@@ -386,7 +370,7 @@ sub new {
     
     for my $strand (keys %quants_flags) {
         for my $sense (keys %{ $quants_flags{$strand} }) {
-            $self->add_transition(
+            $m->add_transition(
                 instruction => "quants_$strand$sense",
                 comment => "Generate quants for strand $strand, sense $sense",
                 pre => $rum_nu_sorted | $rum_unique_sorted, 
@@ -409,161 +393,12 @@ sub new {
     return $self;
 }
 
-sub state_machine {
-    return $_[0]->{sm};
-}
-
-sub state {
-    my ($self) = @_;
-    
-    local $_;
-    my $dir = $self->config->state_dir;
-    my $m = $self->state_machine;
-    my $state = 0;
-
-    for ($m->flags) {
-        if (-e "$dir/$_") {
-            $state |= $m->flag($_);
-        }
-    }
-    return $state;
-}
-
-sub state_report {
-    my ($self) = @_;
-
-    my $state = $self->state;
-
-    my @report;
-
-    my $callback = sub {
-        my ($sm, $old, $step, $new, $comment) = @_;
-
-        my $completed = ($new & $state) == $new;
-
-        push @report, [$completed, $step];
-
-    };
-        
-    $self->{sm}->walk($callback);
-    return @report;
-}
-
-sub print_state {
-    my ($self) = @_;
-
-    my $state = $self->state;
-
-    my $callback = sub {
-        my ($sm, $old, $step, $new, $comment) = @_;
-        my $indent = "- ";
-        if (($new & $state) == $new) {
-            $indent = "X ";
-        }
-        print(wrap($indent, "  ", $comment), "\n");
-    };
-        
-    $self->{sm}->walk($callback);
-}
-
-sub commands {
-    my ($self, $instruction) = @_;
-    my $code = $self->{instructions}{$instruction} or croak
-        "Undefined instruction $instruction";
-    my $cmds = $code->();
-    return map "@$_", @$cmds;
-}
-
 sub shell_script {
-    my ($self) = @_;
-
-    my $dir = $self->config->state_dir;
-    mkdir $dir;
-
-    my $res;
-
-    my $f = sub {
-        my ($sm, $old, $step, $new, $comment) = @_;
-        
-        my @cmds = $self->commands($step);
-
-        # Format the comment
-        $comment =~ s/\n//g;
-        $comment = fill('# ', '# ', $comment);
-        $res .= "$comment\n";
-        
-        my @post = $sm->flags($new & ~$old);
-
-        if (@post) {
-            my @files = map "$dir/$_", @post;
-            my @tests = join(" || ", map("[ ! -e $_ ]", @files));
-            $res .= "if @tests; then\n";
-            for my $cmd (@cmds) {
-                $res .= "  $cmd || exit 1\n";
-            }
-            $res .= "  touch @files\n";
-            $res .= "fi\n";            
-        }
-        else {
-            for my $cmd (@cmds) {
-                $res .= "$cmd || exit 1\n";
-            }
-        }
-        $res .= "\n";
-
-    };
-
-    $self->{sm}->walk($f);
-
-    return $res;
+    $_[0]->{sm}->shell_script;
 }
 
 sub execute {
-    my ($self) = @_;
-
-    my $dir = $self->config->state_dir;
-    my $sm = $self->state_machine;
-    mkdir $dir;
-
-    local $_;
-
-    my $f = sub {
-        my ($sm, $old, $step, $new, $comment) = @_;
-        
-        my @cmds = $self->commands($step);
-
-        # Format the comment
-        $comment =~ s/\n//g;
-
-        if (($new & $self->state) == $new) {
-            print wrap("(skipping) ", 
-                       "           ",
-                       $comment), "\n";
-        }
-        else {
-            print wrap("(running) ", 
-                       "          ",
-                       $comment);
-            for my $cmd (@cmds) {
-                my $status = system(@cmds);
-                if ($status) {
-                    die "Error running $cmd: $!";
-                }
-                for ($sm->flags($new & ~$old)) {
-                    open my $file, ">", "$dir/$_"
-                        or die "Can't touch status file $dir/$_";
-                    close $file;
-                }
-            }
-        }
-
-    };
-
-    $self->{sm}->walk($f);
-}
-
-sub config {
-    $_[0]->{config};
+    $_[0]->{sm}->execute;
 }
 
 1;
