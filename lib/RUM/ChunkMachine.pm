@@ -17,7 +17,13 @@ sub add_transition {
     my $post    = delete $options{post};
 
     $self->{instructions}{$name} = $code;
+    $self->{comments}{$name} = $comment;
     $self->{sm}->add($comment, $pre, $post, $name);
+}
+
+sub step_comment {
+    my ($self, $step) = @_;
+    return $self->{comments}{$step};
 }
 
 sub new {
@@ -61,7 +67,7 @@ sub new {
     my $chr_counts_nu      = $m->flag("chr_counts_nu");
 
     $self->{sm} = $m;
-    $self->config = $config;
+    $self->{config} = $config;
 
     my %quants_flags;
     my $all_quants = 0;
@@ -421,6 +427,26 @@ sub state {
         }
     }
     return $state;
+}
+
+sub state_report {
+    my ($self) = @_;
+
+    my $state = $self->state;
+
+    my @report;
+
+    my $callback = sub {
+        my ($sm, $old, $step, $new, $comment) = @_;
+
+        my $completed = ($new & $state) == $new;
+
+        push @report, [$completed, $step];
+
+    };
+        
+    $self->{sm}->walk($callback);
+    return @report;
 }
 
 sub print_state {

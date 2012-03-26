@@ -12,7 +12,7 @@ use RUM::Repository;
 use RUM::Usage;
 use RUM::Logging;
 use RUM::Pipeline;
-use RUM::Common qw(is_fasta is_fastq head);
+use RUM::Common qw(is_fasta is_fastq head num_digits);
 use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
 use RUM::Workflow qw(shell);
@@ -536,10 +536,14 @@ sub print_status {
     }
 
 
+    my $n = @machines;
+    my $digits = num_digits($n);
+    my $format = "%${digits}d/%${digits}d";
+
     for (@steps) {
+        my $progress = sprintf $format, $num_completed{$_}, $n;
         my $comment   = $comments{$_};
-        my $completed = $num_completed{$_};
-        print "$completed $comment\n";
+        print "$progress $comment\n";
     }
 
 }
