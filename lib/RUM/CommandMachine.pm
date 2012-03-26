@@ -164,7 +164,7 @@ sub shell_script {
 }
 
 sub execute {
-    my ($self) = @_;
+    my ($self, $callback) = @_;
 
     my $dir = $self->state_dir;
     my $sm = $self->state_machine;
@@ -180,15 +180,11 @@ sub execute {
         # Format the comment
         $comment =~ s/\n//g;
 
-        if (($new & $self->state) == $new) {
-            print wrap("(skipping) ", 
-                       "           ",
-                       $comment), "\n";
-        }
-        else {
-            print wrap("(running) ", 
-                       "          ",
-                       $comment);
+        my $completed = ($new & $self->state) == $new;
+
+        $callback->($step, $completed);
+
+        unless ($completed) {
             for my $cmd (@cmds) {
                 my $status = system(@cmds);
                 if ($status) {

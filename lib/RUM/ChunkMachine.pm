@@ -394,11 +394,15 @@ sub new {
 }
 
 sub shell_script {
-    $_[0]->{sm}->shell_script;
+    $_[0]->{sm}->shell_script($_[1]);
 }
 
 sub execute {
-    $_[0]->{sm}->execute;
+    $_[0]->{sm}->execute($_[1]);
+}
+
+sub step_comment {
+    $_[0]->{sm}->step_comment($_[1])
 }
 
 1;

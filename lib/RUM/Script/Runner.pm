@@ -213,7 +213,15 @@ sub process {
     }
     else {
         for my $chunk ($self->chunk_machines) {
-            $chunk->execute;
+
+            my $callback = sub {
+                my ($step, $skipping) = @_;
+                my $indent = $skipping ? "(skipping) " : "(running)  ";
+                my $comment = $chunk->step_comment($step);
+                print wrap($indent, "           ", $comment."\n");
+            };
+
+            $chunk->execute($callback);
         }
     }
 }
