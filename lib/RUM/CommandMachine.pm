@@ -90,23 +90,6 @@ sub state_report {
     return @report;
 }
 
-sub print_state {
-    my ($self) = @_;
-
-    my $state = $self->state;
-
-    my $callback = sub {
-        my ($sm, $old, $step, $new, $comment) = @_;
-        my $indent = "- ";
-        if (($new & $state) == $new) {
-            $indent = "X ";
-        }
-        print(wrap($indent, "  ", $comment), "\n");
-    };
-        
-    $self->{sm}->walk($callback);
-}
-
 sub commands {
     my ($self, $instruction) = @_;
     my $code = $self->{instructions}{$instruction} or croak
