@@ -61,7 +61,7 @@ sub new {
     my $chr_counts_nu      = $m->flag("chr_counts_nu");
 
     $self->{sm} = $m;
-    $self->{config} = $config;
+    $self->config = $config;
 
     my %quants_flags;
     my $all_quants = 0;
@@ -411,7 +411,7 @@ sub state {
     my ($self) = @_;
     
     local $_;
-    my $dir = $self->{config}->state_dir;
+    my $dir = $self->config->state_dir;
     my $m = $self->state_machine;
     my $state = 0;
 
@@ -451,7 +451,7 @@ sub commands {
 sub shell_script {
     my ($self) = @_;
 
-    my $dir = $self->{config}->state_dir;
+    my $dir = $self->config->state_dir;
     mkdir $dir;
 
     my $res;
@@ -495,7 +495,7 @@ sub shell_script {
 sub execute {
     my ($self) = @_;
 
-    my $dir = $self->{config}->state_dir;
+    my $dir = $self->config->state_dir;
     my $sm = $self->state_machine;
     mkdir $dir;
 
