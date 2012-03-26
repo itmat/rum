@@ -265,20 +265,18 @@ sub walk {
     my ($self, $callback) = @_;
 
     my $state = $self->start;
-
-    while (!$self->is_goal($state)) {
-        
-        # Map from instruction to the state I'd reach if I executed it
-        my %adj = $self->_adjacent($state);
-
-        my @instructions = sort keys %adj;
-
-        return undef unless @instructions;
-
-        my $instruction = $instructions[0];
-
-        $callback->($self, $state, $instruction, $adj{$instruction});
-        $state = $adj{$instruction};
+    
+  STATE: while (!$self->is_goal($state)) {
+        local $_;
+        for (sort($self->instructions)) {
+            my ($new_state, $comment) = $self->transition($state, $_);
+            if ($new_state != $state) {
+                $callback->($self, $state, $_, $new_state, $comment);
+                $state = $new_state;
+                next STATE;
+            }
+        }
+        return 0;
     }
     return 1;
 }

@@ -33,6 +33,11 @@ sub main {
     my $self = __PACKAGE__->new(config => $config);
     $self->show_logo();
 
+    if ($config->do_status) {
+        $self->print_status;
+        return;
+    }
+
     $self->preprocess  if $config->do_preprocess;
     $self->process     if $config->do_process;
     $self->postprocess if $config->do_postprocess;
@@ -51,6 +56,7 @@ sub get_options {
         "preprocess"  => \(my $do_preprocess),
         "process"     => \(my $do_process),
         "postprocess" => \(my $do_postprocess),
+        "status"      => \(my $do_status),
 
         "config=s"    => \(my $rum_config_file),
 
@@ -165,6 +171,8 @@ sub get_options {
     else {
         $config->set("do_$_", 1) for (qw(preprocess process postprocess));
     }
+
+    $config->set('do_status', $do_status);
 
     $config->load_rum_config_file($rum_config_file);
     return $config;
@@ -493,6 +501,13 @@ sub reformat_reads {
             $self->{quals} = "true";
         }
     }
+}
+
+sub print_status {
+    my ($self) = @_;
+    my $config = $self->config;
+    my $m = RUM::ChunkMachine->new($config);
+    $m->print_state();
 }
 
 sub run_chunks {

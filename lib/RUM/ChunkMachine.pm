@@ -10,10 +10,23 @@ use FindBin qw($Bin);
 use Text::Wrap qw(fill wrap);
 FindBin->again();
 
+sub add_transition {
+    my ($self, %options) = @_;
+
+    my $name    = delete $options{instruction};
+    my $code    = delete $options{code};
+    my $comment = delete $options{comment};
+    my $pre     = delete $options{pre};
+    my $post    = delete $options{post};
+
+    $self->{instructions}{$name} = $code;
+    $self->{sm}->add($comment, $pre, $post, $name);
+}
+
 sub new {
     my ($class, $config) = @_;
-
-    my $self = bless {}, $class;
+    my $c = $config;
+    my $self = bless {config => $config}, $class;
 
     my $m = RUM::StateMachine->new();
 
@@ -63,104 +76,299 @@ sub new {
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
-    $m->add(
-        "Run bowtie on the genome",
-        $start, $genome_bowtie, "run_bowtie_on_genome");
-
-    $m->add(
-        "Run bowtie on the transcriptome",
-        $start, $trans_bowtie,  "run_bowtie_on_transcriptome");
+    $self->add_transition(
+        instruction => "run_bowtie_on_genome",
+        comment => "Run bowtie on the genome",
+        pre => $start, 
+        post => $genome_bowtie, 
+        code => sub {
+            [[$c->bowtie_bin,
+              "-a", 
+              "--best", 
+              "--strata",
+              "-f", $c->genome_bowtie,
+              $c->reads_fa,
+              "-v", 3,
+              "--suppress", "6,7,8",
+              "-p", 1,
+              "--quiet",
+              "> ", $c->genome_bowtie_out]];
+        });
+    
+    $self->add_transition(
+        instruction =>  "run_bowtie_on_transcriptome",
+        comment => "Run bowtie on the transcriptome",
+        pre => $start, 
+        post => $trans_bowtie, 
+        code => sub {
+            [[$c->bowtie_bin,
+              "-a", 
+              "--best", 
+              "--strata",
+              "-f", $c->trans_bowtie,
+              $c->reads_fa,
+              "-v", 3,
+              "--suppress", "6,7,8",
+              "-p", 1,
+              "--quiet",
+              "> ", $c->trans_bowtie_out]];
+        });
 
     # If we have the genome bowtie output, we can make the unique and
     # non-unique files for it.
-    $m->add(
-        "Separate unique and non-unique mappers from the output of
-        running bowtie on the genome",
-        $genome_bowtie,        $gu | $gnu, "make_gu_and_gnu");
+    $self->add_transition(
+        instruction => "make_gu_and_gnu",
+        comment => "Separate unique and non-unique mappers from the output ".
+            "of running bowtie on the genome",
+        pre => $genome_bowtie, 
+        post =>        $gu | $gnu, 
+        code => sub {
+            [["perl", $c->script("make_GU_and_GNU.pl"), 
+              "--unique", $c->gu,
+              "--non-unique", $c->gnu,
+              $c->paired_end_opt(),
+              $c->genome_bowtie_out()]];
+        });
 
     # If we have the transcriptome bowtie output, we can make the
     # unique and non-unique files for it.
-    $m->add(
-        "Separate unique and non-unique mappers from the output of
-        running bowtie on the transcriptome",
-        $trans_bowtie, $tu | $tnu, "make_tu_and_tnu");
+    $self->add_transition(
+        instruction => "make_tu_and_tnu",
+        comment => "Separate unique and non-unique mappers from the output ".
+            "of running bowtie on the transcriptome",
+        pre => $trans_bowtie, 
+        post => $tu | $tnu, 
+        code => sub {
+            [["perl", $c->script("make_TU_and_TNU.pl"), 
+              "--unique",        $c->tu,
+              "--non-unique",    $c->tnu,
+              "--bowtie-output", $c->trans_bowtie_out,
+              "--genes",         $c->annotations,
+              $c->paired_end_opt]];
+        });
 
     # If we have the non-unique files for both the genome and the
     # transcriptome, we can merge them.
-    $m->add(
-        "Take the non-unique and merge them together",
-        $tnu | $gnu | $cnu, $bowtie_nu, "merge_gnu_tnu_cnu");
+    $self->add_transition(
+        instruction => "merge_gnu_tnu_cnu",
+        comment => "Take the non-unique and merge them together",
+        pre => $tnu | $gnu | $cnu, 
+        post => $bowtie_nu, 
+        code => sub {
+            [["perl", $c->script("merge_GNU_and_TNU_and_CNU.pl"),
+              "--gnu", $c->gnu,
+              "--tnu", $c->tnu,
+              "--cnu", $c->cnu,
+              "--out", $c->bowtie_nu]];
+        });
 
     # If we have the unique files for both the genome and the
     # transcriptome, we can merge them.
-    $m->add(
-        "Merge the unique mappers together",
-        $tu | $gu | $tnu | $gnu, $bowtie_unique | $cnu, "merge_gu_tu");
+    $self->add_transition(
+        instruction => "merge_gu_tu",
+        comment => "Merge the unique mappers together",
+        pre => $tu | $gu | $tnu | $gnu, 
+        post => $bowtie_unique | $cnu, 
+        code => sub {
+            my @cmd = (
+                
+                "perl", $c->script("merge_GU_and_TU.pl"),
+                "--gu", $c->gu,
+                "--tu", $c->tu,
+                "--gnu", $c->gnu,
+                "--tnu", $c->tnu,
+                "--bowtie-unique", $c->bowtie_unique,
+                "--cnu",           $c->cnu,
+                $c->paired_end_opt,
+                "--read-length", $c->read_length);
+            push @cmd, "--min-overlap", $c->min_overlap
+                if defined($c->min_overlap);
+            return [[@cmd]];
+        });
 
     # If we have the merged bowtie unique mappers and the merged
     # bowtie non-unique mappers, we can create the unmapped file.
-    $m->add(
-        "Make a file containing the unmapped reads, to be passed into blat",
-        $bowtie_unique | $bowtie_nu,
-            $unmapped,
-            "make_unmapped_file");
+    $self->add_transition(
+        instruction =>             "make_unmapped_file",
+        comment => "Make a file containing the unmapped reads, to be passed ".
+            "into blat",
+        pre => $bowtie_unique | $bowtie_nu,
+        post =>             $unmapped,
+        code => sub {
+            [["perl", $c->script("make_unmapped_file.pl"),
+              "--reads", $c->reads_fa,
+              "--unique", $c->bowtie_unique, 
+              "--non-unique", $c->bowtie_nu,
+              "-o", $c->bowtie_unmapped,
+              $c->paired_end_opt]];
+        });
 
-    $m->add(
-        "Run blat on the unmapped reads",
-        $unmapped, $blat, "run_blat");
+    $self->add_transition(
+        instruction => "run_blat",
+        comment => "Run blat on the unmapped reads",
+        pre => $unmapped, 
+        post => $blat, 
+        code => sub {
+            [[$c->blat_bin,
+              $c->genome_fa,
+              $c->bowtie_unmapped,
+              $c->blat_output,
+              $c->blat_opts]];
+        });
 
-    $m->add(
-        "Run mdust on th unmapped reads",
-        $unmapped, $mdust, "run_mdust");
+    $self->add_transition(
+        instruction => "run_mdust",
+        comment => "Run mdust on th unmapped reads",
+        pre => $unmapped, 
+        post => $mdust, 
+        code => sub {
+            [[$c->mdust_bin,
+              $c->bowtie_unmapped,
+              " > ",
+              $c->mdust_output]];
+        });
 
-    $m->add(
-        "Parse blat output",
-        $blat | $mdust, $blat_unique | $blat_nu, "parse_blat_out");
+    $self->add_transition(
+        instruction => "parse_blat_out",
+        comment => "Parse blat output",
+        pre => $blat | $mdust, 
+        post => $blat_unique | $blat_nu, 
+        code => sub {
+            [["perl", $c->script("parse_blat_out.pl"),
+              "--reads-in", $c->bowtie_unmapped,
+              "--blat-in", $c->blat_output, 
+              "--mdust-in", $c->mdust_output,
+              "--unique-out", $c->blat_unique,
+              "--non-unique-out", $c->blat_nu,
+              $c->max_insertions_opt,
+              $c->match_length_cutoff_opt,
+              $c->dna_opt]];
+        });
 
-    $m->add(
-        "Merge bowtie and blat results",
-        $bowtie_unique | $blat_unique | $bowtie_nu | $blat_nu,
-        $bowtie_blat_unique | $bowtie_blat_nu,
-        "merge_bowtie_and_blat");
+    $self->add_transition(
+        instruction =>         "merge_bowtie_and_blat",
+        comment => "Merge bowtie and blat results",
+        pre => $bowtie_unique | $blat_unique | $bowtie_nu | $blat_nu,
+        post =>         $bowtie_blat_unique | $bowtie_blat_nu,
+        code => sub {
+            [["perl", $c->script("merge_Bowtie_and_Blat.pl"),
+              "--bowtie-unique", $c->bowtie_unique,
+              "--blat-unique", $c->blat_unique,
+              "--bowtie-non-unique", $c->bowtie_nu,
+              "--blat-non-unique", $c->blat_nu,
+              "--unique-out", $c->bowtie_blat_unique,
+              "--non-unique-out", $c->bowtie_blat_nu,
+              $c->paired_end_opt,
+              $c->read_length_opt,
+              $c->min_overlap_opt]];
+        });
 
-    $m->add(
-        "Cleanup",
-        $bowtie_blat_unique | $bowtie_blat_nu,
-        $cleaned_unique | $cleaned_nu | $sam_header,
-        "rum_final_cleanup");
+    $self->add_transition(
+        instruction =>         "rum_final_cleanup",
+        comment => "Cleanup",
+        pre => $bowtie_blat_unique | $bowtie_blat_nu,
+        post =>         $cleaned_unique | $cleaned_nu | $sam_header,
+        code => sub {
+            [["perl", $c->script("RUM_finalcleanup.pl"),
+              "--unique-in", $c->bowtie_blat_unique,
+              "--non-unique-in", $c->bowtie_blat_nu,
+              "--unique-out", $c->cleaned_unique,
+              "--non-unique-out", $c->cleaned_nu,
+              "--genome", $c->genome_fa,
+              "--sam-header-out", $c->sam_header,
+              $c->faok_opt,
+              $c->count_mismatches_opt,
+              $c->match_length_cutoff_opt]];
+        });
 
-    $m->add(
-        "Sort cleaned non-unique mappers by ID",
-        $cleaned_nu, $sorted_nu, "sort_non_unique_by_id");
+    $self->add_transition(
+        instruction => "sort_non_unique_by_id",
+        comment => "Sort cleaned non-unique mappers by ID",
+        pre => $cleaned_nu, 
+        post => $sorted_nu, 
+        code => sub {
+            [["perl", $c->script("sort_RUM_by_id.pl"),
+              "-o", $c->rum_nu_id_sorted,
+              $c->cleaned_nu]];
+        });
     
-    $m->add(
-        "Remove duplicates from sorted NU file",
-        $sorted_nu | $cleaned_unique, $deduped_nu, "remove_dups");
+    $self->add_transition(
+        instruction => "remove_dups",
+        comment => "Remove duplicates from sorted NU file",
+        pre => $sorted_nu | $cleaned_unique, 
+        post => $deduped_nu, 
+        code => sub {
+            # TODO: This step is not idempotent; it appends to $c->cleaned_unique
+            [["perl", $c->script("removedups.pl"),
+              "--non-unique-out", $c->rum_nu_deduped,
+              "--unique-out", $c->cleaned_unique,
+              $c->rum_nu_id_sorted]];
+        });
 
-    $m->add(
-        "Produce the RUM_NU file",
-        $deduped_nu, $rum_nu, "limit_nu");
+    $self->add_transition(
+        instruction => "limit_nu",
+        comment => "Produce the RUM_NU file",
+        pre => $deduped_nu, 
+        post => $rum_nu, 
+        code => sub {
+            [["perl", $c->script("limit_NU.pl"),
+              $c->limit_nu_cutoff_opt,
+              "-o", $c->rum_nu,
+              $c->rum_nu_deduped]]
+        });
 
-    $m->add(
-        "Produce the RUM_Unique file",
-        $deduped_nu | $cleaned_unique, $rum_unique, "sort_unique_by_id");
+    $self->add_transition(
+        instruction => "sort_unique_by_id",
+        comment => "Produce the RUM_Unique file",
+        pre => $deduped_nu | $cleaned_unique, 
+        post => $rum_unique, 
+        code => sub {
+            [["perl", $c->script("sort_RUM_by_id.pl"),
+              $c->cleaned_unique,
+              "-o", $c->rum_unique]];
+        });
 
-    $m->add(
-        "Create the sam file",
-        $rum_unique | $rum_nu, $sam, "rum2sam");
+    $self->add_transition(
+        instruction => "rum2sam",
+        instruction => "get_nu_stats",
+        comment => "Create the sam file",
+        pre => $rum_unique | $rum_nu,
+        post => $sam,
+        code => sub {
+            [["perl", $c->script("rum2sam.pl"),
+              "--unique-in", $c->rum_unique,
+              "--non-unique-in", $c->rum_nu,
+              "--reads-in", $c->reads_fa,
+              "--quals-in", $c->quals_file,
+              "--sam-out", $c->sam_file,
+              $c->name_mapping_opt]]
+        });
 
-    $m->add(
-        "Create non-unique stats",
-        $sam, $nu_stats, "get_nu_stats");
-
-    $m->add(
-        "Sort RUM_Unique", 
-        $rum_unique, 
-        $rum_unique_sorted | $chr_counts_u, 
-        "sort_unique_by_location");
+    $self->add_transition(
+        instruction => "sort_unique_by_location",
+        comment => "Create non-unique stats",
+        pre => $sam,
+        post => $nu_stats, 
+        code => sub {
+            [["perl", $c->script("get_nu_stats.pl"),
+              $c->sam_file,
+              "> ", $c->nu_stats]]
+        });
 
     $self->add_transition(
         instruction => "sort_nu_by_location",
+        comment     => "Sort RUM_Unique", 
+        pre         => $rum_unique, 
+        post        => $rum_unique_sorted | $chr_counts_u, 
+        code        => sub {
+            [["perl", $c->script("sort_RUM_by_location.pl"),
+              $c->rum_unique,
+              "-o", $c->rum_unique_sorted,
+              ">>", $c->chr_counts_u]];
+        });
+
+    $self->add_transition(
+        instruction => "sort_rum_nu",
         comment     => "Sort RUM_NU", 
         pre         => $rum_nu, 
         post        => $rum_nu_sorted | $chr_counts_nu, 
@@ -199,241 +407,32 @@ sub new {
     return $self;
 }
 
-sub add_transition {
-    my ($self, %options) = @_;
+sub print_state {
+    my ($self) = @_;
 
-    my $name    = delete $options{instruction};
-    my $code    = delete $options{code};
-    my $comment = delete $options{comment};
-    my $pre     = delete $options{pre};
-    my $post    = delete $options{post};
+    local $_;
+    my $dir = $self->{config}->state_dir;
 
-    $self->{instructions}{$name} = $code;
-    $self->{sm}->add($comment, $pre, $post, $name);
-}
+    my $state = 0;
 
-sub run_bowtie_on_genome {
-    my ($chunk) = @_;
-    
-    [[$chunk->bowtie_bin,
-      "-a", 
-      "--best", 
-      "--strata",
-      "-f", $chunk->genome_bowtie,
-      $chunk->reads_fa,
-      "-v", 3,
-      "--suppress", "6,7,8",
-      "-p", 1,
-      "--quiet",
-      "> ", $chunk->genome_bowtie_out]];
-}      
-
-
-sub run_bowtie_on_transcriptome {
-    my ($chunk) = @_;
-        
-    [[$chunk->bowtie_bin,
-      "-a", 
-      "--best", 
-      "--strata",
-      "-f", $chunk->trans_bowtie,
-      $chunk->reads_fa,
-      "-v", 3,
-      "--suppress", "6,7,8",
-      "-p", 1,
-      "--quiet",
-      "> ", $chunk->trans_bowtie_out]];
-}      
-
-sub make_gu_and_gnu {
-    my ($chunk) = @_;
-    [["perl", $chunk->script("make_GU_and_GNU.pl"), 
-      "--unique", $chunk->gu,
-      "--non-unique", $chunk->gnu,
-      $chunk->paired_end_opt(),
-      $chunk->genome_bowtie_out()]];
-}
-
-sub make_tu_and_tnu {
-    my ($chunk) = @_;
-    [["perl", $chunk->script("make_TU_and_TNU.pl"), 
-      "--unique",        $chunk->tu,
-      "--non-unique",    $chunk->tnu,
-      "--bowtie-output", $chunk->trans_bowtie_out,
-      "--genes",         $chunk->annotations,
-      $chunk->paired_end_opt]];
-}
-
-sub merge_gu_tu {
-    my ($chunk) = @_;
-    my @cmd = (
-
-        "perl", $chunk->script("merge_GU_and_TU.pl"),
-        "--gu", $chunk->gu,
-        "--tu", $chunk->tu,
-        "--gnu", $chunk->gnu,
-        "--tnu", $chunk->tnu,
-        "--bowtie-unique", $chunk->bowtie_unique,
-        "--cnu",           $chunk->cnu,
-        $chunk->paired_end_opt,
-        "--read-length", $chunk->read_length);
-    push @cmd, "--min-overlap", $chunk->min_overlap
-        if defined($chunk->min_overlap);
-    return [[@cmd]];
-}
-
-sub merge_gnu_tnu_cnu {
-    my ($chunk) = @_;
-    [["perl", $chunk->script("merge_GNU_and_TNU_and_CNU.pl"),
-      "--gnu", $chunk->gnu,
-      "--tnu", $chunk->tnu,
-      "--cnu", $chunk->cnu,
-      "--out", $chunk->bowtie_nu]];
-}
-
-sub make_unmapped_file {
-    my ($chunk) = @_;
-    [["perl", $chunk->script("make_unmapped_file.pl"),
-      "--reads", $chunk->reads_fa,
-      "--unique", $chunk->bowtie_unique, 
-      "--non-unique", $chunk->bowtie_nu,
-      "-o", $chunk->bowtie_unmapped,
-      $chunk->paired_end_opt]];
-}
-
-sub run_blat {
-    my ($chunk) = @_;
-    [[$chunk->blat_bin,
-      $chunk->genome_fa,
-      $chunk->bowtie_unmapped,
-      $chunk->blat_output,
-      $chunk->blat_opts]];
-}
-
-sub run_mdust {
-    my ($chunk) = @_;
-    [[$chunk->mdust_bin,
-      $chunk->bowtie_unmapped,
-      " > ",
-      $chunk->mdust_output]];
-}
-
-sub parse_blat_out {
-
-    my ($chunk) = @_;
-
-    [["perl", $chunk->script("parse_blat_out.pl"),
-      "--reads-in", $chunk->bowtie_unmapped,
-      "--blat-in", $chunk->blat_output, 
-      "--mdust-in", $chunk->mdust_output,
-      "--unique-out", $chunk->blat_unique,
-      "--non-unique-out", $chunk->blat_nu,
-      $chunk->max_insertions_opt,
-      $chunk->match_length_cutoff_opt,
-      $chunk->dna_opt]];
-}
-
-sub merge_bowtie_and_blat {
-    my ($c) = @_;
-    [["perl", $c->script("merge_Bowtie_and_Blat.pl"),
-      "--bowtie-unique", $c->bowtie_unique,
-      "--blat-unique", $c->blat_unique,
-      "--bowtie-non-unique", $c->bowtie_nu,
-      "--blat-non-unique", $c->blat_nu,
-      "--unique-out", $c->bowtie_blat_unique,
-      "--non-unique-out", $c->bowtie_blat_nu,
-      $c->paired_end_opt,
-      $c->read_length_opt,
-      $c->min_overlap_opt]];
-
-}
-
-sub rum_final_cleanup {
-    my ($c) = @_;
-    [["perl", $c->script("RUM_finalcleanup.pl"),
-      "--unique-in", $c->bowtie_blat_unique,
-      "--non-unique-in", $c->bowtie_blat_nu,
-      "--unique-out", $c->cleaned_unique,
-      "--non-unique-out", $c->cleaned_nu,
-      "--genome", $c->genome_fa,
-      "--sam-header-out", $c->sam_header,
-      $c->faok_opt,
-      $c->count_mismatches_opt,
-      $c->match_length_cutoff_opt]];
-}
-
-sub sort_non_unique_by_id {
-    my ($c) = @_;
-    [["perl", $c->script("sort_RUM_by_id.pl"),
-      "-o", $c->rum_nu_id_sorted,
-      $c->cleaned_nu]];
-}
-
-sub remove_dups {
-    # TODO: This step is not idempotent; it appends to $c->cleaned_unique
-    my ($c) = @_;
-    [["perl", $c->script("removedups.pl"),
-      "--non-unique-out", $c->rum_nu_deduped,
-      "--unique-out", $c->cleaned_unique,
-      $c->rum_nu_id_sorted]];
-}
-
-sub limit_nu {
-    my ($c) = @_;
-    [["perl", $c->script("limit_NU.pl"),
-      $c->limit_nu_cutoff_opt,
-      "-o", $c->rum_nu,
-      $c->rum_nu_deduped]]
-}
-
-sub sort_unique_by_id {
-    my ($c) = @_;
-    [["perl", $c->script("sort_RUM_by_id.pl"),
-      $c->cleaned_unique,
-      "-o", $c->rum_unique]];
-}
-
-sub rum2sam {
-    my ($c) = @_;
-    [["perl", $c->script("rum2sam.pl"),
-      "--unique-in", $c->rum_unique,
-      "--non-unique-in", $c->rum_nu,
-      "--reads-in", $c->reads_fa,
-      "--quals-in", $c->quals_file,
-      "--sam-out", $c->sam_file,
-      $c->name_mapping_opt]]
-}
-
-sub get_nu_stats {
-    my ($c) = @_;
-
-    [["perl", $c->script("get_nu_stats.pl"),
-      $c->sam_file,
-      "> ", $c->nu_stats]]
-}
-
-sub sort_unique_by_location {
-    my ($c) = @_;
-    [["perl", $c->script("sort_RUM_by_location.pl"),
-      $c->rum_unique,
-      "-o", $c->rum_unique_sorted,
-      ">>", $c->chr_counts_u]];
-}
-
-sub rum2quantifications {
-    my ($strand, $sense) = @_;
-
-    return sub {
-        my ($c) = @_;
-        [["perl", $c->script("rum2quantifications.pl"),
-          "--genes-in", $c->annotations,
-          "--unique-in", $c->rum_unique_sorted,
-          "--non-unique-in", $c->rum_nu_sorted,
-          "-o", $c->quant($strand, $sense),
-          "-countsonly",
-          "--strand", $strand,
-          "--sense", $sense]];
+    for ($self->{sm}->flags) {
+        my $indent = " ";
+        if (-e "$dir/$_") {
+            $state |= $self->{sm}->flag($_);
+            $indent = "X";
+        }
     }
+
+    my $callback = sub {
+        my ($sm, $old, $step, $new, $comment) = @_;
+        my $indent = "- ";
+        if (($new & $state) == $new) {
+            $indent = "X ";
+        }
+        print(wrap($indent, "  ", $comment), "\n");
+    };
+        
+    $self->{sm}->walk($callback);
 }
 
 sub shell_script {
@@ -449,33 +448,29 @@ sub shell_script {
     my $state = $machine->start;
 
     my $res;
-    for my $step (@$plan) {
 
+    my $f = sub {
+        my ($sm, $old, $step, $new, $comment) = @_;
+        
         my $cmds;
-
-        my $comment = "";
-
         if (my $code = $self->{instructions}{$step}) {
             $cmds = $code->($self->{config});
-        }
+        }        
         else {
             no strict 'refs';
             my $name = "RUM::ChunkMachine::$step";
             $cmds = $name->($self->{config});
         }
 
-        my $old_state = $state;
-        ($state, $comment) = $machine->transition($state, $step);
-
         $comment =~ s/\n//g;
         $comment = fill('# ', '# ', $comment);
         $res .= "$comment\n";
 
         my $indent = "";
-        my @post = $machine->flags($state & ~$old_state);
+        my @post = $sm->flags($new & ~$old);
         my @files = map "$dir/$_", @post;
         my @tests = join(" || ", map("[ ! -e $_ ]", @files));
-                         
+
         if (@tests) {
             $res .= "if @tests; then\n";
             $indent = "  ";
@@ -490,7 +485,11 @@ sub shell_script {
             $res .= "fi\n";
         }
         $res .= "\n";
-    }
+
+    };
+
+    $machine->walk($f);
+
     return $res;
 }
 
