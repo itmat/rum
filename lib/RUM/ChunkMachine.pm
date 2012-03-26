@@ -534,13 +534,16 @@ sub execute {
 
         # Format the comment
         $comment =~ s/\n//g;
-        $comment = fill('# ', '# ', $comment);
 
         if (($new & $self->state) == $new) {
-            print "Skipping $comment\n";
+            print wrap("(skipping) ", 
+                       "           ",
+                       $comment), "\n";
         }
         else {
-            print "Running $comment\n";
+            print wrap("(running) ", 
+                       "          ",
+                       $comment);
             for my $cmd (@cmds) {
                 my $status = system(@cmds);
                 if ($status) {
