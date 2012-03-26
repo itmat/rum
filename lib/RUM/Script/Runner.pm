@@ -32,7 +32,10 @@ sub main {
     my $config = __PACKAGE__->get_options();
     my $self = __PACKAGE__->new(config => $config);
     $self->show_logo();
-    $self->preprocess();
+
+    $self->preprocess  if $config->do_preprocess;
+    $self->process     if $config->do_process;
+    $self->postprocess if $config->do_postprocess;
 }
 
 
@@ -40,18 +43,13 @@ sub get_options {
     
     my $c = RUM::Config->new();
 
-    my $set = sub {
-        my ($name) = @_;
-        return sub {
-            $c->set("name", @_);
-        }
-    };
-
     Getopt::Long::Configure(qw(no_ignore_case));
     GetOptions(
 
         "version|V"   => \(my $do_version),
         "kill"        => \(my $do_kill),
+        "preprocess"  => \(my $do_preprocess),
+        "process"     => \(my $do_process),
         "postprocess" => \(my $do_postprocess),
 
         "config=s"    => \(my $rum_config_file),
@@ -159,6 +157,15 @@ sub get_options {
         num_chunks => $num_chunks
     );
 
+    if ($do_preprocess || $do_process || $do_postprocess) {
+        $config->set('do_preprocess', 1)  if $do_preprocess;
+        $config->set('do_process', 1)     if $do_process;
+        $config->set('do_postprocess', 1) if $do_postprocess;
+    }
+    else {
+        $config->set("do_$_", 1) for (qw(preprocess process postprocess));
+    }
+
     $config->load_rum_config_file($rum_config_file);
     return $config;
 }
@@ -169,13 +176,23 @@ sub config {
 }
 
 
+
 sub preprocess {
     my ($self) = @_;
     $self->setup;
     $self->check_input();
     $self->reformat_reads();
     $self->determine_read_length();
+}
+
+sub process {
+    my ($self) = @_;
     $self->run_chunks();
+}
+
+sub postprocess {
+    my ($self) = @_;
+    
 }
 
 sub setup {
@@ -197,7 +214,7 @@ our $READ_CHECK_LINES = 50000;
 
 sub check_input {
     my ($self) = @_;
-    $self->info("Checking input files");
+    INFO("Checking input files");
     $self->check_reads_for_quality;
 
     if ($self->reads == 1) {
@@ -274,9 +291,6 @@ sub check_read_file_pair {
 
     my @reads = @{ $self->config->reads };
 
-    return if @reads == 1 || $self->postprocess_only;
-
-    
     $self->check_read_files_same_size();
 
     my $config = $self->config;
@@ -337,7 +351,6 @@ sub check_read_file_pair {
 
     unlink($reads_temp);
     unlink($quals_temp);
-
 }
 
 sub determine_read_length {

@@ -251,21 +251,36 @@ sub generate {
     my ($self) = @_;
 
     my @plan;
+
+    my $append = sub {
+        my ($self, $old, $instruction, $new) = @_;
+        push @plan, $instruction;
+    };
+
+    $self->walk($append);
+    return \@plan;
+}
+
+sub walk {
+    my ($self, $callback) = @_;
+
     my $state = $self->start;
 
     while (!$self->is_goal($state)) {
-
+        
         # Map from instruction to the state I'd reach if I executed it
         my %adj = $self->_adjacent($state);
 
         my @instructions = sort keys %adj;
+
         return undef unless @instructions;
 
         my $instruction = $instructions[0];
-        push @plan, $instruction;
+
+        $callback->($self, $state, $instruction, $adj{$instruction});
         $state = $adj{$instruction};
     }
-    return \@plan;
+    return 1;
 }
 
 1;

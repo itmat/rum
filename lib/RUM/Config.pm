@@ -19,6 +19,9 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  bowtie_bin mdust_bin blat_bin trans_bowtie min_length reads
  input_needs_splitting
  input_is_preformatted
+ do_preprocess
+ do_process
+ do_postprocess
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (

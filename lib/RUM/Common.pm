@@ -292,6 +292,13 @@ sub read_chunk_id_mapping {
     return %chunk_ids_mapping;
 }
 
+=item head($filehandle, $n)
+
+Return the first $n lines from the given $filehandle as a list. If
+$filehandle is a string rather than a GLOB, I will attempt to open it.
+
+=cut
+
 sub head {
     my ($fh, $lines) = @_;
 

@@ -63,8 +63,6 @@ sub reformat_reads_ok {
     $runner->{reads} = ["$SHARED_INPUT_DIR/forward.fq",
                         "$SHARED_INPUT_DIR/reverse.fq"];
 
-
-
     $runner->setup;
     $runner->reformat_reads();
     $runner->check_read_length();

@@ -18,21 +18,21 @@ sub new {
     my $m = RUM::StateMachine->new();
 
     # Flags
-    my $start          = $m->start;      
-    my $genome_bowtie  = $m->flag("genome_bowtie");
-    my $trans_bowtie   = $m->flag("genome_transcriptome");
-    my $gu             = $m->flag("gu");
-    my $gnu            = $m->flag("gnu");
-    my $tu             = $m->flag("tu");
-    my $tnu            = $m->flag("tnu");
-    my $cnu            = $m->flag("cnu");
-    my $bowtie_unique  = $m->flag("bowtie_unique");
-    my $bowtie_nu      = $m->flag("bowtie_nu");
-    my $unmapped       = $m->flag("unmapped");
-    my $blat           = $m->flag("blat");
-    my $mdust          = $m->flag("mdust");
-    my $blat_unique    = $m->flag("blat_unique");
-    my $blat_nu        = $m->flag("blat_nu");
+    my $start              = $m->start;      
+    my $genome_bowtie      = $m->flag("genome_bowtie");
+    my $trans_bowtie       = $m->flag("genome_transcriptome");
+    my $gu                 = $m->flag("gu");
+    my $gnu                = $m->flag("gnu");
+    my $tu                 = $m->flag("tu");
+    my $tnu                = $m->flag("tnu");
+    my $cnu                = $m->flag("cnu");
+    my $bowtie_unique      = $m->flag("bowtie_unique");
+    my $bowtie_nu          = $m->flag("bowtie_nu");
+    my $unmapped           = $m->flag("unmapped");
+    my $blat               = $m->flag("blat");
+    my $mdust              = $m->flag("mdust");
+    my $blat_unique        = $m->flag("blat_unique");
+    my $blat_nu            = $m->flag("blat_nu");
     my $bowtie_blat_unique = $m->flag("bowtie_blat_unique");
     my $bowtie_blat_nu     = $m->flag("bowtie_blat_nu");
     my $cleaned_unique     = $m->flag("cleaned_unique");
@@ -48,7 +48,6 @@ sub new {
     my $rum_nu_sorted      = $m->flag("rum_nu_sorted");
     my $chr_counts_u       = $m->flag("chr_counts_u");
     my $chr_counts_nu      = $m->flag("chr_counts_nu");
-
 
     $self->{sm} = $m;
     $self->{config} = $config;
@@ -200,7 +199,6 @@ sub new {
     return $self;
 }
 
-
 sub add_transition {
     my ($self, %options) = @_;
 
@@ -216,7 +214,7 @@ sub add_transition {
 
 sub run_bowtie_on_genome {
     my ($chunk) = @_;
-        
+    
     [[$chunk->bowtie_bin,
       "-a", 
       "--best", 
@@ -437,7 +435,6 @@ sub rum2quantifications {
           "--sense", $sense]];
     }
 }
-
 
 sub shell_script {
     my ($self) = @_;
