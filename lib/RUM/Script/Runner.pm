@@ -70,6 +70,7 @@ sub get_options {
         "output|o=s"  => \(my $output_dir),
         "name=s"      => \(my $name),
         "chunks=s"    => \(my $num_chunks = 1),
+        "chunk=s"     => \(my $chunk),
         "help-config" => \(my $do_help_config),
         "read-lengths=s" => \(my $read_lengths),
 
@@ -170,10 +171,12 @@ sub get_options {
         num_chunks => $num_chunks
     );
 
+    $config->set('chunk', $chunk) if $chunk;
+
     if ($do_preprocess || $do_process || $do_postprocess) {
-        $config->set('do_preprocess', 1)  if $do_preprocess;
-        $config->set('do_process', 1)     if $do_process;
-        $config->set('do_postprocess', 1) if $do_postprocess;
+        $config->set('do_preprocess', $do_preprocess);
+        $config->set('do_process', $do_process);
+        $config->set('do_postprocess', $do_postprocess);
     }
     else {
         $config->set("do_$_", 1) for (qw(preprocess process postprocess));
@@ -203,8 +206,15 @@ sub preprocess {
 
 sub process {
     my ($self) = @_;
-    for my $chunk ($self->chunk_machines) {
+    $self->determine_read_length();
+    if ($self->config->chunk) {
+        my $chunk = $self->chunk_machine($self->config->chunk);
         $chunk->execute;
+    }
+    else {
+        for my $chunk ($self->chunk_machines) {
+            $chunk->execute;
+        }
     }
 }
 
@@ -375,7 +385,6 @@ sub determine_read_length {
     
     my ($self) = @_;
 
-
     my @lines = head($self->config->reads_fa, 2);
     my $read = $lines[1];
     my $len = split(//,$read);
@@ -438,11 +447,6 @@ sub check_gamma {
         LOGDIE("you cannot run RUM on the PGFI cluster without using the --qsub option.");
     }
 }
-
-
-sub postprocess_only { shift->{postprocess_only} }
-
-
 
 sub reads {
     return @{ $_[0]->config->reads };
@@ -548,15 +552,30 @@ sub print_status {
 
 }
 
+sub chunk_machine {
+    my ($self, $chunk_num) = @_;
+    my $config = $self->config->for_chunk($chunk_num);
+    return RUM::ChunkMachine->new($config);
+}
+
 sub chunk_machines {
     my ($self) = @_;
     my $config = $self->config;
-    my @configs = ($config);
-    if ($config->num_chunks > 1) {
-        @configs = map { $config->for_chunk($_) } (1 .. $config->num_chunks);
+    my $n = $config->num_chunks;
+
+    my @chunk_nums;
+
+
+    if ($n > 1) {
+        if ($config->chunk) {
+            return ($self->chunk_machine($_));
+        }
+        else {
+            return map { $self->chunk_machine($_) } (1 .. $n);
+        }
     }
     
-    my @machines = map { RUM::ChunkMachine->new($_) } @configs;
+    return (RUM::ChunkMachine->new($config));
 }
 
 sub export_shell_script {
