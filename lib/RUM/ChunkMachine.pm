@@ -2,13 +2,10 @@ package RUM::ChunkMachine;
 
 use strict;
 use warnings;
-
+use Carp;
 use RUM::StateMachine;
-use RUM::Config
-    ;
-use FindBin qw($Bin);
+use RUM::Config;
 use Text::Wrap qw(fill wrap);
-FindBin->again();
 
 sub add_transition {
     my ($self, %options) = @_;
@@ -25,6 +22,7 @@ sub add_transition {
 
 sub new {
     my ($class, $config) = @_;
+    $config or croak "I need a config";
     my $c = $config;
     my $self = bless {config => $config}, $class;
 
@@ -373,7 +371,6 @@ sub new {
         pre         => $rum_nu, 
         post        => $rum_nu_sorted | $chr_counts_nu, 
         code => sub {
-            my ($c) = @_;
             [["perl", $c->script("sort_RUM_by_location.pl"),
               $c->rum_nu,
               "-o", $c->rum_nu_sorted,
@@ -389,7 +386,6 @@ sub new {
                 pre => $rum_nu_sorted | $rum_unique_sorted, 
                 post => $quants_flags{$strand}{$sense},
                 code => sub {
-                    my ($c) = @_;
                     [["perl", $c->script("rum2quantifications.pl"),
                       "--genes-in", $c->annotations,
                       "--unique-in", $c->rum_unique_sorted,
@@ -439,56 +435,44 @@ sub shell_script {
     my ($self) = @_;
 
     my $dir = $self->{config}->state_dir;
-
     mkdir $dir;
-
-    my $machine = $self->{sm};
-    my $plan = $machine->generate;
-    
-    my $state = $machine->start;
 
     my $res;
 
     my $f = sub {
         my ($sm, $old, $step, $new, $comment) = @_;
         
-        my $cmds;
-        if (my $code = $self->{instructions}{$step}) {
-            $cmds = $code->($self->{config});
-        }        
-        else {
-            no strict 'refs';
-            my $name = "RUM::ChunkMachine::$step";
-            $cmds = $name->($self->{config});
-        }
+        my $code = $self->{instructions}{$step} or croak
+            "Undefined instruction $step";
+        my $cmds = $code->();
 
+        # Format the comment
         $comment =~ s/\n//g;
         $comment = fill('# ', '# ', $comment);
         $res .= "$comment\n";
-
-        my $indent = "";
+        
         my @post = $sm->flags($new & ~$old);
-        my @files = map "$dir/$_", @post;
-        my @tests = join(" || ", map("[ ! -e $_ ]", @files));
 
-        if (@tests) {
+        if (@post) {
+            my @files = map "$dir/$_", @post;
+            my @tests = join(" || ", map("[ ! -e $_ ]", @files));
             $res .= "if @tests; then\n";
-            $indent = "  ";
+            for my $cmd (@$cmds) {
+                $res .= "  @$cmd || exit 1\n";
+            }
+            $res .= "  touch @files\n";
+            $res .= "fi\n";            
         }
-
-        for my $cmd (@$cmds) {
-            $res .= "$indent@$cmd || exit 1\n";
-        }
-
-        if (@files) {
-            $res .= "${indent}touch @files\n";
-            $res .= "fi\n";
+        else {
+            for my $cmd (@$cmds) {
+                $res .= "@$cmd || exit 1\n";
+            }
         }
         $res .= "\n";
 
     };
 
-    $machine->walk($f);
+    $self->{sm}->walk($f);
 
     return $res;
 }
