@@ -61,7 +61,22 @@ RUM_runner
 
 =head1 OPTIONS
 
+There are many options, but RUM is typically run with the
+defaults. The option -kill is also quite useful to stop a run, because
+killing just the main program will not always kill the spawned
+processes.
+
+=head2 Common Options
+
 =over 4
+
+=item B<READ_FILES>
+
+For unpaired data, the single file of reads.  For paired data the
+files of forward and reverse reads.
+
+NOTE ON FILE FORMATS: Files can be either fasta or fastq, the type is
+inferred.
 
 =item B<--config> I<config_file>
 
@@ -93,23 +108,9 @@ characters.
 
 =back
 
-Usage: RUM_runner.pl <config file> <reads file(s)> <output dir> <num chunks>
-                     <name> [options]
+=head2 Less Common Options
 
-
-
-<reads file(s)> :  1) For unpaired data, the single file of reads.
-                   2) For paired data the files of forward and reverse reads,
-                      separated by three commas ',,,' (with no spaces).
-
-                   NOTE ON FILE FORMATS: Files can be either fasta or fastq,
-                   the type is inferred.
-
-Options: There are many options, but RUM is typically run with the defaults. The
-         option -kill is also quite useful to stop a run, because killing just
-         the main program will not always kill the spawned processes.
-
-
+=over 4
 
 =item B<--strand-specific>
 
@@ -216,7 +217,11 @@ you have.  In that case, with this option you can specify the number
 of Gb of ram you want to dedicate to each chunk.  This is rarely
 necessary and never necessary if you have at least 6 Gb per chunk.
 
+=back
+
 =head2 Commands
+
+=over 4
 
 =item B<--kill>
 
@@ -228,11 +233,15 @@ other phantom processes.  Use -kill instead.
 
 Returns the current version.
 
+=back
+
 =head2 BLAT options
 
 You can tweak the BLAT portion of RUM to suit your needs. We found the
 following to be a good balance for speed, sensitivity, and temporary
 file size.
+
+=over 4
 
 =item B<--minIdentity> I<x>
 
@@ -261,17 +270,18 @@ change this.
 
 
 
-Default config files are supplied with each organism.  If you need to make or
-modify one then running RUM_runner.pl with the one argument 'config' gives an
-explaination of the the file.
+Default config files are supplied with each organism.  If you need to
+make or modify one then running RUM_runner.pl with the one argument
+'config' gives an explaination of the the file.
 
-This program writes very large intermediate files.  If you have a large genome
-such as mouse or human then it is recommended to run in chunks on a cluster, or
-a machine with multiple processors.  Running with under five million reads per
-chunk is usually best, and getting it under a million reads per chunk will speed
-things considerably.
+This program writes very large intermediate files.  If you have a
+large genome such as mouse or human then it is recommended to run in
+chunks on a cluster, or a machine with multiple processors.  Running
+with under five million reads per chunk is usually best, and getting
+it under a million reads per chunk will speed things considerably.
 
-You can put an 's' after the number of chunks if they have already been broken
-into chunks, so as to avoid repeating this time-consuming step.
+You can put an 's' after the number of chunks if they have already
+been broken into chunks, so as to avoid repeating this time-consuming
+step.
 
 =cut
