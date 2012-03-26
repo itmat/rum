@@ -405,4 +405,8 @@ sub step_comment {
     $_[0]->{sm}->step_comment($_[1])
 }
 
+sub state_report {
+    $_[0]->{sm}->state_report()
+}
+
 1;
