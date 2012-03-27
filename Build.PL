@@ -20,6 +20,7 @@ my $builder = Module::Build->subclass(
     },
     add_to_cleanup      => [ 'RUM-Pipeline-*' ],
     create_makefile_pl => 'traditional',
+    configure_requires => { 'Module::Build' => 0.38 },
     test_types => {
         integration => 'it'
     }
