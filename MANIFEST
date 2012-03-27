@@ -17,6 +17,7 @@ bin/get_RUM_reads_from_span.pl
 bin/gtf2rum-index-builder-friendly.pl
 bin/limit_NU.pl
 bin/make_bed.pl
+bin/make_bigwig.pl
 bin/make_fasta_files_for_master_list_of_genes.pl
 bin/make_GU_and_GNU.pl
 bin/make_ids_unique4geneinfofile.pl
@@ -68,7 +69,6 @@ bin/sort_RUM_by_location.pl
 bin/sort_where_lines_start_seq.numa_or_seq.numb.pl
 bin/trim.pl
 bin/wait.pl
-Build.PL
 Changes
 conf/pipeline_template.sh
 doc/cmpChrs-changes.md
@@ -90,6 +90,7 @@ lib/RUM/Subproc.pm
 lib/RUM/TestUtils.pm
 lib/RUM/Workflow.pm
 LICENSE
+Makefile.PL
 MANIFEST			This list of files
 README
 README.md
@@ -108,11 +109,9 @@ t/50-download-test-data.it
 t/51-sort-by-location.it
 t/52-sort-rum-by-location.it
 t/53-merge-sorted-rum-files.it
+t/60-dist.it
 t/80-end-to-end.it
 t/boilerplate.t
 t/manifest.t
 t/pod-coverage.t
 t/pod.t
-Makefile.PL
-META.yml
-META.json

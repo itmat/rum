@@ -288,7 +288,7 @@ sub read_chunk_id_mapping {
     while (defined(local $_ = <$infile>)) {
         chomp;
         my ($old, $new) = split /\t/;
-        $chunk_ids_mapping{$old} = $new;
+        $chunk_ids_mapping{$old} = $new unless $old eq 'chr_name';
     }
     return %chunk_ids_mapping;
 }

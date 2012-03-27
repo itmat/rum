@@ -85,3 +85,6 @@ bin/bowtie
 bin/mdust
 conf/organisms.txt
 conf/rum.config_
+t/tmp
+.log$
+nohup.out

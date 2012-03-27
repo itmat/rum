@@ -1,3 +1,5 @@
+#!/usr/bin/env perl
+
 # Written by Gregory R Grant
 # University of Pennsylvania, 2011
 
@@ -802,6 +804,7 @@ $gs1 = -s $genome_blat;
 $gs2 = -s "$output_dir/temp.1";
 $gs3 = `wc -l $output_dir/temp.1`;
 $genome_size = $gs1 - $gs2 - $gs3;
+$gs4 = &format_large_int($genome_size);
 `yes|rm $output_dir/temp.1`;
 $gsz = $genome_size / 1000000000;
 $min_ram = int($gsz * 1.67)+1;
@@ -1359,7 +1362,10 @@ if($postprocess eq "false") {
     if($altquant_file =~ /\S/) {
        DEBUG("alternate transcript db: $altquant_file\n");
     }
+
     DEBUG("genome db: $genomefa\n");
+    DEBUG("genome size: $gs4\n");
+
     if($fasta eq "true") {
        DEBUG("input file format: fasta\n");
     }
@@ -1435,7 +1441,22 @@ if($postprocess eq "false") {
     print OUT "";
     close(OUT);
 
-    $pipeline_template = `cat $conf_dir/pipeline_template.sh`;
+    my $pipeline_template;
+
+    my @template_dirs = ("$Bin/..", map "$_/RUM", @INC);
+    for my $dir (@template_dirs) {
+        my $file = "$dir/conf/pipeline_template.sh";
+        if (-e "$file") {
+            open my $in, "<", $file or die
+                "Can't open $file: $!";
+            while (my $line = <$in>) {
+                $pipeline_template .= $line;
+            }
+            last;
+        }
+    }
+    $pipeline_template or die "Couldn't find pipeline template in any of these directories: @template_dirs\n";
+
     if($cleanup eq 'false') {
         $pipeline_template =~ s/^.*unlink.*$//mg;
         $pipeline_template =~ s!if . -f OUTDIR.RUM_NU_temp3.CHUNK .\nthen\n\nfi\n!!gs;
@@ -1733,7 +1754,7 @@ if($postprocess eq "false") {
             $shellscript = $shellscript . "perl $scripts_dir/quantifyexons.pl --exons-in $output_dir/inferred_internal_exons.txt --unique-in $output_dir/RUM_Unique.sorted --non-unique-in $output_dir/RUM_NU.sorted -o $output_dir/quant.1 --novel --countsonly 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
             $shellscript = $shellscript . "perl $scripts_dir/merge_quants.pl $output_dir -n 1 -o $output_dir/novel_exon_quant_temp --header 2>> $output_dir/PostProcessing-errorlog || exit 1\n";
 	    $shellscript = $shellscript . "grep -v transcript $output_dir/novel_exon_quant_temp > $output_dir/novel_inferred_internal_exons_quantifications_$name\n";
-            $shellscript = $shellscript . "echo post-processing finished >> $output_dir/$PPlog\n";
+            $shellscript = $shellscript . "echo post-processing finished for $JID >> $output_dir/$PPlog\n";
             $shellscript = $shellscript . "echo `date` >> $output_dir/$PPlog\n";
             if($qsub2 eq "true") {
         	   $shellscript =~ s!2>>\s*[^\s]*!!gs;
@@ -1974,7 +1995,7 @@ if($postprocess eq "false") {
                                  if($restarted{$i} == 1) {
                                      $J1 = $i;
                                      $J3 = $i;
-                                     $FILE =~ s/\.$i/.$i.1/g;
+                                     $FILE =~ s/\.$i([\s])/.$i.1$1/g;
                                      $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
                                      $suffixold = $i;
                                      $suffixnew = "$i.1";
@@ -1982,7 +2003,7 @@ if($postprocess eq "false") {
                                      $J1 = $restarted{$i} - 1;
                                      $J2 = $restarted{$i};
                                      $J3 = "$i.$J1";
-                                     $FILE =~ s/\.$i\.$J1/.$i.$J2/g;
+                                     $FILE =~ s/\.$i\.$J1([\s])/.$i.$J2$1/g;
                                      $FILE =~ s/errorlog.$i.\d+/errorlog.$i/g;
                                      $suffixold = "$i.$J1";
                                      $suffixnew = "$i.$J2";
@@ -2430,12 +2451,13 @@ undef %child;
 
 $finished = 0;
 $number_consecutive_restarts_pp = 0;
-while($doneflag == 0) {
+while (!$doneflag) {
     $doneflag = 1;
     $x = "";
     if (-e "$output_dir/$PPlog") {
+
 	$x = `cat $output_dir/$PPlog`;
-	if(!($x =~ /post-processing finished/s)) {
+	if(!($x =~ /post-processing finished for $JID/s)) {
   	    $doneflag = 0;
 	}
     } else {

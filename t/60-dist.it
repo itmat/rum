@@ -1,0 +1,76 @@
+use Test::More tests => 15;
+use Test::Exception;
+
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+use RUM::Repository;
+use RUM::TestUtils;
+use RUM::Pipeline;
+use File::Path;
+use File::Temp qw(tempdir);
+use strict;
+use warnings;
+
+
+BEGIN { 
+    use_ok('RUM::Config');
+}                                               
+
+my $version = $RUM::Pipeline::VERSION;
+my $dist_name = "RUM-Pipeline-$version";
+my $tmp_dir = tempdir(CLEANUP => 0);
+my $src_dir = "$tmp_dir/rum";
+my $makefile_install_dir = "$tmp_dir/$dist_name";
+my $tarball  = "$dist_name.tar.gz";
+my $url = 'git@github.com:PGFI/rum.git';
+
+sub run {
+    my @cmd = @_;
+    is(system(@cmd), 0, "@cmd");
+}
+
+# Test that we can make the distribution
+chdir $tmp_dir or die "cd $tmp_dir: $!";
+run("git clone $url");
+chdir $src_dir or die "cd $src_dir: $!";
+run("perl Makefile.PL");
+run("make dist");
+
+my %methods = (
+    makefile => sub {
+        my ($prefix) = @_;
+        run("perl Makefile.PL PREFIX=$prefix");
+        run("make");
+        run("make install");        
+    },
+    self_install => sub {
+        my ($prefix) = @_;
+        open my $in, "| $tmp_dir/self_install/$dist_name/bin/rum_install.pl $prefix";
+        print $in "malaria\n";
+        print $in "q\n";
+    }
+
+);
+
+# Untar the tarball in a separate directory for each of the install
+# methods.
+for (sort keys %methods) {
+    my $dir = "$tmp_dir/$_";
+    my $prefix = "$dir/local";
+    mkdir $dir or die "mkdir $dir: $!";
+    chdir $dir or die "cd $dir: $!";
+    run("tar zxvf $src_dir/$tarball");
+    chdir "$dir/$dist_name" or die "cd $dir/$dist_name: $!";
+    $methods{$_}->($prefix);
+    ok(-e "$prefix/bin/RUM_runner.pl", "RUM_runner.pl exists");
+    ok((-e "$prefix/lib/perl5/site_perl/5.14.2/RUM/Common.pm") ||
+       (-e "$prefix/lib/RUM/Common.pm"),
+       "RUM::Common exists");
+    ok((-e "$prefix/lib/perl5/site_perl/5.14.2/RUM/conf/pipeline_template.sh") ||
+       (-e "$prefix/conf/pipeline_template.sh"),
+       "pipeline_template.sh exists");
+}
+
+# Install using Makefile.PL
+chdir "$tmp_dir/makefile" or die "cd $makefile_install_dir: $!";
+

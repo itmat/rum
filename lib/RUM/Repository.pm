@@ -393,7 +393,8 @@ sub setup {
 
 =item download($url, $local)
 
-Download the given $url to the given $local file.
+Attempt to download the file from the given $url to the given $local
+path.
 
 =cut
 
