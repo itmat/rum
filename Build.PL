@@ -28,7 +28,10 @@ my $builder = Module::Build->subclass(
     configure_requires => { 'Module::Build' => 0.38 },
     test_types => {
         integration => 'it'
-    }
+    },
+    conf_files => { "conf/pipeline_template.sh" =>
+                        "lib/RUM/pipeline_template.sh" }
 );
 
+$builder->add_build_element('conf');
 $builder->create_build_script();

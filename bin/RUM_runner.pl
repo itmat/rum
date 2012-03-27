@@ -1475,7 +1475,23 @@ if($postprocess eq "false") {
     print OUT "";
     close(OUT);
 
-    $pipeline_template = `cat $conf_dir/pipeline_template.sh`;
+
+    my $pipeline_template;
+
+    my @template_dirs = ($conf_dir, map "$_/RUM", @INC);
+    for my $dir (@template_dirs) {
+        my $file = "$dir/pipeline_template.sh";
+        if (-e "$file") {
+            open my $in, "<", $file or die
+                "Can't open $file: $!";
+            while (my $line = <$in>) {
+                $pipeline_template .= $line;
+            }
+            last;
+        }
+    }
+    $pipeline_template or die "Couldn't find pipeline template in any of these directories: @template_dirs\n";
+
     if($cleanup eq 'false') {
         $pipeline_template =~ s/^.*unlink.*$//mg;
         $pipeline_template =~ s!if . -f OUTDIR.RUM_NU_temp3.CHUNK .\nthen\n\nfi\n!!gs;
