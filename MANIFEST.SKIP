@@ -88,3 +88,4 @@ conf/rum.config_
 t/tmp
 .log$
 nohup.out
+Makefile.PL
