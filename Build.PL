@@ -18,7 +18,7 @@ my $builder = Module::Build->subclass(
     requires => {
         'perl' => 5.006,
     },
-    add_to_cleanup      => [ 'RUM-Index-*' ],
+    add_to_cleanup      => [ 'RUM-Pipeline-*' ],
     create_makefile_pl => 'traditional',
     test_types => {
         integration => 'it'
