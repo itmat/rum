@@ -1,4 +1,4 @@
-use Test::More tests => 18;
+use Test::More tests => 21;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -43,11 +43,6 @@ my %methods = (
         run("make");
         run("make install");        
     },
-    module_build => sub {
-        my ($prefix) = @_;
-        run("perl Build.PL --prefix $prefix");
-        run("./Build install");
-    },
     self_install => sub {
         my ($prefix) = @_;
         open my $in, "| $tmp_dir/self_install/$dist_name/bin/rum_install.pl $prefix";
@@ -71,6 +66,9 @@ for (sort keys %methods) {
     ok((-e "$prefix/lib/perl5/site_perl/5.14.2/RUM/Common.pm") ||
        (-e "$prefix/lib/RUM/Common.pm"),
        "RUM::Common exists");
+    ok((-e "$prefix/lib/perl5/site_perl/5.14.2/RUM/conf/pipeline_template.sh") ||
+       (-e "$prefix/conf/pipeline_template.sh"),
+       "pipeline_template.sh exists");
 }
 
 # Install using Makefile.PL

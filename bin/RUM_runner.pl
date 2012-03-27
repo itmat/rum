@@ -1475,12 +1475,11 @@ if($postprocess eq "false") {
     print OUT "";
     close(OUT);
 
-
     my $pipeline_template;
 
-    my @template_dirs = ($conf_dir, map "$_/RUM", @INC);
+    my @template_dirs = ("$Bin/..", map "$_/RUM", @INC);
     for my $dir (@template_dirs) {
-        my $file = "$dir/pipeline_template.sh";
+        my $file = "$dir/conf/pipeline_template.sh";
         if (-e "$file") {
             open my $in, "<", $file or die
                 "Can't open $file: $!";
