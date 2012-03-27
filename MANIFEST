@@ -69,7 +69,6 @@ bin/sort_RUM_by_location.pl
 bin/sort_where_lines_start_seq.numa_or_seq.numb.pl
 bin/trim.pl
 bin/wait.pl
-Build.PL
 Changes
 conf/pipeline_template.sh
 doc/cmpChrs-changes.md
