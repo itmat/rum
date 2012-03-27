@@ -555,7 +555,7 @@ sub print_status {
     for (@steps) {
         my $progress = sprintf $format, $num_completed{$_}, $n;
         my $comment   = $comments{$_};
-        print "$progress $comment\n";
+        $log->info("$progress $comment");
     }
 
 }
