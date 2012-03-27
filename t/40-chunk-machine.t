@@ -16,7 +16,10 @@ BEGIN {
 }                                               
 
 my $repo = RUM::Repository->new(root_dir => "$Bin/../_testing");
-my @indexes = $repo->indexes(pattern => qr/TAIR/);
+
+# This will fail if indexes are not installed, but that's ok, because
+# we'll skip the tests anyway.
+my @indexes = eval { $repo->indexes(pattern => qr/TAIR/); };
 
 my $out_dir = "$Bin/tmp/40-chunk-machine";
 my $state_dir = "$out_dir/state";
@@ -24,7 +27,7 @@ my $conf_dir = $repo->conf_dir;
 
 SKIP: {
 
-    skip "no index", 1 unless @indexes == 1;
+    skip "no index", 2 unless @indexes == 1;
     my $index = $indexes[0];
     my $config = RUM::Config->new(
         chunk         => 1,

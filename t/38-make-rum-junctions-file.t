@@ -62,11 +62,16 @@ for my $test (@tests) {
         "-faok",
         "-q",
         @{ $test->{options} } );
-
-    RUM::Script::MakeRumJunctionsFile->main();
     
-    no_diffs($all_rum_out,  $all_rum,  "$all_rum $all_rum_out");
-    no_diffs($all_bed_out,  $all_bed,  "$all_bed $all_bed_out");
-    no_diffs($high_bed_out, $high_bed, "$high_bed $high_bed_out");
+  SKIP: {
+     
+        skip "Indexes are not installed", 3 unless -e $annotations;
+   
+        RUM::Script::MakeRumJunctionsFile->main();
+        
+        no_diffs($all_rum_out,  $all_rum,  "$all_rum $all_rum_out");
+        no_diffs($all_bed_out,  $all_bed,  "$all_bed $all_bed_out");
+        no_diffs($high_bed_out, $high_bed, "$high_bed $high_bed_out");
+    }
 }
 
