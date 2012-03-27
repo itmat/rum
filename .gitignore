@@ -28,3 +28,5 @@ rum.config_*
 .DS_Store
 rum.log
 TAGS
+*.log
+nohup.out
