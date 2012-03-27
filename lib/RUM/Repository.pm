@@ -391,6 +391,13 @@ sub setup {
     return $self;
 }
 
+=item download($url, $local)
+
+Attempt to download the file from the given $url to the given $local
+path.
+
+=cut
+
 sub download {
     my ($url, $local) = @_;
     my $cmd;
