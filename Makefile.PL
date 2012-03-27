@@ -10,7 +10,6 @@ WriteMakefile
   'EXE_FILES' => [
                    'bin/RUM_finalcleanup.pl',
                    'bin/RUM_runner.pl',
-                   'bin/RUM_runner.pl~',
                    'bin/breakup_RUM_files_by_strand.pl',
                    'bin/compare_feature_quantifications_between_two_samples.pl',
                    'bin/count_reads_mapped.pl',
