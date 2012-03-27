@@ -92,8 +92,6 @@ lib/RUM/Workflow.pm
 LICENSE
 Makefile.PL
 MANIFEST			This list of files
-META.json
-META.yml
 README
 README.md
 t/00-load.t
