@@ -18,7 +18,12 @@ my $builder = Module::Build->subclass(
     requires => {
         'perl' => 5.006,
     },
-    add_to_cleanup      => [ 'RUM-Pipeline-*' ],
+    add_to_cleanup      => [ 'RUM-Pipeline-*',
+                             'bin/bowtie',
+                             'bin/blat', 
+                             'bin/mdust',
+                             't/tmp',
+                         ],
     create_makefile_pl => 'traditional',
     configure_requires => { 'Module::Build' => 0.38 },
     test_types => {
