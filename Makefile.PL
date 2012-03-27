@@ -7,7 +7,7 @@ use File::Find;
 my @exe_files;
 find sub {
     my $file = "bin/$_";
-    push @exe_files, $file unless /^\./;
+    push @exe_files, $file unless /^\./ || /~$/;
 }, "bin";
 
 WriteMakefile
