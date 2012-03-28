@@ -16,59 +16,18 @@ sub new {
     my $c = $config;
     my $self = bless {config => $config}, $class;
 
-    my $m = RUM::CommandMachine->new($config->state_dir);
-
-    # Flags
-    my $start              = $m->start;      
-    my $genome_bowtie      = $m->flag("genome_bowtie");
-    my $trans_bowtie       = $m->flag("genome_transcriptome");
-    my $gu                 = $m->flag("gu");
-    my $gnu                = $m->flag("gnu");
-    my $tu                 = $m->flag("tu");
-    my $tnu                = $m->flag("tnu");
-    my $cnu                = $m->flag("cnu");
-    my $bowtie_unique      = $m->flag("bowtie_unique");
-    my $bowtie_nu          = $m->flag("bowtie_nu");
-    my $unmapped           = $m->flag("unmapped");
-    my $blat               = $m->flag("blat");
-    my $mdust              = $m->flag("mdust");
-    my $blat_unique        = $m->flag("blat_unique");
-    my $blat_nu            = $m->flag("blat_nu");
-    my $bowtie_blat_unique = $m->flag("bowtie_blat_unique");
-    my $bowtie_blat_nu     = $m->flag("bowtie_blat_nu");
-    my $cleaned_unique     = $m->flag("cleaned_unique");
-    my $cleaned_nu         = $m->flag("cleaned_nu");
-    my $sam_header         = $m->flag("sam_header");
-    my $sorted_nu          = $m->flag("sorted_nu");
-    my $deduped_nu         = $m->flag("deduped_nu");
-    my $rum_nu             = $m->flag("rum_nu");
-    my $rum_unique         = $m->flag("rum_unique");
-    my $sam                = $m->flag("sam");
-    my $nu_stats           = $m->flag("nu_stats");
-    my $rum_unique_sorted  = $m->flag("rum_unique_sorted");
-    my $rum_nu_sorted      = $m->flag("rum_nu_sorted");
-    my $chr_counts_u       = $m->flag("chr_counts_u");
-    my $chr_counts_nu      = $m->flag("chr_counts_nu");
+    my $m = RUM::CommandMachine->new;
 
     $self->{sm} = $m;
     $self->{config} = $config;
-
-    my %quants_flags;
-    my $all_quants = 0;
-    for my $strand ('p', 'm') {
-        for my $sense ('s', 'a') {
-            $quants_flags{$strand}{$sense} = $m->flag("quants_$strand$sense");
-            $all_quants |= $quants_flags{$strand}{$sense};
-        }
-    }
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
     $m->add_transition(
         instruction => "run_bowtie_on_genome",
         comment => "Run bowtie on the genome",
-        pre => $start, 
-        post => $genome_bowtie, 
+        pre => [],
+        post => [$c->genome_bowtie_out], 
         code => sub {
             [[$c->bowtie_bin,
               "-a", 
@@ -86,8 +45,8 @@ sub new {
     $m->add_transition(
         instruction =>  "run_bowtie_on_transcriptome",
         comment => "Run bowtie on the transcriptome",
-        pre => $start, 
-        post => $trans_bowtie, 
+        pre => [],
+        post => [$c->trans_bowtie_out], 
         code => sub {
             [[$c->bowtie_bin,
               "-a", 
@@ -108,8 +67,8 @@ sub new {
         instruction => "make_gu_and_gnu",
         comment => "Separate unique and non-unique mappers from the output ".
             "of running bowtie on the genome",
-        pre => $genome_bowtie, 
-        post => $gu | $gnu, 
+        pre => [$c->genome_bowtie_out], 
+        post => [$c->gu, $c->gnu],
         code => sub {
             [["perl", $c->script("make_GU_and_GNU.pl"), 
               "--unique", $c->gu,
@@ -124,8 +83,8 @@ sub new {
         instruction => "make_tu_and_tnu",
         comment => "Separate unique and non-unique mappers from the output ".
             "of running bowtie on the transcriptome",
-        pre => $trans_bowtie, 
-        post => $tu | $tnu, 
+        pre => [$c->trans_bowtie_out], 
+        post => [$c->tu, $c->tnu], 
         code => sub {
             [["perl", $c->script("make_TU_and_TNU.pl"), 
               "--unique",        $c->tu,
@@ -140,8 +99,8 @@ sub new {
     $m->add_transition(
         instruction => "merge_gnu_tnu_cnu",
         comment => "Take the non-unique and merge them together",
-        pre => $tnu | $gnu | $cnu, 
-        post => $bowtie_nu, 
+        pre => [$c->tnu, $c->gnu, $c->cnu],
+        post => [$c->bowtie_nu], 
         code => sub {
             [["perl", $c->script("merge_GNU_and_TNU_and_CNU.pl"),
               "--gnu", $c->gnu,
@@ -155,11 +114,10 @@ sub new {
     $m->add_transition(
         instruction => "merge_gu_tu",
         comment => "Merge the unique mappers together",
-        pre => $tu | $gu | $tnu | $gnu, 
-        post => $bowtie_unique | $cnu, 
+        pre => [$c->tu, $c->gu, $c->tnu, $c->gnu],
+        post => [$c->bowtie_unique, $c->cnu], 
         code => sub {
             my @cmd = (
-                
                 "perl", $c->script("merge_GU_and_TU.pl"),
                 "--gu", $c->gu,
                 "--tu", $c->tu,
@@ -177,11 +135,11 @@ sub new {
     # If we have the merged bowtie unique mappers and the merged
     # bowtie non-unique mappers, we can create the unmapped file.
     $m->add_transition(
-        instruction =>             "make_unmapped_file",
+        instruction => "make_unmapped_file",
         comment => "Make a file containing the unmapped reads, to be passed ".
             "into blat",
-        pre => $bowtie_unique | $bowtie_nu,
-        post =>             $unmapped,
+        pre  => [$c->bowtie_unique, $c->bowtie_nu],
+        post => [$c->bowtie_unmapped],
         code => sub {
             [["perl", $c->script("make_unmapped_file.pl"),
               "--reads", $c->reads_fa,
@@ -194,8 +152,8 @@ sub new {
     $m->add_transition(
         instruction => "run_blat",
         comment => "Run blat on the unmapped reads",
-        pre => $unmapped, 
-        post => $blat, 
+        pre => [$c->bowtie_unmapped],
+        post =>[$c->blat_output],
         code => sub {
             [[$c->blat_bin,
               $c->genome_fa,
@@ -207,8 +165,8 @@ sub new {
     $m->add_transition(
         instruction => "run_mdust",
         comment => "Run mdust on th unmapped reads",
-        pre => $unmapped, 
-        post => $mdust, 
+        pre => [$c->bowtie_unmapped],
+        post =>[$c->mdust_output],
         code => sub {
             [[$c->mdust_bin,
               $c->bowtie_unmapped,
@@ -219,8 +177,8 @@ sub new {
     $m->add_transition(
         instruction => "parse_blat_out",
         comment => "Parse blat output",
-        pre => $blat | $mdust, 
-        post => $blat_unique | $blat_nu, 
+        pre => [$c->blat_output, $c->mdust_output], 
+        post => [$c->blat_unique, $c->blat_nu], 
         code => sub {
             [["perl", $c->script("parse_blat_out.pl"),
               "--reads-in", $c->bowtie_unmapped,
@@ -234,10 +192,10 @@ sub new {
         });
 
     $m->add_transition(
-        instruction =>         "merge_bowtie_and_blat",
+        instruction => "merge_bowtie_and_blat",
         comment => "Merge bowtie and blat results",
-        pre => $bowtie_unique | $blat_unique | $bowtie_nu | $blat_nu,
-        post =>         $bowtie_blat_unique | $bowtie_blat_nu,
+        pre => [$c->bowtie_unique, $c->blat_unique, $c->bowtie_nu, $c->blat_nu],
+        post => [$c->bowtie_blat_unique, $c->bowtie_blat_nu],
         code => sub {
             [["perl", $c->script("merge_Bowtie_and_Blat.pl"),
               "--bowtie-unique", $c->bowtie_unique,
@@ -252,10 +210,10 @@ sub new {
         });
 
     $m->add_transition(
-        instruction =>         "rum_final_cleanup",
+        instruction => "rum_final_cleanup",
         comment => "Cleanup",
-        pre => $bowtie_blat_unique | $bowtie_blat_nu,
-        post =>         $cleaned_unique | $cleaned_nu | $sam_header,
+        pre => [$c->bowtie_blat_unique, $c->bowtie_blat_nu],
+        post => [$c->cleaned_unique, $c->cleaned_nu, $c->sam_header],
         code => sub {
             [["perl", $c->script("RUM_finalcleanup.pl"),
               "--unique-in", $c->bowtie_blat_unique,
@@ -272,8 +230,8 @@ sub new {
     $m->add_transition(
         instruction => "sort_non_unique_by_id",
         comment => "Sort cleaned non-unique mappers by ID",
-        pre => $cleaned_nu, 
-        post => $sorted_nu, 
+        pre => [$c->cleaned_nu], 
+        post => [$c->rum_nu_id_sorted], 
         code => sub {
             [["perl", $c->script("sort_RUM_by_id.pl"),
               "-o", $c->rum_nu_id_sorted,
@@ -283,8 +241,8 @@ sub new {
     $m->add_transition(
         instruction => "remove_dups",
         comment => "Remove duplicates from sorted NU file",
-        pre => $sorted_nu | $cleaned_unique, 
-        post => $deduped_nu, 
+        pre => [$c->rum_nu_id_sorted, $c->cleaned_unique], 
+        post => [$c->rum_nu_deduped],
         code => sub {
             # TODO: This step is not idempotent; it appends to $c->cleaned_unique
             [["perl", $c->script("removedups.pl"),
@@ -296,8 +254,8 @@ sub new {
     $m->add_transition(
         instruction => "limit_nu",
         comment => "Produce the RUM_NU file",
-        pre => $deduped_nu, 
-        post => $rum_nu, 
+        pre => [$c->rum_nu_deduped],
+        post => [$c->rum_nu], 
         code => sub {
             [["perl", $c->script("limit_NU.pl"),
               $c->limit_nu_cutoff_opt,
@@ -308,8 +266,8 @@ sub new {
     $m->add_transition(
         instruction => "sort_unique_by_id",
         comment => "Produce the RUM_Unique file",
-        pre => $deduped_nu | $cleaned_unique, 
-        post => $rum_unique, 
+        pre => [$c->cleaned_unique], 
+        post => [$c->rum_unique], 
         code => sub {
             [["perl", $c->script("sort_RUM_by_id.pl"),
               $c->cleaned_unique,
@@ -320,8 +278,8 @@ sub new {
         instruction => "rum2sam",
         instruction => "get_nu_stats",
         comment => "Create the sam file",
-        pre => $rum_unique | $rum_nu,
-        post => $sam,
+        pre => [$c->rum_unique, $c->rum_nu],
+        post => [$c->sam_file],
         code => sub {
             [["perl", $c->script("rum2sam.pl"),
               "--unique-in", $c->rum_unique,
@@ -335,8 +293,8 @@ sub new {
     $m->add_transition(
         instruction => "sort_unique_by_location",
         comment => "Create non-unique stats",
-        pre => $sam,
-        post => $nu_stats, 
+        pre => [$c->sam_file],
+        post => [$c->nu_stats], 
         code => sub {
             [["perl", $c->script("get_nu_stats.pl"),
               $c->sam_file,
@@ -346,8 +304,8 @@ sub new {
     $m->add_transition(
         instruction => "sort_nu_by_location",
         comment     => "Sort RUM_Unique", 
-        pre         => $rum_unique, 
-        post        => $rum_unique_sorted | $chr_counts_u, 
+        pre         => [$c->rum_unique], 
+        post        => [$c->rum_unique_sorted, $c->chr_counts_u], 
         code        => sub {
             [["perl", $c->script("sort_RUM_by_location.pl"),
               $c->rum_unique,
@@ -358,8 +316,8 @@ sub new {
     $m->add_transition(
         instruction => "sort_rum_nu",
         comment     => "Sort RUM_NU", 
-        pre         => $rum_nu, 
-        post        => $rum_nu_sorted | $chr_counts_nu, 
+        pre         => [$c->rum_nu], 
+        post        => [$c->rum_nu_sorted, $c->chr_counts_nu], 
         code => sub {
             [["perl", $c->script("sort_RUM_by_location.pl"),
               $c->rum_nu,
@@ -368,19 +326,26 @@ sub new {
         });
     
     
-    for my $strand (keys %quants_flags) {
-        for my $sense (keys %{ $quants_flags{$strand} }) {
+    my @goal = ($c->rum_unique_sorted,
+                $c->rum_nu_sorted,
+                $c->sam_file,
+                $c->nu_stats);
+
+    for my $strand (qw(p m)) {
+        for my $sense (qw(s a)) {
+            my $file = $c->quant($strand, $sense);
+            push @goal, $file;
             $m->add_transition(
                 instruction => "quants_$strand$sense",
                 comment => "Generate quants for strand $strand, sense $sense",
-                pre => $rum_nu_sorted | $rum_unique_sorted, 
-                post => $quants_flags{$strand}{$sense},
+                pre => [$c->rum_nu_sorted, $c->rum_unique_sorted], 
+                post => [$file],
                 code => sub {
                     [["perl", $c->script("rum2quantifications.pl"),
                       "--genes-in", $c->annotations,
                       "--unique-in", $c->rum_unique_sorted,
                       "--non-unique-in", $c->rum_nu_sorted,
-                      "-o", $c->quant($strand, $sense),
+                      "-o", $file,
                       "-countsonly",
                       "--strand", $strand,
                       $sense eq 'a' ? "--anti" : ""]];
@@ -388,7 +353,7 @@ sub new {
         }
     }
 
-    $m->set_goal($all_quants | $rum_unique_sorted | $rum_nu_sorted | $sam | $nu_stats);
+    $m->set_goal(\@goal);
 
     return $self;
 }

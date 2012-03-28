@@ -18,14 +18,28 @@ sub new {
     }, $package;
 }
 
+sub _filenames_to_bits {
+    my ($self, $files) = @_;
+    ref($files) =~ /^ARRAY/ or croak 
+        "Filenames must be givan as array ref";
+    my $bits = 0;
+    for my $file (@$files) {
+        $bits |= $self->{sm}->flag($file);
+    }
+    return $bits;
+}
+
 sub add_transition {
     my ($self, %options) = @_;
 
-    my $name    = delete $options{instruction};
-    my $code    = delete $options{code};
-    my $comment = delete $options{comment};
-    my $pre     = delete $options{pre};
-    my $post    = delete $options{post};
+    my $name       = delete $options{instruction};
+    my $code       = delete $options{code};
+    my $comment    = delete $options{comment};
+    my $pre_files  = delete $options{pre};
+    my $post_files = delete $options{post};
+
+    my $pre = $self->_filenames_to_bits($pre_files);
+    my $post = $self->_filenames_to_bits($post_files);
 
     $self->{instructions}{$name} = $code;
     $self->{comments}{$name} = $comment;
@@ -33,18 +47,15 @@ sub add_transition {
 }
 
 sub start {
-    my ($self, $state) = @_;
+    my ($self, $files) = @_;
+    my $state = $self->_filenames_to_bits($files);
     $self->state_machine->start($state);
 }
 
-sub flag {
-    my ($self, $flag) = @_;
-    return $self->state_machine->flag($flag);
-}
-
 sub set_goal {
-    my ($self, $goal) = @_;
-    return $self->state_machine->set_goal($goal);
+    my ($self, $files) = @_;
+    my $bits = $self->_filenames_to_bits($files);
+    return $self->state_machine->set_goal($bits);
 }
 
 sub step_comment {
@@ -61,14 +72,13 @@ sub state {
     my ($self) = @_;
     
     local $_;
-    my $dir = $self->state_dir;
     my $m = $self->state_machine;
     my $state = 0;
 
-    for ($m->flags) {
-        if (-e "$dir/$_") {
-            $state |= $m->flag($_);
-        }
+    my @existing_files = grep { -e } $m->flags;
+
+    for (@existing_files) {
+        $state |= $m->flag($_);
     }
     return $state;
 }
@@ -111,14 +121,11 @@ sub state_dir {
 sub shell_script {
     my ($self) = @_;
 
-    my $dir = $self->state_dir;
-    mkdir $dir;
-
     my $res;
 
     my $f = sub {
         my ($sm, $old, $step, $new) = @_;
-        my $comment = $step->step_comment($step);
+        my $comment = $self->step_comment($step);
         my @cmds = $self->commands($step);
 
         # Format the comment
@@ -129,7 +136,7 @@ sub shell_script {
         my @post = $sm->flags($new & ~$old);
 
         if (@post) {
-            my @files = map "$dir/$_", @post;
+            my @files = @post;
             my @tests = join(" || ", map("[ ! -e $_ ]", @files));
             $res .= "if @tests; then\n";
             for my $cmd (@cmds) {
@@ -155,9 +162,7 @@ sub shell_script {
 sub execute {
     my ($self, $callback) = @_;
 
-    my $dir = $self->state_dir;
     my $sm = $self->state_machine;
-    mkdir $dir;
 
     local $_;
 
@@ -179,11 +184,10 @@ sub execute {
                 if ($status) {
                     die "Error running $cmd: $!";
                 }
-                for ($sm->flags($new & ~$old)) {
-                    open my $file, ">", "$dir/$_"
-                        or die "Can't touch status file $dir/$_";
-                    close $file;
-                }
+                #for ($sm->flags($new & ~$old)) {
+                #    open my $file, ">", $_ or die "Can't touch status file $_";
+                #    close $file;
+                #}
             }
         }
 
