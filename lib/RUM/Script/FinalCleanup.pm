@@ -2,9 +2,11 @@ package RUM::Script::FinalCleanup;
 
 no warnings;
 
+use Getopt::Long;
+use File::Temp qw(tempfile);
+
 use RUM::Usage;
 use RUM::Logging;
-use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
 
@@ -44,28 +46,30 @@ sub main {
 
     if (!$faok) {
         $log->info("Modifying genome fa file");
-        $r = int(rand(1000));
-        $f = "temp_" . $r . ".fa";
-        open(OUTFILE, ">$f");
+
+        my $fh = File::Temp->new(TEMPLATE => "final-cleanup.XXXXXXXX",
+                                 UNLINK => 1, DIR => ".");
+
         open(INFILE, $genome);
         $flag = 0;
         while ($line = <INFILE>) {
             if ($line =~ />/) {
                 if ($flag == 0) {
-                    print OUTFILE $line;
+                    print $fh $line;
                     $flag = 1;
                 } else {
-                    print OUTFILE "\n$line";
+                    print $fh "\n$line";
                 }
             } else {
                 chomp($line);
-                print OUTFILE $line;
+                print $fh $line;
             }
         }
-        print OUTFILE "\n";
-        close(OUTFILE);
+        print $fh "\n";
+        close($fh);
         close(INFILE);
-        open(GENOMESEQ, $f);
+        open(GENOMESEQ, "<", $fh->filename)
+            or die "Can't open temp file ".$fh->filename." for reading: $!";
     } else {
         $log->info("Genome fa file does not need fixing");
         open(GENOMESEQ, $genome);
