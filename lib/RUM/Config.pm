@@ -57,7 +57,9 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     chr_counts_u       => "chr_counts_u",
     chr_counts_nu      => "chr_counts_nu",
     reads_fa           => "reads.fa",
-    quals_fa           => "quals.fa"
+    quals_fa           => "quals.fa",
+    log_file           => "rum.log",
+    error_log_file     => "rum-errors.log"
 );
 
 our %DEFAULTS = (

@@ -231,6 +231,9 @@ sub process {
             }
             else {
                 my $cmd = "$0 @argv > chunk-$chunk.out";
+                my $config = $config->for_chunk($chunk);
+                $ENV{RUM_CHUNK_LOG} = $config->log_file;
+                $ENV{RUM_CHUNK_ERROR_LOG} = $config->error_log_file;
                 exec $cmd;
             }
         }
