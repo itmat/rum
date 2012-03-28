@@ -2,11 +2,16 @@ package RUM::CommandMachine;
 
 use strict;
 use warnings;
+
 use Carp;
+use Text::Wrap qw(fill wrap);
+use File::Temp;
+
 use RUM::StateMachine;
 use RUM::Config;
 use RUM::Logging;
-use Text::Wrap qw(fill wrap);
+
+
 
 our $log = RUM::Logging->get_logger;
 
@@ -27,6 +32,26 @@ sub _filenames_to_bits {
         $bits |= $self->{sm}->flag($file);
     }
     return $bits;
+}
+
+
+sub _temp_filename {
+    my ($self, $path) = @_;
+    my (undef, $dir, $file) = File::Spec->splitpath($path);
+    # TODO: Ensure that files will be different for different runs
+    my $fh = File::Temp->new(DIR => $dir, TEMPLATE => "$file.XXXXXXXX", UNLINK => 0);
+    close $fh;
+    return $fh->filename;
+}
+
+sub get_temp {
+    my ($self, $path) = @_;
+    return $self->{temp_files}{$path};
+}
+
+sub temp {
+    my ($self, $path) = @_;
+    $self->{temp_files}{$path} ||= $self->_temp_filename($path);
 }
 
 sub add_transition {
@@ -184,10 +209,18 @@ sub execute {
                 if ($status) {
                     die "Error running $cmd: $!";
                 }
-                #for ($sm->flags($new & ~$old)) {
-                #    open my $file, ">", $_ or die "Can't touch status file $_";
-                #    close $file;
-                #}
+            }
+            for ($sm->flags($new & ~$old)) {
+                if (my $temp = $self->get_temp($_)) {
+                    -e and $log->warn(
+                        "File $_ already exists; ".
+                            "I thought it would be created by $step");
+                    rename($temp, $_) or croak
+                        "Couldn't rename temporary file $temp to $_: $!";
+                }
+                else {
+                    $log->warn("$_ was not first created as a temporary file");
+                }
             }
         }
 

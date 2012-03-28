@@ -39,7 +39,7 @@ sub new {
               "--suppress", "6,7,8",
               "-p", 1,
               "--quiet",
-              "> ", $c->genome_bowtie_out]];
+              "> ", $m->temp($c->genome_bowtie_out)]];
         });
     
     $m->add_transition(
@@ -58,7 +58,7 @@ sub new {
               "--suppress", "6,7,8",
               "-p", 1,
               "--quiet",
-              "> ", $c->trans_bowtie_out]];
+              "> ", $m->temp($c->trans_bowtie_out)]];
         });
 
     # If we have the genome bowtie output, we can make the unique and
@@ -71,8 +71,8 @@ sub new {
         post => [$c->gu, $c->gnu],
         code => sub {
             [["perl", $c->script("make_GU_and_GNU.pl"), 
-              "--unique", $c->gu,
-              "--non-unique", $c->gnu,
+              "--unique", $m->temp($c->gu),
+              "--non-unique", $m->temp($c->gnu),
               $c->paired_end_opt(),
               $c->genome_bowtie_out()]];
         });
@@ -87,8 +87,8 @@ sub new {
         post => [$c->tu, $c->tnu], 
         code => sub {
             [["perl", $c->script("make_TU_and_TNU.pl"), 
-              "--unique",        $c->tu,
-              "--non-unique",    $c->tnu,
+              "--unique",        $m->temp($c->tu),
+              "--non-unique",    $m->temp($c->tnu),
               "--bowtie-output", $c->trans_bowtie_out,
               "--genes",         $c->annotations,
               $c->paired_end_opt]];
@@ -106,7 +106,7 @@ sub new {
               "--gnu", $c->gnu,
               "--tnu", $c->tnu,
               "--cnu", $c->cnu,
-              "--out", $c->bowtie_nu]];
+              "--out", $m->temp($c->bowtie_nu)]];
         });
 
     # If we have the unique files for both the genome and the
@@ -123,8 +123,8 @@ sub new {
                 "--tu", $c->tu,
                 "--gnu", $c->gnu,
                 "--tnu", $c->tnu,
-                "--bowtie-unique", $c->bowtie_unique,
-                "--cnu",           $c->cnu,
+                "--bowtie-unique", $m->temp($c->bowtie_unique),
+                "--cnu",           $m->temp($c->cnu),
                 $c->paired_end_opt,
                 "--read-length", $c->read_length);
             push @cmd, "--min-overlap", $c->min_overlap
@@ -145,7 +145,7 @@ sub new {
               "--reads", $c->reads_fa,
               "--unique", $c->bowtie_unique, 
               "--non-unique", $c->bowtie_nu,
-              "-o", $c->bowtie_unmapped,
+              "-o", $m->temp($c->bowtie_unmapped),
               $c->paired_end_opt]];
         });
 
@@ -158,7 +158,7 @@ sub new {
             [[$c->blat_bin,
               $c->genome_fa,
               $c->bowtie_unmapped,
-              $c->blat_output,
+              $m->temp($c->blat_output),
               $c->blat_opts]];
         });
 
@@ -171,7 +171,7 @@ sub new {
             [[$c->mdust_bin,
               $c->bowtie_unmapped,
               " > ",
-              $c->mdust_output]];
+              $m->temp($c->mdust_output)]];
         });
 
     $m->add_transition(
@@ -184,8 +184,8 @@ sub new {
               "--reads-in", $c->bowtie_unmapped,
               "--blat-in", $c->blat_output, 
               "--mdust-in", $c->mdust_output,
-              "--unique-out", $c->blat_unique,
-              "--non-unique-out", $c->blat_nu,
+              "--unique-out", $m->temp($c->blat_unique),
+              "--non-unique-out", $m->temp($c->blat_nu),
               $c->max_insertions_opt,
               $c->match_length_cutoff_opt,
               $c->dna_opt]];
@@ -202,8 +202,8 @@ sub new {
               "--blat-unique", $c->blat_unique,
               "--bowtie-non-unique", $c->bowtie_nu,
               "--blat-non-unique", $c->blat_nu,
-              "--unique-out", $c->bowtie_blat_unique,
-              "--non-unique-out", $c->bowtie_blat_nu,
+              "--unique-out", $m->temp($c->bowtie_blat_unique),
+              "--non-unique-out", $m->temp($c->bowtie_blat_nu),
               $c->paired_end_opt,
               $c->read_length_opt,
               $c->min_overlap_opt]];
@@ -218,10 +218,10 @@ sub new {
             [["perl", $c->script("RUM_finalcleanup.pl"),
               "--unique-in", $c->bowtie_blat_unique,
               "--non-unique-in", $c->bowtie_blat_nu,
-              "--unique-out", $c->cleaned_unique,
-              "--non-unique-out", $c->cleaned_nu,
+              "--unique-out", $m->temp($c->cleaned_unique),
+              "--non-unique-out", $m->temp($c->cleaned_nu),
               "--genome", $c->genome_fa,
-              "--sam-header-out", $c->sam_header,
+              "--sam-header-out", $m->temp($c->sam_header),
               $c->faok_opt,
               $c->count_mismatches_opt,
               $c->match_length_cutoff_opt]];
@@ -234,7 +234,7 @@ sub new {
         post => [$c->rum_nu_id_sorted], 
         code => sub {
             [["perl", $c->script("sort_RUM_by_id.pl"),
-              "-o", $c->rum_nu_id_sorted,
+              "-o", $m->temp($c->rum_nu_id_sorted),
               $c->cleaned_nu]];
         });
     
@@ -246,7 +246,7 @@ sub new {
         code => sub {
             # TODO: This step is not idempotent; it appends to $c->cleaned_unique
             [["perl", $c->script("removedups.pl"),
-              "--non-unique-out", $c->rum_nu_deduped,
+              "--non-unique-out", $m->temp($c->rum_nu_deduped),
               "--unique-out", $c->cleaned_unique,
               $c->rum_nu_id_sorted]];
         });
@@ -259,7 +259,7 @@ sub new {
         code => sub {
             [["perl", $c->script("limit_NU.pl"),
               $c->limit_nu_cutoff_opt,
-              "-o", $c->rum_nu,
+              "-o", $m->temp($c->rum_nu),
               $c->rum_nu_deduped]]
         });
 
@@ -271,7 +271,7 @@ sub new {
         code => sub {
             [["perl", $c->script("sort_RUM_by_id.pl"),
               $c->cleaned_unique,
-              "-o", $c->rum_unique]];
+              "-o", $m->temp($c->rum_unique)]];
         });
 
     $m->add_transition(
@@ -286,7 +286,7 @@ sub new {
               "--non-unique-in", $c->rum_nu,
               "--reads-in", $c->reads_fa,
               "--quals-in", $c->quals_file,
-              "--sam-out", $c->sam_file,
+              "--sam-out", $m->temp($c->sam_file),
               $c->name_mapping_opt]]
         });
 
@@ -298,7 +298,7 @@ sub new {
         code => sub {
             [["perl", $c->script("get_nu_stats.pl"),
               $c->sam_file,
-              "> ", $c->nu_stats]]
+              "> ", $m->temp($c->nu_stats)]]
         });
 
     $m->add_transition(
@@ -309,7 +309,7 @@ sub new {
         code        => sub {
             [["perl", $c->script("sort_RUM_by_location.pl"),
               $c->rum_unique,
-              "-o", $c->rum_unique_sorted,
+              "-o", $m->temp($c->rum_unique_sorted),
               ">>", $c->chr_counts_u]];
         });
 
@@ -321,7 +321,7 @@ sub new {
         code => sub {
             [["perl", $c->script("sort_RUM_by_location.pl"),
               $c->rum_nu,
-              "-o", $c->rum_nu_sorted,
+              "-o", $m->temp($c->rum_nu_sorted),
               ">>", $c->chr_counts_nu]];
         });
     
@@ -345,7 +345,7 @@ sub new {
                       "--genes-in", $c->annotations,
                       "--unique-in", $c->rum_unique_sorted,
                       "--non-unique-in", $c->rum_nu_sorted,
-                      "-o", $file,
+                      "-o", $m->temp($file),
                       "-countsonly",
                       "--strand", $strand,
                       $sense eq 'a' ? "--anti" : ""]];
