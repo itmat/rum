@@ -173,13 +173,18 @@ sub get_options {
 
     $config->set('chunk', $chunk) if $chunk;
 
-    if ($do_preprocess || $do_process || $do_postprocess) {
+    if ($chunk) {
+        $log->debug("I was told to run chunk $chunk, so I won't preprocess or postprocess the files");
+        $config->set('do_process', 1);
+        $config->set("do_$_", 0) for qw(preprocess postprocess);
+    }
+    elsif ($do_preprocess || $do_process || $do_postprocess) {
         $config->set('do_preprocess', $do_preprocess);
         $config->set('do_process', $do_process);
         $config->set('do_postprocess', $do_postprocess);
     }
     else {
-        $config->set("do_$_", 1) for (qw(preprocess process postprocess));
+        $config->set("do_$_", 1) for qw(preprocess process postprocess);
     }
 
     $config->set('do_status', $do_status);
@@ -230,7 +235,7 @@ sub process {
                 push @argv, $pid;
             }
             else {
-                my $cmd = "$0 @argv > chunk-$chunk.out";
+                my $cmd = "$0 @argv > /dev/null";
                 my $config = $config->for_chunk($chunk);
                 $ENV{RUM_CHUNK_LOG} = $config->log_file;
                 $ENV{RUM_CHUNK_ERROR_LOG} = $config->error_log_file;
