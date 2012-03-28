@@ -55,6 +55,7 @@ sub get_options {
     my $c = RUM::Config->new();
 
     Getopt::Long::Configure(qw(no_ignore_case));
+    my @argv = @ARGV;
     GetOptions(
 
         "version|V"    => \(my $do_version),
@@ -94,7 +95,6 @@ sub get_options {
         "alt-quants=s" => \(my $alt_quant),
 
         "min-identity" => \(my $min_identity = 93),
-
 
         "tileSize=s" => \(my $tile_size = 12),
         "stepSize=s" => \(my $step_size = 6),
@@ -186,6 +186,7 @@ sub get_options {
     $config->set('do_shell_script', $do_shell_script);
 
     $config->load_rum_config_file($rum_config_file);
+    $config->set('argv', \@argv);
     return $config;
 }
 
@@ -215,14 +216,33 @@ sub step_printer {
 sub process {
     my ($self) = @_;
     $self->determine_read_length();
-    if ($self->config->chunk) {
-        my $chunk = $self->chunk_machine($self->config->chunk);
+    my $config = $self->config;
+
+    if ($config->chunk) {
+        my $chunk = $self->chunk_machine($config->chunk);
         $chunk->execute(step_printer($chunk));
     }
     else {
-        for my $chunk ($self->chunk_machines) {
-            $chunk->execute(step_printer($chunk));
+        my @pids;
+        for my $chunk (1 .. $config->num_chunks) {
+            my @argv = (@{ $config->argv }, "--chunk", $chunk);
+            if (my $pid = fork) {
+                push @argv, $pid;
+            }
+            else {
+                my $cmd = "$0 @argv > chunk-$chunk.out";
+                exec $cmd;
+            }
         }
+
+        while (1) {
+            my $pid = wait;
+            if ($pid < 0) {
+                $log->info("All children done");
+                last;
+            }
+        }
+
     }
 }
 

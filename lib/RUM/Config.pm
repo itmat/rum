@@ -24,6 +24,7 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  do_postprocess
  do_status
  do_shell_script
+ argv
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (
