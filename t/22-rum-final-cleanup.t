@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More tests => 7;
 use FindBin qw($Bin);
 use File::Copy;
 use lib "$Bin/../lib";
