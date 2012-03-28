@@ -11,18 +11,24 @@ use RUM::StateMachine;
 use RUM::Config;
 use RUM::Logging;
 
-
-
 our $log = RUM::Logging->get_logger;
 
+=item new
+
+Return a new RUM::StateMachine.
+
+=cut
+
 sub new {
-    my ($package, $state_dir) = @_;
+    my ($class) = @_;
     return bless {
         sm => RUM::StateMachine->new(),
-        state_dir => $state_dir
-    }, $package;
+    }, $class;
 }
 
+# Given an array ref of filenames, initialize flags for any that I
+# don't already know about, and return a bit string representing the
+# set of states where all those files exist.
 sub _filenames_to_bits {
     my ($self, $files) = @_;
     ref($files) =~ /^ARRAY/ or croak 
@@ -35,6 +41,8 @@ sub _filenames_to_bits {
 }
 
 
+# Given a $path (presumably representing a file that affects my
+# state), return a temporary filename based on that path.
 sub _temp_filename {
     my ($self, $path) = @_;
     my (undef, $dir, $file) = File::Spec->splitpath($path);
@@ -44,17 +52,28 @@ sub _temp_filename {
     return $fh->filename;
 }
 
-sub get_temp {
+# Get the temporary filename associated with the given file, or undef
+# if there is no associated temp file.
+sub _get_temp {
     my ($self, $path) = @_;
     return $self->{temp_files}{$path};
 }
+
+=item temp($file)
+
+Return the name of a temporary file, and associate that temp file with
+the given $file. Commands should use this to get the name of a file to
+write to. After I execute a command, I will copy all temporary files
+associated with it to their corresponding non-temporary file.
+
+=cut
 
 sub temp {
     my ($self, $path) = @_;
     $self->{temp_files}{$path} ||= $self->_temp_filename($path);
 }
 
-sub add_transition {
+sub add_command {
     my ($self, %options) = @_;
 
     my $name       = delete $options{instruction};
@@ -139,10 +158,6 @@ sub commands {
     return map "@$_", @$cmds;
 }
 
-sub state_dir {
-    $_[0]->{state_dir};
-}
-
 sub shell_script {
     my ($self) = @_;
 
@@ -211,7 +226,7 @@ sub execute {
                 }
             }
             for ($sm->flags($new & ~$old)) {
-                if (my $temp = $self->get_temp($_)) {
+                if (my $temp = $self->_get_temp($_)) {
                     -e and $log->warn(
                         "File $_ already exists; ".
                             "I thought it would be created by $step");

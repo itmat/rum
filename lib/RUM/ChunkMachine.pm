@@ -23,7 +23,7 @@ sub new {
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
-    $m->add_transition(
+    $m->add_command(
         instruction => "run_bowtie_on_genome",
         comment => "Run bowtie on the genome",
         pre => [],
@@ -42,7 +42,7 @@ sub new {
               "> ", $m->temp($c->genome_bowtie_out)]];
         });
     
-    $m->add_transition(
+    $m->add_command(
         instruction =>  "run_bowtie_on_transcriptome",
         comment => "Run bowtie on the transcriptome",
         pre => [],
@@ -63,7 +63,7 @@ sub new {
 
     # If we have the genome bowtie output, we can make the unique and
     # non-unique files for it.
-    $m->add_transition(
+    $m->add_command(
         instruction => "make_gu_and_gnu",
         comment => "Separate unique and non-unique mappers from the output ".
             "of running bowtie on the genome",
@@ -79,7 +79,7 @@ sub new {
 
     # If we have the transcriptome bowtie output, we can make the
     # unique and non-unique files for it.
-    $m->add_transition(
+    $m->add_command(
         instruction => "make_tu_and_tnu",
         comment => "Separate unique and non-unique mappers from the output ".
             "of running bowtie on the transcriptome",
@@ -96,7 +96,7 @@ sub new {
 
     # If we have the non-unique files for both the genome and the
     # transcriptome, we can merge them.
-    $m->add_transition(
+    $m->add_command(
         instruction => "merge_gnu_tnu_cnu",
         comment => "Take the non-unique and merge them together",
         pre => [$c->tnu, $c->gnu, $c->cnu],
@@ -111,7 +111,7 @@ sub new {
 
     # If we have the unique files for both the genome and the
     # transcriptome, we can merge them.
-    $m->add_transition(
+    $m->add_command(
         instruction => "merge_gu_tu",
         comment => "Merge the unique mappers together",
         pre => [$c->tu, $c->gu, $c->tnu, $c->gnu],
@@ -134,7 +134,7 @@ sub new {
 
     # If we have the merged bowtie unique mappers and the merged
     # bowtie non-unique mappers, we can create the unmapped file.
-    $m->add_transition(
+    $m->add_command(
         instruction => "make_unmapped_file",
         comment => "Make a file containing the unmapped reads, to be passed ".
             "into blat",
@@ -149,7 +149,7 @@ sub new {
               $c->paired_end_opt]];
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "run_blat",
         comment => "Run blat on the unmapped reads",
         pre => [$c->bowtie_unmapped],
@@ -162,7 +162,7 @@ sub new {
               $c->blat_opts]];
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "run_mdust",
         comment => "Run mdust on th unmapped reads",
         pre => [$c->bowtie_unmapped],
@@ -174,7 +174,7 @@ sub new {
               $m->temp($c->mdust_output)]];
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "parse_blat_out",
         comment => "Parse blat output",
         pre => [$c->blat_output, $c->mdust_output], 
@@ -191,7 +191,7 @@ sub new {
               $c->dna_opt]];
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "merge_bowtie_and_blat",
         comment => "Merge bowtie and blat results",
         pre => [$c->bowtie_unique, $c->blat_unique, $c->bowtie_nu, $c->blat_nu],
@@ -209,7 +209,7 @@ sub new {
               $c->min_overlap_opt]];
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "rum_final_cleanup",
         comment => "Cleanup",
         pre => [$c->bowtie_blat_unique, $c->bowtie_blat_nu],
@@ -227,7 +227,7 @@ sub new {
               $c->match_length_cutoff_opt]];
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "sort_non_unique_by_id",
         comment => "Sort cleaned non-unique mappers by ID",
         pre => [$c->cleaned_nu], 
@@ -238,7 +238,7 @@ sub new {
               $c->cleaned_nu]];
         });
     
-    $m->add_transition(
+    $m->add_command(
         instruction => "remove_dups",
         comment => "Remove duplicates from sorted NU file",
         pre => [$c->rum_nu_id_sorted, $c->cleaned_unique], 
@@ -251,7 +251,7 @@ sub new {
               $c->rum_nu_id_sorted]];
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "limit_nu",
         comment => "Produce the RUM_NU file",
         pre => [$c->rum_nu_deduped],
@@ -263,7 +263,7 @@ sub new {
               $c->rum_nu_deduped]]
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "sort_unique_by_id",
         comment => "Produce the RUM_Unique file",
         pre => [$c->cleaned_unique], 
@@ -274,7 +274,7 @@ sub new {
               "-o", $m->temp($c->rum_unique)]];
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "rum2sam",
         instruction => "get_nu_stats",
         comment => "Create the sam file",
@@ -290,7 +290,7 @@ sub new {
               $c->name_mapping_opt]]
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "sort_unique_by_location",
         comment => "Create non-unique stats",
         pre => [$c->sam_file],
@@ -301,7 +301,7 @@ sub new {
               "> ", $m->temp($c->nu_stats)]]
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "sort_nu_by_location",
         comment     => "Sort RUM_Unique", 
         pre         => [$c->rum_unique], 
@@ -313,7 +313,7 @@ sub new {
               ">>", $c->chr_counts_u]];
         });
 
-    $m->add_transition(
+    $m->add_command(
         instruction => "sort_rum_nu",
         comment     => "Sort RUM_NU", 
         pre         => [$c->rum_nu], 
@@ -335,7 +335,7 @@ sub new {
         for my $sense (qw(s a)) {
             my $file = $c->quant($strand, $sense);
             push @goal, $file;
-            $m->add_transition(
+            $m->add_command(
                 instruction => "quants_$strand$sense",
                 comment => "Generate quants for strand $strand, sense $sense",
                 pre => [$c->rum_nu_sorted, $c->rum_unique_sorted], 
