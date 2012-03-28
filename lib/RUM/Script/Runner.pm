@@ -233,10 +233,11 @@ sub process {
     elsif (my $n = $config->num_chunks) {
         $log->info("Creating $n chunks");
         my @pids;
+        my %pid_to_chunk;
         for my $chunk (1 .. $config->num_chunks) {
             my @argv = (@{ $config->argv }, "--chunk", $chunk);
             if (my $pid = fork) {
-                push @argv, $pid;
+                $pid_to_chunk{$pid} = $chunk;
             }
             else {
                 my $cmd = "$0 @argv > /dev/null";
@@ -252,6 +253,12 @@ sub process {
             if ($pid < 0) {
                 $log->info("All children done");
                 last;
+            }
+            elsif ($?) {
+                $log->error("Pid $pid (chunk $pid_to_chunk{$pid}) exited with status $?");
+            }
+            else {
+                $log->info("Pid $pid (chunk $pid_to_chunk{$pid}) finished");
             }
         }
     }
