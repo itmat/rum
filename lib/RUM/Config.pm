@@ -63,7 +63,7 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
 );
 
 our %DEFAULTS = (
-    num_chunks            => 1,
+    num_chunks            => 0,
     preserve_names        => 0,
     variable_length_reads => 0,
     min_length            => undef,

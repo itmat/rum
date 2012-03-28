@@ -70,7 +70,7 @@ sub get_options {
 
         "output|o=s"  => \(my $output_dir),
         "name=s"      => \(my $name),
-        "chunks=s"    => \(my $num_chunks = 1),
+        "chunks=s"    => \(my $num_chunks = 0),
         "chunk=s"     => \(my $chunk),
         "help-config" => \(my $do_help_config),
         "read-lengths=s" => \(my $read_lengths),
@@ -223,11 +223,15 @@ sub process {
     $self->determine_read_length();
     my $config = $self->config;
 
-    if ($config->chunk) {
-        my $chunk = $self->chunk_machine($config->chunk);
-        $chunk->execute(step_printer($chunk));
+    $log->info("Chunk is ". ($config->chunk ? "yes" : "no"));
+
+    if (my $chunk = $config->chunk) {
+        $log->info("Running chunk $chunk");
+        my $machine = $self->chunk_machine($chunk);
+        $machine->execute(step_printer($machine));
     }
-    else {
+    elsif (my $n = $config->num_chunks) {
+        $log->info("Creating $n chunks");
         my @pids;
         for my $chunk (1 .. $config->num_chunks) {
             my @argv = (@{ $config->argv }, "--chunk", $chunk);
@@ -250,8 +254,15 @@ sub process {
                 last;
             }
         }
-
     }
+    else {
+        $log->info("Running whole job (not splitting into chunks)");
+        my $chunk = RUM::ChunkMachine->new($config);
+        $chunk->execute(step_printer($chunk));
+    }
+
+
+
 }
 
 sub postprocess {
