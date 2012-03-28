@@ -5,7 +5,10 @@ use warnings;
 use Carp;
 use RUM::StateMachine;
 use RUM::Config;
+use RUM::Logging;
 use Text::Wrap qw(fill wrap);
+
+our $log = RUM::Logging->get_logger;
 
 sub new {
     my ($package, $state_dir) = @_;
@@ -92,8 +95,11 @@ sub state_report {
 
 sub commands {
     my ($self, $instruction) = @_;
+    $log->debug("Getting commands for instruction $instruction");
     my $code = $self->{instructions}{$instruction} or croak
         "Undefined instruction $instruction";
+    ref($code) =~ /^CODE/ or croak "Code for instruction $instruction is not a CODE ref";
+    $log->debug("Code is $code");
     my $cmds = $code->();
     return map "@$_", @$cmds;
 }
@@ -165,7 +171,7 @@ sub execute {
 
         my $completed = ($new & $self->state) == $new;
 
-        $callback->($step, $completed);
+        $callback->($step, $completed) if $callback;
 
         unless ($completed) {
             for my $cmd (@cmds) {

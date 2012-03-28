@@ -194,8 +194,6 @@ sub config {
     return $_[0]->{config};
 }
 
-
-
 sub preprocess {
     my ($self) = @_;
     $self->setup;
@@ -204,24 +202,26 @@ sub preprocess {
     $self->determine_read_length();
 }
 
+sub step_printer {
+    my ($chunk) = @_;
+    return sub {
+        my ($step, $skipping) = @_;
+        my $indent = $skipping ? "(skipping) " : "(running)  ";
+        my $comment = $chunk->step_comment($step);
+        $log->info(wrap($indent, "           ", $comment));
+    };
+}
+
 sub process {
     my ($self) = @_;
     $self->determine_read_length();
     if ($self->config->chunk) {
         my $chunk = $self->chunk_machine($self->config->chunk);
-        $chunk->execute;
+        $chunk->execute(step_printer($chunk));
     }
     else {
         for my $chunk ($self->chunk_machines) {
-
-            my $callback = sub {
-                my ($step, $skipping) = @_;
-                my $indent = $skipping ? "(skipping) " : "(running)  ";
-                my $comment = $chunk->step_comment($step);
-                print wrap($indent, "           ", $comment."\n");
-            };
-
-            $chunk->execute($callback);
+            $chunk->execute(step_printer($chunk));
         }
     }
 }
@@ -397,7 +397,7 @@ sub determine_read_length {
     my $read = $lines[1];
     my $len = split(//,$read);
     my $min = $self->config->min_length;
-    $log->info("Read length is $len, min is $min");
+    $log->debug("Read length is $len, min is $min") if $log->is_debug;
     if ($self->config->variable_read_lengths) {
         $log->info("Using variable read length");
         $self->config->set("read_length", "v");
