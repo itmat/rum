@@ -233,8 +233,12 @@ sub process {
     elsif (my $n = $config->num_chunks) {
         $log->info("Creating $n chunks");
         my @pids;
+
         my %pid_to_chunk;
-        for my $chunk (1 .. $config->num_chunks) {
+        my %run_count;
+
+        my $kickoff_chunk = sub {
+            my ($chunk) = @_;
             my @argv = (@{ $config->argv }, "--chunk", $chunk);
             if (my $pid = fork) {
                 $pid_to_chunk{$pid} = $chunk;
@@ -245,7 +249,11 @@ sub process {
                 $ENV{RUM_CHUNK_LOG} = $config->log_file;
                 $ENV{RUM_CHUNK_ERROR_LOG} = $config->error_log_file;
                 exec $cmd;
-            }
+            }            
+        };
+
+        for my $chunk (1 .. $config->num_chunks) {
+            $kickoff_chunk->($chunk);
         }
 
         while (1) {
@@ -255,7 +263,7 @@ sub process {
                 last;
             }
             elsif ($?) {
-                $log->error("Pid $pid (chunk $pid_to_chunk{$pid}) exited with status $?");
+                $log->error("Pid $pid (chunk $pid_to_chunk{$pid}) exited with status $?. I will attempt to restart it.");
             }
             else {
                 $log->info("Pid $pid (chunk $pid_to_chunk{$pid}) finished");
