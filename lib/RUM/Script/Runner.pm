@@ -28,6 +28,8 @@ sub ERROR  { $log->error(wrap("", "", @_))  }
 sub FATAL  { $log->fatal(wrap("", "", @_))  }
 sub LOGDIE { $log->logdie(wrap("", "", @_)) }
 
+our $MAX_RESTARTS = 7;
+
 sub main {
     my $config = __PACKAGE__->get_options();
     my $self = __PACKAGE__->new(config => $config);
@@ -235,11 +237,12 @@ sub process {
         my @pids;
 
         my %pid_to_chunk;
-        my %run_count;
+        my @run_count = map 0, (1 .. $n);
 
         my $kickoff_chunk = sub {
             my ($chunk) = @_;
             my @argv = (@{ $config->argv }, "--chunk", $chunk);
+            $run_count[$chunk]++;
             if (my $pid = fork) {
                 $pid_to_chunk{$pid} = $chunk;
             }
@@ -252,7 +255,8 @@ sub process {
             }            
         };
 
-        for my $chunk (1 .. $config->num_chunks) {
+        for my $chunk (1 .. $n) {
+            $run_count[$chunk] = 0;
             $kickoff_chunk->($chunk);
         }
 
@@ -263,7 +267,14 @@ sub process {
                 last;
             }
             elsif ($?) {
-                $log->error("Pid $pid (chunk $pid_to_chunk{$pid}) exited with status $?. I will attempt to restart it.");
+                my $chunk = $pid_to_chunk{$pid};
+                if ($run_count[$chunk] > $MAX_RESTARTS) {
+                    $log->error("Pid $pid (chunk $pid_to_chunk{$pid})) has failed $run_count[$chunk] times. Giving up on it");
+                }
+                else {
+                    $log->error("Pid $pid (chunk $pid_to_chunk{$pid}) exited with status $?. I will attempt to restart it.");
+                    $kickoff_chunk->($chunk);
+                }
             }
             else {
                 $log->info("Pid $pid (chunk $pid_to_chunk{$pid}) finished");
