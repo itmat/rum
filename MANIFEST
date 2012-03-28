@@ -172,9 +172,6 @@ t/40-chunk-machine.t
 t/41-config.t
 t/50-download-test-data.it
 t/50-runner.pm
-t/51-sort-by-location.it
-t/52-sort-rum-by-location.it
-t/53-merge-sorted-rum-files.it
 t/60-dist.it
 t/80-end-to-end.it
 t/boilerplate.t
