@@ -73,7 +73,7 @@ sub flag {
     return $self->{flags}{$flag} ||= 1 << $n;
 }
 
-=item add($comment, $pre, $post, $instruction)
+=item add($pre, $post, $instruction)
 
 =item add($pre, $post, $instruction)
 
@@ -82,18 +82,14 @@ where the $pre flags are set to the state $s | $post; that is, when
 in a state where all the $pre flags are set, I can set all the
 $post flags by applying the given $instruction.
 
-When four arguments are given, the first should be a descriptive
-comment, which will be associated with this transition. 
-
 =cut
 
 sub add {
     my $self = shift;
-    my $comment = @_ == 4 ? shift : "";
     my ($pre, $post, $instruction) = @_;
     $self->{transitions}{$instruction} ||= [];
     push @{ $self->{transitions}{$instruction} },
-        [$pre, $post, $comment];
+        [$pre, $post];
 }
 
 =back
@@ -184,7 +180,7 @@ sub transition {
 
     for my $t (@$transitions) {
         
-        my ($pre, $post, $comment) = @$t;
+        my ($pre, $post) = @$t;
 
         # If all the bits in $pre aren't set in $state, then we can't
         # use this transition.
@@ -198,10 +194,10 @@ sub transition {
 
         # Otherwise we have a valid transition; the new state is the
         # old $state with all the bits in $post set.
-        return wantarray ? ($to, $comment) : $to;
+        return $to;
     }
     
-    return wantarray ? ($from, "") : $from;
+    return $from;
 }
 
 sub _requirements {
@@ -261,6 +257,22 @@ sub generate {
     return \@plan;
 }
 
+=item walk($callback)
+
+Walk the sequence of transitions necessary to bring this state machine
+from its start state to a goal state, calling $callback for each
+transition.  $callback is called as follows
+
+  $callback->($self, $state, $instruction, $new_state, $comment);
+
+Where $self is this state machine, $state is the state before the
+given $instruction would be applied, and $new_state is the state after
+$instruction was applied.
+
+=cut
+
+
+
 sub walk {
     my ($self, $callback) = @_;
 
@@ -269,9 +281,9 @@ sub walk {
   STATE: while (!$self->is_goal($state)) {
         local $_;
         for (sort($self->instructions)) {
-            my ($new_state, $comment) = $self->transition($state, $_);
+            my $new_state = $self->transition($state, $_);
             if ($new_state != $state) {
-                $callback->($self, $state, $_, $new_state, $comment);
+                $callback->($self, $state, $_, $new_state);
                 $state = $new_state;
                 next STATE;
             }

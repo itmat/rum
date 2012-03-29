@@ -46,9 +46,6 @@ SKIP: {
     
     my $chunk = RUM::Workflows->chunk_workflow($config);
 
-    my $script = $chunk->shell_script("$out_dir/state");
-
     open my $script_file, ">", "$out_dir/run.sh" or die "Can't open script";
-    print $script_file $script;
-    close $script_file;
+    $chunk->shell_script($script_file);
 }

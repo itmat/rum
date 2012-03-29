@@ -2,11 +2,27 @@ package RUM::Workflows;
 
 use strict;
 use warnings;
+
 use Carp;
-use RUM::StateMachine;
-use RUM::CommandMachine;
-use RUM::Config;
 use Text::Wrap qw(fill wrap);
+
+use RUM::StateMachine;
+use RUM::Workflow;
+use RUM::Config;
+
+=head1 NAME
+
+RUM::Workflows - Collection of RUM workflows.
+
+=head1 CLASS METHODS
+
+=over 4
+
+=item chunk_workflow($config)
+
+Return the workflow for the chunk with the given RUM::Config.
+
+=cut
 
 sub chunk_workflow {
     my ($class, $config) = @_;
@@ -14,7 +30,7 @@ sub chunk_workflow {
     my $c = $config;
     my $self = bless {config => $config}, $class;
 
-    my $m = RUM::CommandMachine->new;
+    my $m = RUM::Workflow->new;
 
     $self->{sm} = $m;
     $self->{config} = $config;
@@ -356,3 +372,7 @@ sub chunk_workflow {
 }
 
 1;
+
+=back
+
+=cut

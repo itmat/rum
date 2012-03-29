@@ -663,7 +663,7 @@ sub export_shell_script {
         my $w = RUM::Workflows->chunk_workflow($chunk);
         my $file = IO::File->new($config->pipeline_sh);
         open my $out, ">", $file or die "Can't open $file for writing: $!";
-        print $out $w->shell_script;
+        $w->shell_script($out);
     }
 }
 

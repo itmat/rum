@@ -1,4 +1,4 @@
-package RUM::CommandMachine;
+package RUM::Workflow;
 
 use strict;
 use warnings;
@@ -12,9 +12,36 @@ use RUM::Logging;
 
 our $log = RUM::Logging->get_logger;
 
+=head1 NAME
+
+RUM::Workflow - Generic library for specifying a workflow as a
+sequence of commands
+
+=head1 SYNOPSIS
+
+  use RUM::Workflow;
+
+  my $wf = RUM::Workflow->new();
+
+  $wf->add_command(
+      name => "do_stuff",
+      comment => "This command does things",
+      pre => ..., # Files that must exist before I run
+      post => ..., # Files that I will create
+      code => ... # CODE ref that returns commands to run
+  );
+
+  ... # Add more commands
+
+=head1 CONSTRUCTORS
+
+=over 4
+
 =item new
 
-Return a new RUM::StateMachine.
+Return a new RUM::Workflow.
+
+=back
 
 =cut
 
@@ -25,52 +52,11 @@ sub new {
     }, $class;
 }
 
-# Given an array ref of filenames, initialize flags for any that I
-# don't already know about, and return a bit string representing the
-# set of states where all those files exist.
-sub _filenames_to_bits {
-    my ($self, $files) = @_;
-    ref($files) =~ /^ARRAY/ or croak 
-        "Filenames must be givan as array ref";
-    my $bits = 0;
-    for my $file (@$files) {
-        $bits |= $self->{sm}->flag($file);
-    }
-    return $bits;
-}
+=head1 METHODS
 
+=head2 Building the Workflow
 
-# Given a $path (presumably representing a file that affects my
-# state), return a temporary filename based on that path.
-sub _temp_filename {
-    my ($self, $path) = @_;
-    my (undef, $dir, $file) = File::Spec->splitpath($path);
-    # TODO: Ensure that files will be different for different runs
-    my $fh = File::Temp->new(DIR => $dir, TEMPLATE => "$file.XXXXXXXX", UNLINK => 0);
-    close $fh;
-    return $fh->filename;
-}
-
-# Get the temporary filename associated with the given file, or undef
-# if there is no associated temp file.
-sub _get_temp {
-    my ($self, $path) = @_;
-    return $self->{temp_files}{$path};
-}
-
-=item temp($file)
-
-Return the name of a temporary file, and associate that temp file with
-the given $file. Commands should use this to get the name of a file to
-write to. After I execute a command, I will copy all temporary files
-associated with it to their corresponding non-temporary file.
-
-=cut
-
-sub temp {
-    my ($self, $path) = @_;
-    $self->{temp_files}{$path} ||= $self->_temp_filename($path);
-}
+=over 4
 
 =item add_command(%options)
 
@@ -120,6 +106,20 @@ sub add_command {
     $self->{sm}->add($pre, $post, $name);
 }
 
+=item temp($file)
+
+Return the name of a temporary file, and associate that temp file with
+the given $file. Commands should use this to get the name of a file to
+write to. After I execute a command, I will copy all temporary files
+associated with it to their corresponding non-temporary file.
+
+=cut
+
+sub temp {
+    my ($self, $path) = @_;
+    $self->{temp_files}{$path} ||= $self->_temp_filename($path);
+}
+
 =item start($files)
 
 Set the start state for this machine, as a set of files that exist
@@ -145,6 +145,12 @@ sub set_goal {
     my $bits = $self->_filenames_to_bits($files);
     return $self->state_machine->set_goal($bits);
 }
+
+=back
+
+=head2 Accessing a Workflow
+
+=over 4
 
 =item comment
 
@@ -189,6 +195,14 @@ sub state {
     return $state;
 }
 
+=item walk_states
+
+Walk the path of states from the current state to a goal state,
+calling $callback for each command necessary to transition us to the
+goal state.
+
+=cut
+
 sub walk_states {
 
     my ($self, $callback) = @_;
@@ -205,25 +219,11 @@ sub walk_states {
 
 }
 
-sub state_report {
-    my ($self) = @_;
+=item commands($name)
 
-    my $state = $self->state;
+Return the shell commands with the given name.
 
-    my @report;
-
-    my $callback = sub {
-        my ($sm, $old, $step, $new, $comment) = @_;
-
-        my $completed = ($new & $state) == $new;
-
-        push @report, [$completed, $step];
-
-    };
-        
-    $self->{sm}->walk($callback);
-    return @report;
-}
+=cut
 
 sub commands {
     my ($self, $name) = @_;
@@ -236,10 +236,14 @@ sub commands {
     return map "@$_", @$cmds;
 }
 
-sub shell_script {
-    my ($self) = @_;
+=item shell_script($filehandle)
 
-    my $res;
+Print the workflow as a shell script to the given $filehandle
+
+=cut
+
+sub shell_script {
+    my ($self, $fh) = @_;
 
     my $f = sub {
         my ($sm, $old, $step, $new) = @_;
@@ -249,32 +253,30 @@ sub shell_script {
         # Format the comment
         $comment =~ s/\n//g;
         $comment = fill('# ', '# ', $comment);
-        $res .= "$comment\n";
+        print $fh  "$comment\n";
         
         my @post = $sm->flags($new & ~$old);
 
         if (@post) {
             my @files = @post;
             my @tests = join(" || ", map("[ ! -e $_ ]", @files));
-            $res .= "if @tests; then\n";
+            print $fh  "if @tests; then\n";
             for my $cmd (@cmds) {
-                $res .= "  $cmd || exit 1\n";
+                print $fh  "  $cmd || exit 1\n";
             }
-            $res .= "  touch @files\n";
-            $res .= "fi\n";            
+            print $fh  "  touch @files\n";
+            print $fh  "fi\n";            
         }
         else {
             for my $cmd (@cmds) {
-                $res .= "$cmd || exit 1\n";
+                print $fh  "$cmd || exit 1\n";
             }
         }
-        $res .= "\n";
+        print $fh  "\n";
 
     };
 
     $self->{sm}->walk($f);
-
-    return $res;
 }
 
 =item execute($callback)
@@ -336,5 +338,40 @@ sub execute {
 
     $self->{sm}->walk($f);
 }
+
+# Given an array ref of filenames, initialize flags for any that I
+# don't already know about, and return a bit string representing the
+# set of states where all those files exist.
+sub _filenames_to_bits {
+    my ($self, $files) = @_;
+    ref($files) =~ /^ARRAY/ or croak 
+        "Filenames must be givan as array ref";
+    my $bits = 0;
+    for my $file (@$files) {
+        $bits |= $self->{sm}->flag($file);
+    }
+    return $bits;
+}
+
+
+# Given a $path (presumably representing a file that affects my
+# state), return a temporary filename based on that path.
+sub _temp_filename {
+    my ($self, $path) = @_;
+    my (undef, $dir, $file) = File::Spec->splitpath($path);
+    # TODO: Ensure that files will be different for different runs
+    my $fh = File::Temp->new(DIR => $dir, TEMPLATE => "$file.XXXXXXXX", UNLINK => 0);
+    close $fh;
+    return $fh->filename;
+}
+
+# Get the temporary filename associated with the given file, or undef
+# if there is no associated temp file.
+sub _get_temp {
+    my ($self, $path) = @_;
+    return $self->{temp_files}{$path};
+}
+
+
 
 1;

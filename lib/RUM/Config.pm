@@ -11,6 +11,12 @@ our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
 FindBin->again;
 
+=head1 NAME
+
+RUM::Config - Configuration for a RUM job
+
+=cut
+
 our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  match_length_cutoff max_insertions num_chunks bin_dir genome_bowtie
  genome_fa transcriptome_bowtie annotations num_chunks read_length
@@ -74,6 +80,36 @@ our %DEFAULTS = (
     chunk                 => undef,
 );
 
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new(%options)
+
+Create a new RUM::Config with the given options.
+
+=back
+
+=cut
+
+sub new {
+    my ($class, %options) = @_;
+    my %data = %DEFAULTS;
+    
+    for (@LITERAL_PROPERTIES) {
+        if (exists $options{$_}) {
+            $data{$_} = delete $options{$_};
+        }
+    }
+    
+    if (my @extra = keys(%options)) {
+        croak "Extra arguments to Config->new: @extra";
+    }
+
+    return bless \%data, $class;
+}
+
+
 
 sub variable_read_lengths {
     $_[0]->variable_length_reads
@@ -115,23 +151,6 @@ sub load_rum_config_file {
         $self->set($_, $data{$_});
     }
     
-}
-
-sub new {
-    my ($class, %options) = @_;
-    my %data = %DEFAULTS;
-    
-    for (@LITERAL_PROPERTIES) {
-        if (exists $options{$_}) {
-            $data{$_} = delete $options{$_};
-        }
-    }
-    
-    if (my @extra = keys(%options)) {
-        croak "Extra arguments to Config->new: @extra";
-    }
-
-    return bless \%data, $class;
 }
 
 sub for_chunk {

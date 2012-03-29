@@ -16,9 +16,11 @@ plan skip_all => "Pod::Coverage $min_pc required for testing POD coverage"
     if $@;
 
 # Skip any modules that start with RUM::Script::, as these are
-# typically documented in their *.pl file.
+# typically documented in their *.pl file. Also skip RUM::Config, as
+# it has a lot of tiny methods that are not worth documenting right
+# now and are self-explanatory.
 my @modules = grep {
-    !/^RUM::Script::/
+    !/^RUM::Script::/ && $_ ne "RUM::Config"
 } all_modules();
 
 plan tests => scalar(@modules);

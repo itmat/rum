@@ -357,6 +357,12 @@ sub is_fasta {
     }    
 }
 
+=item num_digits($n)
+
+Return the number of digits in the given integer argument.
+
+=cut
+
 sub num_digits {
     my ($n) = (@_);
     my $size = 0;
