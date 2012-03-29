@@ -73,10 +73,41 @@ sub temp {
     $self->{temp_files}{$path} ||= $self->_temp_filename($path);
 }
 
+=item add_command(%options)
+
+Add a command. The following options must be specified:
+
+=over 4
+
+=item B<name>
+
+The name for the command.
+
+=item B<comment>
+
+A short description of the command.
+
+=item B<pre>
+
+Array ref of files that must exist before the command is run.
+
+=item B<post>
+
+Array ref of files that will exist after the command is run.
+
+=item B<code>
+
+A code ref that, when run, returns an array ref of commands to
+execute on the shell.
+
+=back
+
+=cut
+
 sub add_command {
     my ($self, %options) = @_;
 
-    my $name       = delete $options{instruction};
+    my $name       = delete $options{name};
     my $code       = delete $options{code};
     my $comment    = delete $options{comment};
     my $pre_files  = delete $options{pre};
@@ -85,10 +116,19 @@ sub add_command {
     my $pre = $self->_filenames_to_bits($pre_files);
     my $post = $self->_filenames_to_bits($post_files);
 
-    $self->{instructions}{$name} = $code;
+    $self->{commands}{$name} = $code;
     $self->{comments}{$name} = $comment;
     $self->{sm}->add($pre, $post, $name);
 }
+
+=item start($files)
+
+Set the start state for this machine, as a set of files that exist
+before the machines starts. $files must be an array ref of paths.
+
+=cut
+
+
 
 sub start {
     my ($self, $files) = @_;
@@ -96,21 +136,46 @@ sub start {
     $self->state_machine->start($state);
 }
 
+=item set_goal($files)
+
+Set the goal state for this machine, as a set of files that must exist
+after the machine stops. $files must be an array ref of paths.
+
+=cut
+
 sub set_goal {
     my ($self, $files) = @_;
     my $bits = $self->_filenames_to_bits($files);
     return $self->state_machine->set_goal($bits);
 }
 
-sub step_comment {
-    my ($self, $step) = @_;
-    return $self->{comments}{$step};
+=item comment
+
+Return the comment associated with the command that has the given $name.
+
+=cut
+
+sub comment {
+    my ($self, $name) = @_;
+    return $self->{comments}{$name};
 }
 
+=item state_machine
+
+Return the state machine for this workflow.
+
+=cut
 
 sub state_machine {
     return $_[0]->{sm};
 }
+
+=item state
+
+Return the current state of the workflow as a bit string. Determines
+the state by checking to see which files exist.
+
+=cut
 
 sub state {
     my ($self) = @_;
@@ -125,6 +190,22 @@ sub state {
         $state |= $m->flag($_);
     }
     return $state;
+}
+
+sub walk_states {
+
+    my ($self, $callback) = @_;
+
+    my $state = $self->state;
+
+    my $f = sub {
+        my ($sm, $old, $name, $new) = @_;
+        my $completed = ($new & $state) == $new;
+        $callback->($name, $completed);
+    };
+        
+    $self->{sm}->walk($f);
+
 }
 
 sub state_report {
@@ -148,11 +229,11 @@ sub state_report {
 }
 
 sub commands {
-    my ($self, $instruction) = @_;
-    $log->debug("Getting commands for instruction $instruction");
-    my $code = $self->{instructions}{$instruction} or croak
-        "Undefined instruction $instruction";
-    ref($code) =~ /^CODE/ or croak "Code for instruction $instruction is not a CODE ref";
+    my ($self, $name) = @_;
+    $log->debug("Getting commands for name $name");
+    my $code = $self->{commands}{$name} or croak
+        "Undefined command $name";
+    ref($code) =~ /^CODE/ or croak "Code for command $name is not a CODE ref";
     $log->debug("Code is $code");
     my $cmds = $code->();
     return map "@$_", @$cmds;
@@ -165,7 +246,7 @@ sub shell_script {
 
     my $f = sub {
         my ($sm, $old, $step, $new) = @_;
-        my $comment = $self->step_comment($step);
+        my $comment = $self->comment($step);
         my @cmds = $self->commands($step);
 
         # Format the comment
@@ -208,7 +289,7 @@ sub execute {
 
     my $f = sub {
         my ($sm, $old, $step, $new) = @_;
-        my $comment = $self->step_comment($step);
+        my $comment = $self->comment($step);
         my @cmds = $self->commands($step);
 
         # Format the comment

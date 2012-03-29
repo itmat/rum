@@ -211,11 +211,11 @@ sub preprocess {
 }
 
 sub step_printer {
-    my ($chunk) = @_;
+    my ($workflow) = @_;
     return sub {
         my ($step, $skipping) = @_;
         my $indent = $skipping ? "(skipping) " : "(running)  ";
-        my $comment = $chunk->step_comment($step);
+        my $comment = $workflow->comment($step);
         $log->info(wrap($indent, "           ", $comment));
     };
 }
@@ -229,8 +229,8 @@ sub process {
 
     if (my $chunk = $config->chunk) {
         $log->info("Running chunk $chunk");
-        my $machine = $self->chunk_machine($chunk);
-        $machine->execute(step_printer($machine));
+        my $w = $self->chunk_machine($chunk);
+        $w->execute(step_printer($w));
     }
     elsif (my $n = $config->num_chunks) {
         $log->info("Creating $n chunks");
@@ -283,8 +283,8 @@ sub process {
     }
     else {
         $log->info("Running whole job (not splitting into chunks)");
-        my $chunk = RUM::ChunkMachine->new($config);
-        $chunk->execute(step_printer($chunk));
+        my $w = RUM::ChunkMachine->chunk_workflow($config);
+        $w->execute(step_printer($chunk));
     }
 
 
@@ -598,22 +598,23 @@ sub print_status {
     my @steps;
     my %num_completed;
     my %comments;
-    my @machines = $self->chunk_machines;
-    for my $m (@machines) {
+    my @workflows = $self->chunk_machines;
+    for my $w (@workflows) {
 
-        for my $row ($m->state_report) {
-            my ($completed, $name) = @$row;
+        my $handle_state = sub {
+            my ($name, $completed) = @_;
             unless (exists $num_completed{$name}) {
                 $num_completed{$name} = 0;
-                $comments{$name} = $m->step_comment($name);
+                $comments{$name} = $w->comment($name);
                 push @steps, $name;
             }
             $num_completed{$name} += $completed;
-        }
+        };
+
+        $w->walk_states($handle_state);
     }
 
-
-    my $n = @machines;
+    my $n = @workflows;
     my $digits = num_digits($n);
     my $format = "%${digits}d/%${digits}d";
 
@@ -628,7 +629,7 @@ sub print_status {
 sub chunk_machine {
     my ($self, $chunk_num) = @_;
     my $config = $self->config->for_chunk($chunk_num);
-    return RUM::ChunkMachine->new($config);
+    return RUM::ChunkMachine->chunk_workflow($config);
 }
 
 sub chunk_machines {
@@ -648,17 +649,23 @@ sub chunk_machines {
         }
     }
     
-    return (RUM::ChunkMachine->new($config));
+    return (RUM::ChunkMachine->chunk_workflow($config));
+}
+
+sub chunk_nums {
+    (1 .. $_[0]->config->num_chunks)
 }
 
 sub export_shell_script {
     my ($self) = @_;
 
     INFO("Generating pipeline shell script for each chunk");
-    for my $m ($self->chunk_machines) {
-        my $file = $m->config->pipeline_sh;
+    for my $chunk ($self->chunk_nums) {
+        my $config = $self->config->for_chunk($chunk);
+        my $w = RUM::ChunkMachine->chunk_workflow($chunk);
+        my $file = IO::File->new($config->pipeline_sh);
         open my $out, ">", $file or die "Can't open $file for writing: $!";
-        print $out $m->shell_script;
+        print $out $w->shell_script;
     }
 }
 
