@@ -8,6 +8,7 @@ use FindBin qw($Bin);
 FindBin->again;
 
 use RUM::Workflows;
+use RUM::WorkflowRunner;
 use RUM::Repository;
 use RUM::Usage;
 use RUM::Logging;
@@ -219,6 +220,77 @@ sub step_printer {
     };
 }
 
+sub run_chunk {
+
+    my ($self, $chunk) = @_;
+
+    # To run the chunk we just need to run myself with a
+    # --chunk argument.
+
+
+}
+
+sub process_in_chunks {
+    my ($self) = @_;
+    my $n = $self->config->num_chunks;
+    $log->info("Creating $n chunks");
+
+    my %pid_to_chunk; # Maps a process ID to the chunk it is running
+    my @tasks; # Maps a chunk number to a RUM::RestartableTask
+    
+    for my $chunk ($self->chunk_nums) {
+        my @argv = (@{ $self->config->argv }, "--chunk", $chunk);
+        my $cmd = "$0 @argv > /dev/null";
+        my $config = $self->config->for_chunk($chunk);                
+        my $workflow = RUM::Workflows->chunk_workflow($config);
+
+        my $run = sub {
+            if (my $pid = fork) {
+                $pid_to_chunk{$pid} = $chunk;
+            }
+            else {
+                $ENV{RUM_CHUNK_LOG} = $config->log_file;
+                $ENV{RUM_CHUNK_ERROR_LOG} = $config->error_log_file;
+                exec $cmd;
+            }
+        };
+
+        my $task =  RUM::WorkflowRunner->new($workflow, $run);
+        $tasks[$chunk] = $task;
+        $task->run;
+    }
+
+    # Repeatedly wait for one of my children to exit. Check the
+    # exit status, and if it is non-zero, attempt to restart the
+    # child process unless it has failed too many times.
+    while (1) {
+        my $pid = wait;
+        
+        if ($pid < 0) {
+            $log->info("All children done");
+            last;
+        }
+        
+        my $chunk = $pid_to_chunk{$pid} or $log->warn(
+            "I don't know what chunk pid $pid is for");
+        my $task = $tasks[$chunk];
+        my $prefix = "PID $pid (chunk $chunk)";
+        
+        if ($?) {
+            my $restarted = $task->run;
+            my $failures = sprintf("failed %d times in a row, %d times total",
+                                   $task->times_started($task->workflow->state),
+                                   $task->times_started);
+            my $action = $restarted ? "restarted it" : "giving up on it";
+            $log->error("$prefix $failures; $action");
+        }
+        else {
+            $log->info("$prefix finished");
+        }
+    }
+    
+}
+
 sub process {
     my ($self) = @_;
     $self->determine_read_length();
@@ -231,63 +303,14 @@ sub process {
         my $w = $self->chunk_machine($chunk);
         $w->execute(step_printer($w));
     }
-    elsif (my $n = $config->num_chunks) {
-        $log->info("Creating $n chunks");
-        my @pids;
-
-        my %pid_to_chunk;
-        my @run_count = map 0, (1 .. $n);
-
-        my $kickoff_chunk = sub {
-            my ($chunk) = @_;
-            my @argv = (@{ $config->argv }, "--chunk", $chunk);
-            $run_count[$chunk]++;
-            if (my $pid = fork) {
-                $pid_to_chunk{$pid} = $chunk;
-            }
-            else {
-                my $cmd = "$0 @argv > /dev/null";
-                my $config = $config->for_chunk($chunk);
-                $ENV{RUM_CHUNK_LOG} = $config->log_file;
-                $ENV{RUM_CHUNK_ERROR_LOG} = $config->error_log_file;
-                exec $cmd;
-            }            
-        };
-
-        for my $chunk (1 .. $n) {
-            $run_count[$chunk] = 0;
-            $kickoff_chunk->($chunk);
-        }
-
-        while (1) {
-            my $pid = wait;
-            if ($pid < 0) {
-                $log->info("All children done");
-                last;
-            }
-            elsif ($?) {
-                my $chunk = $pid_to_chunk{$pid};
-                if ($run_count[$chunk] > $MAX_RESTARTS) {
-                    $log->error("Pid $pid (chunk $pid_to_chunk{$pid})) has failed $run_count[$chunk] times. Giving up on it");
-                }
-                else {
-                    $log->error("Pid $pid (chunk $pid_to_chunk{$pid}) exited with status $?. I will attempt to restart it.");
-                    $kickoff_chunk->($chunk);
-                }
-            }
-            else {
-                $log->info("Pid $pid (chunk $pid_to_chunk{$pid}) finished");
-            }
-        }
+    elsif ($config->num_chunks) {
+        $self->process_in_chunks;
     }
     else {
         $log->info("Running whole job (not splitting into chunks)");
         my $w = RUM::Workflows->chunk_workflow($config);
         $w->execute(step_printer($chunk));
     }
-
-
-
 }
 
 sub postprocess {
