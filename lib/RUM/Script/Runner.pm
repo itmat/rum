@@ -7,7 +7,7 @@ use Getopt::Long;
 use FindBin qw($Bin);
 FindBin->again;
 
-use RUM::ChunkMachine;
+use RUM::Workflows;
 use RUM::Repository;
 use RUM::Usage;
 use RUM::Logging;
@@ -283,7 +283,7 @@ sub process {
     }
     else {
         $log->info("Running whole job (not splitting into chunks)");
-        my $w = RUM::ChunkMachine->chunk_workflow($config);
+        my $w = RUM::Workflows->chunk_workflow($config);
         $w->execute(step_printer($chunk));
     }
 
@@ -629,7 +629,7 @@ sub print_status {
 sub chunk_machine {
     my ($self, $chunk_num) = @_;
     my $config = $self->config->for_chunk($chunk_num);
-    return RUM::ChunkMachine->chunk_workflow($config);
+    return RUM::Workflows->chunk_workflow($config);
 }
 
 sub chunk_machines {
@@ -638,7 +638,6 @@ sub chunk_machines {
     my $n = $config->num_chunks;
 
     my @chunk_nums;
-
 
     if ($n > 1) {
         if ($config->chunk) {
@@ -649,7 +648,7 @@ sub chunk_machines {
         }
     }
     
-    return (RUM::ChunkMachine->chunk_workflow($config));
+    return (RUM::Workflows->chunk_workflow($config));
 }
 
 sub chunk_nums {
@@ -662,7 +661,7 @@ sub export_shell_script {
     INFO("Generating pipeline shell script for each chunk");
     for my $chunk ($self->chunk_nums) {
         my $config = $self->config->for_chunk($chunk);
-        my $w = RUM::ChunkMachine->chunk_workflow($chunk);
+        my $w = RUM::Workflows->chunk_workflow($chunk);
         my $file = IO::File->new($config->pipeline_sh);
         open my $out, ">", $file or die "Can't open $file for writing: $!";
         print $out $w->shell_script;

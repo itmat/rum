@@ -1,4 +1,4 @@
-package RUM::ChunkMachine;
+package RUM::Workflows;
 
 use strict;
 use warnings;

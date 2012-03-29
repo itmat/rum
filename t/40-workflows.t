@@ -11,7 +11,7 @@ use strict;
 use warnings;
 
 BEGIN { 
-    use_ok('RUM::ChunkMachine');
+    use_ok('RUM::Workflows');
     use_ok('RUM::Config');
 }                                               
 
@@ -21,7 +21,7 @@ my $repo = RUM::Repository->new(root_dir => "$Bin/../_testing");
 # we'll skip the tests anyway.
 my @indexes = eval { $repo->indexes(pattern => qr/TAIR/); };
 
-my $out_dir = "$Bin/tmp/40-chunk-machine";
+my $out_dir = "$Bin/tmp/40-workflows";
 my $state_dir = "$out_dir/state";
 my $conf_dir = $repo->conf_dir;
 
@@ -44,7 +44,7 @@ SKIP: {
     is($config->genome_bowtie_out, "$out_dir/X.1", "genome bowtie out");
     is($config->blat_output, "$out_dir/R.1.blat", "blat out");
     
-    my $chunk = RUM::ChunkMachine->new($config);
+    my $chunk = RUM::Workflows->chunk_workflow($config);
 
     my $script = $chunk->shell_script("$out_dir/state");
 
