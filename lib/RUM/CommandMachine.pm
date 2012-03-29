@@ -8,7 +8,6 @@ use Text::Wrap qw(fill wrap);
 use File::Temp;
 
 use RUM::StateMachine;
-use RUM::Config;
 use RUM::Logging;
 
 our $log = RUM::Logging->get_logger;
@@ -127,8 +126,6 @@ Set the start state for this machine, as a set of files that exist
 before the machines starts. $files must be an array ref of paths.
 
 =cut
-
-
 
 sub start {
     my ($self, $files) = @_;
@@ -280,6 +277,21 @@ sub shell_script {
     return $res;
 }
 
+=item execute($callback)
+
+Execute the sequence of commands necessary to bring the workflow from
+its current state to a goal state. You can provide a callback function
+in order to get an update before each command is executed. $callback
+(if provided) will be called in the following manner:
+
+  $callback->($name, $completed)
+
+Where $name is the name of the command, and $completed is true if the
+command will be skipped because it postconditions are already
+satisfied.
+
+=cut
+
 sub execute {
     my ($self, $callback) = @_;
 
@@ -323,10 +335,6 @@ sub execute {
     };
 
     $self->{sm}->walk($f);
-}
-
-sub config {
-    $_[0]->{config};
 }
 
 1;

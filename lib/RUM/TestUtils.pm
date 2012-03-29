@@ -14,9 +14,6 @@ RUM::TestUtils - Functions used by tests
   # Download a file, unless the file already exists locally
   download_file("http://foo.com/bar.tab", "/some/path/bar.tab");
 
-  # Download our tarball of test data from S3
-  download_test_data("test-data.tar.gz");
-
   # Make sure there are no diffs between two files
   no_diffs("got.tab", "expected.tab", "I got what I expected");
 
@@ -33,8 +30,7 @@ use Exporter qw(import);
 use File::Spec;
 use RUM::FileIterator qw(file_iterator);
 use RUM::Sort qw(by_chromosome);
-use RUM::Workflow qw(make_paths shell report is_dry_run with_settings 
-                     is_on_cluster);
+use RUM::Workflow qw(shell is_on_cluster);
 use Carp;
 use RUM::Repository qw(download);
 use FindBin qw($Bin);
@@ -72,16 +68,14 @@ already exists or $DRY_RUN is set.
 sub download_file {
     my ($url, $local) = @_;
     if (-e $local) {
-        report "$local exists, skipping\n";
+        diag "$local exists, skipping";
         return;
     }
 
-    report "Download $url to $local";
+    diag "Download $url to $local";
     my (undef, $dir, undef) = File::Spec->splitpath($local);
     make_paths($dir);
-    unless (is_dry_run) {
-        download($url, $local);
-    }
+    download($url, $local);
 }
 
 =item download_test_data
@@ -93,7 +87,7 @@ exists or $DRY_RUN is set.
 
 sub download_test_data {
     my ($local_file) = @_;
-    report "Making sure test data is downloaded to $local_file\n";
+    diag "Making sure test data is downloaded to $local_file";
 
     download_file($TEST_DATA_URL, $local_file);
 
@@ -110,11 +104,11 @@ sub download_test_data {
     # If all of the files already exist, don't do anything
     my @missing = grep { not -e } @files;
     if (@missing) {   
-        report "Unpack test tarball";
+        diag "Unpack test tarball";
         shell("tar", "-zxvf", $local_file, "-C", $dir);
     }
     else {
-        report "All files exist; not unzipping";
+        diag "All files exist; not unzipping";
     }
 }
 
@@ -217,6 +211,32 @@ sub temp_filename {
     $options{TEMPLATE} = "XXXXXX" unless exists $options{TEMPLATE};
     File::Temp->new(%options);
 }
+
+=item make_paths RUN_NAME
+
+Recursively make all the paths required for the given test run name,
+unless $DRY_RUN is set.
+
+=cut
+
+sub make_paths {
+    my (@paths) = @_;
+
+    for my $path (@paths) {
+        
+        if (-e $path) {
+            diag "$path exists; not creating it";
+        }
+        else {
+            print "mkdir -p $path\n";
+            mkpath($path) or die "Can't make path $path: $!";
+        }
+
+    }
+}
+
+
+
 
 =back
 

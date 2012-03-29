@@ -4,7 +4,6 @@ use strict;
 no warnings;
 
 use RUM::Common qw(reversecomplement);
-use RUM::Workflow qw(report);
 use RUM::Logging;
 
 my $log = RUM::Logging->get_logger();
@@ -87,7 +86,7 @@ command-line interface.
 =cut
 
 
-use subs qw(report _open_in _open_out _open_in_and_out);
+use subs qw(_open_in _open_out _open_in_and_out);
 use Carp;
 use Getopt::Long;
 use Pod::Usage;
@@ -249,7 +248,7 @@ sub sort_genome_fa_by_chr {
   my ($in, $out) = _open_in_and_out(@args);
   
   my %hash;
-  report "Reading in genome";
+  $log->debug("Reading in genome");
   while (defined (my $line = <$in>)) {
     chomp($line);
     $line =~ /^>(.*)$/ or croak "Expected header line, got $line";
@@ -259,10 +258,10 @@ sub sort_genome_fa_by_chr {
     $hash{$chr} = $line;
   }
 
-  report "Sorting chromosomes";
+  $log->debug("Sorting chromosomes");
   my @chromosomes = sort by_chromosome keys %hash;
   
-  report "Printing output";
+  $log->debug("Printing output");
   foreach my $chr (@chromosomes) {
     print $out ">$chr\n$hash{$chr}\n";
   }
@@ -421,10 +420,10 @@ sub _make_master_file_of_genes_impl {
       }
       $cnt++;
     }
-    report "$cnt lines in file\n";
+    $log->debug("$cnt lines in file");
     $total += $cnt;
   }
-  report "TOTAL: $total\n";
+  $log->debug("TOTAL: $total\n");
   
   foreach my $geneinfo (keys %geneshash) {
     print $out "$geneinfo\t$geneshash{$geneinfo}\n";
@@ -731,7 +730,7 @@ sub make_fasta_files_for_master_list_of_genes {
     chomp($line);
     $line =~ />(.*)/;
     my $chr = $1;
-    report "processing $chr\n";
+    $log->debug("processing $chr\n");
     $chromosomes_in_genome{$chr}++;
 
     # Read a sequence line
@@ -741,12 +740,12 @@ sub make_fasta_files_for_master_list_of_genes {
     # Get the exons for this chromosome / sequence
     seek $exon_in, 0, 0;
     my $exons = get_exons($exon_in, $chr, $line, \%chromosomes_from_exons);
-    report "Got " . scalar(keys(%$exons)) . " exons for $chr; starting genes\n";
+    $log->debug("Got " . scalar(keys(%$exons)) . " exons for $chr; starting genes\n");
 
     # Get the genes for this chromosome / sequence
     seek $gene_in, 0, 0;
     print_genes($gene_in, $final_gene_fasta, $chr, $exons);
-    report "done with genes for $chr\n";
+    $log->debug("done with genes for $chr\n");
   }
   
   my @chromosomes_from_exons = keys %chromosomes_from_exons;
@@ -771,7 +770,7 @@ sub remove_genes_with_missing_sequence {
   seek $gene_info_in, 0, 0;
   my $pattern = join("|", map("($_)", @missing));
   my $regex = qr/$pattern/;
-  report "I am missing these genes: @missing, pattern is $pattern\n";
+  $log->debug("I am missing these genes: @missing, pattern is $pattern\n");
   while (defined($_ = <$gene_info_in>)) {
     print $final_gene_info $_ unless @missing && /$regex/;
   }
@@ -1005,7 +1004,7 @@ sub run_with_logging {
 
     my $cmd =  "$0 @ARGV";
     my $log = RUM::Logging->get_logger("RUM.ScriptRunner");
-    $log->info("START $script ($cmd)");
+    $log->debug("START $script ($cmd)");
 
     eval {
         require $path;
@@ -1016,7 +1015,7 @@ sub run_with_logging {
         die($@);
     }
     else {
-        $log->info("FINISHED $script ($cmd)");
+        $log->debug("FINISHED $script ($cmd)");
     }
 }
 

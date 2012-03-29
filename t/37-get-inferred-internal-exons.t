@@ -33,8 +33,6 @@ SKIP: {
              "--bed", $bed_out,
              "-q");
     
-    diag "Running @ARGV";
-    
     RUM::Script::GetInferredInternalExons->main();
     *STDOUT = *STDOUT_BAK;
     close $out_fh;

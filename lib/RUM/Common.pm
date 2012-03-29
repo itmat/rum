@@ -7,7 +7,7 @@ use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
                     reversecomplement format_large_int spansTotalLength
                     reversesignal read_chunk_id_mapping is_fasta is_fastq head
-                    num_digits);
+                    num_digits shell make_paths with_dry_run is_on_cluster);
 
 =head1 FUNCTIONS
 
@@ -366,6 +366,53 @@ sub num_digits {
         $n = int($n / 10);
     } while ($n);
     return $size;
+}
+
+=item report ARGS
+
+Print ARGS as a message prefixed with a "#" character.
+
+=cut
+
+sub report {
+    my @args = @_;
+    print "# @args\n";
+}
+
+
+=item shell CMD, ARGS
+
+Execute "$CMD @ARGS" using system unless $DRY_RUN is set. Check the
+output status and croak if it fails.
+
+=cut
+
+sub shell {
+    my @cmd = @_;
+    system(@cmd) == 0 or croak "Error running @cmd: $!";
+}
+
+=item is_on_cluster
+
+Return true if I appear to be running on the cluster.
+
+=cut
+
+sub is_on_cluster {
+    return is_executable_in_path("qsub");
+}
+
+=item is_executable_in_path BIN_NAME
+
+Return true if the given filename is in the path and is executable.
+
+=cut
+sub is_executable_in_path {
+    my ($bin_name) = @_;
+    local $_ = `which $bin_name`;
+    chomp;
+    return undef unless $_;
+    return -x;
 }
 
 1;
