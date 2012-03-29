@@ -25,12 +25,13 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  bowtie_bin mdust_bin blat_bin trans_bowtie min_length reads
  input_needs_splitting
  input_is_preformatted
- do_preprocess
- do_process
- do_postprocess
- do_status
- do_shell_script
  argv
+ rum_config_file
+ name
+ min_identity
+ nu_limit
+ alt_genes
+ alt_quant
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (
@@ -116,8 +117,8 @@ sub variable_read_lengths {
 }
 
 sub load_rum_config_file {
-    my ($self, $path) = @_;
-    
+    my ($self) = @_;
+    my $path = $self->rum_config_file;
     open my $in, "<", $path or croak "Can't open config file $path: $!";
     my $cf = RUM::ConfigFile->parse($in);
     $cf->make_absolute;
@@ -238,7 +239,6 @@ sub set {
     die "No such property $key" unless is_property($key);
     $self->{$key} = $value;
 }
-
 
 sub AUTOLOAD {
     my ($self) = @_;

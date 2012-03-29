@@ -4,8 +4,9 @@ use strict;
 use warnings;
 
 use Getopt::Long;
-use FindBin qw($Bin);
-FindBin->again;
+use File::Path qw(mkpath);
+use Text::Wrap qw(wrap fill);
+use Carp;
 
 use RUM::Workflows;
 use RUM::WorkflowRunner;
@@ -14,11 +15,9 @@ use RUM::Usage;
 use RUM::Logging;
 use RUM::Pipeline;
 use RUM::Common qw(is_fasta is_fastq head num_digits shell);
-use File::Path qw(mkpath);
-use Text::Wrap qw(wrap fill);
-use Carp;
-our $log = RUM::Logging->get_logger();
 
+
+our $log = RUM::Logging->get_logger();
 our $LOGO;
 
 sub DEBUG  { $log->debug(wrap("", "", @_))  }
@@ -28,58 +27,153 @@ sub ERROR  { $log->error(wrap("", "", @_))  }
 sub FATAL  { $log->fatal(wrap("", "", @_))  }
 sub LOGDIE { $log->logdie(wrap("", "", @_)) }
 
+
+sub do_status { $_[0]->{directives}{status} }
+sub do_version { $_[0]->{directives}{status} }
+sub do_help { $_[0]->{directives}{help} }
+sub do_help_config { $_[0]->{directives}{help_config} }
+sub do_shell_script { $_[0]->{directives}{shell_script} }
+sub do_preprocess { $_[0]->{directives}{preprocess} }
+sub do_process { $_[0]->{directives}{process} }
+sub do_postprocess { $_[0]->{directives}{postprocess} }
+
 sub main {
-    my $config = __PACKAGE__->get_options() or return;
-    my $self = __PACKAGE__->new(config => $config);
+    my ($class) = @_;
+    
+    my $self = $class->new;
+
+    $self->get_options();
+    $self->check_config();
     $self->show_logo();
 
-    if ($config->do_status) {
+    if ($self->do_status) {
         $self->print_status;
-        return;
     }
-
-    $self->preprocess  if $config->do_preprocess;
-
-    if ($config->do_shell_script) {
+    elsif ($self->do_version) {
+        print "RUM version $RUM::Pipeline::VERSION, released $RUM::Pipeline::RELEASE_DATE\n";
+    }
+    elsif ($self->do_help) {
+        RUM::Usage->help;
+    }
+    elsif ($self->do_help_config) {
+        print $RUM::ConfigFile::DOC;
+    }
+    elsif ($self->do_shell_script) {
         $self->export_shell_script;
         return;
     }
+    elsif (my $chunk = $self->config->chunk) {
+        $log->debug("I was told to run chunk $chunk, ".
+                        "so I won't preprocess or postprocess the files");
+        $self->process;
+    }
+    elsif ($self->do_preprocess || $self->do_process || $self->do_postprocess) {
+        $self->preprocess  if $self->do_preprocess;
+        $self->process     if $self->do_process;
+        $self->postprocess if $self->do_postprocess;
+    }
+    else {
+        $self->preprocess;
+        $self->process;
+        $self->postprocess;
+    }
+}
 
-    $self->process     if $config->do_process;
-    $self->postprocess if $config->do_postprocess;
+sub check_config {
+    my ($self) = @_;
+    my $c = $self->config;
+    $c->output_dir or RUM::Usage->bad(
+        "Please specify an output directory with --output or -o");
+
+    $c->rum_config_file or RUM::Usage->bad(
+        "Please specify a rum config file with --config");
+    $c->load_rum_config_file;
+
+    !defined($c->quals_file) || $c->quals_file =~ /\// or RUM::Usage->bad(
+        "do not specify -quals file with a full path, ".
+            "put it in the '". $c->output_dir."' directory.");
+
+    $c->name or RUM::Usage->bad(
+        "Please provide a name with --name");
+    $c->set('name', fix_name($c->name));
+
+    my $reads = $c->reads;
+    $reads && @$reads <= 2 or RUM::Usage->bad(
+        "Please provide one or two read files");
+    $reads->[0] ne $reads->[1] or RUM::Usage->bad(
+        "You specified the same file for the forward and reverse reads, must be an error...");
+
+    $c->min_identity =~ /^\d+$/ && $c->min_identity <= 100 or RUM::Usage->bad(
+        "--min-identity must be an integer between zero and 100. You
+        have given '".$c->min_identity."'.");
+
+    if (defined($c->min_length)) {
+        $c->min_length =~ /^\d+$/ && $c->min_length >= 10 or RUM::Usage->bad(
+            "--min-length must be an integer >= 10. You have given '".
+                $c->min_length."'.");
+    }
+    
+    if (defined($c->nu_limit)) {
+        $c->nu_limit =~ /^\d+$/ && $c->nu_limit > 0 or RUM::Usage->bad(
+            "--limit-nu must be an integer greater than zero. You have given '".
+                $c->nu_limit."'.");
+    }
+
+    $c->preserve_names && $c->variable_read_lengths and RUM::Usage->bad(
+        "Cannot use both --preserve-names and --variable-read-lengths at ".
+            "the same time. Sorry, we will fix this eventually.");
+
+    if ($c->alt_genes) {
+        -r $c->alt_genes or LOGDIE "Can't read from ".$c->alt_genes.": $!";
+    }
+    if ($c->alt_quant) {
+        -r $c->alt_quant or LOGDIE "Can't read from ".$c->alt_quant.": $!";
+    }
 }
 
 
 sub get_options {
-    
-    my $c = RUM::Config->new();
+    my ($self) = @_;
+    my $c = RUM::Config->new(argv => [@ARGV]);
 
     Getopt::Long::Configure(qw(no_ignore_case));
-    my @argv = @ARGV;
     GetOptions(
 
+        # Options for doing things other than running the RUM
+        # pipeline.
         "version|V"    => \(my $do_version),
         "kill"         => \(my $do_kill),
+        "status"       => \(my $do_status),
+        "shell-script" => \(my $do_shell_script),
+        "help|h"       => \(my $do_help),
+        "help-config"  => \(my $do_help_config),
+
+        # Options controlling which portions of the pipeline to run.
         "preprocess"   => \(my $do_preprocess),
         "process"      => \(my $do_process),
         "postprocess"  => \(my $do_postprocess),
-        "status"       => \(my $do_status),
-        "shell-script" => \(my $do_shell_script),
+        "chunk=s"      => \(my $chunk),
 
+        # Options typically entered by a user to define a job.
         "config=s"    => \(my $rum_config_file),
-
         "output|o=s"  => \(my $output_dir),
         "name=s"      => \(my $name),
-        "chunks=s"    => \(my $num_chunks = 0),
-        "chunk=s"     => \(my $chunk),
-        "help-config" => \(my $do_help_config),
-        "read-lengths=s" => \(my $read_lengths),
 
+        # Control how we divide up the job.
+        "chunks=s" => \(my $num_chunks = 0),
+        "ram"      => \(my $ram = 6),
+        "qsub"     => \(my $qsub),
+
+        # Control logging and cleanup of temporary files.
+        "no-clean" => \(my $no_clean),
+        "verbose|v"   => sub { $log->more_logging(1) },
+        "quiet|q"     => sub { $log->less_logging(1) },
+
+        # Advanced parameters
+        "read-lengths=s" => \(my $read_lengths),
         "max-insertions-per-read=s" => \(my $num_insertions_allowed),
         "strand-specific" => \(my $strand_specific),
-        "ram" => \(my $ram = 6),
         "preserve-names" => \(my $preserve_names),
-        "no-clean" => \(my $no_clean),
         "junctions" => \(my $junctions),
         "blat-only" => \(my $blat_only),
         "quantify" => \(my $quantify),
@@ -87,112 +181,41 @@ sub get_options {
         "variable-read-lengths|variable-length-reads" => \(my $variable_read_lengths),
         "dna" => \(my $dna),
         "genome-only" => \(my $genome_only),
-
         "limit-bowtie-nu" => \(my $limit_bowtie_nu),
         "limit-nu=s" => \(my $nu_limit),
-        "qsub" => \(my $qsub),
         "alt-genes=s" => \(my $alt_genes),
         "alt-quants=s" => \(my $alt_quant),
-
         "min-identity" => \(my $min_identity = 93),
-
         "tileSize=s" => \(my $tile_size = 12),
         "stepSize=s" => \(my $step_size = 6),
         "repMatch=s" => \(my $rep_match = 256),
         "maxIntron=s" => \(my $max_intron = 500000),
-
         "min-length=s" => \(my $min_length),
-
         "quals-file|qual-file=s" => \(my $quals_file),
-        "verbose|v"   => sub { $log->more_logging(1) },
-        "quiet|q"     => sub { $log->less_logging(1) },
-        "help|h"        => sub { RUM::Usage->help }
-
     );
 
-    if ($do_version) {
-        print "RUM version $RUM::Pipeline::VERSION, released $RUM::Pipeline::RELEASE_DATE\n";
-        return;
-    }
-    if ($do_help_config) {
-        print $RUM::ConfigFile::DOC;
-        return;
-    }
+    $self->{directives} = {
+        version      => $do_version,
+        kill         => $do_kill,
+        shell_script => $do_shell_script,
+        help         => $do_help,
+        help_config  => $do_help_config
+    };
 
-    !defined($quals_file) || $quals_file =~ /\// or RUM::Usage->bad(
-        "do not specify -quals file with a full path, put it in the '$output_dir' directory.");
-    
-    $min_identity =~ /^\d+$/ && $min_identity <= 100 or RUM::Usage->bad(
-        "--min-identity must be an integer between zero and 100. You
-        have given '$min_identity'.");
-
-    if (defined($min_length)) {
-        $min_length =~ /^\d+$/ && $min_length >= 10 or RUM::Usage->bad(
-            "--min-length must be an integer >= 10. You have given '$min_length'.");
-    }
-    
-    if (defined($nu_limit)) {
-        $nu_limit =~ /^\d+$/ && $nu_limit > 0 or RUM::Usage->bad(
-            "--limit-nu must be an integer greater than zero.\nYou have given '$nu_limit'.");
-    }
-
-    $preserve_names && $variable_read_lengths and RUM::Usage->bad(
-        "Cannot use both -preserve_names and -variable_read_lengths at the same time.\nSorry, we will fix this eventually.");
-
-    if ($alt_genes) {
-        -r $alt_genes or LOGDIE "Can't read from $alt_genes: $!";
-    }
-    if ($alt_quant) {
-        -r $alt_quant or LOGDIE "Can't read from $alt_quant: $!";
-    }
-
-    $rum_config_file or RUM::Usage->bad(
-        "Please specify a rum config file with --config");
-
-    $output_dir or RUM::Usage->bad(
-        "Please specify an output directory with --output or -o");
-
-    $name or RUM::Usage->bad(
-        "Please provide a name with --name");
-    $name = fix_name($name);
-
-    # Check the values supplied as the reads
-    my @reads = @ARGV;
-    @reads == 1 or @reads == 2 or RUM::Usage->bad(
-        "Please provide one or two read files");
-    $reads[0] ne $reads[1] or RUM::Usage->bad(
-        "You specified the same file for the forward and reverse reads, must be an error...");
-
-    my $config = RUM::Config->new(
-        reads => \@reads,
-        preserve_names => $preserve_names,
-        min_length => $min_length,
-        output_dir => $output_dir,
-        num_chunks => $num_chunks
-    );
-
-    $config->set('chunk', $chunk) if $chunk;
-
-    if ($chunk) {
-        $log->debug("I was told to run chunk $chunk, so I won't preprocess or postprocess the files");
-        $config->set('do_process', 1);
-        $config->set("do_$_", 0) for qw(preprocess postprocess);
-    }
-    elsif ($do_preprocess || $do_process || $do_postprocess) {
-        $config->set('do_preprocess', $do_preprocess);
-        $config->set('do_process', $do_process);
-        $config->set('do_postprocess', $do_postprocess);
-    }
-    else {
-        $config->set("do_$_", 1) for qw(preprocess process postprocess);
-    }
-
-    $config->set('do_status', $do_status);
-    $config->set('do_shell_script', $do_shell_script);
-
-    $config->load_rum_config_file($rum_config_file);
-    $config->set('argv', \@argv);
-    return $config;
+    $c->set('chunk', $chunk);
+    $c->set('min_length', $min_length);
+    $c->set('output_dir',  $output_dir);
+    $c->set('num_chunks',  $num_chunks);
+    $c->set('reads', [@ARGV]);
+    $c->set('preserve_names', $preserve_names);
+    $c->set('quals_file', $quals_file);
+    $c->set('rum_config_file', $rum_config_file);
+    $c->set('name', $name);
+    $c->set('min_identity', $min_identity);
+    $c->set('nu_limit', $nu_limit);
+    $c->set('alt_genes', $alt_genes);
+    $c->set('alt_quant', $alt_quant);
+    $self->{config} = $c;
 }
 
 
@@ -216,16 +239,6 @@ sub step_printer {
         my $comment = $workflow->comment($step);
         $log->info(wrap($indent, "           ", $comment));
     };
-}
-
-sub run_chunk {
-
-    my ($self, $chunk) = @_;
-
-    # To run the chunk we just need to run myself with a
-    # --chunk argument.
-
-
 }
 
 sub process_in_chunks {
@@ -299,7 +312,8 @@ sub process {
 
     if (my $chunk = $config->chunk) {
         $log->info("Running chunk $chunk");
-        my $w = $self->chunk_machine($chunk);
+        my $config = $self->config->for_chunk($chunk);
+        my $w = RUM::Workflows->chunk_workflow($config);
         $w->execute(step_printer($w));
     }
     elsif ($config->num_chunks) {
@@ -308,7 +322,7 @@ sub process {
     else {
         $log->info("Running whole job (not splitting into chunks)");
         my $w = RUM::Workflows->chunk_workflow($config);
-        $w->execute(step_printer($chunk));
+        $w->execute(step_printer($w));
     }
 }
 
@@ -498,9 +512,10 @@ sub determine_read_length {
 
 
 sub new {
-    my ($class, %options) = @_;
+    my ($class) = @_;
     my $self = {};
-    $self->{config} = delete $options{config};
+    $self->{config} = undef;
+    $self->{directives} = undef;
     bless $self, $class;
 }
 
