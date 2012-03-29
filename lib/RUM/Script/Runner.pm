@@ -28,8 +28,6 @@ sub ERROR  { $log->error(wrap("", "", @_))  }
 sub FATAL  { $log->fatal(wrap("", "", @_))  }
 sub LOGDIE { $log->logdie(wrap("", "", @_)) }
 
-our $MAX_RESTARTS = 7;
-
 sub main {
     my $config = __PACKAGE__->get_options();
     my $self = __PACKAGE__->new(config => $config);
@@ -277,10 +275,11 @@ sub process_in_chunks {
         my $prefix = "PID $pid (chunk $chunk)";
         
         if ($?) {
-            my $restarted = $task->run;
             my $failures = sprintf("failed %d times in a row, %d times total",
                                    $task->times_started($task->workflow->state),
                                    $task->times_started);
+            my $restarted = $task->run;
+
             my $action = $restarted ? "restarted it" : "giving up on it";
             $log->error("$prefix $failures; $action");
         }
