@@ -95,7 +95,15 @@ sub version_ok {
     like(run_rum("-V"), qr/$version/, "-V prints out version");
 }
 
+sub help_config_ok {
+    my $version = $RUM::Pipeline::VERSION;
+    my $out = run_rum("--help-config");
+    like($out, qr/gene annotation file/, "--help-config prints config info");
+    like($out, qr/bowtie genome index/, "--help-config prints config info");
+}
+
 #check_single_reads_file_ok();
 #check_double_reads_ok();
 #reformat_reads_ok();
 version_ok();
+help_config_ok;
