@@ -25,16 +25,17 @@ RUM::TestUtils - Functions used by tests
 
 =cut
 
+use Carp;
 use Test::More;
 use Exporter qw(import);
 use File::Spec;
-use RUM::FileIterator qw(file_iterator);
-use RUM::Sort qw(by_chromosome);
-use RUM::Workflow qw(shell is_on_cluster);
-use Carp;
-use RUM::Repository qw(download);
 use FindBin qw($Bin);
 use File::Temp;
+
+use RUM::FileIterator qw(file_iterator);
+use RUM::Sort qw(by_chromosome);
+use RUM::Common qw(shell is_on_cluster);
+use RUM::Repository qw(download);
 
 our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR
                  $SHARED_INPUT_DIR is_sorted_by_location same_line_count);

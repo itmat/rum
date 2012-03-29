@@ -12,10 +12,9 @@ use RUM::Repository;
 use RUM::Usage;
 use RUM::Logging;
 use RUM::Pipeline;
-use RUM::Common qw(is_fasta is_fastq head num_digits);
+use RUM::Common qw(is_fasta is_fastq head num_digits shell);
 use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
-use RUM::Workflow qw(shell);
 use Carp;
 our $log = RUM::Logging->get_logger();
 
