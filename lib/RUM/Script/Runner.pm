@@ -29,7 +29,7 @@ sub FATAL  { $log->fatal(wrap("", "", @_))  }
 sub LOGDIE { $log->logdie(wrap("", "", @_)) }
 
 sub main {
-    my $config = __PACKAGE__->get_options();
+    my $config = __PACKAGE__->get_options() or return;
     my $self = __PACKAGE__->new(config => $config);
     $self->show_logo();
 
