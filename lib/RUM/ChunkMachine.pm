@@ -276,7 +276,6 @@ sub new {
 
     $m->add_command(
         instruction => "rum2sam",
-        instruction => "get_nu_stats",
         comment => "Create the sam file",
         pre => [$c->rum_unique, $c->rum_nu],
         post => [$c->sam_file],
@@ -291,7 +290,7 @@ sub new {
         });
 
     $m->add_command(
-        instruction => "sort_unique_by_location",
+        instruction => "get_nu_stats",
         comment => "Create non-unique stats",
         pre => [$c->sam_file],
         post => [$c->nu_stats], 
@@ -302,7 +301,7 @@ sub new {
         });
 
     $m->add_command(
-        instruction => "sort_nu_by_location",
+        instruction => "sort_unique_by_location",
         comment     => "Sort RUM_Unique", 
         pre         => [$c->rum_unique], 
         post        => [$c->rum_unique_sorted, $c->chr_counts_u], 
@@ -314,7 +313,7 @@ sub new {
         });
 
     $m->add_command(
-        instruction => "sort_rum_nu",
+        instruction => "sort_nu_by_location",
         comment     => "Sort RUM_NU", 
         pre         => [$c->rum_nu], 
         post        => [$c->rum_nu_sorted, $c->chr_counts_nu], 
