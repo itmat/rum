@@ -1,4 +1,4 @@
-use Test::More tests => 26;
+use Test::More tests => 51;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -13,7 +13,12 @@ use strict;
 use warnings;
 
 our $config = "_testing/conf/rum.config_Arabidopsis";
-our $reads  = "$SHARED_INPUT_DIR/forward.fq";
+our $bad_reads  = "$SHARED_INPUT_DIR/bad-reads.fq";
+our $good_reads_same_size_as_bad  = "$SHARED_INPUT_DIR/good-reads-same-size-as-bad.fq";
+our $forward_64_fq = "$SHARED_INPUT_DIR/forward64.fq";
+our $reverse_64_fq = "$SHARED_INPUT_DIR/reverse64.fq";
+our $forward_64_fa = "$SHARED_INPUT_DIR/forward64.fa";
+our $reverse_64_fa = "$SHARED_INPUT_DIR/reverse64.fa";
 
 BEGIN { 
     use_ok('RUM::Script::Runner');
@@ -62,12 +67,15 @@ sub rum {
     return $rum;
 }
 
+sub rum_random_out_dir {
+    return rum(@_, "--output", tempdir(CLEANUP => 1));
+}
+
 sub version_ok {
     my $version = $RUM::Pipeline::VERSION;
-    diag "Trying version";
+
     like(run_rum("--version"), qr/$version/, "--version prints out version");
     like(run_rum("-V"), qr/$version/, "-V prints out version");
-    diag "Tried it";
 }
 
 sub help_config_ok {
@@ -78,7 +86,7 @@ sub help_config_ok {
 }
 
 sub check_missing_args {
-    warn "Running rum\n";
+
     throws_ok sub {
         run_rum("--config", $config, "--output", "bar", "--name", "asdf") 
     }, qr/please.*read files/i, "Missing read files";
@@ -87,6 +95,16 @@ sub check_missing_args {
         run_rum("--config", $config, "--output", "bar", "--name", "asdf", 
                 "1.fq", "2.fq", "3.fq") 
     }, qr/please.*read files/i, "Too many read files";
+
+    throws_ok sub {
+        run_rum("--config", $config, "--output", "bar", "--name", "asdf", 
+                "1.fq", "1.fq") 
+    }, qr/same file for the forward and reverse/i, "Duplicate read file";
+
+    throws_ok sub {
+        run_rum("--config", $config, "--output", "bar", "--name", "asdf", 
+                $forward_64_fa, "$SHARED_INPUT_DIR/reads.fa") 
+    }, qr/same size/i, "Read files are not the same size";
 
     throws_ok sub {
         run_rum("--config", $config, "--name", "asdf", "in.fq") 
@@ -110,6 +128,7 @@ sub check_missing_args {
         run_rum("--config", $config, "--output", "bar", "--name", $name, 
                 "in.fq");
     }, qr/250 characters/, "Long name";
+
     
 }
 
@@ -118,7 +137,7 @@ sub check_defaults {
     my @argv = ("--config", $config,
                 "--output", "foo",
                 "--name", "asdf",
-                $reads);
+                $forward_64_fq);
 
     my $rum = rum(@argv);
     my $c = $rum->config;
@@ -148,8 +167,126 @@ sub check_fixes_name {
        "Fixes name");
 }
 
+sub check_missing_reads_file {
+    throws_ok sub {
+        run_rum("--config", $config, "--output", "bar", "--name", "asdf", "asdf.fq", "-q") 
+    }, qr/asdf.fq.*no such file or directory/i, "Read file doesn't exist";    
+    throws_ok sub {
+        run_rum("--config", $config, "--output", "bar", "--name", "asdf", $forward_64_fq, "asdf.fq", "-q") 
+    }, qr/asdf.fq.*no such file or directory/i, "Read file doesn't exist";    
+}
+
+sub check_bad_reads {
+    throws_ok sub {
+        run_rum("--config", $config, "--output", "bar", "--name", "asdf", $bad_reads, "-q") 
+    }, qr/you appear to have entries/i, "Bad reads";    
+
+    throws_ok sub {
+        run_rum("--config", $config, "--output", "bar", "--name", "asdf",
+                $bad_reads, $good_reads_same_size_as_bad, "-q") 
+    }, qr/you appear to have entries/i, "Bad reads";    
+
+    throws_ok sub {
+        run_rum("--config", $config, "--output", "bar", "--name", "asdf",
+                $good_reads_same_size_as_bad, $bad_reads, "-q") 
+    }, qr/you appear to have entries/i, "Bad reads";    
+
+}
+
+sub preprocess {
+    my @args = @_;
+    my $rum = rum(@args);
+    eval { $rum->preprocess };
+    return $rum;
+}
+
+sub check_single_paired_fa {
+    my $rum = preprocess("--config", $config,
+                  "-o", tempdir(CLEANUP => 1),
+                  "--name", "asdf", "$SHARED_INPUT_DIR/reads.fa");
+    
+    my $prefix = "1, paired, fa, no chunks";
+
+    ok($rum->config->paired_end, "$prefix is paired end");
+    ok($rum->config->input_is_preformatted, "$prefix is preformatted");
+    ok($rum->config->input_needs_splitting, "$prefix needs splitting");
+    ok(-e $rum->config->reads_fa, "$prefix: made reads");
+    ok(! -e $rum->config->quals_fa, "$prefix: didn't make quals");
+}
+
+sub check_single_forward_fa {
+    my $rum = preprocess("--config", $config,
+                  "-o", tempdir(CLEANUP => 1),
+                  "--name", "asdf",
+                  "$SHARED_INPUT_DIR/forward_only.fa");
+    my $prefix = "1, single, fa, no chunks";
+    ok( ! $rum->config->paired_end, "$prefix: not paired end");
+    ok($rum->config->input_is_preformatted, "$prefix: is preformatted");
+    ok($rum->config->input_needs_splitting, "$prefix: needs splitting");
+
+# TODO: What to do for single reads file that is not preformatted?
+#    $rum = rum(@argv, $forward_64_fq);
+#    $rum->preprocess;
+#    ok( ! $rum->config->paired_end, "Not paired end");
+#    ok( ! $rum->config->input_is_preformatted, "Not preformatted");
+#    ok($rum->config->input_needs_splitting, "Needs splitting");
+
+}
+
+sub check_pair_fastq_files {
+    my @argv = ("--config", $config, "--name", "asdf");
+    my $rum = rum(@argv, "-o", tempdir(CLEANUP => 1),
+                  $forward_64_fq, $reverse_64_fq);
+    $rum->preprocess;
+    my $forward_64_fq = $rum->config->output_dir . "/reads.fa";
+    my $quals = $rum->config->output_dir . "/quals.fa";
+
+    my $prefix = "2, paired, fq, no chunks";
+    ok(-e $forward_64_fq, "$prefix: made reads file");
+    ok(-e $quals, "$prefix: made quals file");
+}
+
+sub check_pair_fastq_files_with_chunks {
+    my @argv = ("--config", $config, "--name", "asdf");
+    my $rum = preprocess(@argv, "-o", tempdir(CLEANUP => 1),
+                  "--chunks", 2,
+                  $forward_64_fq, $reverse_64_fq);
+
+    my $prefix = "2, paired, fq, 2 chunks";
+    for my $type (qw(reads quals)) {
+        for my $chunk (1, 2) {
+            ok(-e $rum->config->output_dir . "/$type.fa.$chunk",
+               "$prefix: made $type $chunk");
+        }
+    }
+}
+
+sub check_pair_fasta_files_with_chunks {
+    my @argv = ("--config", $config, "--name", "asdf");
+    my $rum = preprocess(@argv, "-o", tempdir(CLEANUP => 0),
+                  "--chunks", 2,
+                  $forward_64_fa, $reverse_64_fa);
+    my $prefix = "2, paired, fa, 2 chunks";
+    for my $chunk (1, 2) {
+        ok(-e $rum->config->output_dir . "/reads.fa.$chunk",
+           "$prefix: made reads $chunk");
+    }
+    for my $chunk (1, 2) {
+        ok( ! -e $rum->config->output_dir . "/quals.fa.$chunk",
+           "$prefix: didn't make quals $chunk");
+    }
+}
+
+
 version_ok;
 help_config_ok;
 check_missing_args;
 check_defaults;
 check_fixes_name;
+check_missing_reads_file;
+check_bad_reads;
+check_single_forward_fa;
+check_pair_fastq_files;
+check_pair_fasta_files_with_chunks;
+check_single_paired_fa;
+check_pair_fastq_files_with_chunks;

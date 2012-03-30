@@ -355,6 +355,7 @@ sub is_fasta {
         $lines[$i*2]   =~ /^>/               or return 0;
         $lines[$i*2+1] =~ /^[acgtnACGTN.]+$/ or return 0;
     }    
+    return 1;
 }
 
 =item num_digits($n)

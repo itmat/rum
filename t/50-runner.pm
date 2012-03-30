@@ -55,6 +55,26 @@ sub check_double_reads_ok {
     }
 }
 
+sub run_rum {
+    my @args = @_;
+
+    open my $out, ">", \(my $data) or die "Can't open output string: $!";
+
+    *STDOUT_BAK = *STDOUT;
+    *STDOUT = $out;
+
+    @ARGV = @args;
+
+    RUM::Script::Runner->main();
+
+    *STDOUT = *STDOUT_BAK;
+    close $out;
+    return $data;
+}
+
+
 
 check_single_reads_file_ok();
 check_double_reads_ok();
+
+

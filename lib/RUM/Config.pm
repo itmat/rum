@@ -39,6 +39,7 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  junctions
  ram
  strand_specific
+ user_quals
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (

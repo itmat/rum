@@ -14,7 +14,7 @@ use RUM::Repository;
 use RUM::Usage;
 use RUM::Logging;
 use RUM::Pipeline;
-use RUM::Common qw(is_fasta is_fastq head num_digits shell);
+use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
 
 
 our $log = RUM::Logging->get_logger();
@@ -176,7 +176,7 @@ sub get_options {
     $c->set('num_chunks',  $num_chunks);
     $c->set('reads', [@ARGV]);
     $c->set('preserve_names', $preserve_names);
-    $c->set('quals_file', $quals_file);
+    $c->set('user_quals', $quals_file);
     $c->set('rum_config_file', $rum_config_file);
     $c->set('name', $name);
     $c->set('min_identity', $min_identity);
@@ -423,24 +423,23 @@ sub check_single_reads_file {
     $config->set("paired_end", $paired);
     $config->set("input_needs_splitting", $needs_splitting);
     $config->set("input_is_preformatted", $preformatted);
-
 }
 
 
 sub check_reads_for_quality {
-    my ($self, $fh, $name) = @_;
+    my ($self) = @_;
 
     for my $filename (@{ $self->config->reads }) {
         
         open my $fh, "<", $filename or croak
-            "Can't open reads file $filename for reading: $!";
+            "Can't open reads file $filename for reading: $!\n";
 
         while (local $_ = <$fh>) {
             next unless /:Y:/;
             $_ = <$fh>;
             chomp;
-            /^--$/ and LOGDIE "you appear to have entries in your fastq file \"$name\" for reads that didn't pass quality. These are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\". You first need to remove all such lines from the file, including the ones with the two dashes...";
-            }
+            /^--$/ and die "you appear to have entries in your fastq file \"$filename\" for reads that didn't pass quality. These are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\". You first need to remove all such lines from the file, including the ones with the two dashes...";
+        }
     }
 }
 
@@ -528,7 +527,7 @@ sub determine_read_length {
     my $read = $lines[1];
     my $len = split(//,$read);
     my $min = $self->config->min_length;
-    $log->debug("Read length is $len, min is $min") if $log->is_debug;
+    $log->debug("Read length is $len, min is " . ($min ||"")) if $log->is_debug;
     if ($self->config->variable_read_lengths) {
         $log->info("Using variable read length");
         $self->config->set("read_length", "v");
@@ -600,7 +599,7 @@ sub reformat_reads {
     my $parse_fasta = $config->script("parsefasta.pl");
     my $parse_2_fasta = $config->script("parse2fasta.pl");
     my $parse_2_quals = $config->script("fastq2qualities.pl");
-    my $num_chunks = $config->num_chunks;
+    my $num_chunks = $config->num_chunks || 1;
 
     my @reads = @{ $config->reads };
 
@@ -621,23 +620,26 @@ sub reformat_reads {
 
     my $is_fasta = is_fasta($fh[0]);
     my $is_fastq = is_fastq($fh[0]);
-    my $preformatted;
-
+    my $preformatted = @reads == 1 && $config->input_is_preformatted;
     my $reads_in = join(",,,", @reads);
 
-    if($is_fastq  && !$config->variable_read_lengths && $num_chunks > 1) {
-        INFO("Splitting fastq file into $num_chunks chunks with separate reads and quals");
+    my $have_quals = 0;
+
+    if($is_fastq && !$config->variable_read_lengths) {
+
+        INFO("Splitting fastq file into $num_chunks chunks with separate " .
+                 "reads and quals");
         shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $output_dir/rum.error-log");
         my @errors = `grep -A 2 "something wrong with line" $error_log`;
         die "@errors" if @errors;
-        $self->{quals} = 1;
+        $have_quals = 1;
         $self->{input_needs_splitting} = 0;
     }
  
-    elsif ($is_fasta && !$config->variable_read_lengths && !$preformatted && $num_chunks > 1) {
+    elsif ($is_fasta && !$config->variable_read_lengths && !$preformatted) {
         INFO("Splitting fasta file into $num_chunks chunks");
         shell("perl $parse_fasta $reads_in $num_chunks $reads_fa $name_mapping_opt 2>> $error_log");
-        $self->{quals} = 0;
+        $have_quals = 0;
         $self->{input_needs_splitting} = 0;
      } 
 
@@ -648,8 +650,24 @@ sub reformat_reads {
         $self->{input_needs_splitting} = 1;
         my $X = join("\n", head($config->quals_fa, 20));
         if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
-            $self->{quals} = "true";
+            $have_quals = "true";
         }
+    }
+    else {
+        # This should only be entered when we have one read file
+        INFO("Splitting read file, please be patient...");        
+
+        $self->breakup_file($reads[0], 0);
+
+        if ($have_quals) {
+            INFO( "Half done splitting; starting qualities...");
+            breakup_file($config->quals_fa, 1);
+        }
+        elsif ($config->user_quals) {
+            INFO( "Half done splitting; starting qualities...");
+            breakup_file($config->user_quals, 1);
+        }
+        INFO("Done splitting");
     }
 }
 
@@ -764,6 +782,77 @@ $LOGO = <<'EOF';
 - The RNA-Seq Unified Mapper (RUM) Pipeline has been initiated -
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 EOF
+
+sub breakup_file  {
+    my ($self, $FILE, $qualflag) = @_;
+
+    my $c = $self->config;
+
+    if(!(open(INFILE, $FILE))) {
+       LOGDIE("Cannot open '$FILE' for reading.");
+    }
+    my $tail = `tail -2 $FILE | head -1`;
+    $tail =~ /seq.(\d+)/s;
+    my $numseqs = $1;
+    my $piecesize = int($numseqs / ($c->num_chunks || 1));
+
+    my $t = `tail -2 $FILE`;
+    $t =~ /seq.(\d+)/s;
+    my $NS = $1;
+    my $piecesize2 = format_large_int($piecesize);
+    if(!($FILE =~ /qual/)) {
+	if($c->num_chunks > 1) {
+	    INFO("processing in ".
+                     $c->num_chunks . 
+                         " pieces of approx $piecesize2 reads each\n");
+	} else {
+	    my $NS2 = format_large_int($NS);
+	    INFO("processing in one piece of $NS2 reads\n");
+	}
+    }
+    if($piecesize % 2 == 1) {
+	$piecesize++;
+    }
+    my $bflag = 0;
+
+    my $F2 = $FILE;
+    $F2 =~ s!.*/!!;
+    
+    my $PS = $c->paired_end ? $piecesize * 2 : $piecesize;
+
+    for(my $i=1; $i<$c->num_chunks; $i++) {
+        my $chunk_config = $c->for_chunk($i);
+	my $outfilename = $chunk_config->chunk_suffixed($F2);
+
+	open(OUTFILE, ">$outfilename");
+	for(my $j=0; $j<$PS; $j++) {
+	    my $line = <INFILE>;
+	    chomp($line);
+	    if($qualflag == 0) {
+		$line =~ s/[^ACGTNab]$//s;
+	    }
+	    print OUTFILE "$line\n";
+	    $line = <INFILE>;
+	    chomp($line);
+	    if($qualflag == 0) {
+		$line =~ s/[^ACGTNab]$//s;
+	    }
+	    print OUTFILE "$line\n";
+	}
+	close(OUTFILE);
+    }
+    my $chunk_config = $c->num_chunks ? $c->for_chunk($c->num_chunks) : $c;
+    my $outfilename = $chunk_config->chunk_suffixed($F2);
+
+    open(OUTFILE, ">$outfilename");
+    while(my $line = <INFILE>) {
+	print OUTFILE $line;
+    }
+    close(OUTFILE);
+
+    return 0;
+}
+
 
 1;
 
