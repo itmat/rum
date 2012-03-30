@@ -35,9 +35,11 @@ SKIP: {
         paired_end    => 1,
         read_length   => 75,
         match_length_cutoff => 35,
-        max_insertions => 1
+        max_insertions => 1,
+        rum_config_file => "$conf_dir/rum.config_Arabidopsis"
     );
-    $config->load_rum_config_file("$conf_dir/rum.config_Arabidopsis");
+
+    $config->load_rum_config_file;
     rmtree($out_dir);
     mkpath($config->state_dir);
     

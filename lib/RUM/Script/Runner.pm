@@ -36,12 +36,15 @@ sub do_shell_script { $_[0]->{directives}{shell_script} }
 sub do_preprocess { $_[0]->{directives}{preprocess} }
 sub do_process { $_[0]->{directives}{process} }
 sub do_postprocess { $_[0]->{directives}{postprocess} }
+sub do_dry_run { $_[0]->{directives}{dry_run} }
 
 sub main {
     my ($class) = @_;
-    
-    my $self = $class->new;
+    $class->new->run;
+}
 
+sub run {
+    my ($self) = @_;
     $self->get_options();
 
     if ($self->do_status) {
@@ -60,24 +63,30 @@ sub main {
         $self->export_shell_script;
     }
     else {
-        $self->check_config();        
-        $self->show_logo();
+        $self->run_pipeline unless $self->do_dry_run;
+    }
+}
 
-        if (my $chunk = $self->config->chunk) {
-            $log->debug("I was told to run chunk $chunk, ".
-                            "so I won't preprocess or postprocess the files");
-            $self->process;
-        }
-        elsif ($self->do_preprocess || $self->do_process || $self->do_postprocess) {
-            $self->preprocess  if $self->do_preprocess;
-            $self->process     if $self->do_process;
-            $self->postprocess if $self->do_postprocess;
-        }
-        else {
-            $self->preprocess;
-            $self->process;
-            $self->postprocess;
-        }
+sub run_pipeline {
+    my ($self) = @_;
+
+    $self->check_config();        
+    $self->show_logo();
+    
+    if (my $chunk = $self->config->chunk) {
+        $log->debug("I was told to run chunk $chunk, ".
+                        "so I won't preprocess or postprocess the files");
+        $self->process;
+    }
+    elsif ($self->do_preprocess || $self->do_process || $self->do_postprocess) {
+        $self->preprocess  if $self->do_preprocess;
+        $self->process     if $self->do_process;
+        $self->postprocess if $self->do_postprocess;
+    }
+    else {
+        $self->preprocess;
+        $self->process;
+        $self->postprocess;
     }
 }
 
@@ -96,6 +105,7 @@ sub get_options {
         "shell-script" => \(my $do_shell_script),
         "help|h"       => \(my $do_help),
         "help-config"  => \(my $do_help_config),
+        "dry-run|n"    => \(my $do_dry_run),
 
         # Options controlling which portions of the pipeline to run.
         "preprocess"   => \(my $do_preprocess),
@@ -120,7 +130,7 @@ sub get_options {
 
         # Advanced parameters
         "read-lengths=s" => \(my $read_lengths),
-        "max-insertions-per-read=s" => \(my $num_insertions_allowed),
+        "max-insertions-per-read=s" => \(my $num_insertions_allowed = 1),
         "strand-specific" => \(my $strand_specific),
         "preserve-names" => \(my $preserve_names),
         "junctions" => \(my $junctions),
@@ -148,9 +158,18 @@ sub get_options {
         kill         => $do_kill,
         shell_script => $do_shell_script,
         help         => $do_help,
-        help_config  => $do_help_config
+        help_config  => $do_help_config,
+        dry_run      => $do_dry_run
     };
 
+    $c->set('strand_specific', $strand_specific);
+    $c->set('ram', $ram);
+    $c->set('junctions', $junctions);
+    $c->set('count_mismatches', $count_mismatches);
+    $c->set('num_insertions_allowed', $num_insertions_allowed),
+    $c->set('cleanup', !$no_clean);
+    $c->set('dna', $dna);
+    $c->set('genome_only', $genome_only);
     $c->set('chunk', $chunk);
     $c->set('min_length', $min_length);
     $c->set('output_dir',  $output_dir);
@@ -177,8 +196,12 @@ sub check_config {
     $c->output_dir or RUM::Usage->bad(
         "Please specify an output directory with --output or -o");
 
+    # Job name
     $c->name or RUM::Usage->bad(
         "Please provide a name with --name");
+    if(length($c->name) > 250) {
+        die "The name must be less than 250 characters\n";
+    }
     $c->set('name', fix_name($c->name));
 
     $c->rum_config_file or RUM::Usage->bad(
@@ -186,17 +209,17 @@ sub check_config {
     $c->load_rum_config_file;
 
     my $reads = $c->reads;
+
     $reads && (@$reads == 1 || @$reads == 2) or RUM::Usage->bad(
         "Please provide one or two read files");
-    $reads->[0] ne $reads->[1] or RUM::Usage->bad(
+    if (@$reads == 2) {
+        $reads->[0] ne $reads->[1] or RUM::Usage->bad(
         "You specified the same file for the forward and reverse reads, must be an error...");
+    }
 
     !defined($c->quals_file) || $c->quals_file =~ /\// or RUM::Usage->bad(
         "do not specify -quals file with a full path, ".
             "put it in the '". $c->output_dir."' directory.");
-
-
-
 
     $c->min_identity =~ /^\d+$/ && $c->min_identity <= 100 or RUM::Usage->bad(
         "--min-identity must be an integer between zero and 100. You
@@ -539,22 +562,18 @@ EOF
 }
 
 sub fix_name {
+    local $_ = shift;
 
-    my ($name) = @_;
-
-    my $name_o = $name;
-    $name =~ s/\s+/_/g;
-    $name =~ s/^[^a-zA-Z0-9_.-]//;
-    $name =~ s/[^a-zA-Z0-9_.-]$//g;
-    $name =~ s/[^a-zA-Z0-9_.-]/_/g;
+    my $name_o = $_;
+    s/\s+/_/g;
+    s/^[^a-zA-Z0-9_.-]//;
+    s/[^a-zA-Z0-9_.-]$//g;
+    s/[^a-zA-Z0-9_.-]/_/g;
     
-    if($name ne $name_o) {
-        WARN("Name changed from '$name_o' to '$name'.");
-        if(length($name) > 250) {
-            LOGDIE("The name must be less than 250 characters.");
-        }
+    if($_ ne $name_o) {
+        WARN("Name changed from '$name_o' to '$_'");
     }
-    return $name;
+    return $_;
 }
 
 sub check_gamma {
@@ -636,6 +655,7 @@ sub reformat_reads {
 
 sub print_status {
     my ($self) = @_;
+
     local $_;
     my $config = $self->config;
 

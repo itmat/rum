@@ -18,13 +18,14 @@ RUM::Config - Configuration for a RUM job
 =cut
 
 our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
- match_length_cutoff max_insertions num_chunks bin_dir genome_bowtie
+ match_length_cutoff num_insertions_allowed num_chunks bin_dir genome_bowtie
  genome_fa transcriptome_bowtie annotations num_chunks read_length
  min_overlap max_insertions match_length_cutoff limit_nu_cutoff
  preserve_names variable_length_reads config_file
  bowtie_bin mdust_bin blat_bin trans_bowtie min_length reads
  input_needs_splitting
  input_is_preformatted
+ count_mismatches
  argv
  rum_config_file
  name
@@ -32,6 +33,12 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  nu_limit
  alt_genes
  alt_quant
+ dna
+ genome_only
+ cleanup
+ junctions
+ ram
+ strand_specific
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (
