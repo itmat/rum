@@ -29,7 +29,7 @@ sub LOGDIE { $log->logdie(wrap("", "", @_)) }
 
 
 sub do_status { $_[0]->{directives}{status} }
-sub do_version { $_[0]->{directives}{status} }
+sub do_version { $_[0]->{directives}{version} }
 sub do_help { $_[0]->{directives}{help} }
 sub do_help_config { $_[0]->{directives}{help_config} }
 sub do_shell_script { $_[0]->{directives}{shell_script} }
@@ -43,8 +43,6 @@ sub main {
     my $self = $class->new;
 
     $self->get_options();
-    $self->check_config();
-    $self->show_logo();
 
     if ($self->do_status) {
         $self->print_status;
@@ -60,77 +58,28 @@ sub main {
     }
     elsif ($self->do_shell_script) {
         $self->export_shell_script;
-        return;
-    }
-    elsif (my $chunk = $self->config->chunk) {
-        $log->debug("I was told to run chunk $chunk, ".
-                        "so I won't preprocess or postprocess the files");
-        $self->process;
-    }
-    elsif ($self->do_preprocess || $self->do_process || $self->do_postprocess) {
-        $self->preprocess  if $self->do_preprocess;
-        $self->process     if $self->do_process;
-        $self->postprocess if $self->do_postprocess;
     }
     else {
-        $self->preprocess;
-        $self->process;
-        $self->postprocess;
+        $self->check_config();        
+        $self->show_logo();
+
+        if (my $chunk = $self->config->chunk) {
+            $log->debug("I was told to run chunk $chunk, ".
+                            "so I won't preprocess or postprocess the files");
+            $self->process;
+        }
+        elsif ($self->do_preprocess || $self->do_process || $self->do_postprocess) {
+            $self->preprocess  if $self->do_preprocess;
+            $self->process     if $self->do_process;
+            $self->postprocess if $self->do_postprocess;
+        }
+        else {
+            $self->preprocess;
+            $self->process;
+            $self->postprocess;
+        }
     }
 }
-
-sub check_config {
-    my ($self) = @_;
-    my $c = $self->config;
-    $c->output_dir or RUM::Usage->bad(
-        "Please specify an output directory with --output or -o");
-
-    $c->rum_config_file or RUM::Usage->bad(
-        "Please specify a rum config file with --config");
-    $c->load_rum_config_file;
-
-    !defined($c->quals_file) || $c->quals_file =~ /\// or RUM::Usage->bad(
-        "do not specify -quals file with a full path, ".
-            "put it in the '". $c->output_dir."' directory.");
-
-    $c->name or RUM::Usage->bad(
-        "Please provide a name with --name");
-    $c->set('name', fix_name($c->name));
-
-    my $reads = $c->reads;
-    $reads && @$reads <= 2 or RUM::Usage->bad(
-        "Please provide one or two read files");
-    $reads->[0] ne $reads->[1] or RUM::Usage->bad(
-        "You specified the same file for the forward and reverse reads, must be an error...");
-
-    $c->min_identity =~ /^\d+$/ && $c->min_identity <= 100 or RUM::Usage->bad(
-        "--min-identity must be an integer between zero and 100. You
-        have given '".$c->min_identity."'.");
-
-    if (defined($c->min_length)) {
-        $c->min_length =~ /^\d+$/ && $c->min_length >= 10 or RUM::Usage->bad(
-            "--min-length must be an integer >= 10. You have given '".
-                $c->min_length."'.");
-    }
-    
-    if (defined($c->nu_limit)) {
-        $c->nu_limit =~ /^\d+$/ && $c->nu_limit > 0 or RUM::Usage->bad(
-            "--limit-nu must be an integer greater than zero. You have given '".
-                $c->nu_limit."'.");
-    }
-
-    $c->preserve_names && $c->variable_read_lengths and RUM::Usage->bad(
-        "Cannot use both --preserve-names and --variable-read-lengths at ".
-            "the same time. Sorry, we will fix this eventually.");
-
-    if ($c->alt_genes) {
-        -r $c->alt_genes or LOGDIE "Can't read from ".$c->alt_genes.": $!";
-    }
-    if ($c->alt_quant) {
-        -r $c->alt_quant or LOGDIE "Can't read from ".$c->alt_quant.": $!";
-    }
-}
-
 
 sub get_options {
     my ($self) = @_;
@@ -216,6 +165,65 @@ sub get_options {
     $c->set('alt_genes', $alt_genes);
     $c->set('alt_quant', $alt_quant);
     $self->{config} = $c;
+}
+
+
+
+
+sub check_config {
+    my ($self) = @_;
+
+    my $c = $self->config;
+    $c->output_dir or RUM::Usage->bad(
+        "Please specify an output directory with --output or -o");
+
+    $c->name or RUM::Usage->bad(
+        "Please provide a name with --name");
+    $c->set('name', fix_name($c->name));
+
+    $c->rum_config_file or RUM::Usage->bad(
+        "Please specify a rum config file with --config");
+    $c->load_rum_config_file;
+
+    my $reads = $c->reads;
+    $reads && (@$reads == 1 || @$reads == 2) or RUM::Usage->bad(
+        "Please provide one or two read files");
+    $reads->[0] ne $reads->[1] or RUM::Usage->bad(
+        "You specified the same file for the forward and reverse reads, must be an error...");
+
+    !defined($c->quals_file) || $c->quals_file =~ /\// or RUM::Usage->bad(
+        "do not specify -quals file with a full path, ".
+            "put it in the '". $c->output_dir."' directory.");
+
+
+
+
+    $c->min_identity =~ /^\d+$/ && $c->min_identity <= 100 or RUM::Usage->bad(
+        "--min-identity must be an integer between zero and 100. You
+        have given '".$c->min_identity."'.");
+
+    if (defined($c->min_length)) {
+        $c->min_length =~ /^\d+$/ && $c->min_length >= 10 or RUM::Usage->bad(
+            "--min-length must be an integer >= 10. You have given '".
+                $c->min_length."'.");
+    }
+    
+    if (defined($c->nu_limit)) {
+        $c->nu_limit =~ /^\d+$/ && $c->nu_limit > 0 or RUM::Usage->bad(
+            "--limit-nu must be an integer greater than zero. You have given '".
+                $c->nu_limit."'.");
+    }
+
+    $c->preserve_names && $c->variable_read_lengths and RUM::Usage->bad(
+        "Cannot use both --preserve-names and --variable-read-lengths at ".
+            "the same time. Sorry, we will fix this eventually.");
+
+    if ($c->alt_genes) {
+        -r $c->alt_genes or LOGDIE "Can't read from ".$c->alt_genes.": $!";
+    }
+    if ($c->alt_quant) {
+        -r $c->alt_quant or LOGDIE "Can't read from ".$c->alt_quant.": $!";
+    }
 }
 
 

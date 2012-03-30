@@ -118,7 +118,8 @@ sub variable_read_lengths {
 
 sub load_rum_config_file {
     my ($self) = @_;
-    my $path = $self->rum_config_file;
+    my $path = $self->rum_config_file or croak
+        "No RUM config file was supplied";
     open my $in, "<", $path or croak "Can't open config file $path: $!";
     my $cf = RUM::ConfigFile->parse($in);
     $cf->make_absolute;
