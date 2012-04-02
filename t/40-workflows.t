@@ -1,4 +1,4 @@
-use Test::More tests => 4;
+use Test::More tests => 14;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -68,7 +68,9 @@ my $c = RUM::Config->new(
     genome_only => 0,
     strand_specific => 0,
     name => "foo",
-    num_chunks => 2
+    num_chunks => 2,
+    rum_config_file => "$conf_dir/rum.config_Arabidopsis",
+    alt_quant_model => "",
 );
 my $w = RUM::Workflows->postprocessing_workflow($c);
 my @commands = $w->all_commands;
@@ -76,6 +78,7 @@ would_run($w, 'merge_rum_unique');
 would_run($w, 'merge_rum_nu');
 would_run($w, 'compute_mapping_statistics');
 would_run($w, 'merge_quants');
+would_not_run($w, 'merge_alt_quants');
 
 $c = RUM::Config->new(
     output_dir => $out_dir,
@@ -84,14 +87,61 @@ $c = RUM::Config->new(
     strand_specific => 0,
     name => "foo",
     num_chunks => 2,
-    strand_specific => 1
+    strand_specific => 1,
+    rum_config_file => "$conf_dir/rum.config_Arabidopsis",
+    alt_quant_model => "",
 );
-my $w = RUM::Workflows->postprocessing_workflow($c);
-my @commands = $w->all_commands;
+$c->load_rum_config_file;
+$w = RUM::Workflows->postprocessing_workflow($c);
+@commands = $w->all_commands;
 
 would_not_run($w, 'merge_quants');
 would_run($w, 'merge_quants_ps');
 would_run($w, 'merge_quants_pa');
 would_run($w, 'merge_quants_ms');
 would_run($w, 'merge_quants_ma');
+would_run($w, 'merge_strand_specific_quants');
+
+# Alt quants
+
+my $c = RUM::Config->new(
+    output_dir => $out_dir,
+    dna => 0,
+    genome_only => 0,
+    strand_specific => 0,
+    name => "foo",
+    num_chunks => 2,
+    rum_config_file => "$conf_dir/rum.config_Arabidopsis",
+    alt_quant_model => "foobar",
+);
+my $w = RUM::Workflows->postprocessing_workflow($c);
+my @commands = $w->all_commands;
+would_run($w, 'merge_quants');
+would_run($w, 'merge_alt_quants');
+
+$c = RUM::Config->new(
+    output_dir => $out_dir,
+    dna => 0,
+    genome_only => 0,
+    strand_specific => 0,
+    name => "foo",
+    num_chunks => 2,
+    strand_specific => 1,
+    rum_config_file => "$conf_dir/rum.config_Arabidopsis",
+    alt_quant_model => "foobar",
+);
+$c->load_rum_config_file;
+$w = RUM::Workflows->postprocessing_workflow($c);
+@commands = $w->all_commands;
+
+would_run($w, 'merge_quants_ps');
+would_run($w, 'merge_quants_pa');
+would_run($w, 'merge_quants_ms');
+would_run($w, 'merge_quants_ma');
+would_run($w, 'merge_strand_specific_quants');
+would_run($w, 'merge_alt_quants_ps');
+would_run($w, 'merge_alt_quants_pa');
+would_run($w, 'merge_alt_quants_ms');
+would_run($w, 'merge_alt_quants_ma');
+would_run($w, 'merge_strand_specific_alt_quants');
 

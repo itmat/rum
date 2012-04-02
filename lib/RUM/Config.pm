@@ -42,6 +42,7 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  user_quals
  mapping_stats
  quantify
+ alt_quant_model
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (
@@ -242,6 +243,16 @@ sub quant {
     }
     return $self->chunk_suffixed("feature_quantifications_" . $self->name);
 
+}
+
+sub alt_quant {
+    my $self = shift;
+    my ($strand, $sense) = @_;
+    if ($strand && $sense) {
+        return $self->chunk_suffixed("feature_quantifications.altquant.$strand$sense");
+    }
+    return $self->chunk_suffixed("feature_quantifications_" . $self->name . ".altquant");
+    
 }
 
 sub pipeline_sh { $_[0]->chunk_suffixed("pipeline.sh") }

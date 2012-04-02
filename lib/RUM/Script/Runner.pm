@@ -186,7 +186,7 @@ sub get_options {
     $c->set('min_identity', $min_identity);
     $c->set('nu_limit', $nu_limit);
     $c->set('alt_genes', $alt_genes);
-    $c->set('alt_quant', $alt_quant);
+    $c->set('alt_quant_model', $alt_quant);
     $self->{config} = $c;
 }
 
@@ -248,8 +248,8 @@ sub check_config {
     if ($c->alt_genes) {
         -r $c->alt_genes or LOGDIE "Can't read from ".$c->alt_genes.": $!";
     }
-    if ($c->alt_quant) {
-        -r $c->alt_quant or LOGDIE "Can't read from ".$c->alt_quant.": $!";
+    if ($c->alt_quant_model) {
+        -r $c->alt_quant_model or die "Can't read from ".$c->alt_quant_model.": $!";
     }
 }
 

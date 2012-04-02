@@ -375,8 +375,8 @@ sub postprocessing_workflow {
 
     my @c = map { $c->for_chunk($_) } (1 .. $c->num_chunks);
     my $w = RUM::Workflow->new();
-    my @rum_unique = map { $_->rum_unique } @c;
-    my @rum_nu = map { $_->rum_nu } @c;
+    my @rum_unique = map { $_->rum_unique_sorted } @c;
+    my @rum_nu = map { $_->rum_nu_sorted } @c;
 
     my @start = (@rum_unique, @rum_nu);
     my @goal = ($c->mapping_stats,
@@ -430,41 +430,99 @@ sub postprocessing_workflow {
 
 
     if ($c->should_quantify) {
+        push @goal, $c->quant;
+        push @goal, $c->alt_quant if $c->alt_quant_model;
 
         if ($c->strand_specific) {
-
-            for my $strand (qw(p m)) {
-                for my $sense (qw(s a)) {
+            my @strand_specific;
+            my @alt_strand_specific;
+            for my $sense (qw(s a)) {
+                for my $strand (qw(p m)) {
+                    
                     my @quants = map { $_->quant($strand, $sense) } @c; 
+                    my @alt_quants;
+
                     push @start, @quants;
+                    push @strand_specific, $c->quant($strand, $sense);
+
+                    if ($c->alt_quant) {
+                        @alt_quants = map { $_->alt_quant($strand, $sense) } @c;
+                        push @start, @alt_quants;
+                        push @alt_strand_specific, $c->alt_quant($strand, $sense);
+                    }
+
                     $w->add_command(
                         name => "merge_quants_$strand$sense",
                         pre => [@quants],
                         post => [$c->quant($strand, $sense)],
-                        comment => "Compute mapping stats",
+                        comment => "Merge quants $strand $sense",
                         commands => [[
                             "perl", $c->script("merge_quants.pl"),
                             "--chunks", $c->num_chunks,
                             "-o", $c->quant($strand, $sense),
                             "--strand", "$strand$sense" ]]);
+
+
+                    $w->add_command(
+                        name => "merge_alt_quants_$strand$sense",
+                        pre => [@alt_quants],
+                        post => [$c->alt_quant($strand, $sense)],
+                        comment => "Merge alt quants $strand $sense",
+                        commands => [[
+                            "perl", $c->script("merge_quants.pl"),
+                            "--alt",
+                            "--chunks", $c->num_chunks,
+                            "-o", $c->quant($strand, $sense),
+                            "--strand", "$strand$sense" ]]) if $c->alt_quant_model;
                 }
             }
+            $w->add_command(
+                name => "merge_strand_specific_quants",
+                comment => "Merge strand-specific quants",
+                pre => [@strand_specific],
+                post => [$c->quant],
+                commands => [[
+                    "perl", $c->script("merge_quants_strandspecific.pl"),
+                    @strand_specific,
+                    $c->annotations,
+                    $w->temp($c->quant)]]);
+
+            $w->add_command(
+                name => "merge_strand_specific_alt_quants",
+                comment => "Merge strand-specific alt quants",
+                pre => [@alt_strand_specific],
+                post => [$c->alt_quant],
+                commands => [[
+                    "perl", $c->script("merge_quants_strandspecific.pl"),
+                    @alt_strand_specific,
+                    $c->alt_quant,
+                    $w->temp($c->alt_quant)]]) if $c->alt_quant_model;
         }
         
         else {
 
             my @quants = map { $_->quant } @c; 
             push @start, @quants;
-            push @goal, $c->quant;
             $w->add_command(
                 name => "merge_quants",
                 pre => [$c->rum_unique],
                 post => [$c->quant],
-                comment => "Compute mapping stats",
+                comment => "Merge quants",
                 commands => [[
                     "perl", $c->script("merge_quants.pl"),
                     "--chunks", $c->num_chunks,
                     "-o", $w->temp($c->quant)]]);
+
+            $w->add_command(
+                name => "merge_alt_quants",
+                pre => [$c->rum_unique],
+                post => [$c->alt_quant],
+                comment => "Merge alt quants",
+                commands => [[
+                    "perl", $c->script("merge_quants.pl"),
+                    "--alt",
+                    "--chunks", $c->num_chunks,
+                    "-o", $w->temp($c->alt_quant)]]) if $c->alt_quant_model;
         }
     }
     
