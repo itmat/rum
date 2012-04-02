@@ -333,11 +333,12 @@ sub execute {
 
         unless ($completed) {
             for my $cmd (@cmds) {
-                my $status = system(@cmds);
+                my $status = system($cmd);
                 if ($status) {
                     die "Error running $cmd: $!";
                 }
             }
+
             for ($sm->flags($new & ~$old)) {
                 if (my $temp = $self->_get_temp($_)) {
                     -e and $log->warn(
@@ -350,6 +351,16 @@ sub execute {
                     $log->warn("$_ was not first created as a temporary file");
                 }
             }
+
+            my $state = $self->state;
+
+            if ($new != $state) {
+                my @missing = $sm->flags($new & ~$state);
+                my @extra   = $sm->flags($state & ~$new);
+                $log->warn("I am not in the state I'm supposed to be. I am missing @missing and have extra files @extra");
+            }
+
+
         }
 
     };

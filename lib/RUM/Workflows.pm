@@ -340,27 +340,46 @@ sub chunk_workflow {
                 $c->rum_nu_sorted,
                 $c->sam_file,
                 $c->nu_stats);
+    
+    if ($c->strand_specific) {
 
         for my $strand (qw(p m)) {
             for my $sense (qw(s a)) {
-            my $file = $c->quant($strand, $sense);
-            push @goal, $file;
-            $m->add_command(
-                name => "quants_$strand$sense",
-                comment => "Generate quants for strand $strand, sense $sense",
-                pre => [$c->rum_nu_sorted, $c->rum_unique_sorted], 
-                post => [$file],
-                commands => 
-                    [["perl", $c->script("rum2quantifications.pl"),
-                      "--genes-in", $c->annotations,
-                      "--unique-in", $c->rum_unique_sorted,
-                      "--non-unique-in", $c->rum_nu_sorted,
-                      "-o", $m->temp($file),
-                      "-countsonly",
-                      "--strand", $strand,
-                      $sense eq 'a' ? "--anti" : ""]]
-                );                 
+                my $file = $c->quant($strand, $sense);
+                push @goal, $file;
+                $m->add_command(
+                    name => "quants_$strand$sense",
+                    comment => "Generate quants for strand $strand, sense $sense",
+                    pre => [$c->rum_nu_sorted, $c->rum_unique_sorted], 
+                    post => [$file],
+                    commands => 
+                        [["perl", $c->script("rum2quantifications.pl"),
+                          "--genes-in", $c->annotations,
+                          "--unique-in", $c->rum_unique_sorted,
+                          "--non-unique-in", $c->rum_nu_sorted,
+                          "-o", $m->temp($file),
+                          "-countsonly",
+                          "--strand", $strand,
+                          $sense eq 'a' ? "--anti" : ""]]
+                    );                 
+            }
         }
+    }
+    else {
+        push @goal, $c->quant;
+        $m->add_command(
+            name => "quants",
+            comment => "Generate quants",
+            pre => [$c->rum_nu_sorted, $c->rum_unique_sorted], 
+            post => [$c->quant],
+            commands => 
+                [["perl", $c->script("rum2quantifications.pl"),
+                  "--genes-in", $c->annotations,
+                  "--unique-in", $c->rum_unique_sorted,
+                  "--non-unique-in", $c->rum_nu_sorted,
+                  "-o", $m->temp($c->quant),
+                  "-countsonly"]]
+            );                 
     }
 
     $m->set_goal(\@goal);
@@ -528,7 +547,8 @@ sub postprocessing_workflow {
                 commands => [[
                     "perl", $c->script("merge_quants.pl"),
                     "--chunks", $c->num_chunks,
-                    "-o", $w->temp($c->quant)]]);
+                    "-o", $w->temp($c->quant), 
+                    $c->output_dir]]);
 
             $w->add_command(
                 name => "merge_alt_quants",
@@ -539,12 +559,13 @@ sub postprocessing_workflow {
                     "perl", $c->script("merge_quants.pl"),
                     "--alt",
                     "--chunks", $c->num_chunks,
-                    "-o", $w->temp($c->alt_quant)]]) if $c->alt_quant_model;
+                    "-o", $w->temp($c->alt_quant),
+                    $c->output_dir]]) if $c->alt_quant_model;
         }
     }
 
+
     my @mapping_stats = map { $_->mapping_stats } @c;
-    
     
     $w->start([@start]);
 

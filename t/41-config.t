@@ -41,6 +41,19 @@ sub should_not_quantify {
     ok(!$c->should_quantify, "Should not quantify");
 }
 
+sub should_do_junctions {
+    my (%options) = @_;
+    my $c = RUM::Config->new(%options);
+    ok($c->should_do_junctions, "Should do junctions");
+}
+sub should_not_do_junctions {
+    my (%options) = @_;
+    my $c = RUM::Config->new(%options);
+    ok(!$c->should_do_junctions, "Should not do junctions");
+}
+
+
+
 should_quantify(    dna => 0, genome_only => 0, quantify => 0);
 should_quantify(    dna => 0, genome_only => 0, quantify => 1);
 should_not_quantify(dna => 0, genome_only => 1, quantify => 0);
@@ -49,3 +62,12 @@ should_not_quantify(dna => 1, genome_only => 0, quantify => 0);
 should_quantify(    dna => 1, genome_only => 0, quantify => 1);
 should_not_quantify(dna => 1, genome_only => 1, quantify => 0);
 should_quantify(    dna => 1, genome_only => 1, quantify => 1);
+
+should_do_junctions(    dna => 0, genome_only => 0, junctions => 0);
+should_do_junctions(    dna => 0, genome_only => 0, junctions => 1);
+should_do_junctions(    dna => 0, genome_only => 1, junctions => 0);
+should_do_junctions(    dna => 0, genome_only => 1, junctions => 1);
+should_not_do_junctions(dna => 1, genome_only => 0, junctions => 0);
+should_do_junctions(    dna => 1, genome_only => 0, junctions => 1);
+should_do_junctions(    dna => 1, genome_only => 1, junctions => 0);
+should_do_junctions(    dna => 1, genome_only => 1, junctions => 1);
