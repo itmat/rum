@@ -376,9 +376,12 @@ sub postprocessing_workflow {
     my @c = map { $c->for_chunk($_) } (1 .. $c->num_chunks);
     my $w = RUM::Workflow->new();
     my @rum_unique = map { $_->rum_unique } @c;
+    my @rum_nu = map { $_->rum_nu } @c;
 
-    $log->debug("Rum uniques are @rum_unique");
-    $w->start([@rum_unique]);
+    my @start = (@rum_unique, @rum_nu);
+    my @goal = ($c->mapping_stats,
+                $c->rum_unique,
+                $c->rum_nu);
 
     $w->add_command(
         name => "merge_rum_unique",
@@ -387,10 +390,23 @@ sub postprocessing_workflow {
         comment => "Merge RUM_Unique.* files",
         commands => [[
             "perl", $c->script("merge_sorted_RUM_files.pl"),
-            "-o", $c->rum_unique,
+            "-o", $w->temp($c->rum_unique),
             @rum_unique
         ]]
     );
+
+    $w->add_command(
+        name => "merge_rum_nu",
+        pre => \@rum_nu,
+        post => [$c->rum_nu],
+        comment => "Merge RUM_NU.* files",
+        commands => [[
+            "perl", $c->script("merge_sorted_RUM_files.pl"),
+            "-o", $w->temp($c->rum_nu),
+            @rum_nu
+        ]]
+    );
+
 
     $w->add_command(
         name => "compute_mapping_statistics",
@@ -407,12 +423,54 @@ sub postprocessing_workflow {
                 "--non-unique-in", $c->rum_nu,
                 "--min-seq", 1,
                 $max_seq_opt,
-                "> ", $c->mapping_stats
+                "> ", $w->temp($c->mapping_stats)
             ]];
         }
     );
 
-    $w->set_goal([$c->mapping_stats, $c->rum_unique]);
+
+    if ($c->should_quantify) {
+
+        if ($c->strand_specific) {
+
+            for my $strand (qw(p m)) {
+                for my $sense (qw(s a)) {
+                    my @quants = map { $_->quant($strand, $sense) } @c; 
+                    push @start, @quants;
+                    $w->add_command(
+                        name => "merge_quants_$strand$sense",
+                        pre => [@quants],
+                        post => [$c->quant($strand, $sense)],
+                        comment => "Compute mapping stats",
+                        commands => [[
+                            "perl", $c->script("merge_quants.pl"),
+                            "--chunks", $c->num_chunks,
+                            "-o", $c->quant($strand, $sense),
+                            "--strand", "$strand$sense" ]]);
+                }
+            }
+        }
+        
+        else {
+
+            my @quants = map { $_->quant } @c; 
+            push @start, @quants;
+            push @goal, $c->quant;
+            $w->add_command(
+                name => "merge_quants",
+                pre => [$c->rum_unique],
+                post => [$c->quant],
+                comment => "Compute mapping stats",
+                commands => [[
+                    "perl", $c->script("merge_quants.pl"),
+                    "--chunks", $c->num_chunks,
+                    "-o", $w->temp($c->quant)]]);
+        }
+    }
+    
+    $w->start([@start]);
+
+    $w->set_goal([@goal]);
     return $w;
 }
 

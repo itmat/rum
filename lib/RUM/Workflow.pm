@@ -221,6 +221,17 @@ sub walk_states {
 
 }
 
+sub all_commands {
+    my ($self) = @_;
+    my @commands;
+    my $f = sub {
+        my ($name, $completed) = @_;
+        push @commands, $name;
+    };
+    $self->walk_states($f);
+    return @commands;
+}
+
 =item commands($name)
 
 Return the shell commands with the given name.

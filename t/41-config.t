@@ -1,4 +1,4 @@
-use Test::More tests => 6;
+use Test::More tests => 14;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -29,3 +29,23 @@ $c = $c->for_chunk(1);
 is($c->chunk, 1, "Chunk setting");
 is($c->reads_fa, "foo/reads.fa.1", "Getting property for chunk");
 
+
+sub should_quantify {
+    my (%options) = @_;
+    my $c = RUM::Config->new(%options);
+    ok($c->should_quantify, "Should quantify");
+}
+sub should_not_quantify {
+    my (%options) = @_;
+    my $c = RUM::Config->new(%options);
+    ok(!$c->should_quantify, "Should not quantify");
+}
+
+should_quantify(    dna => 0, genome_only => 0, quantify => 0);
+should_quantify(    dna => 0, genome_only => 0, quantify => 1);
+should_not_quantify(dna => 0, genome_only => 1, quantify => 0);
+should_quantify(    dna => 0, genome_only => 1, quantify => 1);
+should_not_quantify(dna => 1, genome_only => 0, quantify => 0);
+should_quantify(    dna => 1, genome_only => 0, quantify => 1);
+should_not_quantify(dna => 1, genome_only => 1, quantify => 0);
+should_quantify(    dna => 1, genome_only => 1, quantify => 1);

@@ -41,6 +41,7 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  strand_specific
  user_quals
  mapping_stats
+ quantify
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (
@@ -76,6 +77,8 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     quals_fa           => "quals.fa",
     log_file           => "rum.log",
     error_log_file     => "rum-errors.log",
+    mapping_stats         => "mapping_stats.txt"
+
 );
 
 our %DEFAULTS = (
@@ -88,7 +91,6 @@ our %DEFAULTS = (
     match_length_cutoff   => undef,
     limit_nu_cutoff       => undef,
     chunk                 => undef,
-    mapping_stats         => "mapping_stats.txt"
 );
 
 =head1 CONSTRUCTOR
@@ -226,9 +228,20 @@ sub mdust_output { $_[0]->chunk_replaced("R.%d.mdust") }
 
 sub state_dir { $_[0]->chunk_replaced("state-%03d") }
 
+# $quantify and $quantify_specified default to false
+# Both set to true if --quantify is given
+# $quantify set to true if --dna is not given
+# If $genomeonly, $quantify set to $quantify_specified
+# So quantify if 
+
 sub quant {
-    my ($self, $strand, $sense) = @_;
-    return $self->chunk_suffixed("quant.$strand$sense");
+    my $self = shift;
+    my ($strand, $sense) = @_;
+    if ($strand && $sense) {
+        return $self->chunk_suffixed("quant.$strand$sense");
+    }
+    return $self->chunk_suffixed("feature_quantifications_" . $self->name);
+
 }
 
 sub pipeline_sh { $_[0]->chunk_suffixed("pipeline.sh") }
@@ -267,6 +280,11 @@ sub AUTOLOAD {
     exists $self->{$name} or croak "Property $name was not set";
 
     return $self->{$name};
+}
+
+sub should_quantify {
+    my ($self) = @_;
+    return !($self->dna || $self->genome_only) || $self->quantify;
 }
 
 1;

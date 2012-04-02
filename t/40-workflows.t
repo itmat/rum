@@ -51,3 +51,47 @@ SKIP: {
     open my $script_file, ">", "$out_dir/run.sh" or die "Can't open script";
     $chunk->shell_script($script_file);
 }
+
+sub would_run {
+    my ($w, $command) = @_;
+    ok(grep($_ eq $command, $w->all_commands), "$command would be run");
+}
+
+sub would_not_run {
+    my ($w, $command) = @_;
+    ok( ! grep($_ eq $command, $w->all_commands), "$command would not be run");
+}
+
+my $c = RUM::Config->new(
+    output_dir => $out_dir,
+    dna => 0,
+    genome_only => 0,
+    strand_specific => 0,
+    name => "foo",
+    num_chunks => 2
+);
+my $w = RUM::Workflows->postprocessing_workflow($c);
+my @commands = $w->all_commands;
+would_run($w, 'merge_rum_unique');
+would_run($w, 'merge_rum_nu');
+would_run($w, 'compute_mapping_statistics');
+would_run($w, 'merge_quants');
+
+$c = RUM::Config->new(
+    output_dir => $out_dir,
+    dna => 0,
+    genome_only => 0,
+    strand_specific => 0,
+    name => "foo",
+    num_chunks => 2,
+    strand_specific => 1
+);
+my $w = RUM::Workflows->postprocessing_workflow($c);
+my @commands = $w->all_commands;
+
+would_not_run($w, 'merge_quants');
+would_run($w, 'merge_quants_ps');
+would_run($w, 'merge_quants_pa');
+would_run($w, 'merge_quants_ms');
+would_run($w, 'merge_quants_ma');
+

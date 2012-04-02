@@ -69,7 +69,6 @@ sub run_pipeline {
 
     $self->check_config();        
     $self->show_logo();
-    $self->determine_read_length();
 
     if ($self->do_status) {
         $self->print_status;
@@ -166,6 +165,7 @@ sub get_options {
         status       => $do_status
     };
 
+    $c->set('quantify', $quantify);
     $c->set('strand_specific', $strand_specific);
     $c->set('ram', $ram);
     $c->set('junctions', $junctions);
@@ -263,6 +263,7 @@ sub preprocess {
     $self->setup;
     $self->check_input();
     $self->reformat_reads();
+    $self->determine_read_length();
 }
 
 sub step_printer {
@@ -362,6 +363,7 @@ sub process {
 
 sub postprocess {
     my ($self) = @_;
+    $self->determine_read_length();
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
     $w->execute(step_printer($w));
 }
