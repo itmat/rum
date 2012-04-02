@@ -223,6 +223,19 @@ sub check_single_forward_fa {
     ok( ! $rum->config->paired_end, "$prefix: not paired end");
     ok($rum->config->input_is_preformatted, "$prefix: is preformatted");
     ok($rum->config->input_needs_splitting, "$prefix: needs splitting");
+}
+
+sub check_single_forward_fa_chunks {
+    my $rum = preprocess("--config", $config,
+                  "-o", tempdir(CLEANUP => 1),
+                  "--name", "asdf",
+                  "$SHARED_INPUT_DIR/forward_only.fa");
+    my $prefix = "1, single, fa, no chunks";
+    ok( ! $rum->config->paired_end, "$prefix: not paired end");
+    ok($rum->config->input_is_preformatted, "$prefix: is preformatted");
+    ok($rum->config->input_needs_splitting, "$prefix: needs splitting");
+}
+
 
 # TODO: What to do for single reads file that is not preformatted?
 #    $rum = rum(@argv, $forward_64_fq);
@@ -231,7 +244,7 @@ sub check_single_forward_fa {
 #    ok( ! $rum->config->input_is_preformatted, "Not preformatted");
 #    ok($rum->config->input_needs_splitting, "Needs splitting");
 
-}
+
 
 sub check_pair_fastq_files {
     my @argv = ("--config", $config, "--name", "asdf");
