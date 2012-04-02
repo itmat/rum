@@ -71,7 +71,7 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     sam_file           => "RUM.sam",
     nu_stats           => "nu_stats",
     rum_unique_sorted  => "RUM_Unique.sorted",
-    rum_nu_sorted      => "RUM_Unique.sorted",
+    rum_nu_sorted      => "RUM_NU.sorted",
     chr_counts_u       => "chr_counts_u",
     chr_counts_nu      => "chr_counts_nu",
     reads_fa           => "reads.fa",
@@ -241,8 +241,11 @@ sub quant {
     if ($strand && $sense) {
         return $self->chunk_suffixed("quant.$strand$sense");
     }
-    return $self->chunk_suffixed("feature_quantifications_" . $self->name);
 
+    if ($self->chunk) {
+        return $self->chunk_suffixed("quant");
+    }
+    return $self->chunk_suffixed("feature_quantifications_" . $self->name);
 }
 
 sub alt_quant {
@@ -296,6 +299,11 @@ sub AUTOLOAD {
 sub should_quantify {
     my ($self) = @_;
     return !($self->dna || $self->genome_only) || $self->quantify;
+}
+
+sub should_do_junctions {
+    my ($self) = @_;
+    return !$self->dna || $self->genome_only || $self->junctions;
 }
 
 1;

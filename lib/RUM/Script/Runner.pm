@@ -71,6 +71,7 @@ sub run_pipeline {
     $self->show_logo();
 
     if ($self->do_status) {
+        $self->determine_read_length();
         $self->print_status;
         return;
     }
