@@ -407,24 +407,41 @@ sub postprocessing_workflow {
         ]]
     );
 
-
+    my @chr_counts_u = map { $_->chr_counts_u } @c;
+    my @chr_counts_nu = map { $_->chr_counts_nu } @c;
+    push @start, @chr_counts_u, @chr_counts_nu;
     $w->add_command(
         name => "compute_mapping_statistics",
-        pre => [$c->rum_unique],
+        pre => [$c->rum_unique, $c->rum_nu, @chr_counts_u, @chr_counts_nu],
         post => [$c->mapping_stats],
         comment => "Compute mapping stats",
         commands => sub {
             my $reads = $c->reads_fa;
             local $_ = `tail -2 $reads`;
             my $max_seq_opt = /seq.(\d+)/s ? "--max-seq $1" : "";
-            return [[
-                "perl", $c->script("count_reads_mapped.pl"),
-                "--unique-in", $c->rum_unique,
-                "--non-unique-in", $c->rum_nu,
-                "--min-seq", 1,
-                $max_seq_opt,
-                "> ", $w->temp($c->mapping_stats)
-            ]];
+            my $out = $w->temp($c->mapping_stats);
+            return [
+                ["perl", $c->script("count_reads_mapped.pl"),
+                 "--unique-in", $c->rum_unique,
+                 "--non-unique-in", $c->rum_nu,
+                 "--min-seq", 1,
+                 $max_seq_opt,
+                 "> ", $w->temp($c->mapping_stats)],
+                ["echo '' >> $out"],
+                ["echo RUM_Unique reads per chromosome >> $out"],
+                ["echo ------------------------------- >> $out"],
+                ["perl", $c->script("merge_chr_counts.pl"),
+                 "-o $out @chr_counts_u"],
+
+                ["echo '' >> $out"],
+                ["echo RUM_NU reads per chromosome >> $out"],
+                ["echo --------------------------- >> $out"],
+                ["perl", $c->script("merge_chr_counts.pl"),
+                 "-o $out @chr_counts_nu"],
+
+                ["perl", $c->script("merge_nu_stats.pl"), "-n", $c->num_chunks, 
+                 $c->output_dir, ">> $out"]
+            ];
         }
     );
 
@@ -525,6 +542,9 @@ sub postprocessing_workflow {
                     "-o", $w->temp($c->alt_quant)]]) if $c->alt_quant_model;
         }
     }
+
+    my @mapping_stats = map { $_->mapping_stats } @c;
+    
     
     $w->start([@start]);
 
