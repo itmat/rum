@@ -307,6 +307,17 @@ sub process_in_chunks {
         $task->run;
     }
 
+    my $status_pid;
+    if (my $pid = fork) {
+        $status_pid = $pid;
+    }
+    else {
+        while (1) {
+            sleep 5;
+            $self->print_status;
+        }
+    }
+
     # Repeatedly wait for one of my children to exit. Check the
     # exit status, and if it is non-zero, attempt to restart the
     # child process unless it has failed too many times.
@@ -318,8 +329,16 @@ sub process_in_chunks {
             last;
         }
         
-        my $chunk = $pid_to_chunk{$pid} or $log->warn(
+        my $chunk = delete $pid_to_chunk{$pid} or $log->warn(
             "I don't know what chunk pid $pid is for");
+
+        unless (keys %pid_to_chunk) {
+            $log->info("All children done");
+            kill(9, $status_pid);
+            wait;
+            last;
+        }
+
         my $task = $tasks[$chunk];
         my $prefix = "PID $pid (chunk $chunk)";
         
