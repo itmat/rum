@@ -78,8 +78,6 @@ doc/cmpChrs-changes.md
 doc/goals
 doc/how2setup_genome-indexes_forPipeline.txt
 doc/indexing.pod
-lib/RUM/ChunkMachine.pm
-lib/RUM/CommandMachine.pm
 lib/RUM/Common.pm
 lib/RUM/Config.pm
 lib/RUM/ConfigFile.pm
@@ -133,7 +131,6 @@ README.md
 t/00-load.t
 t/01-indexing.t
 t/02-config.t
-t/03-workflow.t
 t/04-common.t
 t/04-state-machine.t
 t/04-subproc.t
@@ -168,9 +165,7 @@ t/36-merge-quants.t
 t/37-get-inferred-internal-exons.t
 t/38-make-rum-junctions-file.t
 t/39-quantify-exons.t
-t/40-chunk-machine.t
 t/41-config.t
-t/50-download-test-data.it
 t/50-runner.pm
 t/60-dist.it
 t/80-end-to-end.it

@@ -28,7 +28,7 @@ sequence of commands
       comment => "This command does things",
       pre => ..., # Files that must exist before I run
       post => ..., # Files that I will create
-      code => ... # CODE ref that returns commands to run
+      commands => ... # CODE ref that returns commands to run
   );
 
   ... # Add more commands
@@ -80,7 +80,7 @@ Array ref of files that must exist before the command is run.
 
 Array ref of files that will exist after the command is run.
 
-=item B<code>
+=item B<commands>
 
 A code ref that, when run, returns an array ref of commands to
 execute on the shell.
@@ -93,15 +93,15 @@ sub add_command {
     my ($self, %options) = @_;
 
     my $name       = delete $options{name};
-    my $code       = delete $options{code};
+    my $commands       = delete $options{commands};
     my $comment    = delete $options{comment};
     my $pre_files  = delete $options{pre};
     my $post_files = delete $options{post};
 
-    my $pre = $self->_filenames_to_bits($pre_files);
-    my $post = $self->_filenames_to_bits($post_files);
+    my $pre = $self->_filenames_to_bits($pre_files || []);
+    my $post = $self->_filenames_to_bits($post_files || []);
 
-    $self->{commands}{$name} = $code;
+    $self->{commands}{$name} = $commands;
     $self->{comments}{$name} = $comment;
     $self->{sm}->add($pre, $post, $name);
 }
@@ -228,12 +228,15 @@ Return the shell commands with the given name.
 sub commands {
     my ($self, $name) = @_;
     $log->debug("Getting commands for name $name");
-    my $code = $self->{commands}{$name} or croak
+    my $commands = $self->{commands}{$name} or croak
         "Undefined command $name";
-    ref($code) =~ /^CODE/ or croak "Code for command $name is not a CODE ref";
-    $log->debug("Code is $code");
-    my $cmds = $code->();
-    return map "@$_", @$cmds;
+
+    $commands = $commands->() if ref($commands) =~ /^CODE/;
+
+    ref($commands) =~ /^ARRAY/ or croak
+        "Commands must be an array ref, not $commands";
+
+    return map "@$_", @$commands;
 }
 
 =item shell_script($filehandle)
@@ -345,7 +348,7 @@ sub execute {
 sub _filenames_to_bits {
     my ($self, $files) = @_;
     ref($files) =~ /^ARRAY/ or croak 
-        "Filenames must be givan as array ref";
+        "Filenames must be given as array ref";
     my $bits = 0;
     for my $file (@$files) {
         $bits |= $self->{sm}->flag($file);
