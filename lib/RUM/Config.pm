@@ -40,6 +40,7 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  ram
  strand_specific
  user_quals
+ mapping_stats
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (
@@ -74,7 +75,7 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     reads_fa           => "reads.fa",
     quals_fa           => "quals.fa",
     log_file           => "rum.log",
-    error_log_file     => "rum-errors.log"
+    error_log_file     => "rum-errors.log",
 );
 
 our %DEFAULTS = (
@@ -87,6 +88,7 @@ our %DEFAULTS = (
     match_length_cutoff   => undef,
     limit_nu_cutoff       => undef,
     chunk                 => undef,
+    mapping_stats         => "mapping_stats.txt"
 );
 
 =head1 CONSTRUCTOR
@@ -235,7 +237,7 @@ sub pipeline_sh { $_[0]->chunk_suffixed("pipeline.sh") }
 sub name_mapping_opt   { "" } 
 
 sub properties {
-    (@LITERAL_PROPERTIES, keys %CHUNK_SUFFIXED_PROPERTIES)
+    (@LITERAL_PROPERTIES, keys %CHUNK_SUFFIXED_PROPERTIES, keys %DEFAULTS)
 }
 
 sub is_property {

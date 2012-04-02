@@ -47,10 +47,7 @@ sub run {
     my ($self) = @_;
     $self->get_options();
 
-    if ($self->do_status) {
-        $self->print_status;
-    }
-    elsif ($self->do_version) {
+    if ($self->do_version) {
         print "RUM version $RUM::Pipeline::VERSION, released $RUM::Pipeline::RELEASE_DATE\n";
     }
     elsif ($self->do_help) {
@@ -72,6 +69,12 @@ sub run_pipeline {
 
     $self->check_config();        
     $self->show_logo();
+    $self->determine_read_length();
+
+    if ($self->do_status) {
+        $self->print_status;
+        return;
+    }
     
     if (my $chunk = $self->config->chunk) {
         $log->debug("I was told to run chunk $chunk, ".
@@ -159,7 +162,8 @@ sub get_options {
         shell_script => $do_shell_script,
         help         => $do_help,
         help_config  => $do_help_config,
-        dry_run      => $do_dry_run
+        dry_run      => $do_dry_run,
+        status       => $do_status
     };
 
     $c->set('strand_specific', $strand_specific);
@@ -259,7 +263,6 @@ sub preprocess {
     $self->setup;
     $self->check_input();
     $self->reformat_reads();
-    $self->determine_read_length();
 }
 
 sub step_printer {
@@ -359,7 +362,8 @@ sub process {
 
 sub postprocess {
     my ($self) = @_;
-    
+    my $w = RUM::Workflows->postprocessing_workflow($self->config);
+    $w->execute(step_printer($w));
 }
 
 sub setup {
@@ -700,12 +704,23 @@ sub print_status {
     my $digits = num_digits($n);
     my $format = "%${digits}d/%${digits}d";
 
+    $log->info("Processing in $n chunks");
+    $log->info("-----------------------");
     for (@steps) {
         my $progress = sprintf $format, $num_completed{$_}, $n;
         my $comment   = $comments{$_};
         $log->info("$progress $comment");
     }
 
+    $log->info();
+    $log->info("Postprocessing");
+    $log->info("--------------");
+    my $postproc = RUM::Workflows->postprocessing_workflow($config);
+    my $handle_state = sub {
+        my ($name, $completed) = @_;
+        $log->info(($completed ? "X" : " ") . " " . $postproc->comment($name));
+    };
+    $postproc->walk_states($handle_state);
 }
 
 sub chunk_machine {

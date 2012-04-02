@@ -130,6 +130,7 @@ before the machines starts. $files must be an array ref of paths.
 sub start {
     my ($self, $files) = @_;
     my $state = $self->_filenames_to_bits($files);
+    $log->debug("My start files are @$files, state is $state");
     $self->state_machine->start($state);
 }
 
@@ -212,6 +213,7 @@ sub walk_states {
     my $f = sub {
         my ($sm, $old, $name, $new) = @_;
         my $completed = ($new & $state) == $new;
+        $log->debug("In state $old, using $name to get to $new");
         $callback->($name, $completed);
     };
         
@@ -363,7 +365,7 @@ sub _temp_filename {
     my ($self, $path) = @_;
     my (undef, $dir, $file) = File::Spec->splitpath($path);
     # TODO: Ensure that files will be different for different runs
-    my $fh = File::Temp->new(DIR => $dir, TEMPLATE => "$file.XXXXXXXX", UNLINK => 0);
+    my $fh = File::Temp->new(DIR => $dir, TEMPLATE => "$file.XXXXXXXX", UNLINK => 1);
     close $fh;
     return $fh->filename;
 }

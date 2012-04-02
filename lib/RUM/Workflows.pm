@@ -9,6 +9,9 @@ use Text::Wrap qw(fill wrap);
 use RUM::StateMachine;
 use RUM::Workflow;
 use RUM::Config;
+use RUM::Logging;
+
+our $log = RUM::Logging->get_logger;
 
 =head1 NAME
 
@@ -364,6 +367,56 @@ sub chunk_workflow {
 
     return $m;
 }
+
+sub postprocessing_workflow {
+
+    my ($class, $c) = @_;
+
+
+    my @c = map { $c->for_chunk($_) } (1 .. $c->num_chunks);
+    my $w = RUM::Workflow->new();
+    my @rum_unique = map { $_->rum_unique } @c;
+
+    $log->debug("Rum uniques are @rum_unique");
+    $w->start([@rum_unique]);
+
+    $w->add_command(
+        name => "merge_rum_unique",
+        pre => \@rum_unique,
+        post => [$c->rum_unique],
+        comment => "Merge RUM_Unique.* files",
+        commands => [[
+            "perl", $c->script("merge_sorted_RUM_files.pl"),
+            "-o", $c->rum_unique,
+            @rum_unique
+        ]]
+    );
+
+    $w->add_command(
+        name => "compute_mapping_statistics",
+        pre => [$c->rum_unique],
+        post => [$c->mapping_stats],
+        comment => "Compute mapping stats",
+        commands => sub {
+            my $reads = $c->reads_fa;
+            local $_ = `tail -2 $reads`;
+            my $max_seq_opt = /seq.(\d+)/s ? "--max-seq $1" : "";
+            return [[
+                "perl", $c->script("count_reads_mapped.pl"),
+                "--unique-in", $c->rum_unique,
+                "--non-unique-in", $c->rum_nu,
+                "--min-seq", 1,
+                $max_seq_opt,
+                "> ", $c->mapping_stats
+            ]];
+        }
+    );
+
+    $w->set_goal([$c->mapping_stats, $c->rum_unique]);
+    return $w;
+}
+
+
 
 1;
 

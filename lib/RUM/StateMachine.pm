@@ -5,6 +5,9 @@ use warnings;
 use Exporter qw(import);
 use Carp;
 use List::Util qw(reduce);
+use RUM::Logging;
+
+our $log = RUM::Logging->get_logger;
 
 =head1 NAME
 
@@ -105,7 +108,9 @@ Return the start state of this machine.
 =cut
 
 sub start {
-    shift->{start};
+    my ($self, $start) = @_;
+    $self->{start} = $start if defined $start;
+    $self->{start};
 }
 
 =item instructions
@@ -274,20 +279,24 @@ $instruction was applied.
 
 
 sub walk {
-    my ($self, $callback) = @_;
+    my ($self, $callback, $start) = @_;
 
-    my $state = $self->start;
+    my $state = defined($start) ? $start : $self->start;
     
   STATE: while (!$self->is_goal($state)) {
+        $log->debug("Looking at state $state");
         local $_;
         for (sort($self->instructions)) {
+
             my $new_state = $self->transition($state, $_);
+            $log->debug("$_ at $state yields $new_state");
             if ($new_state != $state) {
                 $callback->($self, $state, $_, $new_state);
                 $state = $new_state;
                 next STATE;
             }
         }
+        $log->warn("Couldn't find a plan for $self");
         return 0;
     }
     return 1;
