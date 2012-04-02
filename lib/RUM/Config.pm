@@ -78,8 +78,7 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     quals_fa           => "quals.fa",
     log_file           => "rum.log",
     error_log_file     => "rum-errors.log",
-    mapping_stats         => "mapping_stats.txt"
-
+    mapping_stats         => "mapping_stats.txt",
 );
 
 our %DEFAULTS = (
@@ -304,6 +303,11 @@ sub should_quantify {
 sub should_do_junctions {
     my ($self) = @_;
     return !$self->dna || $self->genome_only || $self->junctions;
+}
+
+sub all_junctions_rum_format {
+    my ($self) = @_;
+    return $self->in_output_dir("junctions") ;
 }
 
 1;

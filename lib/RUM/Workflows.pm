@@ -496,7 +496,8 @@ sub postprocessing_workflow {
                             "perl", $c->script("merge_quants.pl"),
                             "--chunks", $c->num_chunks,
                             "-o", $c->quant($strand, $sense),
-                            "--strand", "$strand$sense" ]]);
+                            "--strand", "$strand$sense",
+                            $c->output_dir]]);
 
 
                     $w->add_command(
@@ -509,7 +510,8 @@ sub postprocessing_workflow {
                             "--alt",
                             "--chunks", $c->num_chunks,
                             "-o", $c->quant($strand, $sense),
-                            "--strand", "$strand$sense" ]]) if $c->alt_quant_model;
+                            "--strand", "$strand$sense",
+                            $c->output_dir]]) if $c->alt_quant_model;
                 }
             }
             $w->add_command(
@@ -563,8 +565,61 @@ sub postprocessing_workflow {
                     $c->output_dir]]) if $c->alt_quant_model;
         }
     }
+    
+    
+
+    if ($c->should_do_junctions) {
+        my $annotations = $c->alt_genes || $c->annotations;
+
+        my @strands = $c->strand_specific ? qw(p m) : ('');
+
+        for my $strand (@strands) {
+
+            my $all_rum  = $strand ? 
+                "junctions_${strand}s_all.rum" : "junctions_all_temp.rum";
+            my $all_bed  = $strand ? 
+                "junctions_${strand}s_all.bed" : "junctions_all_temp.bed";
+            my $high_bed  = $strand ? 
+                "junctions_${strand}s_high-quality.bed" :
+                    "junctions_high-quality_temp.bed";
+
+            $all_rum = $c->in_output_dir($all_rum);
+            $all_bed = $c->in_output_dir($all_bed);
+            $high_bed = $c->in_output_dir($high_bed);
 
 
+            my @out = ($all_rum, $all_bed, $high_bed);
+            push @goal, @out;
+            my $name = "make_junctions";
+            my $comment = "Make junctions file";
+            my $strand_opt = "";
+
+            if ($strand) {
+                $name .= "_$strand";
+                $comment .= " for strand $strand";
+                $strand_opt = "--strand $strand";
+            }
+
+            $w->add_command(
+                name => $name,
+                comment => $comment,
+                pre => [$c->rum_unique, $c->rum_nu],
+                post => \@out,
+                commands => [
+                    ["perl", $c->script("make_RUM_junctions_file.pl"),
+                     "--unique-in", $c->rum_unique,
+                     "--non-unique-in", $c->rum_nu, 
+                     "--genome", $c->genome_fa,
+                     "--genes", $annotations,
+                     "--all-rum-out", $w->temp($all_rum),
+                     "--all-bed-out", $w->temp($all_bed),
+                     "--high-bed-out", $w->temp($high_bed),
+                     "--faok",
+                     $strand_opt]]);
+        }
+        
+    }
+    
     my @mapping_stats = map { $_->mapping_stats } @c;
     
     $w->start([@start]);
