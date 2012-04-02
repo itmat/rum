@@ -317,6 +317,8 @@ sub execute {
 
     local $_;
 
+    $sm->start($self->state);
+
     my $f = sub {
         my ($sm, $old, $step, $new) = @_;
         my $comment = $self->comment($step);
