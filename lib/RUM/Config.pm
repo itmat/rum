@@ -86,7 +86,7 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     rum_nu_cov => "RUM_nu.cov",
     u_footprint => "u_footprint",
     nu_footprint => "nu_footprint",
-    
+    inferred_internal_exons => "inferred_internal_exons.bed"
 );
 
 our %DEFAULTS = (

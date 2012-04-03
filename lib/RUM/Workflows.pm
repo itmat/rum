@@ -290,7 +290,8 @@ sub chunk_workflow {
     my @goal = ($c->rum_unique_sorted,
                 $c->rum_nu_sorted,
                 $c->sam_file,
-                $c->nu_stats);
+                $c->nu_stats,
+            );
     
     if ($c->strand_specific) {
 
@@ -347,7 +348,8 @@ sub postprocessing_workflow {
                 $c->rum_unique,
                 $c->rum_nu,
                 $c->rum_unique_cov,
-                $c->rum_nu_cov);
+                $c->rum_nu_cov,
+                $c->inferred_internal_exons);
 
     $w->add_command(
         name => "merge_rum_unique",
@@ -656,6 +658,14 @@ sub postprocessing_workflow {
         }
     }
 
+    $w->add_command(
+        name => "Get inferred internal exons",
+        commands => [[
+            "perl", $c->script("get_inferred_internal_exons.pl"),
+            "--junctions", pre($c->junctions_high_quality_bed),
+            "--coverage", pre($c->rum_unique_cov),
+            "--genes", $c->annotations,
+            "--bed", post($c->inferred_internal_exons)]]);
 
     my @mapping_stats = map { $_->mapping_stats } @c;
     
