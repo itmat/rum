@@ -43,6 +43,7 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  mapping_stats
  quantify
  alt_quant_model
+ novel_inferred_internal_exons_quantifications
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (
@@ -317,5 +318,13 @@ sub junctions_file {
     my ($self, $type, $strand) = @_;
     return $self->in_output_dir("junctions") ;
 }
+
+sub novel_inferred_internal_exons_quantifications {
+    my ($self) = @_;
+    return $self->in_output_dir("novel_inferred_internal_exons_quantifications_"
+                                    .$self->name);
+}
+
+
 
 1;

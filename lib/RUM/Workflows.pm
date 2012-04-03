@@ -349,7 +349,8 @@ sub postprocessing_workflow {
                 $c->rum_nu,
                 $c->rum_unique_cov,
                 $c->rum_nu_cov,
-                $c->inferred_internal_exons);
+                $c->inferred_internal_exons,
+                $c->novel_inferred_internal_exons_quantifications);
 
     $w->add_command(
         name => "merge_rum_unique",
@@ -666,6 +667,40 @@ sub postprocessing_workflow {
             "--coverage", pre($c->rum_unique_cov),
             "--genes", $c->annotations,
             "--bed", post($c->inferred_internal_exons)]]);
+
+    $w->add_command(
+        name => "Quantify novel exons",
+        commands => [[
+            "perl", $c->script("quantify_exons.pl"),
+            "--exons-in", pre($c->inferred_internal_exons),
+            "--unique-in", pre($c->rum_unique),
+            "--non-unique-in", pre($c->rum_nu),
+            "-o", $c->in_output_dir("quant_novel.1"),
+            "--novel", "--counts-only"]]);
+
+    $w->add_command(
+        name => "Merge novel exons",
+        commands => [
+            ["perl", $c->script("merge_quants.pl"),
+             "--chunks", 1,
+             "-o", $c->in_output_dir("novel_exon_quant_temp"),
+             "--header",
+             $c->output_dir],
+            ["grep -v transcript",
+             $c->in_output_dir("novel_exon_quant_temp"),
+             ">", post($c->novel_inferred_internal_exons_quantifications)]]);
+
+    $w->add_command(
+        name => "Merge novel exons",
+        commands => [
+            ["perl", $c->script("merge_quants.pl"),
+             "--chunks", 1,
+             "-o", $c->in_output_dir("novel_exon_quant_temp"),
+             "--header",
+             $c->output_dir],
+            ["grep -v transcript",
+             $c->in_output_dir("novel_exon_quant_temp"),
+             ">", post($c->novel_inferred_internal_exons_quantifications)]]);
 
     my @mapping_stats = map { $_->mapping_stats } @c;
     
