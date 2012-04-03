@@ -215,7 +215,9 @@ sub walk_states {
     my $f = sub {
         my ($sm, $old, $name, $new) = @_;
         my $completed = ($new & $state) == $new;
-        $log->debug("In state $old, using $name to get to $new");
+        $log->debug("In state $old".
+                        ($completed ? " (completed)" : "").
+                            ", using $name to get to $new");
         $callback->($name, $completed);
     };
         
