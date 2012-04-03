@@ -365,6 +365,7 @@ sub execute {
 
         unless ($completed) {
             for my $cmd (@cmds) {
+                $log->debug("Running $cmd");
                 my $status = system($cmd);
                 if ($status) {
                     die "Error running $cmd: $!";

@@ -471,7 +471,7 @@ sub postprocessing_workflow {
         }
         
         else {
-
+            
             my @quants = map { $_->quant } @c; 
             push @start, @quants;
             $w->add_command(
@@ -494,8 +494,6 @@ sub postprocessing_workflow {
                     $c->output_dir]]) if $c->alt_quant_model;
         }
     }
-    
-    
 
     if ($c->should_do_junctions) {
         my $annotations = $c->alt_genes || $c->annotations;
@@ -626,6 +624,39 @@ sub postprocessing_workflow {
             "--stats", post($c->nu_footprint),
             pre($c->rum_nu)]]);
     
+    if ($c->strand_specific) {
+
+        my %labels = (Unique => "Unique",
+                      NU => "Non-Unique",
+                      plus => "Plus",
+                      minus => "Minus");
+
+        for my $u (qw(Unique NU)) {
+
+            $w->add_command(
+                name => "Break up $u file by strand",
+                commands => [[
+                    "perl", $c->script("breakup_RUM_files_by_strand.pl"),
+                    pre($c->in_output_dir("RUM_$u")),
+                    post($c->in_output_dir("RUM_${u}.sorted.plus")),
+                    post($c->in_output_dir("RUM_${u}.sorted.minus"))]]);
+
+            for my $strand (qw(plus minus)) {
+                my $out = $c->in_output_dir("RUM_${u}.sorted.$strand.cov");
+                push @goal, $out;
+                my $name = "$name $labels{$u} Mappers $labels{$strand} Strand";
+                $w->add_command(
+                    name => "Make coverage for $u mappers $strand strand",
+                    commands => [[
+                        "perl", $c->script("rum2cov.pl"),
+                        pre($c->in_output_dir("RUM_${u}.sorted.$strand")),
+                        "-o", post($out),
+                        "-name '$name'"]]);
+            }
+        }
+    }
+
+
     my @mapping_stats = map { $_->mapping_stats } @c;
     
     $w->start([@start]);
