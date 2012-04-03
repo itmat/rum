@@ -10,6 +10,9 @@ use File::Temp;
 use RUM::StateMachine;
 use RUM::Logging;
 
+use Exporter qw(import);
+our @EXPORT_OK = qw(pre post);
+
 our $log = RUM::Logging->get_logger;
 
 =head1 NAME
@@ -97,6 +100,31 @@ sub add_command {
     my $comment    = delete $options{comment};
     my $pre_files  = delete $options{pre};
     my $post_files = delete $options{post};
+
+    my @cmds;
+
+    if (ref($commands) =~ /^ARRAY/) {
+        for my $cmd (@$commands) {
+            my @parts;
+            for my $part (@$cmd) {
+                if (ref($part) =~ /^HASH/) {
+                    if (my $file = $part->{pre}) {
+                        push @$pre_files, $file;
+                        push @parts, $file;
+                    }
+                    elsif ($file = $part->{post}) {
+                        push @$post_files, $file;
+                        push @parts, $self->temp($file);
+                    }
+                }
+                else {
+                    push @parts, $part;
+                }
+            }
+            push @cmds, \@parts;
+        }
+        @$commands = @cmds;
+    }
 
     $name or croak "Each command needs a name";
 
@@ -405,6 +433,7 @@ sub _get_temp {
     return $self->{temp_files}{$path};
 }
 
-
+sub pre { {pre => shift} }
+sub post { {post => shift} }
 
 1;

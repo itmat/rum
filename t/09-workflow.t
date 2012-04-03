@@ -12,7 +12,7 @@ use strict;
 use warnings;
 
 BEGIN { 
-    use_ok('RUM::Workflow');
+    use_ok('RUM::Workflow', qw(pre post));
 }
 
 my $w = RUM::Workflow->new();
@@ -26,23 +26,21 @@ $w->add_command(
 );
 
 $w->add_command(
-    name => "code ref of array ref",
-    commands => sub { 
-        ["sort", "input", "|", "uniq", "-c", ">", "output"],
-    }
-);
-
-
-$w->add_command(
     name => "array ref of array refs",
-    commands => [["sort", "input", "> intermediate"],
-             ["uniq", "-c", "intermediate", "> output"]]
+    commands => 
+        [["sort", "input", "> intermediate"],
+         ["uniq", "-c", "intermediate", "> output"]]
 );
 
+
 $w->add_command(
-    name => "array ref",
-    commands => ["sort", "input", "|", "uniq", "-c", ">", "output"]
+    name => "with tags",
+    commands => [[
+        "sort", pre("input"), ">", post("output")
+    ]]
 );
+
+
 
 is_deeply([$w->commands("array ref of array refs")],
           ["sort input > intermediate", 
@@ -54,4 +52,5 @@ is_deeply([$w->commands("code ref of array ref of array refs")],
            "uniq -c intermediate > output"],
           "code ref of array ref of array refs");
 
-
+my @cmds = $w->commands("with tags");
+like($cmds[0], qr/sort input > output/, "with tags");
