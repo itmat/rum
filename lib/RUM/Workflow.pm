@@ -221,8 +221,8 @@ sub walk_states {
         $callback->($name, $completed);
     };
         
-    $self->{sm}->walk($f);
-
+    $self->{sm}->walk($f) or $log->warn("Hit a dead end");
+    
 }
 
 sub all_commands {

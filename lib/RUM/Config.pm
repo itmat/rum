@@ -82,6 +82,11 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     junctions_all_rum => "junctions_all.rum",
     junctions_all_bed => "junctions_all.bed",
     "junctions_high_quality_bed" => "junctions_high-quality.bed",
+    rum_unique_cov => "RUM_Unique.cov",
+    rum_nu_cov => "RUM_nu.cov",
+    u_footprint => "u_footprint",
+    nu_footprint => "nu_footprint",
+    
 );
 
 our %DEFAULTS = (

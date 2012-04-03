@@ -382,7 +382,7 @@ sub postprocessing_workflow {
 
     my ($class, $c) = @_;
 
-
+    my $name = $c->name;
     my @c = map { $c->for_chunk($_) } (1 .. $c->num_chunks);
     my $w = RUM::Workflow->new();
     my @rum_unique = map { $_->rum_unique_sorted } @c;
@@ -391,7 +391,9 @@ sub postprocessing_workflow {
     my @start = (@rum_unique, @rum_nu);
     my @goal = ($c->mapping_stats,
                 $c->rum_unique,
-                $c->rum_nu);
+                $c->rum_nu,
+                $c->rum_unique_cov,
+                $c->rum_nu_cov);
 
     $w->add_command(
         name => "merge_rum_unique",
@@ -672,6 +674,27 @@ sub postprocessing_workflow {
     }
 
 
+    $w->add_command(
+        name => "Make unique coverage",
+        pre => [$c->rum_unique],
+        post => [$c->rum_unique_cov, $c->u_footprint],
+        commands => [[
+            "perl", $c->script("rum2cov.pl"),
+            "-o", $w->temp($c->rum_unique_cov),
+            "--name", "$name Unique Mappers",
+            "--stats", $w->temp($c->u_footprint),
+            $c->rum_unique]]);
+
+    $w->add_command(
+        name => "Make non-unique coverage",
+        pre => [$c->rum_nu],
+        post => [$c->rum_nu_cov, $c->nu_footprint],
+        commands => [[
+            "perl", $c->script("rum2cov.pl"),
+            "-o", $w->temp($c->rum_nu_cov),
+            "--name", "$name Unique Mappers",
+            "--stats", $w->temp($c->nu_footprint),
+            $c->rum_nu]]);
     
     my @mapping_stats = map { $_->mapping_stats } @c;
     
