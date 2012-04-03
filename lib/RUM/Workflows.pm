@@ -499,7 +499,6 @@ sub postprocessing_workflow {
                             "--strand", "$strand$sense",
                             $c->output_dir]]);
 
-
                     $w->add_command(
                         name => "merge_alt_quants_$strand$sense",
                         pre => [@alt_quants],
@@ -571,40 +570,41 @@ sub postprocessing_workflow {
     if ($c->should_do_junctions) {
         my $annotations = $c->alt_genes || $c->annotations;
 
-        my @strands = $c->strand_specific ? qw(p m) : ('');
+        # Closure that takes a strand (p, m, or undef), type (all or
+        # high-quality) and format (bed or rum) and returns the path
+        # of the junction file
+        local *junctions = sub { 
+            unshift @_, undef if @_ == 2;
+            my ($strand, $type, $format) = @_;
 
-        for my $strand (@strands) {
+            my $name = $strand ?
+                "junctions_${strand}s_$type.$format" :
+                    "junctions_${type}_temp.$format";
+            return $c->in_output_dir($name);
+        };
 
-            my $all_rum  = $strand ? 
-                "junctions_${strand}s_all.rum" : "junctions_all_temp.rum";
-            my $all_bed  = $strand ? 
-                "junctions_${strand}s_all.bed" : "junctions_all_temp.bed";
-            my $high_bed  = $strand ? 
-                "junctions_${strand}s_high-quality.bed" :
-                    "junctions_high-quality_temp.bed";
+        # Closure that takes a strand (p, m, or undef) and adds a
+        # command that makes a junction file for it
+        my $add_make_junctions = sub {
+            my $strand = shift;
 
-            $all_rum = $c->in_output_dir($all_rum);
-            $all_bed = $c->in_output_dir($all_bed);
-            $high_bed = $c->in_output_dir($high_bed);
+            my $all_rum = junctions($strand, 'all', 'rum');
+            my $all_bed = junctions($strand, 'all', 'bed');
+            my $high_bed = junctions($strand, 'high-quality', 'bed');
 
-
-            my @out = ($all_rum, $all_bed, $high_bed);
-            push @goal, @out;
             my $name = "make_junctions";
             my $comment = "Make junctions file";
-            my $strand_opt = "";
-
             if ($strand) {
                 $name .= "_$strand";
                 $comment .= " for strand $strand";
-                $strand_opt = "--strand $strand";
             }
+            my $strand_opt = $strand ? "--strand $strand" : "";
 
             $w->add_command(
                 name => $name,
                 comment => $comment,
                 pre => [$c->rum_unique, $c->rum_nu],
-                post => \@out,
+                post => [$all_rum, $all_bed, $high_bed],
                 commands => [
                     ["perl", $c->script("make_RUM_junctions_file.pl"),
                      "--unique-in", $c->rum_unique,
@@ -615,10 +615,84 @@ sub postprocessing_workflow {
                      "--all-bed-out", $w->temp($all_bed),
                      "--high-bed-out", $w->temp($high_bed),
                      "--faok",
-                     $strand_opt]]);
+                     $strand_opt]]);            
+
+        };
+
+   
+        if ($c->strand_specific) {
+          
+            for my $strand (qw(p m)) {
+                $add_make_junctions->($strand);
+            }
+
+            #                type           format lines to remove from m strand
+            for my $config (['all',          'rum', 'long_overlap_nu_reads'],
+                            ['all',          'bed', 'rum_junctions_neg-strand'],
+                            ['high-quality', 'bed', 'rum_junctions_neg-strand'])
+                {
+                    my ($type, $format, $remove) = @$config;
+                    # Strand-specific input files
+                    my $p   = junctions('p', $type, $format);
+                    my $m   = junctions('m', $type, $format);
+
+                    # Merged output file
+                    my $out = junctions($type, $format);
+                    $w->add_command(
+                        name => "merge_strand_specific_junctions_${type}_${format}",
+                        comment => "Merge strand-specific junctions",
+                        pre => [$p, $m],
+                        post => [$out],
+                        commands => [["cp $p $out"],
+                                     ["grep -v $remove $m >> $out"]]
+                    );
+                }
+            
         }
-        
+        # Junctions, not strand-specific
+        else {
+            $add_make_junctions->();
+        }
+
+        $w->add_command(
+            name => "Sort junctions (all, rum) by location",
+            pre => [junctions('all', 'rum')],
+            post => [$c->junctions_all_rum],
+            commands => [[
+                "perl", $c->script("sort_by_location.pl"),
+                "-o", $w->temp($c->junctions_all_rum),
+                "--location", 1,
+                junctions('all', 'rum')]]
+        );
+
+        $w->add_command(
+            name => "Sort junctions (all, bed) by location",
+            pre => [junctions('all', 'bed')],
+            post => [$c->junctions_all_bed],
+            commands => [[
+                "perl", $c->script("sort_by_location.pl"),
+                "-o", $w->temp($c->junctions_all_bed),
+                "--chromosome", 1,
+                "--start", 2,
+                "--end", 3,
+                junctions('all', 'bed')]]
+        );
+
+        $w->add_command(
+            name => "Sort junctions (high-quality, bed) by location",
+            pre => [junctions('high-quality', 'bed')],
+            post => [$c->junctions_high_quality_bed],
+            commands => [[
+                "perl", $c->script("sort_by_location.pl"),
+                "-o", $w->temp($c->junctions_high_quality_bed),
+                "--chromosome", 1,
+                "--start", 2,
+                "--end", 3,
+                junctions('high-quality', 'bed')]]
+        );
     }
+
+
     
     my @mapping_stats = map { $_->mapping_stats } @c;
     
@@ -628,11 +702,7 @@ sub postprocessing_workflow {
     return $w;
 }
 
-
-
 1;
-
-
 
 =back
 

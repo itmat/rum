@@ -161,7 +161,7 @@ Return the comment associated with the command that has the given $name.
 
 sub comment {
     my ($self, $name) = @_;
-    return $self->{comments}{$name};
+    return $self->{comments}{$name} || $name;
 }
 
 =item state_machine

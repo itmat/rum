@@ -79,6 +79,9 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     log_file           => "rum.log",
     error_log_file     => "rum-errors.log",
     mapping_stats         => "mapping_stats.txt",
+    junctions_all_rum => "junctions_all.rum",
+    junctions_all_bed => "junctions_all.bed",
+    "junctions_high_quality_bed" => "junctions_high-quality.bed",
 );
 
 our %DEFAULTS = (
@@ -305,8 +308,8 @@ sub should_do_junctions {
     return !$self->dna || $self->genome_only || $self->junctions;
 }
 
-sub all_junctions_rum_format {
-    my ($self) = @_;
+sub junctions_file {
+    my ($self, $type, $strand) = @_;
     return $self->in_output_dir("junctions") ;
 }
 
