@@ -333,7 +333,7 @@ sub process_in_chunks {
             "I don't know what chunk pid $pid is for");
 
         unless (keys %pid_to_chunk) {
-            $log->info("All children done");
+            $log->info("All chunks have finished");
             kill(9, $status_pid);
             wait;
             last;
@@ -383,6 +383,7 @@ sub process {
 
 sub postprocess {
     my ($self) = @_;
+    $log->info("Postprocessing");
     $self->determine_read_length();
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
     $w->execute(step_printer($w));

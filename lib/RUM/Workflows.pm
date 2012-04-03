@@ -37,8 +37,7 @@ sub chunk_workflow {
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
     $m->add_command(
-        name => "run_bowtie_on_genome",
-        comment => "Run bowtie on the genome",
+        name => "Run bowtie on the genome",
         pre => [],
         post => [$c->genome_bowtie_out], 
         commands => [[$c->bowtie_bin,
@@ -55,8 +54,7 @@ sub chunk_workflow {
     );
     
     $m->add_command(
-        name =>  "run_bowtie_on_transcriptome",
-        comment => "Run bowtie on the transcriptome",
+        name => "Run bowtie on the transcriptome",
         pre => [],
         post => [$c->trans_bowtie_out], 
         commands => [[$c->bowtie_bin,
@@ -109,7 +107,7 @@ sub chunk_workflow {
     # transcriptome, we can merge them.
     $m->add_command(
         name => "merge_gnu_tnu_cnu",
-        comment => "Take the non-unique and merge them together",
+        comment => "Merge non-unique mappers together",
         pre => [$c->tnu, $c->gnu, $c->cnu],
         post => [$c->bowtie_nu], 
         commands => 
@@ -124,7 +122,7 @@ sub chunk_workflow {
     # transcriptome, we can merge them.
     $m->add_command(
         name => "merge_gu_tu",
-        comment => "Merge the unique mappers together",
+        comment => "Merge unique mappers together",
         pre => [$c->tu, $c->gu, $c->tnu, $c->gnu],
         post => [$c->bowtie_unique, $c->cnu], 
         commands => sub {
@@ -175,7 +173,7 @@ sub chunk_workflow {
     
     $m->add_command(
         name => "run_mdust",
-        comment => "Run mdust on th unmapped reads",
+        comment => "Run mdust on the unmapped reads",
         pre => [$c->bowtie_unmapped],
         post =>[$c->mdust_output],
         commands => 
@@ -186,8 +184,7 @@ sub chunk_workflow {
         );
     
     $m->add_command(
-        name => "parse_blat_out",
-        comment => "Parse blat output",
+        name => "Parse blat output",
         pre => [$c->blat_output, $c->mdust_output], 
         post => [$c->blat_unique, $c->blat_nu], 
         commands => 
@@ -203,8 +200,7 @@ sub chunk_workflow {
         );
     
     $m->add_command(
-        name => "merge_bowtie_and_blat",
-        comment => "Merge bowtie and blat results",
+        name => "Merge bowtie and blat results",
         pre => [$c->bowtie_unique, $c->blat_unique, $c->bowtie_nu, $c->blat_nu],
         post => [$c->bowtie_blat_unique, $c->bowtie_blat_nu],
         commands => 
@@ -221,8 +217,7 @@ sub chunk_workflow {
         );
     
     $m->add_command(
-        name => "rum_final_cleanup",
-        comment => "Cleanup",
+        name => "Clean up RUM files",
         pre => [$c->bowtie_blat_unique, $c->bowtie_blat_nu],
         post => [$c->cleaned_unique, $c->cleaned_nu, $c->sam_header],
         commands => 
@@ -239,8 +234,7 @@ sub chunk_workflow {
         );
     
     $m->add_command(
-        name => "sort_non_unique_by_id",
-        comment => "Sort cleaned non-unique mappers by ID",
+        name => "Sort cleaned non-unique mappers by ID",
         pre => [$c->cleaned_nu], 
         post => [$c->rum_nu_id_sorted], 
         commands => 
@@ -312,8 +306,7 @@ sub chunk_workflow {
         );
     
     $m->add_command(
-        name => "sort_unique_by_location",
-        comment     => "Sort RUM_Unique", 
+        name     => "Sort RUM_Unique by location", 
         pre         => [$c->rum_unique], 
         post        => [$c->rum_unique_sorted, $c->chr_counts_u], 
         commands        => 
@@ -325,9 +318,9 @@ sub chunk_workflow {
     
     $m->add_command(
         name => "sort_nu_by_location",
-        comment     => "Sort RUM_NU", 
-        pre         => [$c->rum_nu], 
-        post        => [$c->rum_nu_sorted, $c->chr_counts_nu], 
+        comment => "Sort RUM_NU", 
+        pre => [$c->rum_nu], 
+        post => [$c->rum_nu_sorted, $c->chr_counts_nu], 
         commands => 
             [["perl", $c->script("sort_RUM_by_location.pl"),
               $c->rum_nu,
@@ -348,8 +341,7 @@ sub chunk_workflow {
                 my $file = $c->quant($strand, $sense);
                 push @goal, $file;
                 $m->add_command(
-                    name => "quants_$strand$sense",
-                    comment => "Generate quants for strand $strand, sense $sense",
+                    name => "Generate quants for strand $strand, sense $sense",
                     pre => [$c->rum_nu_sorted, $c->rum_unique_sorted], 
                     post => [$file],
                     commands => 
@@ -368,8 +360,7 @@ sub chunk_workflow {
     else {
         push @goal, $c->quant;
         $m->add_command(
-            name => "quants",
-            comment => "Generate quants",
+            name => "Generate quants",
             pre => [$c->rum_nu_sorted, $c->rum_unique_sorted], 
             post => [$c->quant],
             commands => 
@@ -404,9 +395,9 @@ sub postprocessing_workflow {
 
     $w->add_command(
         name => "merge_rum_unique",
+        comment => "Merge RUM_Unique.* files",
         pre => \@rum_unique,
         post => [$c->rum_unique],
-        comment => "Merge RUM_Unique.* files",
         commands => [[
             "perl", $c->script("merge_sorted_RUM_files.pl"),
             "-o", $w->temp($c->rum_unique),
@@ -416,9 +407,9 @@ sub postprocessing_workflow {
 
     $w->add_command(
         name => "merge_rum_nu",
+        comment => "Merge RUM_NU.* files",
         pre => \@rum_nu,
         post => [$c->rum_nu],
-        comment => "Merge RUM_NU.* files",
         commands => [[
             "perl", $c->script("merge_sorted_RUM_files.pl"),
             "-o", $w->temp($c->rum_nu),
@@ -430,10 +421,9 @@ sub postprocessing_workflow {
     my @chr_counts_nu = map { $_->chr_counts_nu } @c;
     push @start, @chr_counts_u, @chr_counts_nu;
     $w->add_command(
-        name => "compute_mapping_statistics",
+        name => "Compute mapping statistics",
         pre => [$c->rum_unique, $c->rum_nu, @chr_counts_u, @chr_counts_nu],
         post => [$c->mapping_stats],
-        comment => "Compute mapping stats",
         commands => sub {
             my $reads = $c->reads_fa;
             local $_ = `tail -2 $reads`;
@@ -488,34 +478,32 @@ sub postprocessing_workflow {
                     }
 
                     $w->add_command(
-                        name => "merge_quants_$strand$sense",
+                        name => "Merge quants $strand $sense",
                         pre => [@quants],
                         post => [$c->quant($strand, $sense)],
-                        comment => "Merge quants $strand $sense",
+
                         commands => [[
                             "perl", $c->script("merge_quants.pl"),
                             "--chunks", $c->num_chunks,
-                            "-o", $c->quant($strand, $sense),
+                            "-o", $w->temp($c->quant($strand, $sense)),
                             "--strand", "$strand$sense",
                             $c->output_dir]]);
 
                     $w->add_command(
-                        name => "merge_alt_quants_$strand$sense",
+                        name => "Merge alt quants $strand $sense",
                         pre => [@alt_quants],
                         post => [$c->alt_quant($strand, $sense)],
-                        comment => "Merge alt quants $strand $sense",
                         commands => [[
                             "perl", $c->script("merge_quants.pl"),
                             "--alt",
                             "--chunks", $c->num_chunks,
-                            "-o", $c->quant($strand, $sense),
+                            "-o", $w->temp($c->quant($strand, $sense)),
                             "--strand", "$strand$sense",
                             $c->output_dir]]) if $c->alt_quant_model;
                 }
             }
             $w->add_command(
-                name => "merge_strand_specific_quants",
-                comment => "Merge strand-specific quants",
+                name => "Merge strand-specific quants",
                 pre => [@strand_specific],
                 post => [$c->quant],
                 commands => [[
@@ -525,8 +513,7 @@ sub postprocessing_workflow {
                     $w->temp($c->quant)]]);
 
             $w->add_command(
-                name => "merge_strand_specific_alt_quants",
-                comment => "Merge strand-specific alt quants",
+                name => "Merge strand-specific alt quants",
                 pre => [@alt_strand_specific],
                 post => [$c->alt_quant],
                 commands => [[
@@ -541,10 +528,9 @@ sub postprocessing_workflow {
             my @quants = map { $_->quant } @c; 
             push @start, @quants;
             $w->add_command(
-                name => "merge_quants",
+                name => "Merge quants",
                 pre => [$c->rum_unique],
                 post => [$c->quant],
-                comment => "Merge quants",
                 commands => [[
                     "perl", $c->script("merge_quants.pl"),
                     "--chunks", $c->num_chunks,
@@ -552,10 +538,9 @@ sub postprocessing_workflow {
                     $c->output_dir]]);
 
             $w->add_command(
-                name => "merge_alt_quants",
+                name => "Merge alt quants",
                 pre => [$c->rum_unique],
                 post => [$c->alt_quant],
-                comment => "Merge alt quants",
                 commands => [[
                     "perl", $c->script("merge_quants.pl"),
                     "--alt",
@@ -593,16 +578,11 @@ sub postprocessing_workflow {
             my $high_bed = junctions($strand, 'high-quality', 'bed');
 
             my $name = "make_junctions";
-            my $comment = "Make junctions file";
-            if ($strand) {
-                $name .= "_$strand";
-                $comment .= " for strand $strand";
-            }
+            $name .= " for strand $strand" if $strand;
             my $strand_opt = $strand ? "--strand $strand" : "";
 
             $w->add_command(
                 name => $name,
-                comment => $comment,
                 pre => [$c->rum_unique, $c->rum_nu],
                 post => [$all_rum, $all_bed, $high_bed],
                 commands => [
@@ -639,8 +619,7 @@ sub postprocessing_workflow {
                     # Merged output file
                     my $out = junctions($type, $format);
                     $w->add_command(
-                        name => "merge_strand_specific_junctions_${type}_${format}",
-                        comment => "Merge strand-specific junctions",
+                        name => "Merge junctions ($type, $format)",
                         pre => [$p, $m],
                         post => [$out],
                         commands => [["cp $p $out"],

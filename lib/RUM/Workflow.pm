@@ -93,10 +93,12 @@ sub add_command {
     my ($self, %options) = @_;
 
     my $name       = delete $options{name};
-    my $commands       = delete $options{commands};
+    my $commands   = delete $options{commands};
     my $comment    = delete $options{comment};
     my $pre_files  = delete $options{pre};
     my $post_files = delete $options{post};
+
+    $name or croak "Each command needs a name";
 
     my $pre = $self->_filenames_to_bits($pre_files || []);
     my $post = $self->_filenames_to_bits($post_files || []);
