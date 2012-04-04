@@ -1,4 +1,9 @@
+use FindBin qw($Bin);
+use lib "$Bin/../lib";
+
 use strict;
+use Devel::Size qw(total_size);
+use RUM::CoverageMap;
 $|=1;
 
 if(@ARGV<3) {
@@ -104,6 +109,7 @@ my %FIRSTEXONS;
 my %LASTEXONS;
 my %JUNCTIONS_ANNOT;
 
+warn "Reading annotations";
 while(my $line = <INFILE>) {
     chomp($line);
     my @a = split(/\t/,$line);
@@ -158,7 +164,7 @@ close(INFILE);
 #foreach my $key (keys %JUNCTIONS_ANNOT) {
 #    print "$key\n";
 #}
-
+warn "Reading junctions";
 open(INFILE, $junctionsinfile) or die "Error: cannot open '$junctionsinfile' for reading\n\n";
 my $junctions_ref = &filter_junctions_file();
 my @ARR = @{$junctions_ref};
@@ -172,7 +178,7 @@ close(INFILE);
 #	print "junctions{$chr}[$i] = $junctions{$chr}[$i]\n";
 #    }
 #}
-
+warn "Building annotated exons";
 my %ANNOTATEDEXON;  # this guy is a highly structured hash mapping chr to
                     # an ordered list of exons feature details
 my %ANNOTATEDEXONS; # this guy is a simple hash with keys=exons
@@ -189,7 +195,7 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON_temp) {
 	$ecnt{$chr}++;
     }
 }
-
+warn "Buliding introns";
 my %INTRON;
 foreach my $chr (sort {cmpChrs($a,$b)} keys %INTRON_temp) {
     $icnt{$chr} = 0;
@@ -210,7 +216,7 @@ my %prev_exon_start;
 my $count;
 my %junction_score;
 my %working_chr;
-my %coverage;
+my $coverage = RUM::CoverageMap->new;
 
 # Going to change everything into one-based (inclusive) coordinates, then will change back
 # to print.  Did this to keep from going crazy.
@@ -222,7 +228,6 @@ my %junctionstarts;
 my %junctionends;
 my @junction_starts;
 my @junction_ends;
-my %coverage;
 my %exonstart2ends;
 my %exonend2starts;
 my %putative_exons;
@@ -263,10 +268,10 @@ if($rum eq "true") {
 }
 
 foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
-
+    printf STDERR "%d starting $chr\n", time;
+    
 #    print STDERR "working on chromosome '$chr'\n";
 
-    undef %coverage;
     undef %exonstart2ends;
     undef %exonend2starts;
     undef %junctionstarts;
@@ -294,26 +299,10 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
     undef %terminal_exons;
     undef %fraglengths;
 
-    my $flag2 = 0;
-    # read in the coverage file for this chromosome
-    while($flag2 == 0) {
-	my $line = <COVFILE>;
-	if($line =~ /track type/) {
-	    next;
-	}
-	chomp($line);
-	my @a = split(/\t/,$line);
-	if($a[0] eq $chr) {
-	    for(my $j=$a[1]+1; $j<=$a[2]; $j++) {
-		$coverage{$j} = $a[3];
-	    }
-	} else {
-	    # reset the file handle so the last line read will be read again                 
-	    my $len = -1 * (1 + length($line));
-	    seek(COVFILE, $len, 1);
-	    $flag2 = 1;
-	}
-    }
+
+    my $lines = $coverage->read_chromosome(*COVFILE, $chr);
+    warn "Read $lines lines\n";
+
 
     my $N = @{$junctions{$chr}};
     for(my $k=0; $k<$N; $k++) {
@@ -362,13 +351,17 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
     }
     my $start_index = 0;
 
+    warn "I have " . scalar(@junction_ends) . " ends\n";
+
     for(my $je=0; $je<@junction_ends; $je++) {
+#        warn "$je\n";
 	my $flag = 0;
 	my $js = $start_index;
 #	if($js % 1000 == 0 && $js>0) {
 #	    print STDERR "finished $js\n";
 #	}
 	while($flag == 0) {
+#            warn "Start is $start_index\n";
 	    if($start_index >= @junction_starts || $js >= @junction_starts) {
 		$flag = 1;
 		next;
@@ -383,9 +376,11 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
 	    if($junction_ends[$je] < $junction_starts[$js] && $junction_starts[$js] <= $junction_ends[$je] + $maxexon) {
 		my $cov_yes = 0;
 		my $annot_yes = 0;
-		
+#                warn "Getting $junction_ends[$je], $junction_starts[$js], 1\n";
 		# 1) see if there is coverage across span $junction_ends[$je] to $junction_starts[$js]
-		my $N = &count_coverage_in_span($junction_ends[$je], $junction_starts[$js], 1);
+		my $N = $coverage->count_coverage_in_span($junction_ends[$je], $junction_starts[$js], 1);
+
+#                warn "Got $N for $junction_ends[$je], $junction_starts[$js], 1\n";
 		if($N == 0) {
 		    $cov_yes = 1;
 		} else {
@@ -417,7 +412,6 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
     # in other words remove '2' in cases like the below, where 'x' represents exon:
     # 1) ---xxxxxx--------xxxxxx----
     # 2) ---xxxxxxxxxxxxxxxxxxxx----
-
     foreach my $exon (sort {cmpExons($a,$b)} keys %putative_exons) {
 	$exon =~ /^.*:(\d+)-(\d+)$/;
 	my $S = $1;
@@ -463,6 +457,8 @@ foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
 	    }
 	}
     }
+
+
 }
 
 sub attach () {
@@ -509,7 +505,7 @@ sub count_coverage_in_span () {
     }
     my $num_below=0;
     for(my $i=$start; $i<=$end; $i++) {
-	if($coverage{$i} < $coverage_cutoff) {
+	if($coverage->coverage($i) < $coverage_cutoff) {
 	    $num_below++;
 	}
     }
@@ -526,7 +522,7 @@ sub ave_coverage_in_span () {
 	return $ave_coverage_in_span_cache{$tmp};
     }
     for(my $i=$start; $i<=$end; $i++) {
-	$sum = $sum + $coverage{$i};
+	$sum = $sum + $coverage->coverage($i);
     }
     my $ave = $sum / ($end - $start + 1);
     $ave_coverage_in_span_cache{$tmp}=$ave;
