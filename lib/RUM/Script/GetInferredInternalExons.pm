@@ -4,6 +4,7 @@ no warnings;
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
+use RUM::CoverageMap;
 use RUM::Common qw(roman Roman arabic isroman);
 use RUM::Sort qw(cmpChrs by_chromosome);
 
