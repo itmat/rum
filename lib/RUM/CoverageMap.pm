@@ -3,35 +3,60 @@ package RUM::CoverageMap;
 use strict;
 use warnings;
 
+=head1 NAME
+
+RUM::CoverageMap - Map a coordinate to its coverage
+
+=head1 CONSTRUCTORS
+
+=over 4
+
 =item new
 
-Create a new RUM::CoverageMap.
+Create a new RUM::CoverageMap that reads from the given $filehandle,
+which must point to a file formatted like RUM_Unique.cov. Records must
+be tab-delimited with four columns: I<chromosome>, I<start>, I<end>,
+and I<coverage>. Records must be sorted by I<chromosome> first and
+then by I<start>. I<start> must be less than I<end>, and there must
+not be any overlapping spans in the same chromosome.
+
+TODO: We can probably change the data structure to relax some of these
+restrictions if that turns out to be useful.
+
+=back
 
 =cut
 
 sub new {
     my ($class, $fh) = @_;
-    return bless {map => []}, $class;
+
+    return bless {
+        fh  => $fh,
+        map => [],
+        count_coverage_in_span_cache => {}
+    }, $class;
 }
+
+=head1 METHODS
+
+=over 4
 
 =item read_chromosome($filehandle, $chromosome)
 
 Reads the coverage information for the given $chromosome from the
-given $filehandle. $filehandle must point to a file formatted like
-RUM_Unique.cov, which must be sorted by chromosome name and start
-position. Reads lines until we find one that doesn't match
+given $filehandle. Reads lines until we find one that doesn't match
 $chromosome. Returns the number of lines read in.
 
 =cut
 
 sub read_chromosome {
-    my ($self, $in, $wanted_chr) = @_;
-
+    my ($self, $wanted_chr) = @_;
+    my $fh = $self->{fh};
     local $_;
 
     my @map;
 
-    while (defined($_ = <$in>)) {
+    while (defined($_ = <$fh>)) {
         chomp;
 
         # Skip over header line
@@ -52,7 +77,7 @@ sub read_chromosome {
         }
         else {
             my $len = -1 * (1 + length($_));
-            seek($in, $len, 1);
+            seek($fh, $len, 1);
             last;
         }
     }
@@ -63,11 +88,11 @@ sub read_chromosome {
 
 =item coverage_span($start, $end)
 
-Query the coverage map for sequences of bases that have the same
-coverage within the given [$start, $end] range. Returns a ref to a
-list of sub-spans within the given span, where each sub-span has a
-count of bases, and the coverage count for those bases. For
-example, suppose
+Query the coverage map for coverage information within the given
+[$start, $end] range. The results are returned as an array ref of
+array refs, each representing a sub-span of bases that have the same
+coverage. Each sub-span is reported as a tuple of the number of bases
+it contains and the coverage for those bases. For example, suppose
 
   $cm->coverage_span(1000, 1017);
 
@@ -180,10 +205,11 @@ sub count_coverage_in_span {
     return $self->{count_coverage_in_span_cache}{$key} = $num_below;
 }
 
+1;
 
+=back
 
-
-
+=cut
 
 # This existed in get_inferred_internal_exons, but it's not used.
 #
@@ -237,7 +263,4 @@ sub count_coverage_in_span {
 #     return wantarray ? (0, undef) : 0;
 # }
 
-
-
-1;
 

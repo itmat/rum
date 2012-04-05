@@ -40,11 +40,10 @@ chr3\t161453\t61554\t
 chr3\t180506\t80607\t
 EOF
 
-my $covmap = RUM::CoverageMap->new();
-
 open my $in, "<", \$data;
+my $covmap = RUM::CoverageMap->new($in);
 
-ok($covmap->read_chromosome($in, "chr1"), "Read right chromosome");
+ok($covmap->read_chromosome("chr1"), "Read right chromosome");
 
 is_deeply($covmap->{map}[0], [10009, 10048, 1], "First record");
 is_deeply($covmap->{map}[9], [10179, 10223, 1], "Tenth record");
@@ -66,9 +65,9 @@ is_deeply($covmap->coverage_span(10170, 10179),
           [[4, 1], [5, 0], [1, 1]],
           "Two spans with gap between");
 
-ok( ! $covmap->read_chromosome($in, "chr3"), "Read wrong chromosome");
+ok( ! $covmap->read_chromosome("chr3"), "Read wrong chromosome");
 
-ok($covmap->read_chromosome($in, "chr2"), "Read right chromosome");
+ok($covmap->read_chromosome("chr2"), "Read right chromosome");
 
 is_deeply($covmap->coverage_span(22900, 23100),
           [[45, 0], [90, 1], [66, 0]],
