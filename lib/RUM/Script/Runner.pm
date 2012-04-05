@@ -195,61 +195,76 @@ sub get_options {
 sub check_config {
     my ($self) = @_;
 
+    my @errors;
+
     my $c = $self->config;
-    $c->output_dir or RUM::Usage->bad(
-        "Please specify an output directory with --output or -o");
-
+    $c->output_dir or push @errors,
+        "Please specify an output directory with --output or -o";
+    
     # Job name
-    $c->name or RUM::Usage->bad(
-        "Please provide a name with --name");
-    if(length($c->name) > 250) {
-        die "The name must be less than 250 characters\n";
+    if ($c->name) {
+        length($c->name) <= 250 or push @errors,
+            "The name must be less than 250 characters";
+        $c->set('name', fix_name($c->name));
     }
-    $c->set('name', fix_name($c->name));
+    else {
+        push @errors, "Please specify a name with --name";
+    }
 
-    $c->rum_config_file or RUM::Usage->bad(
-        "Please specify a rum config file with --config");
-    $c->load_rum_config_file;
+    $c->rum_config_file or push @errors,
+        "Please specify a rum config file with --config";
+    $c->load_rum_config_file if $c->rum_config_file;
 
     my $reads = $c->reads;
 
-    $reads && (@$reads == 1 || @$reads == 2) or RUM::Usage->bad(
-        "Please provide one or two read files");
+    $reads && (@$reads == 1 || @$reads == 2) or push @errors,
+        "Please provide one or two read files";
     if (@$reads == 2) {
-        $reads->[0] ne $reads->[1] or RUM::Usage->bad(
-        "You specified the same file for the forward and reverse reads, must be an error...");
+        $reads->[0] ne $reads->[1] or push @errors,
+        "You specified the same file for the forward and reverse reads, ".
+            "must be an error";
+    }
+    
+    if (defined($c->user_quals)) {
+        $c->quals_file =~ /\// or push @errors,
+            "do not specify -quals file with a full path, ".
+                "put it in the '". $c->output_dir."' directory.";
     }
 
-    !defined($c->quals_file) || $c->quals_file =~ /\// or RUM::Usage->bad(
-        "do not specify -quals file with a full path, ".
-            "put it in the '". $c->output_dir."' directory.");
-
-    $c->min_identity =~ /^\d+$/ && $c->min_identity <= 100 or RUM::Usage->bad(
+    $c->min_identity =~ /^\d+$/ && $c->min_identity <= 100 or push @errors,
         "--min-identity must be an integer between zero and 100. You
-        have given '".$c->min_identity."'.");
+        have given '".$c->min_identity."'.";
 
     if (defined($c->min_length)) {
-        $c->min_length =~ /^\d+$/ && $c->min_length >= 10 or RUM::Usage->bad(
+        $c->min_length =~ /^\d+$/ && $c->min_length >= 10 or push @errors,
             "--min-length must be an integer >= 10. You have given '".
-                $c->min_length."'.");
+                $c->min_length."'.";
     }
     
     if (defined($c->nu_limit)) {
-        $c->nu_limit =~ /^\d+$/ && $c->nu_limit > 0 or RUM::Usage->bad(
+        $c->nu_limit =~ /^\d+$/ && $c->nu_limit > 0 or push @errors,
             "--limit-nu must be an integer greater than zero. You have given '".
-                $c->nu_limit."'.");
+                $c->nu_limit."'.";
     }
 
-    $c->preserve_names && $c->variable_read_lengths and RUM::Usage->bad(
+    $c->preserve_names && $c->variable_read_lengths and push @errors,
         "Cannot use both --preserve-names and --variable-read-lengths at ".
-            "the same time. Sorry, we will fix this eventually.");
+            "the same time. Sorry, we will fix this eventually.";
 
     if ($c->alt_genes) {
-        -r $c->alt_genes or LOGDIE "Can't read from ".$c->alt_genes.": $!";
+        -r $c->alt_genes or push @errors,
+            "Can't read from ".$c->alt_genes.": $!";
     }
     if ($c->alt_quant_model) {
-        -r $c->alt_quant_model or die "Can't read from ".$c->alt_quant_model.": $!";
+        -r $c->alt_quant_model or push @errors,
+            "Can't read from ".$c->alt_quant_model.": $!";
     }
+
+    @errors = map { wrap('* ', '  ', $_) } @errors;
+
+    my $msg = "Usage errors:\n\n" . join("\n", @errors);
+    RUM::Usage->bad($msg) if @errors;
+    
 }
 
 

@@ -1,4 +1,4 @@
-use Test::More tests => 51;
+use Test::More tests => 56;
 use Test::Exception;
 
 use FindBin qw($Bin);
