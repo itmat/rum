@@ -156,9 +156,9 @@ sub main {
             $icnt{$chr}++;
         }
     }
+    open(COVFILE, $covinfile) or die "Error: cannot open '$covinfile' for reading\n\n";
+    my $coverage = RUM::CoverageMap->new(*COVFILE);
 
-    open(COVFILE, $covinfile)
-        or die "Can't open $covinfile for reading: $!";
     my $line = <INFILE>;
     chomp($line);
     my @a = split(/\t/,$line);
@@ -251,26 +251,8 @@ sub main {
         undef %terminal_exons;
         undef %fraglengths;
 
-        my $flag2 = 0;
-        # read in the coverage file for this chromosome
-        while ($flag2 == 0) {
-            my $line = <COVFILE>;
-            if ($line =~ /track type/) {
-                next;
-            }
-            chomp($line);
-            my @a = split(/\t/,$line);
-            if ($a[0] eq $chr) {
-                for (my $j=$a[1]+1; $j<=$a[2]; $j++) {
-                    $coverage{$j} = $a[3];
-                }
-            } else {
-                # reset the file handle so the last line read will be read again                 
-                my $len = -1 * (1 + length($line));
-                seek(COVFILE, $len, 1);
-                $flag2 = 1;
-            }
-        }
+        # Read in the coverage for this chromosome
+        $coverage->read_chromosome($chr);
 
         my $N = @{$junctions{$chr}};
         for (my $k=0; $k<$N; $k++) {
@@ -342,7 +324,7 @@ sub main {
                     my $annot_yes = 0;
 		
                     # 1) see if there is coverage across span $junction_ends[$je] to $junction_starts[$js]
-                    my $N = &count_coverage_in_span($junction_ends[$je], $junction_starts[$js], 1);
+                    my $N = $coverage->count_coverage_in_span($junction_ends[$je], $junction_starts[$js], 1);
                     if ($N == 0) {
                         $cov_yes = 1;
                     } else {
@@ -458,25 +440,6 @@ sub main {
 #         }
 #         return \@returnarray;
 #     }
-
-    sub count_coverage_in_span () {
-        # This will return the number of bases in the span that
-        # have coverage no more than $coverage_cutoff
-        my ($start, $end, $coverage_cutoff) = @_;
-        my $tmp = $start . ":" . $end . ":" . $coverage_cutoff;
-        if (defined $count_coverage_in_span_cache{$tmp}) {
-            return $count_coverage_in_span_cache{$tmp};
-        }
-        my $num_below=0;
-        for (my $i=$start; $i<=$end; $i++) {
-            if ($coverage{$i} < $coverage_cutoff) {
-                $num_below++;
-            }
-        }
-        $count_coverage_in_span_cache{$tmp}=$num_below;
-        return $num_below;
-    }
-
 
 #    This doesn't seem to be used at all
 #

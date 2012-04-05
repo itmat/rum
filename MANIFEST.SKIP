@@ -92,3 +92,5 @@ t/expected
 t/data
 t/shared
 Rakefile
+Makefile.PL
+
