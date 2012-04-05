@@ -67,27 +67,26 @@ sub read_chromosome {
         # File is tab-delimited with four columns
 	my ($chr, $start, $end, $cov) = split /\t/;
 
+        # If this is not the chromosome we want, seek back to the
+        # beginning of this line so it will be read again for the next
+        # chromosome.
+        if ($chr ne $wanted_chr) {
+            my $len = -1 * (1 + length($_));
+            seek($fh, $len, 1);
+            last;
+        }
+
+        # Validate the input
         $end - $start > 0 or croak "Invalid span on line $.: $_";
         $start >= $last_end or croak
             "Error with the coverage file: apan on line $. overlaps previous ".
                 "span";
         $last_end = $end;
 
-        # If this is the chromosome we want, add a record to our list,
-        # otherwise seek back to the beginning of this line so the
-        # next line read will be the first one for the next
-        # chromosome.
-        if ($chr eq $wanted_chr) {
-            # Spans in the file don't include the start position. It's
-            # easier for us to store closed ranges, so increment
-            # start.
-            push @map, [$start + 1, $end, $cov];            
-        }
-        else {
-            my $len = -1 * (1 + length($_));
-            seek($fh, $len, 1);
-            last;
-        }
+        # Spans in the file don't include the start position. It's
+        # easier for us to store closed ranges, so increment
+        # start.
+        push @map, [$start + 1, $end, $cov];            
     }
     $self->{map} = \@map;
     $self->{count_coverage_in_span_cache} = {};

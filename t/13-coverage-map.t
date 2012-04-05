@@ -4,7 +4,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 14;
+use Test::More tests => 16;
 use Test::Exception;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
@@ -97,3 +97,14 @@ EOF
     my $covmap = RUM::CoverageMap->new($in);
     $covmap->read_chromosome("chr1");
 } qr/coverage.*overlap/i;
+
+my $non_overlap = <<EOF;
+track type=bedGraph name="A565_BC7 Unique Mappers" description="foo" 
+chr1\t10\t20\t1
+chr2\t15\t25\t2
+EOF
+open my $non_overlap_in, "<", \$non_overlap;
+$covmap = RUM::CoverageMap->new($non_overlap_in);
+ok($covmap->read_chromosome("chr1") && $covmap->read_chromosome("chr2"),
+   "Don't report overlap on new chromosome");
+

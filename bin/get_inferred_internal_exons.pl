@@ -109,7 +109,6 @@ my %FIRSTEXONS;
 my %LASTEXONS;
 my %JUNCTIONS_ANNOT;
 
-warn "Reading annotations";
 while(my $line = <INFILE>) {
     chomp($line);
     my @a = split(/\t/,$line);
@@ -267,7 +266,6 @@ if($rum eq "true") {
 }
 
 foreach my $chr (sort {cmpChrs($a,$b)} keys %junctions) {
-    printf STDERR "%d starting $chr\n", time;
     
 #    print STDERR "working on chromosome '$chr'\n";
 
