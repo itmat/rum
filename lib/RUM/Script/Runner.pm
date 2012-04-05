@@ -138,7 +138,7 @@ sub get_options {
 
         # Advanced parameters
         "read-lengths=s" => \(my $read_lengths),
-        "max-insertions-per-read=s" => \(my $num_insertions_allowed = 1),
+        "max-insertions-per-read=s" => \(my $max_insertions = 1),
         "strand-specific" => \(my $strand_specific),
         "preserve-names" => \(my $preserve_names),
         "junctions" => \(my $junctions),
@@ -179,7 +179,7 @@ sub get_options {
     $c->set('ram', $ram);
     $c->set('junctions', $junctions);
     $c->set('count_mismatches', $count_mismatches);
-    $c->set('num_insertions_allowed', $num_insertions_allowed),
+    $c->set('max_insertions', $max_insertions),
     $c->set('cleanup', !$no_clean);
     $c->set('dna', $dna);
     $c->set('genome_only', $genome_only);

@@ -1,4 +1,4 @@
-use Test::More tests => 32;
+use Test::More tests => 27;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -27,19 +27,30 @@ my $conf_dir = $repo->conf_dir;
 my $index_dir = $repo->indexes_dir;
 my $annotations = "$index_dir/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
 
+
+my %defaults = (
+    strand_specific => 0,
+    output_dir => $out_dir,
+    read_length => 75,
+    rum_config_file => "$conf_dir/rum.config_Arabidopsis",
+    dna => 0,
+    num_chunks => 2,
+    genome_only => 0,
+    name => "foo",
+    alt_quant_model => "",
+    alt_genes => undef,
+);
+
 SKIP: {
 
     skip "no index", 2 unless @indexes == 1;
     my $index = $indexes[0];
     my $config = RUM::Config->new(
+        %defaults,
         chunk         => 1,
-        output_dir    => $out_dir,
         paired_end    => 1,
-        read_length   => 75,
         match_length_cutoff => 35,
         max_insertions => 1,
-        rum_config_file => "$conf_dir/rum.config_Arabidopsis",
-        strand_specific => 0,
         alt_genes => undef
     );
 
@@ -71,40 +82,20 @@ sub would_not_run {
 }
 
 my $c = RUM::Config->new(
-    output_dir => $out_dir,
-    dna => 0,
-    genome_only => 0,
-    strand_specific => 0,
-    name => "foo",
-    num_chunks => 2,
-    rum_config_file => "$conf_dir/rum.config_Arabidopsis",
-    alt_quant_model => "",
-    alt_genes => undef,
+    %defaults,
 );
 $c->load_rum_config_file;
 my $w = RUM::Workflows->postprocessing_workflow($c);
-my @commands = $w->all_commands;
 would_run($w, qr/merge rum_unique/i);
 would_run($w, qr/merge rum_nu/i);
 would_run($w, qr/compute mapping stat/i);
 would_run($w, qr/merge quants/i);
 would_not_run($w, 'merge_alt_quants');
 
-$c = RUM::Config->new(
-    output_dir => $out_dir,
-    dna => 0,
-    genome_only => 0,
-    strand_specific => 0,
-    name => "foo",
-    num_chunks => 2,
-    strand_specific => 1,
-    rum_config_file => "$conf_dir/rum.config_Arabidopsis",
-    alt_quant_model => "",
-    alt_genes => undef
-);
+$c = RUM::Config->new(%defaults);
+$c->set('strand_specific', 1);
 $c->load_rum_config_file;
 $w = RUM::Workflows->postprocessing_workflow($c);
-@commands = $w->all_commands;
 
 would_not_run($w, qr/merge quants$/i);
 would_run($w, qr/merge.quants.p.*s/i);
@@ -115,38 +106,17 @@ would_run($w, qr/merge.strand.specific.quants/i);
 
 # Alt quants
 
-$c = RUM::Config->new(
-    output_dir => $out_dir,
-    dna => 0,
-    genome_only => 0,
-    strand_specific => 0,
-    name => "foo",
-    num_chunks => 2,
-    rum_config_file => "$conf_dir/rum.config_Arabidopsis",
-    alt_quant_model => "foobar",
-    alt_genes => undef
-);
+$c = RUM::Config->new(%defaults, 'alt_quant_model', => "foo");
 $c->load_rum_config_file;
 $w = RUM::Workflows->postprocessing_workflow($c);
-@commands = $w->all_commands;
 would_run($w, qr/merge.*quants$/i);
 would_run($w, qr/merge.alt.quants/i);
 
-$c = RUM::Config->new(
-    output_dir => $out_dir,
-    dna => 0,
-    genome_only => 0,
-    strand_specific => 0,
-    name => "foo",
-    num_chunks => 2,
-    strand_specific => 1,
-    rum_config_file => "$conf_dir/rum.config_Arabidopsis",
-    alt_quant_model => "foobar",
-    alt_genes => undef
-);
+$c = RUM::Config->new(%defaults);
+$c->set('strand_specific', 1);
+$c->set('alt_quant_model', "foo");
 $c->load_rum_config_file;
 $w = RUM::Workflows->postprocessing_workflow($c);
-@commands = $w->all_commands;
 
 would_run($w, qr/merge.quants.*p.*s/i);
 would_run($w, qr/merge.quants.*p.*a/i);
@@ -160,60 +130,3 @@ would_run($w, qr/merge.alt.quants.*m.*a/i);
 would_run($w, qr/merge.strand.specific.alt.quants/i);
 
 
-{
-    $c = RUM::Config->new(
-        output_dir => $out_dir,
-        dna => 0,
-        genome_only => 0,
-        strand_specific => 0,
-        name => "foo",
-        num_chunks => 2,
-        strand_specific => 1,
-        rum_config_file => "$conf_dir/rum.config_Arabidopsis",
-        alt_quant_model => "foobar",
-        alt_genes => undef,
-        read_length   => 75,
-    );
-    $c->load_rum_config_file;
-    
-    $w = RUM::Workflows->chunk_workflow($c);
-    my @cmds = $w->commands("Move NU file");
-    like($cmds[0], qr/mv.*RUM_NU.*temp.+RUM_NU/i, "Just move RUM_NU");    
-
-    $c->set('nu_limit', 15);
-    $w = RUM::Workflows->chunk_workflow($c);
-    @cmds = $w->commands("Limit NU");
-    like($cmds[0], qr/limit_nu.pl --cutoff\s*15/i, "Cutoff passed to limit_nu");    
-}
-
-
-{
-    $c = RUM::Config->new(
-        output_dir => $out_dir,
-        dna => 0,
-        genome_only => 0,
-        strand_specific => 0,
-        name => "foo",
-        num_chunks => 2,
-        strand_specific => 1,
-        rum_config_file => "$conf_dir/rum.config_Arabidopsis",
-        alt_quant_model => "foobar",
-        alt_genes => undef,
-        read_length   => 75,
-        nu_limit => 15
-    );
-    
-    $c->load_rum_config_file;
-    $w = RUM::Workflows->chunk_workflow($c);
-    my @cmds = $w->commands("Run bowtie on genome");
-    like($cmds[0], qr/bowtie.*-a/, "bowtie on genome got -a option");
-    @cmds = $w->commands("Run bowtie on transcriptome");
-    like($cmds[0], qr/bowtie.*-a/, "bowtie on transcriptome got -a option");
-
-    $c->set('bowtie_nu_limit', 100);
-    $w = RUM::Workflows->chunk_workflow($c);
-    my @cmds = $w->commands("Run bowtie on genome");
-    like($cmds[0], qr/bowtie.*-k 100/, "bowtie on genome got -k 100 option");
-    @cmds = $w->commands("Run bowtie on transcriptome");
-    like($cmds[0], qr/bowtie.*-k 100/, "bowtie on transcriptome got -k 100 option");
-}

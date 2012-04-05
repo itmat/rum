@@ -1,4 +1,4 @@
-use Test::More tests => 56;
+use Test::More tests => 66;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -63,6 +63,7 @@ sub rum {
     };
     if ($@) {
         fail("Failed with $@");
+        return undef;
     }
     return $rum;
 }
@@ -146,7 +147,7 @@ sub check_defaults {
     is($c->rum_config_file, $config, "Config");
     ok($c->cleanup, "cleanup");
     is($c->min_length, undef, "min length");
-    is($c->num_insertions_allowed, 1, "num insertions allowed");
+    is($c->max_insertions, 1, "max insertions");
 
     ok(!$c->dna, "no DNA");
     ok(!$c->genome_only, "no genome only");
@@ -334,3 +335,73 @@ check_pair_fasta_files_with_chunks;
 check_single_paired_fa;
 check_pair_fastq_files_with_chunks;
 check_limit_nu;
+
+sub chunk_cmd_unlike {
+    my ($args, $step, $re, $comment) = @_;
+    chunk_cmd_like($args, $step, $re, $comment, 1);
+}
+
+sub chunk_cmd_like {
+    my ($args, $step, $re, $comment, $negate) = @_;
+    my $rum = rum(@$args);
+
+    eval {
+        my $config = $rum->config;
+        $config->set('read_length', 75);
+        my $workflow = RUM::Workflows->chunk_workflow($config);
+        my @commands = $workflow->commands($step);
+        
+        if ($negate) {
+            unlike($commands[0], $re, $comment);           
+        }
+        else {
+            like($commands[0], $re, $comment);        
+        }
+
+    };
+    if ($@) {
+        fail("Failed with $@");
+    }
+}
+
+#
+# Tests that verify that options to rum_runner make it into the
+# workflow
+
+my @standard_args = ("--config", $config,
+                     "--output", tempdir(CLEANUP => 1),
+                     "--name", "asdf",
+                     $forward_64_fq, $reverse_64_fq);
+
+for (qw(genome transcriptome)) {
+    chunk_cmd_like([@standard_args], "Run bowtie on $_", qr/bowtie.*-a/,
+                   "bowtie on $_ with -a");
+    chunk_cmd_like([@standard_args, "--limit-bowtie-nu"],
+                   "Run bowtie on $_", qr/bowtie.*-k 100/,
+                   "bowtie on $_ with -k 100");
+}
+
+chunk_cmd_like([@standard_args], "Move NU file", qr/mv.*RUM_NU.*temp.+RUM_NU/i,
+               "Just move RUM_NU");               
+
+chunk_cmd_like([@standard_args, "--limit-nu", 15], "Limit NU",
+               qr/limit_nu.pl --cutoff\s*15/i, 
+               "Cutoff passed to limit_nu");    
+
+chunk_cmd_like([@standard_args, "--max-insertions-per-read", 2],
+               "Parse blat output",
+               qr/--max-insertions 2/i, 
+               "--max-insertions-per-read");
+
+chunk_cmd_unlike([@standard_args],
+                 "Generate quants",
+                 qr/--strand/i, 
+                 "not --strand-specific quantifications");
+chunk_cmd_like([@standard_args, "--strand-specific"],
+               "Generate quants for strand p, sense s",
+               qr/--strand p/i, 
+               "--strand-specific quantifications");
+chunk_cmd_like([@standard_args, "--strand-specific"],
+               "Generate quants for strand p, sense a",
+               qr/--strand p.*--anti/i, 
+               "--strand-specific quantifications");

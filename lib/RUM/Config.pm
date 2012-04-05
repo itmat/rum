@@ -18,7 +18,7 @@ RUM::Config - Configuration for a RUM job
 =cut
 
 our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
- match_length_cutoff num_insertions_allowed num_chunks bin_dir genome_bowtie
+ match_length_cutoff num_chunks bin_dir genome_bowtie
  genome_fa transcriptome_bowtie annotations num_chunks read_length
  min_overlap max_insertions match_length_cutoff limit_nu_cutoff
  preserve_names variable_length_reads config_file
