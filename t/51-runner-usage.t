@@ -155,6 +155,9 @@ sub check_defaults {
     ok(!$c->junctions, "no junctions");
     ok(!$c->strand_specific, "no strand-specific");
     is($c->ram, 6, "ram");
+
+    is($c->bowtie_nu_limit, undef, "Bowtie nu limit");
+    is($c->nu_limit, undef, "nu limit");
 }
 
 sub check_fixes_name {
@@ -290,6 +293,33 @@ sub check_pair_fasta_files_with_chunks {
     }
 }
 
+sub check_limit_nu {
+    throws_ok sub {
+        run_rum("--config", $config, "--output", "bar", "--name", "asdf", 
+                $forward_64_fq,, $reverse_64_fq,
+                "--limit-nu", "asdf");
+    }, qr/--limit-nu/i, "Bad --limit-nu";    
+
+    my @argv = ("--config", $config,
+                "--output", "foo",
+                "--name", "asdf",
+                $forward_64_fq,
+                "--limit-nu", 50);
+
+    my $rum = rum(@argv);
+    my $c = $rum->config;
+    is($c->nu_limit, 50, "Nu limit");
+
+    @argv = ("--config", $config,
+             "--output", "foo",
+             "--name", "asdf",
+             $forward_64_fq,
+             "--limit-bowtie-nu");
+
+    $rum = rum(@argv);
+    $c = $rum->config;
+    is($c->bowtie_nu_limit, 100, "Nu limit");
+}
 
 version_ok;
 help_config_ok;
@@ -303,3 +333,4 @@ check_pair_fastq_files;
 check_pair_fasta_files_with_chunks;
 check_single_paired_fa;
 check_pair_fastq_files_with_chunks;
+check_limit_nu;
