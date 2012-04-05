@@ -120,7 +120,7 @@ Return the list of all instructions
 =cut
 
 sub instructions {
-    return keys %{ shift->{transitions} };
+    return sort keys %{ shift->{transitions} };
 }
 
 =item flags
@@ -276,8 +276,6 @@ $instruction was applied.
 
 =cut
 
-
-
 sub walk {
     my ($self, $callback, $start) = @_;
 
@@ -300,6 +298,71 @@ sub walk {
         return 0;
     }
     return 1;
+}
+
+
+sub dfs {
+    my ($self, $callback, $state, $visited, $q) = @_;
+
+    $visited ||= {};
+    $q ||= [];
+    $state ||= $self->start;
+
+    $visited->{$state} = 1;
+
+    for my $t ($self->instructions) {
+        my $new_state = $self->transition($state, $t);
+        if ($state != $new_state) {
+            $callback->($state, $t, $new_state);
+            next if $visited->{$new_state};
+            push @$q, $new_state;
+            $self->dfs($callback, $new_state, $visited, $q);
+        }
+    }
+}
+
+sub dotty {
+    my ($self, $fh) = @_;
+
+    my %nodes;
+    my @edges;
+    my %instructions;
+
+    my $visit = sub {
+        push @edges, [@_];
+        $nodes{$_[0]} = 1;
+        $instructions{$_[1]} = 1;
+        $nodes{$_[2]} = 1;
+    };
+    $self->dfs($visit);
+
+    print $fh "digraph states {\n";
+
+    for my $node (sort keys %nodes) {
+        if ($self->is_goal($node)) {
+            print $fh "  $node [shape=doublecircle];\n";
+        }
+    }
+
+    for my $edge (@edges) {
+        my ($u, $e, $v) = @$edge;
+        $e =~ s/[-\s]/_/g;
+        print $fh "  $u -> $v [label=$e];\n";
+    }
+
+    print $fh "}\n";
+
+    for my $inst ($self->instructions) {
+        next if $instructions{$inst};
+
+        warn "Instruction '$inst' is not used:\n";
+        for my $pre_post (@{ $self->{transitions}{$inst} }) {
+            my ($pre, $post) = @$pre_post;
+            warn "  $pre\n";
+        }
+        
+        
+    }
 }
 
 1;
