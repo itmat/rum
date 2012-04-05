@@ -4,7 +4,8 @@
 use strict;
 use warnings;
 
-use Test::More tests => 13;
+use Test::More tests => 14;
+use Test::Exception;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::CoverageMap;
@@ -73,3 +74,26 @@ is_deeply($covmap->coverage_span(22900, 23100),
           [[45, 0], [90, 1], [66, 0]],
           "Spanning an internal span");
 
+
+throws_ok {
+    my $bad_span = <<EOF;
+track type=bedGraph name="A565_BC7 Unique Mappers" description="foo" 
+chr1\t10008\t1234\t1
+EOF
+    open my $in, "<", \$bad_span;
+    my $covmap = RUM::CoverageMap->new($in);
+    $covmap->read_chromosome("chr1");
+} qr/invalid span/i;
+
+
+throws_ok {
+
+    my $overlap = <<EOF;
+track type=bedGraph name="A565_BC7 Unique Mappers" description="foo" 
+chr1\t10\t20\t1
+chr1\t15\t25\t2
+EOF
+    open my $in, "<", \$overlap;
+    my $covmap = RUM::CoverageMap->new($in);
+    $covmap->read_chromosome("chr1");
+} qr/coverage.*overlap/i;

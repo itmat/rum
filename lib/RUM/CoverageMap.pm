@@ -3,6 +3,8 @@ package RUM::CoverageMap;
 use strict;
 use warnings;
 
+use Carp;
+
 =head1 NAME
 
 RUM::CoverageMap - Map a coordinate to its coverage
@@ -55,7 +57,7 @@ sub read_chromosome {
     local $_;
 
     my @map;
-
+    my $last_end = -1;
     while (defined($_ = <$fh>)) {
         chomp;
 
@@ -64,6 +66,12 @@ sub read_chromosome {
 
         # File is tab-delimited with four columns
 	my ($chr, $start, $end, $cov) = split /\t/;
+
+        $end - $start > 0 or croak "Invalid span on line $.: $_";
+        $start >= $last_end or croak
+            "Error with the coverage file: apan on line $. overlaps previous ".
+                "span";
+        $last_end = $end;
 
         # If this is the chromosome we want, add a record to our list,
         # otherwise seek back to the beginning of this line so the
