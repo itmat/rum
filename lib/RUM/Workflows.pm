@@ -192,14 +192,23 @@ sub chunk_workflow {
          "--non-unique-out", post($c->rum_nu_deduped),
          "--unique-out", pre($c->cleaned_unique),
          pre($c->rum_nu_id_sorted)]);
-    
-    $m->step(
-        "Limit NU",
-        ["perl", $c->script("limit_NU.pl"),
-         $c->limit_nu_cutoff_opt,
-         "-o", post($c->rum_nu),
-         pre($c->rum_nu_deduped)]);
-    
+
+    if ($c->limit_nu_cutoff_opt) {
+        $m->step(
+            "Limit NU",
+            ["perl", $c->script("limit_NU.pl"),
+             $c->limit_nu_cutoff_opt,
+             "-o", post($c->rum_nu),
+             pre($c->rum_nu_deduped)]);
+    }
+    else {
+        $m->step(
+            "Move NU file",
+            ["mv",
+             pre($c->rum_nu_deduped),
+             post($c->rum_nu)]);
+    }
+
     $m->step(
         "Produce RUM_Unique",
         ["perl", $c->script("sort_RUM_by_id.pl"),

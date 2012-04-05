@@ -29,6 +29,8 @@ sub LOGDIE { $log->logdie(wrap("", "", @_)) }
 
 
 sub do_status { $_[0]->{directives}{status} }
+sub do_clean { $_[0]->{directives}{clean} }
+sub do_veryclean { $_[0]->{directives}{veryclean} }
 sub do_version { $_[0]->{directives}{version} }
 sub do_help { $_[0]->{directives}{help} }
 sub do_help_config { $_[0]->{directives}{help_config} }
@@ -91,6 +93,7 @@ sub run_pipeline {
         $self->process;
         $self->postprocess;
     }
+
 }
 
 sub get_options {
@@ -109,6 +112,8 @@ sub get_options {
         "help|h"       => \(my $do_help),
         "help-config"  => \(my $do_help_config),
         "dry-run|n"    => \(my $do_dry_run),
+        "clean"        => \(my $do_clean),
+        "veryclean"        => \(my $do_veryclean),
 
         # Options controlling which portions of the pipeline to run.
         "preprocess"   => \(my $do_preprocess),
@@ -163,7 +168,9 @@ sub get_options {
         help         => $do_help,
         help_config  => $do_help_config,
         dry_run      => $do_dry_run,
-        status       => $do_status
+        status       => $do_status,
+        clean     => $do_clean,
+        veryclean     => $do_veryclean
     };
 
     $c->set('bowtie_nu_limit', 100) if $limit_bowtie_nu;
@@ -300,6 +307,7 @@ sub process_in_chunks {
     
     for my $chunk ($self->chunk_nums) {
         my @argv = (@{ $self->config->argv }, "--chunk", $chunk);
+        push @argv, "--veryclean", if $self->do_clean;
         my $cmd = "$0 @argv > /dev/null";
         my $config = $self->config->for_chunk($chunk);                
         my $workflow = RUM::Workflows->chunk_workflow($config);
@@ -382,7 +390,12 @@ sub process {
         $log->info("Running chunk $chunk");
         my $config = $self->config->for_chunk($chunk);
         my $w = RUM::Workflows->chunk_workflow($config);
-        $w->execute(step_printer($w));
+        if ($self->do_clean) {
+            $w->clean($self->do_veryclean);
+        }
+        else {
+            $w->execute(step_printer($w));
+        }
     }
     elsif ($config->num_chunks) {
         $self->process_in_chunks;
@@ -390,7 +403,12 @@ sub process {
     else {
         $log->info("Running whole job (not splitting into chunks)");
         my $w = RUM::Workflows->chunk_workflow($config);
-        $w->execute(step_printer($w));
+        if ($self->do_clean) {
+            $w->clean($self->do_veryclean);
+        }
+        else {
+            $w->execute(step_printer($w));        
+        }
     }
 }
 
@@ -399,7 +417,12 @@ sub postprocess {
     $log->info("Postprocessing");
     $self->determine_read_length();
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
-    $w->execute(step_printer($w));
+    if ($self->do_clean) {
+        $w->clean($self->do_veryclean);
+    }
+    else {
+        $w->execute(step_printer($w));
+    }
 }
 
 sub setup {

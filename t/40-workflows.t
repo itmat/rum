@@ -173,13 +173,17 @@ would_run($w, qr/merge.strand.specific.alt.quants/i);
         alt_quant_model => "foobar",
         alt_genes => undef,
         read_length   => 75,
-        nu_limit => 15
     );
-    
     $c->load_rum_config_file;
+    
     $w = RUM::Workflows->chunk_workflow($c);
-    my @cmds = $w->commands("Limit NU");
-    like($cmds[0], qr/--cutoff\s*15/, "Cutoff passed to limit_nu");    
+    my @cmds = $w->commands("Move NU file");
+    like($cmds[0], qr/mv.*RUM_NU.*temp.+RUM_NU/i, "Just move RUM_NU");    
+
+    $c->set('nu_limit', 15);
+    $w = RUM::Workflows->chunk_workflow($c);
+    @cmds = $w->commands("Limit NU");
+    like($cmds[0], qr/limit_nu.pl --cutoff\s*15/i, "Cutoff passed to limit_nu");    
 }
 
 

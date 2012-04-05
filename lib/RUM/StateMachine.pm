@@ -228,6 +228,15 @@ sub _adjacent {
     return %transitions;
 }
 
+=item goal_mask
+
+Return the bits that need to be set for a goal state
+
+=cut
+
+sub goal_mask { $_[0]->{goal_mask} };
+
+
 =item is_goal($state)
 
 Return true if the given $state is a goal state, false otherwise.
@@ -236,7 +245,7 @@ Return true if the given $state is a goal state, false otherwise.
 
 sub is_goal {
     my ($self, $state) = @_;
-    my $goal = $self->{goal_mask};
+    my $goal = $self->goal_mask;
     return ($state & $goal) == $goal;
 }
 

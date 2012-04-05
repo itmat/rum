@@ -444,4 +444,26 @@ sub pre { {pre => shift} }
 sub post { {post => shift} }
 
 
+sub clean {
+    my ($self, $clean_goal) = @_;
+    $log->debug("Cleaning up");
+    local $_;
+
+    if ($clean_goal) {
+        for ($self->state_machine->flags()) {
+            $log->debug("veryclean: removing $_");
+            unlink;
+        }        
+    }
+    else {
+        my $state = $self->state;
+        my $goal = $self->state_machine->goal_mask;
+        my $extra_bits = $state & ~$goal;
+        for ($self->state_machine->flags($extra_bits)) {
+            $log->debug("clean: removing $_");
+            unlink;
+        }
+    }
+}
+
 1;
