@@ -1,4 +1,4 @@
-use Test::More tests => 4;
+use Test::More tests => 5;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -40,8 +40,6 @@ $w->add_command(
     ]]
 );
 
-
-
 is_deeply([$w->commands("array ref of array refs")],
           ["sort input > intermediate", 
            "uniq -c intermediate > output"],
@@ -54,3 +52,12 @@ is_deeply([$w->commands("code ref of array ref of array refs")],
 
 my @cmds = $w->commands("with tags");
 like($cmds[0], qr/sort input > output/, "with tags");
+
+my $in = "$SHARED_INPUT_DIR/forward64.fq";
+$w = RUM::Workflow->new();
+my $out = temp_filename(TEMPLATE => "workflow.XXXXXX", UNLINK => 0);
+unlink $out;
+$w->step("copy input to output", ["cp", pre($in), post($out)]);
+$w->set_goal([$out]);
+$w->execute;
+ok(-e $out, "Task was executed");

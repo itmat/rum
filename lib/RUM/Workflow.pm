@@ -355,9 +355,10 @@ sub execute {
     local $_;
 
     $sm->start($self->state);
-
+    $log->debug("Executing workflow");
     my $f = sub {
         my ($sm, $old, $step, $new) = @_;
+        $log->debug("  at step $old,  $step,  $new");
         my $comment = $self->comment($step);
         my @cmds = $self->commands($step);
 

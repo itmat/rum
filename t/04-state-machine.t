@@ -1,7 +1,7 @@
 #!perl
 # -*- cperl -*-
 
-use Test::More tests => 22;
+use Test::More tests => 23;
 use Test::Exception;
 use lib "lib";
 
@@ -89,7 +89,7 @@ is_deeply($m->generate(), \@plan, "Generate plan");
 
 my @dfs;
 
-$m->dfs(sub { warn "@_\n"; push @dfs, [@_] });
+$m->dfs(sub { push @dfs, [@_] });
 
 is_deeply(\@dfs,
           [[0, "cut_first_col", 1],
