@@ -24,6 +24,8 @@ my @indexes = eval { $repo->indexes(pattern => qr/TAIR/); };
 my $out_dir = "$Bin/tmp/40-workflows";
 my $state_dir = "$out_dir/state";
 my $conf_dir = $repo->conf_dir;
+my $index_dir = $repo->indexes_dir;
+my $annotations = "$index_dir/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
 
 SKIP: {
 
@@ -36,7 +38,9 @@ SKIP: {
         read_length   => 75,
         match_length_cutoff => 35,
         max_insertions => 1,
-        rum_config_file => "$conf_dir/rum.config_Arabidopsis"
+        rum_config_file => "$conf_dir/rum.config_Arabidopsis",
+        strand_specific => 0,
+        alt_genes => undef
     );
 
     $config->load_rum_config_file;
@@ -45,21 +49,25 @@ SKIP: {
     
     is($config->genome_bowtie_out, "$out_dir/X.1", "genome bowtie out");
     is($config->blat_output, "$out_dir/R.1.blat", "blat out");
-    
+
     my $chunk = RUM::Workflows->chunk_workflow($config);
 
+    open my $dot, ">", "workflow.dot";
+    $chunk->state_machine->dotty($dot);
+    close ($dot);
+    
     open my $script_file, ">", "$out_dir/run.sh" or die "Can't open script";
     $chunk->shell_script($script_file);
 }
 
 sub would_run {
-    my ($w, $command) = @_;
-    ok(grep($_ eq $command, $w->all_commands), "$command would be run");
+    my ($w, $command_re) = @_;
+    ok(grep(/$command_re/, $w->all_commands), "$command_re would be run");
 }
 
 sub would_not_run {
-    my ($w, $command) = @_;
-    ok( ! grep($_ eq $command, $w->all_commands), "$command would not be run");
+    my ($w, $command_re) = @_;
+    ok( ! grep(/$command_re/, $w->all_commands), "$command_re would not be run");
 }
 
 my $c = RUM::Config->new(
@@ -71,13 +79,15 @@ my $c = RUM::Config->new(
     num_chunks => 2,
     rum_config_file => "$conf_dir/rum.config_Arabidopsis",
     alt_quant_model => "",
+    alt_genes => undef,
 );
+$c->load_rum_config_file;
 my $w = RUM::Workflows->postprocessing_workflow($c);
 my @commands = $w->all_commands;
-would_run($w, 'merge_rum_unique');
-would_run($w, 'merge_rum_nu');
-would_run($w, 'compute_mapping_statistics');
-would_run($w, 'merge_quants');
+would_run($w, qr/merge rum_unique/i);
+would_run($w, qr/merge rum_nu/i);
+would_run($w, qr/compute mapping stat/i);
+would_run($w, qr/merge quants/i);
 would_not_run($w, 'merge_alt_quants');
 
 $c = RUM::Config->new(
@@ -90,21 +100,22 @@ $c = RUM::Config->new(
     strand_specific => 1,
     rum_config_file => "$conf_dir/rum.config_Arabidopsis",
     alt_quant_model => "",
+    alt_genes => undef
 );
 $c->load_rum_config_file;
 $w = RUM::Workflows->postprocessing_workflow($c);
 @commands = $w->all_commands;
 
-would_not_run($w, 'merge_quants');
-would_run($w, 'merge_quants_ps');
-would_run($w, 'merge_quants_pa');
-would_run($w, 'merge_quants_ms');
-would_run($w, 'merge_quants_ma');
-would_run($w, 'merge_strand_specific_quants');
+would_not_run($w, qr/merge quants$/i);
+would_run($w, qr/merge.quants.p.*s/i);
+would_run($w, qr/merge.quants.p.*a/i);
+would_run($w, qr/merge.quants.m.*s/i);
+would_run($w, qr/merge.quants.m.*a/i);
+would_run($w, qr/merge.strand.specific.quants/i);
 
 # Alt quants
 
-my $c = RUM::Config->new(
+$c = RUM::Config->new(
     output_dir => $out_dir,
     dna => 0,
     genome_only => 0,
@@ -113,11 +124,13 @@ my $c = RUM::Config->new(
     num_chunks => 2,
     rum_config_file => "$conf_dir/rum.config_Arabidopsis",
     alt_quant_model => "foobar",
+    alt_genes => undef
 );
-my $w = RUM::Workflows->postprocessing_workflow($c);
-my @commands = $w->all_commands;
-would_run($w, 'merge_quants');
-would_run($w, 'merge_alt_quants');
+$c->load_rum_config_file;
+$w = RUM::Workflows->postprocessing_workflow($c);
+@commands = $w->all_commands;
+would_run($w, qr/merge.*quants$/i);
+would_run($w, qr/merge.alt.quants/i);
 
 $c = RUM::Config->new(
     output_dir => $out_dir,
@@ -129,19 +142,20 @@ $c = RUM::Config->new(
     strand_specific => 1,
     rum_config_file => "$conf_dir/rum.config_Arabidopsis",
     alt_quant_model => "foobar",
+    alt_genes => undef
 );
 $c->load_rum_config_file;
 $w = RUM::Workflows->postprocessing_workflow($c);
 @commands = $w->all_commands;
 
-would_run($w, 'merge_quants_ps');
-would_run($w, 'merge_quants_pa');
-would_run($w, 'merge_quants_ms');
-would_run($w, 'merge_quants_ma');
-would_run($w, 'merge_strand_specific_quants');
-would_run($w, 'merge_alt_quants_ps');
-would_run($w, 'merge_alt_quants_pa');
-would_run($w, 'merge_alt_quants_ms');
-would_run($w, 'merge_alt_quants_ma');
-would_run($w, 'merge_strand_specific_alt_quants');
+would_run($w, qr/merge.quants.*p.*s/i);
+would_run($w, qr/merge.quants.*p.*a/i);
+would_run($w, qr/merge.quants.*m.*s/i);
+would_run($w, qr/merge.quants.*m.*a/i);
+would_run($w, qr/merge.strand.specific.quants/i);
+would_run($w, qr/merge.alt.quants.*p.*s/i);
+would_run($w, qr/merge.alt.quants.*p.*a/i);
+would_run($w, qr/merge.alt.quants.*m.*s/i);
+would_run($w, qr/merge.alt.quants.*m.*a/i);
+would_run($w, qr/merge.strand.specific.alt.quants/i);
 

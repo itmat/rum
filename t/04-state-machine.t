@@ -87,9 +87,26 @@ my @plan = qw(cut_first_col cut_second_col cat_cols sort);
 
 is_deeply($m->generate(), \@plan, "Generate plan");
 
+my @dfs;
 
+$m->dfs(sub { warn "@_\n"; push @dfs, [@_] });
+
+is_deeply(\@dfs,
+          [[0, "cut_first_col", 1],
+           [1, "cut_second_col", 3],
+           [3, "cat_cols", 7],
+           [7, "sort", 15],
+           [0, "cut_second_col", 2],
+           [2, "cut_first_col", 3]       
+       ],
+          "DFS");
+
+open my $dot, ">", "workflow.dot";
+$m->dotty($dot);
+close ($dot);
 
 __END__
+
 
 my $m = RUM::StateMachine->new(
     state_flags => [qw(letters numbers combined sorted)],
@@ -105,11 +122,4 @@ my $m = RUM::StateMachine->new(
         [["letters", "numbers"], ["combined"], "cat_cols"],
         [["combined"],           ["sorted"],   "sort"]]
 );
-
-
-
-
-
-
-
 

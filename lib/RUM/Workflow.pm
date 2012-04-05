@@ -136,6 +136,11 @@ sub add_command {
     $self->{sm}->add($pre, $post, $name);
 }
 
+sub step {
+    my ($self, $name, @commands) = @_;
+    $self->add_command(name => $name, commands => \@commands);
+}
+
 =item temp($file)
 
 Return the name of a temporary file, and associate that temp file with
@@ -436,5 +441,6 @@ sub _get_temp {
 
 sub pre { {pre => shift} }
 sub post { {post => shift} }
+
 
 1;

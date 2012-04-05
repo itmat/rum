@@ -36,256 +36,205 @@ sub chunk_workflow {
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
-    $m->add_command(
-        name => "Run bowtie on the genome",
-        commands => [[$c->bowtie_bin,
-                  "-a", 
-                  "--best", 
-                  "--strata",
-                  "-f", $c->genome_bowtie,
-                  $c->reads_fa,
-                  "-v", 3,
-                  "--suppress", "6,7,8",
-                  "-p", 1,
-                  "--quiet",
-                  "> ", post($c->genome_bowtie_out)]]
-    );
+    $m->step(
+        "Run bowtie on the genome",
+        [$c->bowtie_bin,
+         "-a", 
+         "--best", 
+         "--strata",
+         "-f", $c->genome_bowtie,
+         $c->reads_fa,
+         "-v", 3,
+         "--suppress", "6,7,8",
+         "-p", 1,
+         "--quiet",
+         "> ", post($c->genome_bowtie_out)]);
     
-    $m->add_command(
-        name => "Run bowtie on the transcriptome",
-        commands => [[$c->bowtie_bin,
-                  "-a", 
-                  "--best", 
-                  "--strata",
-                  "-f", $c->trans_bowtie,
-                  $c->reads_fa,
-                  "-v", 3,
-                  "--suppress", "6,7,8",
-                  "-p", 1,
-                  "--quiet",
-                  "> ", post($c->trans_bowtie_out)]]
-    );
+    $m->step(
+        "Run bowtie on the transcriptome",
+        [$c->bowtie_bin,
+         "-a", 
+         "--best", 
+         "--strata",
+         "-f", $c->trans_bowtie,
+         $c->reads_fa,
+         "-v", 3,
+         "--suppress", "6,7,8",
+         "-p", 1,
+         "--quiet",
+         "> ", post($c->trans_bowtie_out)]);
     
     # If we have the genome bowtie output, we can make the unique and
     # non-unique files for it.
-    $m->add_command(
-        name => "make_gu_and_gnu",
-        comment => "Separate unique and non-unique mappers from the output ".
-            "of running bowtie on the genome",
-        commands => 
-            [["perl", $c->script("make_GU_and_GNU.pl"), 
-              "--unique", post($c->gu),
-              "--non-unique", post($c->gnu),
-              $c->paired_end_opt(),
-              pre($c->genome_bowtie_out)]]
-        );
+    $m->step(
+        "Separate unique and non-unique mappers from genome bowtie output",
+        ["perl", $c->script("make_GU_and_GNU.pl"), 
+         "--unique", post($c->gu),
+         "--non-unique", post($c->gnu),
+         $c->paired_end_opt(),
+         pre($c->genome_bowtie_out)]);
     
     # If we have the transcriptome bowtie output, we can make the
     # unique and non-unique files for it.
-    $m->add_command(
-        name => "make_tu_and_tnu",
-        comment => "Separate unique and non-unique mappers from the output ".
-            "of running bowtie on the transcriptome",
-        commands => 
-            [["perl", $c->script("make_TU_and_TNU.pl"), 
-              "--unique",        post($c->tu),
-              "--non-unique",    post($c->tnu),
-              "--bowtie-output", pre($c->trans_bowtie_out),
-              "--genes",         $c->annotations,
-              $c->paired_end_opt]]
-        );
+    $m->step(
+        "Separate unique and non-unique mappers from transcriptome bowtie output",
+        ["perl", $c->script("make_TU_and_TNU.pl"), 
+         "--unique",        post($c->tu),
+         "--non-unique",    post($c->tnu),
+         "--bowtie-output", pre($c->trans_bowtie_out),
+         "--genes",         $c->annotations,
+         $c->paired_end_opt]);
     
     # If we have the non-unique files for both the genome and the
     # transcriptome, we can merge them.
-    $m->add_command(
-        name => "merge_gnu_tnu_cnu",
-        comment => "Merge non-unique mappers together",
-        commands => 
-            [["perl", $c->script("merge_GNU_and_TNU_and_CNU.pl"),
-              "--gnu", pre($c->gnu),
-              "--tnu", pre($c->tnu),
-              "--cnu", pre($c->cnu),
-              "--out", post($c->bowtie_nu)]]
-        );
+    $m->step(
+        "Merge non-unique mappers together",
+        ["perl", $c->script("merge_GNU_and_TNU_and_CNU.pl"),
+         "--gnu", pre($c->gnu),
+         "--tnu", pre($c->tnu),
+         "--cnu", pre($c->cnu),
+         "--out", post($c->bowtie_nu)]);
 
     # If we have the unique files for both the genome and the
     # transcriptome, we can merge them.
     my $min_overlap_opt = defined($c->min_overlap)
         ? "--min-overlap".$c->min_overlap : "";
-    $m->add_command(
-        name => "merge_gu_tu",
-        comment => "Merge unique mappers together",
-        commands => [[
-                "perl", $c->script("merge_GU_and_TU.pl"),
-                "--gu", pre($c->gu),
-                "--tu", pre($c->tu),
-                "--gnu", pre($c->gnu),
-                "--tnu", pre($c->tnu),
-                "--bowtie-unique", post($c->bowtie_unique),
-                "--cnu",  post($c->cnu),
-                $c->paired_end_opt,
-                "--read-length", $c->read_length,
-                $min_overlap_opt]]);
+    $m->step(
+        "Merge unique mappers together",
+        [
+            "perl", $c->script("merge_GU_and_TU.pl"),
+            "--gu", pre($c->gu),
+            "--tu", pre($c->tu),
+            "--gnu", pre($c->gnu),
+            "--tnu", pre($c->tnu),
+            "--bowtie-unique", post($c->bowtie_unique),
+            "--cnu",  post($c->cnu),
+            $c->paired_end_opt,
+            "--read-length", $c->read_length,
+            $min_overlap_opt]);
     
     # If we have the merged bowtie unique mappers and the merged
     # bowtie non-unique mappers, we can create the unmapped file.
-    $m->add_command(
-        name => "make_unmapped_file",
-        comment => "Make a file containing the unmapped reads, to be passed ".
+    $m->step(
+        "Make a file containing the unmapped reads, to be passed ".
             "into blat",
-        commands => 
-            [["perl", $c->script("make_unmapped_file.pl"),
-              "--reads", $c->reads_fa,
-              "--unique", pre($c->bowtie_unique), 
-              "--non-unique", pre($c->bowtie_nu),
-              "-o", post($c->bowtie_unmapped),
-              $c->paired_end_opt]]
-        );
-
-    $m->add_command(
-        name => "run_blat",
-        comment => "Run blat on the unmapped reads",
-        commands => 
-            [[$c->blat_bin,
-              $c->genome_fa,
-              pre($c->bowtie_unmapped),
-              post($c->blat_output),
-              $c->blat_opts]]
-        );
+        ["perl", $c->script("make_unmapped_file.pl"),
+         "--reads", $c->reads_fa,
+         "--unique", pre($c->bowtie_unique), 
+         "--non-unique", pre($c->bowtie_nu),
+         "-o", post($c->bowtie_unmapped),
+         $c->paired_end_opt]);
     
-    $m->add_command(
-        name => "run_mdust",
-        comment => "Run mdust on the unmapped reads",
-        commands => 
-            [[$c->mdust_bin,
-              pre($c->bowtie_unmapped),
-              " > ",
-              post($c->mdust_output)]]
-        );
+    $m->step(
+        "Run blat on the unmapped reads",
+        [$c->blat_bin,
+         $c->genome_fa,
+         pre($c->bowtie_unmapped),
+         post($c->blat_output),
+         $c->blat_opts]);
     
-    $m->add_command(
-        name => "Parse blat output",
-        commands => 
-            [["perl", $c->script("parse_blat_out.pl"),
-              "--reads-in",    pre($c->bowtie_unmapped),
-              "--blat-in",     pre($c->blat_output), 
-              "--mdust-in",    pre($c->mdust_output),
-              "--unique-out", post($c->blat_unique),
-              "--non-unique-out", post($c->blat_nu),
-              $c->max_insertions_opt,
-              $c->match_length_cutoff_opt,
-              $c->dna_opt]]
-        );
+    $m->step(
+         "Run mdust on the unmapped reads",
+         [$c->mdust_bin,
+          pre($c->bowtie_unmapped),
+          " > ",
+          post($c->mdust_output)]);
     
-    $m->add_command(
-        name => "Merge bowtie and blat results",
-        commands => 
-            [["perl", $c->script("merge_Bowtie_and_Blat.pl"),
-              "--bowtie-unique", pre($c->bowtie_unique),
-              "--blat-unique", pre($c->blat_unique),
-              "--bowtie-non-unique", pre($c->bowtie_nu),
-              "--blat-non-unique", pre($c->blat_nu),
-              "--unique-out", post($c->bowtie_blat_unique),
-              "--non-unique-out", post($c->bowtie_blat_nu),
-              $c->paired_end_opt,
-              $c->read_length_opt,
-              $c->min_overlap_opt]]
-        );
+    $m->step(
+        "Parse blat output",
+        ["perl", $c->script("parse_blat_out.pl"),
+         "--reads-in",    pre($c->bowtie_unmapped),
+         "--blat-in",     pre($c->blat_output), 
+         "--mdust-in",    pre($c->mdust_output),
+         "--unique-out", post($c->blat_unique),
+         "--non-unique-out", post($c->blat_nu),
+         $c->max_insertions_opt,
+         $c->match_length_cutoff_opt,
+         $c->dna_opt]);
     
-    $m->add_command(
-        name => "Clean up RUM files",
-        commands => 
-            [["perl", $c->script("RUM_finalcleanup.pl"),
-              "--unique-in", pre($c->bowtie_blat_unique),
-              "--non-unique-in", pre($c->bowtie_blat_nu),
-              "--unique-out", post($c->cleaned_unique),
-              "--non-unique-out", post($c->cleaned_nu),
-              "--genome", $c->genome_fa,
-              "--sam-header-out", post($c->sam_header),
-              $c->faok_opt,
-              $c->count_mismatches_opt,
-              $c->match_length_cutoff_opt]]
-        );
+    $m->step(
+        "Merge bowtie and blat results",
+        ["perl", $c->script("merge_Bowtie_and_Blat.pl"),
+         "--bowtie-unique", pre($c->bowtie_unique),
+         "--blat-unique", pre($c->blat_unique),
+         "--bowtie-non-unique", pre($c->bowtie_nu),
+         "--blat-non-unique", pre($c->blat_nu),
+         "--unique-out", post($c->bowtie_blat_unique),
+         "--non-unique-out", post($c->bowtie_blat_nu),
+         $c->paired_end_opt,
+         $c->read_length_opt,
+         $c->min_overlap_opt]);
     
-    $m->add_command(
-        name => "Sort cleaned non-unique mappers by ID",
-        commands => 
-            [["perl", $c->script("sort_RUM_by_id.pl"),
-              "-o", post($c->rum_nu_id_sorted),
-              pre($c->cleaned_nu)]]
-        );
+    $m->step(
+        "Clean up RUM files",
+        ["perl", $c->script("RUM_finalcleanup.pl"),
+         "--unique-in", pre($c->bowtie_blat_unique),
+         "--non-unique-in", pre($c->bowtie_blat_nu),
+         "--unique-out", post($c->cleaned_unique),
+         "--non-unique-out", post($c->cleaned_nu),
+         "--genome", $c->genome_fa,
+         "--sam-header-out", post($c->sam_header),
+         $c->faok_opt,
+         $c->count_mismatches_opt,
+         $c->match_length_cutoff_opt]);
     
-    $m->add_command(
-        name => "remove_dups",
-        comment => "Remove duplicates from sorted NU file",
-        commands => 
-            # TODO: This step is not idempotent it appends to $c->cleaned_unique
-            [["perl", $c->script("removedups.pl"),
-              "--non-unique-out", post($c->rum_nu_deduped),
-              "--unique-out", pre($c->cleaned_unique),
-              pre($c->rum_nu_id_sorted)]]
-        );
+    $m->step(
+        "Sort cleaned non-unique mappers by ID",
+        ["perl", $c->script("sort_RUM_by_id.pl"),
+         "-o", post($c->rum_nu_id_sorted),
+         pre($c->cleaned_nu)]);
     
-    $m->add_command(
-        name => "limit_nu",
-        comment => "Produce the RUM_NU file",
-        commands => 
-            [["perl", $c->script("limit_NU.pl"),
-              $c->limit_nu_cutoff_opt,
-              "-o", post($c->rum_nu),
-              pre($c->rum_nu_deduped)]]
-        );
+    $m->step(
+        "Remove duplicates from NU",
+        
+        # TODO: This step is not idempotent it appends to $c->cleaned_unique
+        ["perl", $c->script("removedups.pl"),
+         "--non-unique-out", post($c->rum_nu_deduped),
+         "--unique-out", pre($c->cleaned_unique),
+         pre($c->rum_nu_id_sorted)]);
     
-    $m->add_command(
-        name => "sort_unique_by_id",
-        comment => "Produce the RUM_Unique file",
-        commands => 
-            [["perl", $c->script("sort_RUM_by_id.pl"),
-              pre($c->cleaned_unique),
-              "-o", post($c->rum_unique)]]
-        );
+    $m->step(
+        "Produce RUM_NU",
+        ["perl", $c->script("limit_NU.pl"),
+         $c->limit_nu_cutoff_opt,
+         "-o", post($c->rum_nu),
+         pre($c->rum_nu_deduped)]);
     
-    $m->add_command(
-        name => "rum2sam",
-        comment => "Create the sam file",
-        commands => 
-            [["perl", $c->script("rum2sam.pl"),
-              "--unique-in", pre($c->rum_unique),
-              "--non-unique-in", pre($c->rum_nu),
-              "--reads-in", $c->reads_fa,
-              "--quals-in", $c->quals_file,
-              "--sam-out", post($c->sam_file),
-              $c->name_mapping_opt]]
-        );
+    $m->step(
+        "Produce RUM_Unique",
+        ["perl", $c->script("sort_RUM_by_id.pl"),
+         pre($c->cleaned_unique),
+         "-o", post($c->rum_unique)]);
     
-    $m->add_command(
-        name => "get_nu_stats",
-        comment => "Create non-unique stats",
-        commands =>
-            [["perl", $c->script("get_nu_stats.pl"),
-              pre($c->sam_file),
-              "> ", post($c->nu_stats)]]
-        );
+    $m->step(
+        "Create SAM file",
+        ["perl", $c->script("rum2sam.pl"),
+         "--unique-in", pre($c->rum_unique),
+         "--non-unique-in", pre($c->rum_nu),
+         "--reads-in", $c->reads_fa,
+         "--quals-in", $c->quals_file,
+         "--sam-out", post($c->sam_file),
+         $c->name_mapping_opt]);
     
-    $m->add_command(
-        name     => "Sort RUM_Unique by location", 
-        commands        => 
-            [["perl", $c->script("sort_RUM_by_location.pl"),
-              pre($c->rum_unique),
-              "-o", post($c->rum_unique_sorted),
-              ">>", post($c->chr_counts_u)]]
-        );
+    $m->step(
+        "Create non-unique stats",
+        ["perl", $c->script("get_nu_stats.pl"),
+          pre($c->sam_file),
+         "> ", post($c->nu_stats)]);
     
-    $m->add_command(
-        name => "sort_nu_by_location",
-        comment => "Sort RUM_NU", 
-        commands => 
-            [["perl", $c->script("sort_RUM_by_location.pl"),
-              pre($c->rum_nu),
-              "-o", post($c->rum_nu_sorted),
-              ">>", $c->chr_counts_nu]]
-        );
+    $m->step(
+        "Sort RUM_Unique by location", 
+        ["perl", $c->script("sort_RUM_by_location.pl"),
+         pre($c->rum_unique),
+         "-o", post($c->rum_unique_sorted),
+         ">>", post($c->chr_counts_u)]);
     
+    $m->step(
+        "Sort RUM_NU", 
+        ["perl", $c->script("sort_RUM_by_location.pl"),
+         pre($c->rum_nu),
+         "-o", post($c->rum_nu_sorted),
+         ">>", $c->chr_counts_nu]);
     
     my @goal = ($c->rum_unique_sorted,
                 $c->rum_nu_sorted,
@@ -325,7 +274,7 @@ sub chunk_workflow {
                   "--non-unique-in", pre($c->rum_nu_sorted),
                   "-o", post($c->quant),
                   "-countsonly"]]
-            );                 
+            );            
     }
 
     $m->set_goal(\@goal);
@@ -352,25 +301,17 @@ sub postprocessing_workflow {
                 $c->inferred_internal_exons,
                 $c->novel_inferred_internal_exons_quantifications);
 
-    $w->add_command(
-        name => "merge_rum_unique",
-        comment => "Merge RUM_Unique.* files",
-        commands => [[
-            "perl", $c->script("merge_sorted_RUM_files.pl"),
+    $w->step(
+        "Merge RUM_Unique.* files",
+        ["perl", $c->script("merge_sorted_RUM_files.pl"),
             "-o", post($c->rum_unique),
-            map { pre($_) } @rum_unique
-        ]]
-    );
+         map { pre($_) } @rum_unique]);
 
-    $w->add_command(
-        name => "merge_rum_nu",
-        comment => "Merge RUM_NU.* files",
-        commands => [[
-            "perl", $c->script("merge_sorted_RUM_files.pl"),
-            "-o", post($c->rum_nu),
-            map { pre($_) } @rum_nu
-        ]]
-    );
+    $w->step(
+        "Merge RUM_NU.* files",
+        ["perl", $c->script("merge_sorted_RUM_files.pl"),
+         "-o", post($c->rum_nu),
+         map { pre($_) } @rum_nu]);
 
     my @chr_counts_u = map { $_->chr_counts_u } @c;
     my @chr_counts_nu = map { $_->chr_counts_nu } @c;
@@ -527,23 +468,19 @@ sub postprocessing_workflow {
             $name .= " for strand $strand" if $strand;
             my $strand_opt = $strand ? "--strand $strand" : "";
 
-            $w->add_command(
-                name => $name,
-                commands => [
-                    ["perl", $c->script("make_RUM_junctions_file.pl"),
-                     "--unique-in", pre($c->rum_unique),
-                     "--non-unique-in", pre($c->rum_nu), 
-                     "--genome", $c->genome_fa,
-                     "--genes", $annotations,
-                     "--all-rum-out", post($all_rum),
-                     "--all-bed-out", post($all_bed),
-                     "--high-bed-out", post($high_bed),
-                     "--faok",
-                     $strand_opt]]);            
-
+            $w->step(
+                $name,
+                ["perl", $c->script("make_RUM_junctions_file.pl"),
+                 "--unique-in", pre($c->rum_unique),
+                 "--non-unique-in", pre($c->rum_nu), 
+                 "--genome", $c->genome_fa,
+                 "--genes", $annotations,
+                 "--all-rum-out", post($all_rum),
+                 "--all-bed-out", post($all_bed),
+                 "--high-bed-out", post($high_bed),
+                 "--faok",
+                 $strand_opt]);
         };
-
-   
         if ($c->strand_specific) {
           
             for my $strand (qw(p m)) {
@@ -562,12 +499,11 @@ sub postprocessing_workflow {
 
                     # Merged output file
                     my $out = junctions($type, $format);
-                    $w->add_command(
-                        name => "Merge junctions ($type, $format)",
-                        commands => [["cp", pre($p), post($out)],
-                                     ["grep -v $remove",
-                                      pre($m), ">>", post($out)]]
-                    );
+                    $w->step(
+                        "Merge junctions ($type, $format)",
+                        ["cp", pre($p), post($out)],
+                        ["grep -v $remove",
+                         pre($m), ">>", post($out)]);
                 }
             
         }
@@ -576,56 +512,47 @@ sub postprocessing_workflow {
             $add_make_junctions->();
         }
 
-        $w->add_command(
-            name => "Sort junctions (all, rum) by location",
-            commands => [[
-                "perl", $c->script("sort_by_location.pl"),
-                "-o", post($c->junctions_all_rum),
-                "--location", 1,
-                pre(junctions('all', 'rum'))]]
-        );
+        $w->step(
+            "Sort junctions (all, rum) by location",
+            ["perl", $c->script("sort_by_location.pl"),
+             "-o", post($c->junctions_all_rum),
+             "--location", 1,
+             pre(junctions('all', 'rum'))]);
 
-        $w->add_command(
-            name => "Sort junctions (all, bed) by location",
-            commands => [[
-                "perl", $c->script("sort_by_location.pl"),
-                "-o", post($c->junctions_all_bed),
-                "--chromosome", 1,
-                "--start", 2,
-                "--end", 3,
-                pre(junctions('all', 'bed'))]]
-        );
+        $w->step(
+            "Sort junctions (all, bed) by location",
+            ["perl", $c->script("sort_by_location.pl"),
+             "-o", post($c->junctions_all_bed),
+             "--chromosome", 1,
+             "--start", 2,
+             "--end", 3,
+             pre(junctions('all', 'bed'))]);
 
-        $w->add_command(
-            name => "Sort junctions (high-quality, bed) by location",
-            commands => [[
-                "perl", $c->script("sort_by_location.pl"),
-                "-o", post($c->junctions_high_quality_bed),
-                "--chromosome", 1,
-                "--start", 2,
-                "--end", 3,
-                pre(junctions('high-quality', 'bed'))]]
-        );
+        $w->step(
+            "Sort junctions (high-quality, bed) by location",
+            ["perl", $c->script("sort_by_location.pl"),
+             "-o", post($c->junctions_high_quality_bed),
+             "--chromosome", 1,
+             "--start", 2,
+             "--end", 3,
+             pre(junctions('high-quality', 'bed'))]);
     }
 
+    $w->step(
+        "Make unique coverage",
+        ["perl", $c->script("rum2cov.pl"),
+         "-o", post($c->rum_unique_cov),
+         "--name", "'$name Unique Mappers'",
+         "--stats", post($c->u_footprint),
+         pre($c->rum_unique)]);
 
-    $w->add_command(
-        name => "Make unique coverage",
-        commands => [[
-            "perl", $c->script("rum2cov.pl"),
-            "-o", post($c->rum_unique_cov),
-            "--name", "'$name Unique Mappers'",
-            "--stats", post($c->u_footprint),
-            pre($c->rum_unique)]]);
-
-    $w->add_command(
-        name => "Make non-unique coverage",
-        commands => [[
-            "perl", $c->script("rum2cov.pl"),
-            "-o", post($c->rum_nu_cov),
-            "--name", "'$name Non-Unique Mappers'",
-            "--stats", post($c->nu_footprint),
-            pre($c->rum_nu)]]);
+    $w->step(
+        "Make non-unique coverage",
+        ["perl", $c->script("rum2cov.pl"),
+         "-o", post($c->rum_nu_cov),
+         "--name", "'$name Non-Unique Mappers'",
+         "--stats", post($c->nu_footprint),
+         pre($c->rum_nu)]);
     
     if ($c->strand_specific) {
 
@@ -636,71 +563,65 @@ sub postprocessing_workflow {
 
         for my $u (qw(Unique NU)) {
 
-            $w->add_command(
-                name => "Break up $u file by strand",
-                commands => [[
-                    "perl", $c->script("breakup_RUM_files_by_strand.pl"),
-                    pre($c->in_output_dir("RUM_$u")),
-                    post($c->in_output_dir("RUM_${u}.sorted.plus")),
-                    post($c->in_output_dir("RUM_${u}.sorted.minus"))]]);
+            $w->step(
+                "Break up $u file by strand",
+                ["perl", $c->script("breakup_RUM_files_by_strand.pl"),
+                 pre($c->in_output_dir("RUM_$u")),
+                 post($c->in_output_dir("RUM_${u}.sorted.plus")),
+                 post($c->in_output_dir("RUM_${u}.sorted.minus"))]);
 
             for my $strand (qw(plus minus)) {
                 my $out = $c->in_output_dir("RUM_${u}.sorted.$strand.cov");
                 push @goal, $out;
                 my $name = "$name $labels{$u} Mappers $labels{$strand} Strand";
-                $w->add_command(
-                    name => "Make coverage for $u mappers $strand strand",
-                    commands => [[
-                        "perl", $c->script("rum2cov.pl"),
-                        pre($c->in_output_dir("RUM_${u}.sorted.$strand")),
-                        "-o", post($out),
-                        "-name '$name'"]]);
+                $w->step(
+                    "Make coverage for $u mappers $strand strand",
+                    ["perl", $c->script("rum2cov.pl"),
+                     pre($c->in_output_dir("RUM_${u}.sorted.$strand")),
+                     "-o", post($out),
+                     "-name '$name'"]);
             }
         }
     }
 
-    $w->add_command(
-        name => "Get inferred internal exons",
-        commands => [[
-            "perl", $c->script("get_inferred_internal_exons.pl"),
-            "--junctions", pre($c->junctions_high_quality_bed),
-            "--coverage", pre($c->rum_unique_cov),
-            "--genes", $c->annotations,
-            "--bed", post($c->inferred_internal_exons)]]);
+    $w->step(
+        "Get inferred internal exons",
+        ["perl", $c->script("get_inferred_internal_exons.pl"),
+         "--junctions", pre($c->junctions_high_quality_bed),
+         "--coverage", pre($c->rum_unique_cov),
+         "--genes", $c->annotations,
+         "--bed", post($c->inferred_internal_exons)]);
 
-    $w->add_command(
-        name => "Quantify novel exons",
-        commands => [[
-            "perl", $c->script("quantify_exons.pl"),
-            "--exons-in", pre($c->inferred_internal_exons),
-            "--unique-in", pre($c->rum_unique),
-            "--non-unique-in", pre($c->rum_nu),
-            "-o", $c->in_output_dir("quant_novel.1"),
-            "--novel", "--counts-only"]]);
+    $w->step(
+        "Quantify novel exons",
+        ["perl", $c->script("quantify_exons.pl"),
+         "--exons-in", pre($c->inferred_internal_exons),
+         "--unique-in", pre($c->rum_unique),
+         "--non-unique-in", pre($c->rum_nu),
+         "-o", $c->in_output_dir("quant_novel.1"),
+         "--novel", "--counts-only"]);
 
-    $w->add_command(
-        name => "Merge novel exons",
-        commands => [
-            ["perl", $c->script("merge_quants.pl"),
-             "--chunks", 1,
-             "-o", $c->in_output_dir("novel_exon_quant_temp"),
-             "--header",
-             $c->output_dir],
-            ["grep -v transcript",
-             $c->in_output_dir("novel_exon_quant_temp"),
-             ">", post($c->novel_inferred_internal_exons_quantifications)]]);
+    $w->step(
+        "Merge novel exons",
+        ["perl", $c->script("merge_quants.pl"),
+         "--chunks", 1,
+         "-o", $c->in_output_dir("novel_exon_quant_temp"),
+         "--header",
+         $c->output_dir],
+        ["grep -v transcript",
+         $c->in_output_dir("novel_exon_quant_temp"),
+         ">", post($c->novel_inferred_internal_exons_quantifications)]);
 
-    $w->add_command(
-        name => "Merge novel exons",
-        commands => [
-            ["perl", $c->script("merge_quants.pl"),
-             "--chunks", 1,
-             "-o", $c->in_output_dir("novel_exon_quant_temp"),
-             "--header",
-             $c->output_dir],
-            ["grep -v transcript",
-             $c->in_output_dir("novel_exon_quant_temp"),
-             ">", post($c->novel_inferred_internal_exons_quantifications)]]);
+    $w->step(
+        "Merge novel exons",
+        ["perl", $c->script("merge_quants.pl"),
+         "--chunks", 1,
+         "-o", $c->in_output_dir("novel_exon_quant_temp"),
+         "--header",
+         $c->output_dir],
+        ["grep -v transcript",
+         $c->in_output_dir("novel_exon_quant_temp"),
+         ">", post($c->novel_inferred_internal_exons_quantifications)]);
 
     my @mapping_stats = map { $_->mapping_stats } @c;
     
