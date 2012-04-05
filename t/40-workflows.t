@@ -1,4 +1,4 @@
-use Test::More tests => 27;
+use Test::More tests => 32;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -159,3 +159,57 @@ would_run($w, qr/merge.alt.quants.*m.*s/i);
 would_run($w, qr/merge.alt.quants.*m.*a/i);
 would_run($w, qr/merge.strand.specific.alt.quants/i);
 
+
+{
+    $c = RUM::Config->new(
+        output_dir => $out_dir,
+        dna => 0,
+        genome_only => 0,
+        strand_specific => 0,
+        name => "foo",
+        num_chunks => 2,
+        strand_specific => 1,
+        rum_config_file => "$conf_dir/rum.config_Arabidopsis",
+        alt_quant_model => "foobar",
+        alt_genes => undef,
+        read_length   => 75,
+        nu_limit => 15
+    );
+    
+    $c->load_rum_config_file;
+    $w = RUM::Workflows->chunk_workflow($c);
+    my @cmds = $w->commands("Limit NU");
+    like($cmds[0], qr/--cutoff\s*15/, "Cutoff passed to limit_nu");    
+}
+
+
+{
+    $c = RUM::Config->new(
+        output_dir => $out_dir,
+        dna => 0,
+        genome_only => 0,
+        strand_specific => 0,
+        name => "foo",
+        num_chunks => 2,
+        strand_specific => 1,
+        rum_config_file => "$conf_dir/rum.config_Arabidopsis",
+        alt_quant_model => "foobar",
+        alt_genes => undef,
+        read_length   => 75,
+        nu_limit => 15
+    );
+    
+    $c->load_rum_config_file;
+    $w = RUM::Workflows->chunk_workflow($c);
+    my @cmds = $w->commands("Run bowtie on genome");
+    like($cmds[0], qr/bowtie.*-a/, "bowtie on genome got -a option");
+    @cmds = $w->commands("Run bowtie on transcriptome");
+    like($cmds[0], qr/bowtie.*-a/, "bowtie on transcriptome got -a option");
+
+    $c->set('bowtie_nu_limit', 100);
+    $w = RUM::Workflows->chunk_workflow($c);
+    my @cmds = $w->commands("Run bowtie on genome");
+    like($cmds[0], qr/bowtie.*-k 100/, "bowtie on genome got -k 100 option");
+    @cmds = $w->commands("Run bowtie on transcriptome");
+    like($cmds[0], qr/bowtie.*-k 100/, "bowtie on transcriptome got -k 100 option");
+}

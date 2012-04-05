@@ -166,6 +166,7 @@ sub get_options {
         status       => $do_status
     };
 
+    $c->set('bowtie_nu_limit', 100) if $limit_bowtie_nu;
     $c->set('quantify', $quantify);
     $c->set('strand_specific', $strand_specific);
     $c->set('ram', $ram);
@@ -190,9 +191,6 @@ sub get_options {
     $c->set('alt_quant_model', $alt_quant);
     $self->{config} = $c;
 }
-
-
-
 
 sub check_config {
     my ($self) = @_;

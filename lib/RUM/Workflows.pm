@@ -37,9 +37,9 @@ sub chunk_workflow {
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
     $m->step(
-        "Run bowtie on the genome",
+        "Run bowtie on genome",
         [$c->bowtie_bin,
-         "-a", 
+         $c->bowtie_cutoff_opt,
          "--best", 
          "--strata",
          "-f", $c->genome_bowtie,
@@ -51,9 +51,9 @@ sub chunk_workflow {
          "> ", post($c->genome_bowtie_out)]);
     
     $m->step(
-        "Run bowtie on the transcriptome",
+        "Run bowtie on transcriptome",
         [$c->bowtie_bin,
-         "-a", 
+         $c->bowtie_cutoff_opt,
          "--best", 
          "--strata",
          "-f", $c->trans_bowtie,
@@ -194,7 +194,7 @@ sub chunk_workflow {
          pre($c->rum_nu_id_sorted)]);
     
     $m->step(
-        "Produce RUM_NU",
+        "Limit NU",
         ["perl", $c->script("limit_NU.pl"),
          $c->limit_nu_cutoff_opt,
          "-o", post($c->rum_nu),

@@ -44,6 +44,7 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  quantify
  alt_quant_model
  novel_inferred_internal_exons_quantifications
+ bowtie_nu_limit
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (
@@ -99,7 +100,9 @@ our %DEFAULTS = (
     max_insertions        => undef,
     match_length_cutoff   => undef,
     limit_nu_cutoff       => undef,
+    nu_limit              => undef,
     chunk                 => undef,
+    bowtie_nu_limit       => undef
 );
 
 =head1 CONSTRUCTOR
@@ -218,7 +221,8 @@ sub read_length_opt         { $_[0]->opt("--read-length", $_[0]->read_length) }
 sub min_overlap_opt         { $_[0]->opt("--min-overlap", $_[0]->min_overlap) }
 sub max_insertions_opt      { $_[0]->opt("--max-insertions", $_[0]->max_insertions) }
 sub match_length_cutoff_opt { $_[0]->opt("--match-length-cutoff", $_[0]->match_length_cutoff) }
-sub limit_nu_cutoff_opt     { $_[0]->opt("--limit-nu", $_[0]->limit_nu_cutoff) }
+sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff", $_[0]->nu_limit) }
+sub bowtie_cutoff_opt       { my $x = $_[0]->bowtie_nu_limit; $x ? "-k $x" : "-a" }
 sub faok_opt                { $_[0]->{faok} ? "--faok" : ":" }
 sub count_mismatches_opt    { $_[0]->{count_mismatches} ? "--count-mismatches" : "" } 
 sub paired_end_opt          { $_[0]->{paired_end} ? "--paired" : "--single" }
