@@ -20,8 +20,8 @@ my $w = RUM::Workflow->new();
 my $step1 = temp_filename(TEMPLATE => "workflow-runner.XXXXXX");
 my $step2 = temp_filename(TEMPLATE => "workflow-runner.XXXXXX");
 
-unlink($step1);
-unlink($step2);
+unlink($step1) if -e $step1;
+unlink($step2) if -e $step2;
 
 $w->add_command(
     name => "step1",
@@ -31,7 +31,7 @@ $w->add_command(
     code => sub { [[]] });
 
 $w->add_command(
-    name => "",
+    name => "step2",
     pre => [],
     post => [$step2],
     comment => "Echo some words to a file",
