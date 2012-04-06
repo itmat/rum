@@ -304,7 +304,7 @@ sub head {
     my ($fh, $lines) = @_;
 
     unless (ref($fh)) {
-        open my $in, "<", $fh or croak "Can't open $fh for reading: $!";
+        open my $in, "<", $fh or confess "Can't open $fh for reading: $!";
         return head($in, $lines);
     }
 

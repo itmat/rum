@@ -45,6 +45,11 @@ our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
  alt_quant_model
  novel_inferred_internal_exons_quantifications
  bowtie_nu_limit
+    blat_min_identity
+blat_tile_size
+blat_step_size
+blat_rep_match
+blat_max_intron
                          );
 
 our %CHUNK_SUFFIXED_PROPERTIES = (
@@ -88,7 +93,7 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     rum_nu_cov => "RUM_nu.cov",
     u_footprint => "u_footprint",
     nu_footprint => "nu_footprint",
-    inferred_internal_exons => "inferred_internal_exons.bed"
+    inferred_internal_exons => "inferred_internal_exons.bed",
 );
 
 our %DEFAULTS = (
@@ -286,7 +291,7 @@ sub is_property {
 
 sub set {
     my ($self, $key, $value) = @_;
-    die "No such property $key" unless is_property($key);
+    confess "No such property $key" unless is_property($key);
     $self->{$key} = $value;
 }
 

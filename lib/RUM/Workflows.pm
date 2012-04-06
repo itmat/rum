@@ -126,7 +126,7 @@ sub chunk_workflow {
          $c->paired_end_opt]);
     
     $m->step(
-        "Run blat on the unmapped reads",
+        "Run blat on unmapped reads",
         [$c->blat_bin,
          $c->genome_fa,
          pre($c->bowtie_unmapped),

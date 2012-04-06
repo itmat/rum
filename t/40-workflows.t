@@ -128,5 +128,3 @@ would_run($w, qr/merge.alt.quants.*p.*a/i);
 would_run($w, qr/merge.alt.quants.*m.*s/i);
 would_run($w, qr/merge.alt.quants.*m.*a/i);
 would_run($w, qr/merge.strand.specific.alt.quants/i);
-
-

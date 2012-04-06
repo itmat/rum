@@ -16,7 +16,6 @@ use RUM::Logging;
 use RUM::Pipeline;
 use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
 
-
 our $log = RUM::Logging->get_logger();
 our $LOGO;
 
@@ -159,6 +158,13 @@ sub get_options {
         "maxIntron=s" => \(my $max_intron = 500000),
         "min-length=s" => \(my $min_length),
         "quals-file|qual-file=s" => \(my $quals_file),
+
+        # Options for blat
+        "minIdentity|blat-min-identity=s" => \(my $blat_min_identity = 93),
+        "tileSize|blat-tile-size=s"       => \(my $blat_tile_size = 12),
+        "stepSize|blat-step-size=s"       => \(my $blat_step_size = 6),
+        "repMatch|blat-rep-match=s"       => \(my $blat_rep_match = 256),
+        "maxIntron|blat-max-intron=s"     => \(my $blat_max_intron = 500000)
     );
 
     $self->{directives} = {
@@ -196,6 +202,13 @@ sub get_options {
     $c->set('nu_limit', $nu_limit);
     $c->set('alt_genes', $alt_genes);
     $c->set('alt_quant_model', $alt_quant);
+
+    $c->set('blat_min_identity', $blat_min_identity);
+    $c->set('blat_tile_size', $blat_tile_size);
+    $c->set('blat_step_size', $blat_step_size);
+    $c->set('blat_rep_match', $blat_rep_match);
+    $c->set('blat_max_intron', $blat_max_intron);
+    
     $self->{config} = $c;
 }
 
@@ -444,9 +457,9 @@ our $READ_CHECK_LINES = 50000;
 
 sub check_input {
     my ($self) = @_;
-    INFO("Checking input files");
+    $log->info("Checking input files");
     $self->check_reads_for_quality;
-
+    $log->info("They look ok");
     if ($self->reads == 1) {
         $self->check_single_reads_file;
     }
@@ -493,7 +506,7 @@ sub check_reads_for_quality {
     my ($self) = @_;
 
     for my $filename (@{ $self->config->reads }) {
-        
+        $log->info("Checking $filename");
         open my $fh, "<", $filename or croak
             "Can't open reads file $filename for reading: $!\n";
 
@@ -619,7 +632,7 @@ RUM Version $RUM::Pipeline::VERSION
 
 $LOGO
 EOF
-    $log->info($msg);
+    print $msg;
 
 }
 
@@ -669,7 +682,8 @@ sub reformat_reads {
     my $reads_fa = $config->reads_fa;
     my $quals_fa = $config->quals_fa;
 
-    my $name_mapping_opt = $config->preserve_names ? "-name_mapping $output_dir/read_names_mapping" : "";    
+    my $name_mapping_opt = $config->preserve_names ?
+        "-name_mapping $output_dir/read_names_mapping" : "";    
     
     my $error_log = "$output_dir/rum.error-log";
 
@@ -689,7 +703,6 @@ sub reformat_reads {
     my $have_quals = 0;
 
     if($is_fastq && !$config->variable_read_lengths) {
-
         INFO("Splitting fastq file into $num_chunks chunks with separate " .
                  "reads and quals");
         shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $output_dir/rum.error-log");
@@ -707,6 +720,7 @@ sub reformat_reads {
      } 
 
     elsif (!$preformatted) {
+
         INFO("Splitting fasta file into reads and quals");
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
@@ -894,10 +908,11 @@ sub breakup_file  {
     
     my $PS = $c->paired_end ? $piecesize * 2 : $piecesize;
 
-    for(my $i=1; $i<$c->num_chunks; $i++) {
+    for(my $i=1; $i < $c->num_chunks; $i++) {
         my $chunk_config = $c->for_chunk($i);
-	my $outfilename = $chunk_config->chunk_suffixed($F2);
+	my $outfilename = $chunk_config->reads_fa;
 
+        $log->debug("Building $outfilename");
 	open(OUTFILE, ">$outfilename");
 	for(my $j=0; $j<$PS; $j++) {
 	    my $line = <INFILE>;
@@ -916,8 +931,7 @@ sub breakup_file  {
 	close(OUTFILE);
     }
     my $chunk_config = $c->num_chunks ? $c->for_chunk($c->num_chunks) : $c;
-    my $outfilename = $chunk_config->chunk_suffixed($F2);
-
+    my $outfilename = $chunk_config->reads_fa();
     open(OUTFILE, ">$outfilename");
     while(my $line = <INFILE>) {
 	print OUTFILE $line;

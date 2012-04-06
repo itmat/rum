@@ -1,4 +1,4 @@
-use Test::More tests => 66;
+use Test::More tests => 64;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -20,9 +20,7 @@ our $reverse_64_fq = "$SHARED_INPUT_DIR/reverse64.fq";
 our $forward_64_fa = "$SHARED_INPUT_DIR/forward64.fa";
 our $reverse_64_fa = "$SHARED_INPUT_DIR/reverse64.fa";
 
-BEGIN { 
-    use_ok('RUM::Script::Runner');
-}                                               
+BEGIN { use_ok('RUM::Script::Runner') }
 
 {
     # Redefine a couple methods in RUM::Usage so we can run the
@@ -35,21 +33,46 @@ BEGIN {
     };
 }
 
+sub capturing_stdout (&) {
+    
+    my ($code) = @_;
+
+    open my $out, ">", \(my $data) or die "Can't open output string: $!";
+    *STDOUT_BAK = *STDOUT;
+
+    eval { 
+        *STDOUT = $out;
+        $code->();
+        *STDOUT = *STDOUT_BAK;
+    };
+    if ($@) {
+        *STDOUT = *STDOUT_BAK;
+    }
+
+    close $out;
+    die $@ if $@;
+    return $data;
+}
+
 sub run_rum {
     my @args = @_;
+    @ARGV = @args;
 
+    my $data = eval { capturing_stdout { RUM::Script::Runner->main() } };
+    return $@ || $data;
+}
+
+sub rum_fails_ok {
+    my ($args, $re, $name) = @_;
     open my $out, ">", \(my $data) or die "Can't open output string: $!";
 
     *STDOUT_BAK = *STDOUT;
+
+    @ARGV = @$args;
+
     *STDOUT = $out;
-
-    @ARGV = @args;
-
-    RUM::Script::Runner->main();
-
+    throws_ok { RUM::Script::Runner->main } $re, $name;
     *STDOUT = *STDOUT_BAK;
-    close $out;
-    return $data;
 }
 
 sub rum {
@@ -62,8 +85,7 @@ sub rum {
         $rum->check_config;
     };
     if ($@) {
-        fail("Failed with $@");
-        return undef;
+        BAIL_OUT("Can't get RUM::Runner: $@");
     }
     return $rum;
 }
@@ -72,83 +94,78 @@ sub rum_random_out_dir {
     return rum(@_, "--output", tempdir(CLEANUP => 1));
 }
 
-sub version_ok {
-    my $version = $RUM::Pipeline::VERSION;
-
-    like(run_rum("--version"), qr/$version/, "--version prints out version");
-    like(run_rum("-V"), qr/$version/, "-V prints out version");
-}
-
-sub help_config_ok {
-    my $version = $RUM::Pipeline::VERSION;
-    my $out = run_rum("--help-config");
-    like($out, qr/gene annotation file/, "--help-config prints config info");
-    like($out, qr/bowtie genome index/, "--help-config prints config info");
-}
-
-sub check_missing_args {
-
-    throws_ok sub {
-        run_rum("--config", $config, "--output", "bar", "--name", "asdf") 
-    }, qr/please.*read files/i, "Missing read files";
-
-    throws_ok sub {
-        run_rum("--config", $config, "--output", "bar", "--name", "asdf", 
-                "1.fq", "2.fq", "3.fq") 
-    }, qr/please.*read files/i, "Too many read files";
-
-    throws_ok sub {
-        run_rum("--config", $config, "--output", "bar", "--name", "asdf", 
-                "1.fq", "1.fq") 
-    }, qr/same file for the forward and reverse/i, "Duplicate read file";
-
-    throws_ok sub {
-        run_rum("--config", $config, "--output", "bar", "--name", "asdf", 
-                $forward_64_fa, "$SHARED_INPUT_DIR/reads.fa") 
-    }, qr/same size/i, "Read files are not the same size";
-
-    throws_ok sub {
-        run_rum("--config", $config, "--name", "asdf", "in.fq") 
-    }, qr/--output/i, "Missing output dir";
-
-    throws_ok sub {
-        run_rum("--config", $config, "--output", "bar", "in.fq") 
-    }, qr/--name/i, "Missing name";
-
-    throws_ok sub {
-        run_rum("--output", "bar", "--name", "asdf", "in.fq") 
-    }, qr/--config/i, "Missing config";
-
-    throws_ok sub {
-        run_rum("--config", "missing-config-file",
-                "--output", "bar", "--name", "asdf", "in.fq") 
-    }, qr/no such file/i, "Config file that doesn't exist";
-
-    throws_ok sub {
-        my $name = 'a' x 300;
-        run_rum("--config", $config, "--output", "bar", "--name", $name, 
-                "in.fq");
-    }, qr/250 characters/, "Long name";
-
+sub preprocess {
+    my @args = @_;
+    my $rum = rum(@args);
+    capturing_stdout { $rum->preprocess };
     
+    return $rum;
 }
 
-sub check_defaults {
-    
+
+# Check that RUM prints out the version
+my $version = $RUM::Pipeline::VERSION;
+like(run_rum("--version"), qr/$version/, "--version prints out version");
+like(run_rum("-V"), qr/$version/, "-V prints out version");
+
+# Check that --help-config prints a description of the help file
+like(run_rum("--help-config"),
+     qr/gene annotation file/, "--help-config prints config info");
+like(run_rum("--help-config"),
+     qr/bowtie genome index/, "--help-config prints config info");
+
+
+# Check that it fails if required arguments are missing
+rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf"],
+             qr/please.*read files/i, "Missing read files");
+
+rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf", 
+              "1.fq", "2.fq", "3.fq"],
+             qr/please.*read files/i, "Too many read files");
+
+rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf", 
+              "1.fq", "1.fq"],
+             qr/same file for the forward and reverse/i,
+             "Duplicate read file");
+
+rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf", 
+              $forward_64_fa, "$SHARED_INPUT_DIR/reads.fa"],
+             qr/same size/i, "Read files are not the same size");
+
+rum_fails_ok(["--config", $config, "--name", "asdf", "in.fq"],
+             qr/--output/i, "Missing output dir");
+
+rum_fails_ok(["--config", $config, "--output", "bar", "in.fq"],
+             qr/--name/i, "Missing name");
+
+rum_fails_ok(["--output", "bar", "--name", "asdf", "in.fq"],
+             qr/--config/i, "Missing config");
+
+rum_fails_ok(["--config", "missing-config-file",
+              "--output", "bar", "--name", "asdf", "in.fq"],
+             qr/no such file/i, "Config file that doesn't exist");
+
+my $name = 'a' x 300;
+rum_fails_ok(
+    ["--config", $config, "--output", "bar", "--name", $name," in.fq"],
+    qr/250 characters/, "Long name");
+
+# Check that we set some default values correctly
+{
     my @argv = ("--config", $config,
                 "--output", "foo",
                 "--name", "asdf",
                 $forward_64_fq);
-
+    
     my $rum = rum(@argv);
-    my $c = $rum->config;
+    my $c = $rum->config or BAIL_OUT("Can't get RUM");
     is($c->name, "asdf", "Name");
     is($c->output_dir, "foo", "Output dir");
     is($c->rum_config_file, $config, "Config");
     ok($c->cleanup, "cleanup");
     is($c->min_length, undef, "min length");
     is($c->max_insertions, 1, "max insertions");
-
+    
     ok(!$c->dna, "no DNA");
     ok(!$c->genome_only, "no genome only");
     ok(!$c->variable_read_lengths, "no variable read lengths");
@@ -161,56 +178,43 @@ sub check_defaults {
     is($c->nu_limit, undef, "nu limit");
 }
 
-sub check_fixes_name {
-    my @argv = ("--config", $config,
-                "--output", "foo",
-                "-n",
-                "in.fq");    
-    is(rum(@argv, "--name", ",foo bar,baz,")->config->name,
-       "foo_bar_baz",
-       "Fixes name");
-}
+# Check that we clean up a name
+is(rum("--config", $config,
+       "--output", "foo",
+       "-n",
+       "in.fq", "--name", ",foo bar,baz,")->config->name,
+   "foo_bar_baz",
+   "Clean up name with invalid characters");
 
-sub check_missing_reads_file {
-    throws_ok sub {
-        run_rum("--config", $config, "--output", "bar", "--name", "asdf", "asdf.fq", "-q") 
-    }, qr/asdf.fq.*no such file or directory/i, "Read file doesn't exist";    
-    throws_ok sub {
-        run_rum("--config", $config, "--output", "bar", "--name", "asdf", $forward_64_fq, "asdf.fq", "-q") 
-    }, qr/asdf.fq.*no such file or directory/i, "Read file doesn't exist";    
-}
+# Check that rum fails if a read file is missing
+rum_fails_ok(["--config", $config, "--output", "bar",
+              "--name", "asdf", "asdf.fq", "-q"],
+             qr/asdf.fq.*no such file or directory/i,
+             "Read file doesn't exist");    
+rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf", 
+              $forward_64_fq, "asdf.fq", "-q"],
+             qr/asdf.fq.*no such file or directory/i, 
+             "Read file doesn't exist");    
 
-sub check_bad_reads {
-    throws_ok sub {
-        run_rum("--config", $config, "--output", "bar", "--name", "asdf", $bad_reads, "-q") 
-    }, qr/you appear to have entries/i, "Bad reads";    
+# Check bad reads
+rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf", 
+              $bad_reads, "-q"],
+             qr/you appear to have entries/i, "Bad reads");    
+rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf",
+              $bad_reads, $good_reads_same_size_as_bad, "-q"], 
+             qr/you appear to have entries/i, "Bad reads");    
+rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf",
+              $good_reads_same_size_as_bad, $bad_reads, "-q"],
+             qr/you appear to have entries/i, "Bad reads");    
 
-    throws_ok sub {
-        run_rum("--config", $config, "--output", "bar", "--name", "asdf",
-                $bad_reads, $good_reads_same_size_as_bad, "-q") 
-    }, qr/you appear to have entries/i, "Bad reads";    
-
-    throws_ok sub {
-        run_rum("--config", $config, "--output", "bar", "--name", "asdf",
-                $good_reads_same_size_as_bad, $bad_reads, "-q") 
-    }, qr/you appear to have entries/i, "Bad reads";    
-
-}
-
-sub preprocess {
-    my @args = @_;
-    my $rum = rum(@args);
-    eval { $rum->preprocess };
-    return $rum;
-}
-
-sub check_single_paired_fa {
+# Check that we preprocess a single paired-end fasta file correctly
+{
     my $rum = preprocess("--config", $config,
-                  "-o", tempdir(CLEANUP => 1),
-                  "--name", "asdf", "$SHARED_INPUT_DIR/reads.fa");
+                         "-o", tempdir(CLEANUP => 1),
+                         "--name", "asdf", "$SHARED_INPUT_DIR/reads.fa");
     
     my $prefix = "1, paired, fa, no chunks";
-
+    
     ok($rum->config->paired_end, "$prefix is paired end");
     ok($rum->config->input_is_preformatted, "$prefix is preformatted");
     ok($rum->config->input_needs_splitting, "$prefix needs splitting");
@@ -218,28 +222,18 @@ sub check_single_paired_fa {
     ok(! -e $rum->config->quals_fa, "$prefix: didn't make quals");
 }
 
-sub check_single_forward_fa {
+# Check that we process a single forward-read-only fasta file correctly
+{
     my $rum = preprocess("--config", $config,
-                  "-o", tempdir(CLEANUP => 1),
-                  "--name", "asdf",
-                  "$SHARED_INPUT_DIR/forward_only.fa");
+                         "-o", tempdir(CLEANUP => 1),
+                         "--name", "asdf",
+                         "$SHARED_INPUT_DIR/forward_only.fa");
+
     my $prefix = "1, single, fa, no chunks";
     ok( ! $rum->config->paired_end, "$prefix: not paired end");
     ok($rum->config->input_is_preformatted, "$prefix: is preformatted");
     ok($rum->config->input_needs_splitting, "$prefix: needs splitting");
 }
-
-sub check_single_forward_fa_chunks {
-    my $rum = preprocess("--config", $config,
-                  "-o", tempdir(CLEANUP => 1),
-                  "--name", "asdf",
-                  "$SHARED_INPUT_DIR/forward_only.fa");
-    my $prefix = "1, single, fa, no chunks";
-    ok( ! $rum->config->paired_end, "$prefix: not paired end");
-    ok($rum->config->input_is_preformatted, "$prefix: is preformatted");
-    ok($rum->config->input_needs_splitting, "$prefix: needs splitting");
-}
-
 
 # TODO: What to do for single reads file that is not preformatted?
 #    $rum = rum(@argv, $forward_64_fq);
@@ -249,8 +243,8 @@ sub check_single_forward_fa_chunks {
 #    ok($rum->config->input_needs_splitting, "Needs splitting");
 
 
-
-sub check_pair_fastq_files {
+# Check that we process a pair of fastq files correctly
+{
     my @argv = ("--config", $config, "--name", "asdf");
     my $rum = rum(@argv, "-o", tempdir(CLEANUP => 1),
                   $forward_64_fq, $reverse_64_fq);
@@ -263,7 +257,10 @@ sub check_pair_fastq_files {
     ok(-e $quals, "$prefix: made quals file");
 }
 
-sub check_pair_fastq_files_with_chunks {
+
+# Check that we process a pair of fastq files correctly when tnhe need
+# to be split into chunks.
+{
     my @argv = ("--config", $config, "--name", "asdf");
     my $rum = preprocess(@argv, "-o", tempdir(CLEANUP => 1),
                   "--chunks", 2,
@@ -278,7 +275,9 @@ sub check_pair_fastq_files_with_chunks {
     }
 }
 
-sub check_pair_fasta_files_with_chunks {
+# Check that we process a pair of fasta files correctly when the need
+# to be split into chunks
+{
     my @argv = ("--config", $config, "--name", "asdf");
     my $rum = preprocess(@argv, "-o", tempdir(CLEANUP => 0),
                   "--chunks", 2,
@@ -294,47 +293,6 @@ sub check_pair_fasta_files_with_chunks {
     }
 }
 
-sub check_limit_nu {
-    throws_ok sub {
-        run_rum("--config", $config, "--output", "bar", "--name", "asdf", 
-                $forward_64_fq,, $reverse_64_fq,
-                "--limit-nu", "asdf");
-    }, qr/--limit-nu/i, "Bad --limit-nu";    
-
-    my @argv = ("--config", $config,
-                "--output", "foo",
-                "--name", "asdf",
-                $forward_64_fq,
-                "--limit-nu", 50);
-
-    my $rum = rum(@argv);
-    my $c = $rum->config;
-    is($c->nu_limit, 50, "Nu limit");
-
-    @argv = ("--config", $config,
-             "--output", "foo",
-             "--name", "asdf",
-             $forward_64_fq,
-             "--limit-bowtie-nu");
-
-    $rum = rum(@argv);
-    $c = $rum->config;
-    is($c->bowtie_nu_limit, 100, "Nu limit");
-}
-
-version_ok;
-help_config_ok;
-check_missing_args;
-check_defaults;
-check_fixes_name;
-check_missing_reads_file;
-check_bad_reads;
-check_single_forward_fa;
-check_pair_fastq_files;
-check_pair_fasta_files_with_chunks;
-check_single_paired_fa;
-check_pair_fastq_files_with_chunks;
-check_limit_nu;
 
 sub chunk_cmd_unlike {
     my ($args, $step, $re, $comment) = @_;
@@ -405,3 +363,9 @@ chunk_cmd_like([@standard_args, "--strand-specific"],
                "Generate quants for strand p, sense a",
                qr/--strand p.*--anti/i, 
                "--strand-specific quantifications");
+
+chunk_cmd_like([@standard_args],
+               "Run blat on unmapped reads",
+               qr/-minIdentity='93' -tileSize='12' -stepSize='6' -repMatch='256' -maxIntron='500000'/,
+               "Blat default options");
+    
