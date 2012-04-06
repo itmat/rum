@@ -1,4 +1,4 @@
-use Test::More tests => 64;
+use Test::More tests => 65;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -20,7 +20,7 @@ our $reverse_64_fq = "$SHARED_INPUT_DIR/reverse64.fq";
 our $forward_64_fa = "$SHARED_INPUT_DIR/forward64.fa";
 our $reverse_64_fa = "$SHARED_INPUT_DIR/reverse64.fa";
 
-BEGIN { use_ok('RUM::Script::Runner') }
+BEGIN { use_ok('RUM::Script::Runner') or BAIL_OUT "Couldn't load RUM::Script::Runner" }
 
 {
     # Redefine a couple methods in RUM::Usage so we can run the
@@ -366,6 +366,17 @@ chunk_cmd_like([@standard_args, "--strand-specific"],
 
 chunk_cmd_like([@standard_args],
                "Run blat on unmapped reads",
-               qr/-minIdentity='93' -tileSize='12' -stepSize='6' -repMatch='256' -maxIntron='500000'/,
+               qr/-maxIntron='500000' -minIdentity='93' -repMatch='256' -stepSize='6' -tileSize='12'/,
                "Blat default options");
+
+chunk_cmd_like([@standard_args,
+                "--maxIntron",   1,
+                "--minIdentity", 2,
+                "--repMatch",    3,
+                "--stepSize",    4,
+                "--tileSize",    5,
+            ],
+               "Run blat on unmapped reads",
+               qr/-maxIntron='1' -minIdentity='2' -repMatch='3' -stepSize='4' -tileSize='5'/,
+               "Blat specified options");
     

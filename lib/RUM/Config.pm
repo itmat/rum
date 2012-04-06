@@ -235,7 +235,15 @@ sub dna_opt                 { $_[0]->{dna} ? "--dna" : "" }
 
 sub blat_opts {
     # TODO: Allow me to be configured
-    return "-minIdentity='93' -tileSize='12' -stepSize='6' -repMatch='256' -maxIntron='500000'";
+    my ($self) = @_;
+    my %opts = (
+        minIdentity => $self->blat_min_identity,
+        tileSize => $self->blat_tile_size,
+        stepSize => $self->blat_step_size,
+        repMatch => $self->blat_rep_match,
+        maxIntron => $self->blat_max_intron);
+
+    return join(" ", map("-$_='$opts{$_}'", sort keys %opts));
 }
 
 # These functions return filenames that are named uniquely for this
