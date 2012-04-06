@@ -1,4 +1,4 @@
-use Test::More tests => 65;
+use Test::More tests => 70;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -19,6 +19,7 @@ our $forward_64_fq = "$SHARED_INPUT_DIR/forward64.fq";
 our $reverse_64_fq = "$SHARED_INPUT_DIR/reverse64.fq";
 our $forward_64_fa = "$SHARED_INPUT_DIR/forward64.fa";
 our $reverse_64_fa = "$SHARED_INPUT_DIR/reverse64.fa";
+our $alt_genes     = "$SHARED_INPUT_DIR/alt_genes.txt";
 
 BEGIN { use_ok('RUM::Script::Runner') or BAIL_OUT "Couldn't load RUM::Script::Runner" }
 
@@ -322,6 +323,34 @@ sub chunk_cmd_like {
     }
 }
 
+sub postproc_cmd_unlike {
+    my ($args, $step, $re, $comment) = @_;
+    postproc_cmd_like($args, $step, $re, $comment, 1);
+}
+
+sub postproc_cmd_like {
+    my ($args, $step, $re, $comment, $negate) = @_;
+    my $rum = rum(@$args);
+
+    eval {
+        my $config = $rum->config;
+        $config->set('read_length', 75);
+        my $workflow = RUM::Workflows->postprocessing_workflow($config);
+        my @commands = $workflow->commands($step);
+        
+        if ($negate) {
+            unlike($commands[0], $re, $comment);           
+        }
+        else {
+            like($commands[0], $re, $comment);        
+        }
+
+    };
+    if ($@) {
+        fail("Failed with $@");
+    }
+}
+
 #
 # Tests that verify that options to rum_runner make it into the
 # workflow
@@ -346,6 +375,10 @@ chunk_cmd_like([@standard_args, "--limit-nu", 15], "Limit NU",
                qr/limit_nu.pl --cutoff\s*15/i, 
                "Cutoff passed to limit_nu");    
 
+rum_fails_ok([@standard_args, "--limit-nu", "asdf"],
+               qr/nu must be an integer greater than/i, 
+               "Bad --limit-nu");    
+
 chunk_cmd_like([@standard_args, "--max-insertions-per-read", 2],
                "Parse blat output",
                qr/--max-insertions 2/i, 
@@ -364,6 +397,7 @@ chunk_cmd_like([@standard_args, "--strand-specific"],
                qr/--strand p.*--anti/i, 
                "--strand-specific quantifications");
 
+# Check the blat options
 chunk_cmd_like([@standard_args],
                "Run blat on unmapped reads",
                qr/-maxIntron='500000' -minIdentity='93' -repMatch='256' -stepSize='6' -tileSize='12'/,
@@ -379,4 +413,27 @@ chunk_cmd_like([@standard_args,
                "Run blat on unmapped reads",
                qr/-maxIntron='1' -minIdentity='2' -repMatch='3' -stepSize='4' -tileSize='5'/,
                "Blat specified options");
-    
+rum_fails_ok([@standard_args, "--minIdentity", 200],
+             qr/identity must be an integer/i,
+             "Min identity too high");
+rum_fails_ok([@standard_args, "--minIdentity", "foo"],
+             qr/identity must be an integer/i,
+             "Min identity not an int");
+
+
+rum_fails_ok([@standard_args, "--min-length", 5],
+             qr/length must be an integer/,
+             "Min length too low");
+
+rum_fails_ok([@standard_args, "--variable-length", "--preserve-names"],
+             qr/can.*t use.*preserve.*names.*variable.*length/i,
+             "--variable-length and --preserve-names fail");
+
+rum_fails_ok([@standard_args, "--alt-genes", "foobar"],
+             qr/foobar.*no such file/i,
+             "Bad --alt-genes");
+
+postproc_cmd_like([@standard_args, "--alt-genes", $alt_genes],
+                  "make_junctions",
+                  qr/--genes $alt_genes/i,
+                  "--alt-genes gets passed to make_RUM_junctions_file");

@@ -134,7 +134,7 @@ sub chunk_workflow {
          $c->blat_opts]);
     
     $m->step(
-         "Run mdust on the unmapped reads",
+         "Run mdust on unmapped reads",
          [$c->mdust_bin,
           pre($c->bowtie_unmapped),
           " > ",

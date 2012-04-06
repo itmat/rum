@@ -39,6 +39,11 @@ my %defaults = (
     name => "foo",
     alt_quant_model => "",
     alt_genes => undef,
+    blat_min_identity => 93,
+    blat_tile_size => 12,
+    blat_step_size => 6,
+    blat_rep_match => 256,
+    blat_max_intron => 500000
 );
 
 SKIP: {

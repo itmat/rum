@@ -152,10 +152,6 @@ sub get_options {
         "alt-genes=s" => \(my $alt_genes),
         "alt-quants=s" => \(my $alt_quant),
         "min-identity" => \(my $min_identity = 93),
-        "tileSize=s" => \(my $tile_size = 12),
-        "stepSize=s" => \(my $step_size = 6),
-        "repMatch=s" => \(my $rep_match = 256),
-        "maxIntron=s" => \(my $max_intron = 500000),
         "min-length=s" => \(my $min_length),
         "quals-file|qual-file=s" => \(my $quals_file),
 
@@ -195,6 +191,7 @@ sub get_options {
     $c->set('num_chunks',  $num_chunks);
     $c->set('reads', [@ARGV]);
     $c->set('preserve_names', $preserve_names);
+    $c->set('variable_length_reads', $variable_read_lengths);
     $c->set('user_quals', $quals_file);
     $c->set('rum_config_file', $rum_config_file);
     $c->set('name', $name);
@@ -271,19 +268,27 @@ sub check_config {
         "Cannot use both --preserve-names and --variable-read-lengths at ".
             "the same time. Sorry, we will fix this eventually.";
 
-    if ($c->alt_genes) {
-        -r $c->alt_genes or push @errors,
-            "Can't read from ".$c->alt_genes.": $!";
-    }
-    if ($c->alt_quant_model) {
-        -r $c->alt_quant_model or push @errors,
-            "Can't read from ".$c->alt_quant_model.": $!";
-    }
+    local $_ = $c->blat_min_identity;
+    /^\d+$/ && $_ <= 100 or push @errors,
+        "--blat-min-identity or --minIdentity must be an integer between ".
+            "0 and 100.";
 
     @errors = map { wrap('* ', '  ', $_) } @errors;
 
     my $msg = "Usage errors:\n\n" . join("\n", @errors);
-    RUM::Usage->bad($msg) if @errors;
+    RUM::Usage->bad($msg) if @errors;    
+    
+    if ($c->alt_genes) {
+        -r $c->alt_genes or die
+            "Can't read from alt gene file ".$c->alt_genes.": $!";
+    }
+    if ($c->alt_quant_model) {
+        -r $c->alt_quant_model or die
+            "Can't read from ".$c->alt_quant_model.": $!";
+    }
+
+
+
     
 }
 
@@ -645,9 +650,9 @@ sub fix_name {
     s/[^a-zA-Z0-9_.-]$//g;
     s/[^a-zA-Z0-9_.-]/_/g;
     
-    if($_ ne $name_o) {
-        WARN("Name changed from '$name_o' to '$_'");
-    }
+#    if($_ ne $name_o) {
+#        WARN("Name changed from '$name_o' to '$_'");
+#    }
     return $_;
 }
 
