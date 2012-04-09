@@ -286,9 +286,6 @@ sub check_config {
         -r $c->alt_quant_model or die
             "Can't read from ".$c->alt_quant_model.": $!";
     }
-
-
-
     
 }
 

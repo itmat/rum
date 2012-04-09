@@ -268,7 +268,23 @@ sub chunk_workflow {
                           "-countsonly",
                           "--strand", $strand,
                           $sense eq 'a' ? "--anti" : ""]]
-                    );                 
+                    );
+                if ($c->alt_quant_model) {
+                    my $file = $c->alt_quant($strand, $sense);
+                    push @goal, $file;
+                    $m->add_command(
+                        name => "Generate alt quants for strand $strand, sense $sense",
+                        commands => 
+                            [["perl", $c->script("rum2quantifications.pl"),
+                              "--genes-in", $c->alt_quant_model,
+                              "--unique-in", pre($c->rum_unique_sorted),
+                              "--non-unique-in", pre($c->rum_nu_sorted),
+                              "-o", post($file),
+                              "-countsonly",
+                              "--strand", $strand,
+                              $sense eq 'a' ? "--anti" : ""]]
+                        );
+                }
             }
         }
     }
@@ -284,6 +300,20 @@ sub chunk_workflow {
                   "-o", post($c->quant),
                   "-countsonly"]]
             );            
+        if ($c->alt_quant_model) {
+            push @goal, $c->alt_quant;
+            $m->add_command(
+                name => "Generate alt quants",
+                commands => 
+                    [["perl", $c->script("rum2quantifications.pl"),
+                      "--genes-in", $c->alt_quant_model,
+                      "--unique-in", pre($c->rum_unique_sorted),
+                      "--non-unique-in", pre($c->rum_nu_sorted),
+                      "-o", post($c->alt_quant),
+                      "-countsonly"]]
+                );
+        }
+        
     }
 
     $m->set_goal(\@goal);

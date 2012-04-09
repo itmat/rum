@@ -1,4 +1,4 @@
-use Test::More tests => 70;
+use Test::More tests => 78;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -20,6 +20,7 @@ our $reverse_64_fq = "$SHARED_INPUT_DIR/reverse64.fq";
 our $forward_64_fa = "$SHARED_INPUT_DIR/forward64.fa";
 our $reverse_64_fa = "$SHARED_INPUT_DIR/reverse64.fa";
 our $alt_genes     = "$SHARED_INPUT_DIR/alt_genes.txt";
+our $alt_quant     = "$SHARED_INPUT_DIR/alt_quant.txt";
 
 BEGIN { use_ok('RUM::Script::Runner') or BAIL_OUT "Couldn't load RUM::Script::Runner" }
 
@@ -429,11 +430,39 @@ rum_fails_ok([@standard_args, "--variable-length", "--preserve-names"],
              qr/can.*t use.*preserve.*names.*variable.*length/i,
              "--variable-length and --preserve-names fail");
 
+# Check --alt-genes
 rum_fails_ok([@standard_args, "--alt-genes", "foobar"],
              qr/foobar.*no such file/i,
              "Bad --alt-genes");
-
 postproc_cmd_like([@standard_args, "--alt-genes", $alt_genes],
                   "make_junctions",
                   qr/--genes $alt_genes/i,
                   "--alt-genes gets passed to make_RUM_junctions_file");
+
+# Check --alt-quant
+rum_fails_ok([@standard_args, "--alt-quant", "foobar"],
+             qr/foobar.*no such file/i,
+             "Bad --alt-quant");
+chunk_cmd_unlike([@standard_args, "--alt-quant", $alt_quant],
+                 "Separate unique and non-unique mappers from transcriptome bowtie output",
+                  qr/$alt_quant/i,
+                  "--alt-quant does not get passed to make_tu_and_tnu");
+
+chunk_cmd_unlike([@standard_args, "--alt-quant", $alt_quant, "--strand-specific"],
+                  "Generate quants for strand p, sense a",
+                  qr/--genes.*$alt_quant/i,
+                  "Generate quants based on gene info file with --alt-quant and --strand-specific");
+chunk_cmd_like([@standard_args, "--alt-quant", $alt_quant, "--strand-specific"],
+                  "Generate alt quants for strand p, sense a",
+                  qr/--genes.*$alt_quant/i,
+                  "Generate alt quants with --alt-quant and --strand-specific");
+
+chunk_cmd_unlike([@standard_args, "--alt-quant", $alt_quant],
+                  "Generate quants",
+                  qr/--genes.*$alt_quant/i,
+                  "Generate quants based on gene info file with --alt-quant");
+chunk_cmd_like([@standard_args, "--alt-quant", $alt_quant],
+                  "Generate alt quants",
+                  qr/--genes.*$alt_quant/i,
+                  "Generate alt quants with --alt-quant");
+
