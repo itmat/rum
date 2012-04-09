@@ -234,6 +234,7 @@ sub chunk_workflow {
     $m->step(
         "Sort RUM_Unique by location", 
         ["perl", $c->script("sort_RUM_by_location.pl"),
+         $c->ram_opt,
          pre($c->rum_unique),
          "-o", post($c->rum_unique_sorted),
          ">>", post($c->chr_counts_u)]);
@@ -241,6 +242,7 @@ sub chunk_workflow {
     $m->step(
         "Sort RUM_NU", 
         ["perl", $c->script("sort_RUM_by_location.pl"),
+         $c->ram_opt,
          pre($c->rum_nu),
          "-o", post($c->rum_nu_sorted),
          ">>", $c->chr_counts_nu]);

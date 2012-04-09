@@ -83,11 +83,13 @@ sub run_pipeline {
         $self->process;
     }
     elsif ($self->do_preprocess || $self->do_process || $self->do_postprocess) {
+        $self->check_ram;
         $self->preprocess  if $self->do_preprocess;
         $self->process     if $self->do_process;
         $self->postprocess if $self->do_postprocess;
     }
     else {
+        $self->check_ram;
         $self->preprocess;
         $self->process;
         $self->postprocess;
@@ -127,7 +129,7 @@ sub get_options {
 
         # Control how we divide up the job.
         "chunks=s" => \(my $num_chunks = 0),
-        "ram"      => \(my $ram = 6),
+        "ram=s"      => \(my $ram = 6),
         "qsub"     => \(my $qsub),
 
         # Control logging and cleanup of temporary files.
@@ -728,7 +730,7 @@ sub reformat_reads {
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
         $self->{input_needs_splitting} = 1;
         my $X = join("\n", head($config->quals_fa, 20));
-        if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
+        if($X =~ /\S/s && !($X =~ /Sorry, can\'t figure these files out/s)) {
             $have_quals = "true";
         }
     }
@@ -943,6 +945,131 @@ sub breakup_file  {
     return 0;
 }
 
+sub check_ram {
+
+    my ($self) = @_;
+
+    return if $self->do_postprocess;
+
+    my $c = $self->config;
+
+    my $genome_blat = $c->genome_fa;
+    my $output_dir = $c->output_dir;
+    my $gs1 = -s $genome_blat;
+    `grep ">" $genome_blat > $output_dir/temp.1`;
+    my $gs2 = -s "$output_dir/temp.1";
+    my $gs3 = `wc -l $output_dir/temp.1`;
+    $gs3 =~ s/^\s*(\d+)//;
+    $gs3 = $1;
+
+    my $genome_size = $gs1 - $gs2 - $gs3;
+    my $gs4 = &format_large_int($genome_size);
+    `yes|rm $output_dir/temp.1`;
+    my $gsz = $genome_size / 1000000000;
+    my $min_ram = int($gsz * 1.67)+1;
+    
+    print(wrap("", "", "I'm going to try to figure out how much RAM ",
+               "you have. If you see some error messages here, ",
+               " don't worry, these are harmless.\n"));
+    #sleep($PAUSE_TIME * 2);
+    
+    if (!$c->ram) {
+        $c->set('ram', $self->available_ram);
+    }
+
+    my $totalram = $c->ram;
+    my $RAMperchunk;
+    my $ram;
+
+    # We couldn't figure out RAM, warn user.
+    if ($totalram) {
+        $RAMperchunk = int($totalram / ($c->num_chunks||1));
+    } else {
+        warn("Warning: I could not determine how much RAM you " ,
+             "have.  If you have less than $min_ram gigs per ",
+             "chunk this might not work. I'm going to ",
+             "proceed with fingers crossed.\n");
+        $ram = $min_ram;      
+    }
+    
+    if ($totalram) {
+
+        if($RAMperchunk >= $min_ram) {
+            print(wrap("", "", "It seems like you have $totalram Gb of RAM on ",
+                       "your machine. Unless you have too much other stuff ",
+                       "running, RAM should not be a problem.\n"));
+        } else {
+            print(wrap("", "","Warning: you have only $RAMperchunk Gb of RAM ",
+                       "per chunk.  Based on the size of your genome ",
+                       "you will probably need more like $min_ram Gb ",
+                       "per chunk. Anyway I can try and see what ",
+                       "happens."));
+            print "Do you really want me to proceed?  Enter 'Y' or 'N': ";
+            local $_ = <STDIN>;
+            if(/^n$/i) {
+                exit();
+            }
+        }
+        $ram = $min_ram;
+        if($ram < 6 && $ram < $RAMperchunk) {
+            $ram = $RAMperchunk;
+            if($ram > 6) {
+                $ram = 6;
+            }
+        }
+
+        $c->set('ram', $ram);
+        # sleep($PAUSE_TIME);
+    }
+
+}
+
+sub available_ram {
+
+    my ($self) = @_;
+
+    my $c = $self->config;
+
+    return $c->ram if $c->ram;
+
+    local $_;
+
+    # this should work on linux
+    $_ = `free -g`; 
+    if (/Mem:\s+(\d+)/s) {
+        return $1;
+    }
+
+    # this should work on freeBSD
+    $_ = `grep memory /var/run/dmesg.boot`;
+    if (/avail memory = (\d+)/) {
+        return int($1 / 1000000000);
+    }
+
+    # this should work on a mac
+    $_ = `top -l 1 | grep free`;
+    if (/(\d+)(.)\s+used, (\d+)(.) free/) {
+        my $used = $1;
+        my $type1 = $2;
+        my $free = $3;
+        my $type2 = $4;
+        if($type1 eq "K" || $type1 eq "k") {
+            $used = int($used / 1000000);
+        }
+        if($type2 eq "K" || $type2 eq "k") {
+            $free = int($free / 1000000);
+        }
+        if($type1 eq "M" || $type1 eq "m") {
+            $used = int($used / 1000);
+        }
+        if($type2 eq "M" || $type2 eq "m") {
+            $free = int($free / 1000);
+        }
+        return $used + $free;
+    }
+    return 0;
+}
+        
 
 1;
 

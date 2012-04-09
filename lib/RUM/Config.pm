@@ -342,6 +342,8 @@ sub novel_inferred_internal_exons_quantifications {
                                     .$self->name);
 }
 
-
+sub ram_opt {
+    return $_[0]->ram == 6 ? "" : "--ram ".$_[0]->ram;
+}
 
 1;

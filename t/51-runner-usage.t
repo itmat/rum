@@ -1,4 +1,4 @@
-use Test::More tests => 78;
+use Test::More tests => 81;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -466,3 +466,18 @@ chunk_cmd_like([@standard_args, "--alt-quant", $alt_quant],
                   qr/--genes.*$alt_quant/i,
                   "Generate alt quants with --alt-quant");
 
+
+chunk_cmd_like([@standard_args, "--count-mismatches"],
+               "Clean up RUM files",
+               qr/--count-mismatches/,
+               "--count-mismatches is passed to RUM_finalcleanup.pl");
+chunk_cmd_unlike([@standard_args],
+               "Clean up RUM files",
+               qr/--count-mismatches/,
+               "--count-mismatches is not passed to RUM_finalcleanup.pl when ".
+                   "it isn't specified");
+
+chunk_cmd_like([@standard_args, "--ram", 8],
+               "Sort RUM_NU",
+               qr/--ram 8/,
+               "--ram is passed sort_rum_by_location.pl");
