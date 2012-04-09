@@ -19,8 +19,6 @@ use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
 our $log = RUM::Logging->get_logger();
 our $LOGO;
 
-sub INFO   { $log->info(wrap("", "", @_))   }
-
 sub do_status { $_[0]->{directives}{status} }
 sub do_clean { $_[0]->{directives}{clean} }
 sub do_veryclean { $_[0]->{directives}{veryclean} }
@@ -32,6 +30,13 @@ sub do_preprocess { $_[0]->{directives}{preprocess} }
 sub do_process { $_[0]->{directives}{process} }
 sub do_postprocess { $_[0]->{directives}{postprocess} }
 sub do_dry_run { $_[0]->{directives}{dry_run} }
+sub be_quiet { $_[0]->{directives}{quiet} }
+
+sub say {
+    my ($self, @msg) = @_;
+    $log->info("@msg");
+    print wrap("", "", @msg) . "\n" unless $self->be_quiet;
+}
 
 sub main {
     my ($class) = @_;
@@ -43,13 +48,13 @@ sub run {
     $self->get_options();
 
     if ($self->do_version) {
-        print "RUM version $RUM::Pipeline::VERSION, released $RUM::Pipeline::RELEASE_DATE\n";
+        $self->say("RUM version $RUM::Pipeline::VERSION, released $RUM::Pipeline::RELEASE_DATE");
     }
     elsif ($self->do_help) {
         RUM::Usage->help;
     }
     elsif ($self->do_help_config) {
-        print $RUM::ConfigFile::DOC;
+        $self->say($RUM::ConfigFile::DOC);
     }
     elsif ($self->do_shell_script) {
         $self->export_shell_script;
@@ -63,7 +68,6 @@ sub run_pipeline {
     my ($self) = @_;
 
     $self->check_config();        
-    $self->show_logo();
 
     if ($self->do_status) {
         $self->determine_read_length();
@@ -77,12 +81,16 @@ sub run_pipeline {
         $self->process;
     }
     elsif ($self->do_preprocess || $self->do_process || $self->do_postprocess) {
+        $self->show_logo();
+        $self->setup;
         $self->check_ram;
         $self->preprocess  if $self->do_preprocess;
         $self->process     if $self->do_process;
         $self->postprocess if $self->do_postprocess;
     }
     else {
+        $self->show_logo();
+        $self->setup;
         $self->check_ram;
         $self->preprocess;
         $self->process;
@@ -94,7 +102,7 @@ sub run_pipeline {
 sub get_options {
     my ($self) = @_;
     my $c = RUM::Config->new(argv => [@ARGV]);
-
+    my $quiet;
     Getopt::Long::Configure(qw(no_ignore_case));
     GetOptions(
 
@@ -129,7 +137,7 @@ sub get_options {
         # Control logging and cleanup of temporary files.
         "no-clean" => \(my $no_clean),
         "verbose|v"   => sub { $log->more_logging(1) },
-        "quiet|q"     => sub { $log->less_logging(1) },
+        "quiet|q"     => sub { $log->less_logging(1); $quiet = 1; },
 
         # Advanced parameters
         "read-lengths=s" => \(my $read_lengths),
@@ -167,8 +175,12 @@ sub get_options {
         help_config  => $do_help_config,
         dry_run      => $do_dry_run,
         status       => $do_status,
-        clean     => $do_clean,
-        veryclean     => $do_veryclean
+        clean        => $do_clean,
+        veryclean    => $do_veryclean,
+        preprocess   => $do_preprocess,
+        process      => $do_process,
+        postpreprocess => $do_postprocess,
+        quiet => $quiet
     };
 
     $c->set('bowtie_nu_limit', 100) if $limit_bowtie_nu;
@@ -292,19 +304,18 @@ sub config {
 
 sub preprocess {
     my ($self) = @_;
-    $self->setup;
     $self->check_input();
     $self->reformat_reads();
     $self->determine_read_length();
 }
 
 sub step_printer {
-    my ($workflow) = @_;
+    my ($self, $workflow) = @_;
     return sub {
         my ($step, $skipping) = @_;
         my $indent = $skipping ? "(skipping) " : "(running)  ";
         my $comment = $workflow->comment($step);
-        $log->info(wrap($indent, "           ", $comment));
+        $self->say(wrap($indent, "           ", $comment));
     };
 }
 
@@ -405,7 +416,7 @@ sub process {
             $w->clean($self->do_veryclean);
         }
         else {
-            $w->execute(step_printer($w));
+            $w->execute($self->step_printer($w));
         }
     }
     elsif ($config->num_chunks) {
@@ -418,7 +429,7 @@ sub process {
             $w->clean($self->do_veryclean);
         }
         else {
-            $w->execute(step_printer($w));        
+            $w->execute($self->step_printer($w));        
         }
     }
 }
@@ -432,7 +443,7 @@ sub postprocess {
         $w->clean($self->do_veryclean);
     }
     else {
-        $w->execute(step_printer($w));
+        $w->execute($self->step_printer($w));
     }
 }
 
@@ -440,7 +451,7 @@ sub setup {
     my ($self) = @_;
     my $output_dir = $self->config->output_dir;
     unless (-d $output_dir) {
-        mkpath($output_dir) or LOGDIE "mkdir $output_dir: $!";
+        mkpath($output_dir) or die "mkdir $output_dir: $!";
     }
 
 }
@@ -455,9 +466,9 @@ our $READ_CHECK_LINES = 50000;
 
 sub check_input {
     my ($self) = @_;
-    $log->info("Checking input files");
+    $log->debug("Checking input files");
     $self->check_reads_for_quality;
-    $log->info("They look ok");
+
     if ($self->reads == 1) {
         $self->check_single_reads_file;
     }
@@ -504,7 +515,7 @@ sub check_reads_for_quality {
     my ($self) = @_;
 
     for my $filename (@{ $self->config->reads }) {
-        $log->info("Checking $filename");
+        $log->debug("Checking $filename");
         open my $fh, "<", $filename or croak
             "Can't open reads file $filename for reading: $!\n";
 
@@ -562,7 +573,7 @@ sub check_read_file_pair {
             chomp($line1);
             chomp($line2);
             if(length($line1) != length($line2)) {
-                LOGDIE("It seems your read lengths differ from your quality string lengths. Check line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.");
+                die("It seems your read lengths differ from your quality string lengths. Check line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.");
             }
         }
     }
@@ -624,13 +635,14 @@ sub new {
 }
 
 sub show_logo {
+    my ($self) = @_;
     my $msg = <<EOF;
 
 RUM Version $RUM::Pipeline::VERSION
 
 $LOGO
 EOF
-    print $msg;
+    $self->say($msg);
 
 }
 
@@ -650,7 +662,7 @@ sub check_gamma {
     my ($self) = @_;
     my $host = `hostname`;
     if ($host =~ /login.genomics.upenn.edu/ && !$self->config->qsub) {
-        LOGDIE("you cannot run RUM on the PGFI cluster without using the --qsub option.");
+        die("you cannot run RUM on the PGFI cluster without using the --qsub option.");
     }
 }
 
@@ -662,7 +674,7 @@ sub reformat_reads {
 
     my ($self) = @_;
 
-    INFO("Reformatting reads file... please be patient.");
+    $self->say("Reformatting reads file... please be patient.");
 
     my $config = $self->config;
     my $output_dir = $config->output_dir;
@@ -698,8 +710,8 @@ sub reformat_reads {
     my $have_quals = 0;
 
     if($is_fastq && !$config->variable_read_lengths) {
-        INFO("Splitting fastq file into $num_chunks chunks with separate " .
-                 "reads and quals");
+        $self->say("Splitting fastq file into $num_chunks chunks ",
+                   "with separate reads and quals");
         shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $output_dir/rum.error-log");
         my @errors = `grep -A 2 "something wrong with line" $error_log`;
         die "@errors" if @errors;
@@ -708,7 +720,7 @@ sub reformat_reads {
     }
  
     elsif ($is_fasta && !$config->variable_read_lengths && !$preformatted) {
-        INFO("Splitting fasta file into $num_chunks chunks");
+        $self->say("Splitting fasta file into $num_chunks chunks");
         shell("perl $parse_fasta $reads_in $num_chunks $reads_fa $name_mapping_opt 2>> $error_log");
         $have_quals = 0;
         $self->{input_needs_splitting} = 0;
@@ -716,7 +728,7 @@ sub reformat_reads {
 
     elsif (!$preformatted) {
 
-        INFO("Splitting fasta file into reads and quals");
+        $self->say("Splitting fasta file into reads and quals");
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
         $self->{input_needs_splitting} = 1;
@@ -727,19 +739,19 @@ sub reformat_reads {
     }
     else {
         # This should only be entered when we have one read file
-        INFO("Splitting read file, please be patient...");        
+        $self->say("Splitting read file, please be patient...");        
 
         $self->breakup_file($reads[0], 0);
 
         if ($have_quals) {
-            INFO( "Half done splitting; starting qualities...");
+            $self->say( "Half done splitting; starting qualities...");
             breakup_file($config->quals_fa, 1);
         }
         elsif ($config->user_quals) {
-            INFO( "Half done splitting; starting qualities...");
+            $self->say( "Half done splitting; starting qualities...");
             breakup_file($config->user_quals, 1);
         }
-        INFO("Done splitting");
+        $self->say("Done splitting");
     }
 }
 
@@ -772,21 +784,21 @@ sub print_status {
     my $digits = num_digits($n);
     my $format = "%${digits}d/%${digits}d";
 
-    $log->info("Processing in $n chunks");
-    $log->info("-----------------------");
+    $self->say("Processing in $n chunks");
+    $self->say("-----------------------");
     for (@steps) {
         my $progress = sprintf $format, $num_completed{$_}, $n;
         my $comment   = $comments{$_};
-        $log->info("$progress $comment");
+        $self->say("$progress $comment");
     }
 
-    $log->info();
-    $log->info("Postprocessing");
-    $log->info("--------------");
+    $self->say();
+    $self->say("Postprocessing");
+    $self->say("--------------");
     my $postproc = RUM::Workflows->postprocessing_workflow($config);
     my $handle_state = sub {
         my ($name, $completed) = @_;
-        $log->info(($completed ? "X" : " ") . " " . $postproc->comment($name));
+        $self->say(($completed ? "X" : " ") . " " . $postproc->comment($name));
     };
     $postproc->walk_states($handle_state);
 }
@@ -823,7 +835,7 @@ sub chunk_nums {
 sub export_shell_script {
     my ($self) = @_;
 
-    INFO("Generating pipeline shell script for each chunk");
+    $self->say("Generating pipeline shell script for each chunk");
     for my $chunk ($self->chunk_nums) {
         my $config = $self->config->for_chunk($chunk);
         my $w = RUM::Workflows->chunk_workflow($chunk);
@@ -872,7 +884,7 @@ sub breakup_file  {
     my $c = $self->config;
 
     if(!(open(INFILE, $FILE))) {
-       LOGDIE("Cannot open '$FILE' for reading.");
+       die("Cannot open '$FILE' for reading.");
     }
     my $tail = `tail -2 $FILE | head -1`;
     $tail =~ /seq.(\d+)/s;
@@ -885,12 +897,12 @@ sub breakup_file  {
     my $piecesize2 = format_large_int($piecesize);
     if(!($FILE =~ /qual/)) {
 	if($c->num_chunks > 1) {
-	    INFO("processing in ".
+	    $self->say("processing in ".
                      $c->num_chunks . 
                          " pieces of approx $piecesize2 reads each\n");
 	} else {
 	    my $NS2 = format_large_int($NS);
-	    INFO("processing in one piece of $NS2 reads\n");
+	    $self->say("processing in one piece of $NS2 reads\n");
 	}
     }
     if($piecesize % 2 == 1) {
@@ -959,9 +971,10 @@ sub check_ram {
     my $gsz = $genome_size / 1000000000;
     my $min_ram = int($gsz * 1.67)+1;
     
-    print(wrap("", "", "I'm going to try to figure out how much RAM ",
+    $self->say("I'm going to try to figure out how much RAM ",
                "you have. If you see some error messages here, ",
-               " don't worry, these are harmless.\n"));
+               " don't worry, these are harmless.");
+    $self->say();
     #sleep($PAUSE_TIME * 2);
     
     if (!$c->ram) {
@@ -986,21 +999,24 @@ sub check_ram {
     if ($totalram) {
 
         if($RAMperchunk >= $min_ram) {
-            print(wrap("", "", "It seems like you have $totalram Gb of RAM on ",
-                       "your machine. Unless you have too much other stuff ",
-                       "running, RAM should not be a problem.\n"));
+            $self->say(
+                "It seems like you have $totalram Gb of RAM on ",
+                "your machine. Unless you have too much other stuff ",
+                "running, RAM should not be a problem.");
         } else {
-            print(wrap("", "","Warning: you have only $RAMperchunk Gb of RAM ",
-                       "per chunk.  Based on the size of your genome ",
-                       "you will probably need more like $min_ram Gb ",
-                       "per chunk. Anyway I can try and see what ",
-                       "happens."));
-            print "Do you really want me to proceed?  Enter 'Y' or 'N': ";
+            $self->say(
+                "Warning: you have only $RAMperchunk Gb of RAM ",
+                "per chunk.  Based on the size of your genome ",
+                "you will probably need more like $min_ram Gb ",
+                "per chunk. Anyway I can try and see what ",
+                "happens.");
+            $self->say("Do you really want me to proceed?  Enter 'Y' or 'N': ");
             local $_ = <STDIN>;
             if(/^n$/i) {
                 exit();
             }
         }
+        $self->say();
         $ram = $min_ram;
         if($ram < 6 && $ram < $RAMperchunk) {
             $ram = $RAMperchunk;

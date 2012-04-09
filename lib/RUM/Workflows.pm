@@ -184,12 +184,13 @@ sub chunk_workflow {
          "-o", post($c->rum_nu_id_sorted),
          pre($c->cleaned_nu)]);
     
+
     $m->step(
         "Remove duplicates from NU",
         
         # TODO: This step is not idempotent it appends to $c->cleaned_unique
         ["perl", $c->script("removedups.pl"),
-         "--non-unique-out", post($c->rum_nu_deduped),
+         "--non-unique-out", post($c->limit_nu_cutoff_opt ? $c->rum_nu_deduped : $c->rum_nu),
          "--unique-out", pre($c->cleaned_unique),
          pre($c->rum_nu_id_sorted)]);
 
