@@ -214,7 +214,7 @@ sub main {
 
     if ($bedfile) {
         open(BEDFILE, ">$bedfile");
-        print "track\tname=\"Inferred Internal Exons\"  description=\"Inferred Internal Exons\"   visibility=3    itemRgb=\"On\"\n";
+        print BEDFILE "track\tname=\"Inferred Internal Exons\"  description=\"Inferred Internal Exons\"   visibility=3    itemRgb=\"On\"\n";
     }
     if ($rumoutfile) {
         open(RUMFILE, ">$rumoutfile");
