@@ -24,6 +24,7 @@ sub do_help { $_[0]->{directives}{help} }
 sub do_help_config { $_[0]->{directives}{help_config} }
 
 sub be_quiet { $_[0]->{directives}{quiet} }
+sub do_qsub { $_[0]->{directives}{qsub} }
 
 sub do_status { $_[0]->{directives}{status} }
 sub do_clean { $_[0]->{directives}{clean} }
@@ -81,18 +82,10 @@ sub run_pipeline {
     }
 
     if ($self->do_clean) {
-        $self->determine_read_length();
-        $self->print_processing_status if $self->do_process;
-        $self->print_postprocessing_status if $self->do_postprocess;
+        $self->clean;
         return;
     }
     
-#    if (my $chunk = $self->config->chunk) {
-#        $log->debug("I was told to run chunk $chunk, ".
-#                        "so I won't preprocess or postprocess the files");
-#        $self->process;
-#    }
-
     $self->show_logo;
     $self->setup;
     $self->check_ram;
@@ -135,7 +128,7 @@ sub get_options {
         # Control how we divide up the job.
         "chunks=s" => \(my $num_chunks = 0),
         "ram=s"      => \(my $ram = 6),
-        "qsub"     => \(my $qsub),
+        "qsub"     => \(my $do_qsub),
 
         # Control logging and cleanup of temporary files.
         "no-clean" => \(my $no_clean),
@@ -187,7 +180,8 @@ sub get_options {
         preprocess   => $do_preprocess,
         process      => $do_process,
         postprocess  => $do_postprocess,
-        quiet        => $quiet
+        quiet        => $quiet,
+        qsub         => $do_qsub
     };
 
     $c->set('bowtie_nu_limit', 100) if $limit_bowtie_nu;
@@ -309,6 +303,19 @@ sub config {
     return $_[0]->{config};
 }
 
+sub clean {
+    my ($self) = @_;
+    $self->determine_read_length;
+    my $very = $self->{do_veryclean};
+
+    if ($self->do_process) {
+        for my $w ($self->chunk_workflows) {
+            $w->clean(1);
+        }
+    }
+
+}
+
 sub preprocess {
     my ($self) = @_;
     $self->say();
@@ -327,6 +334,23 @@ sub step_printer {
         my $comment = $workflow->comment($step);
         $self->say(wrap($indent, "           ", $comment));
     };
+}
+
+sub submit_chunks {
+    my ($self) = @_;
+    my $c = $self->config;
+    my $n = $c->num_chunks;
+    $log->info("Creating $n chunks");
+
+    my @argv = (@{ $c->argv }, "--chunk", '$SGE_TASK_ID');
+    #my $job_sh_name = $c->in_output_dir("rum_" . $c->name . ".sh");
+    #open my $job_sh, ">", $job_sh_name or croak "$job_sh_name: $!";
+    #print $job_sh "$0 @argv\n";
+    #close $job_sh;
+    #chmod(755, $job_sh_name) == 1 or croak 
+    #    "chmod 744 $job_sh_name: $!";
+    my $out = `qsub -V -cwd -j y -b y @argv`;
+    $self->say("Submitted job: $out");
 }
 
 sub process_in_chunks {
@@ -427,15 +451,15 @@ sub process {
         $log->info("Running chunk $chunk");
         my $config = $self->config->for_chunk($chunk);
         my $w = RUM::Workflows->chunk_workflow($config);
-        if ($self->do_clean) {
-            $w->clean($self->do_veryclean);
-        }
-        else {
-            $w->execute($self->step_printer($w));
-        }
+        $w->execute($self->step_printer($w));
     }
     elsif ($config->num_chunks) {
-        $self->process_in_chunks;
+        if ($self->do_qsub) {
+            $self->submit_chunks;
+        }
+        else {
+            $self->process_in_chunks;
+        }
     }
 }
 
@@ -445,12 +469,7 @@ sub postprocess {
     $self->say("--------------");
     $self->determine_read_length();
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
-    if ($self->do_clean) {
-        $w->clean($self->do_veryclean);
-    }
-    else {
-        $w->execute($self->step_printer($w));
-    }
+    $w->execute($self->step_printer($w));
 }
 
 sub setup {
@@ -829,33 +848,23 @@ sub print_postprocessing_status {
     $postproc->walk_states($handle_state);
 }
 
-sub chunk_machine {
-    my ($self, $chunk_num) = @_;
-    my $config = $self->config->for_chunk($chunk_num);
-    return RUM::Workflows->chunk_workflow($config);
-}
-
-sub chunk_machines {
-    my ($self) = @_;
-    my $config = $self->config;
-    my $n = $config->num_chunks;
-
-    my @chunk_nums;
-
-    if ($n > 1) {
-        if ($config->chunk) {
-            return ($self->chunk_machine($_));
-        }
-        else {
-            return map { $self->chunk_machine($_) } (1 .. $n);
-        }
-    }
-    
-    return (RUM::Workflows->chunk_workflow($config));
-}
-
 sub chunk_nums {
-    (1 .. $_[0]->config->num_chunks)
+    my ($self) = @_;
+    my $c = $self->config;
+    if ($c->chunk) {
+        return ($c->chunk);
+    }
+    return (1 .. $c->num_chunks || 1)
+}
+
+sub chunk_configs {
+    my ($self) = @_;
+    map { $self->config->for_chunk($_) } $self->chunk_nums;
+}
+
+sub chunk_workflows {
+    my ($self) = @_;
+    map { RUM::Workflows->chunk_workflow($_) } $self->chunk_configs;
 }
 
 sub export_shell_script {
