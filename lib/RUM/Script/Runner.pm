@@ -19,18 +19,22 @@ use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
 our $log = RUM::Logging->get_logger();
 our $LOGO;
 
-sub do_status { $_[0]->{directives}{status} }
-sub do_clean { $_[0]->{directives}{clean} }
-sub do_veryclean { $_[0]->{directives}{veryclean} }
 sub do_version { $_[0]->{directives}{version} }
 sub do_help { $_[0]->{directives}{help} }
 sub do_help_config { $_[0]->{directives}{help_config} }
+
+sub be_quiet { $_[0]->{directives}{quiet} }
+
+sub do_status { $_[0]->{directives}{status} }
+sub do_clean { $_[0]->{directives}{clean} }
+sub do_veryclean { $_[0]->{directives}{veryclean} }
+
 sub do_shell_script { $_[0]->{directives}{shell_script} }
+sub do_dry_run { $_[0]->{directives}{dry_run} }
+
 sub do_preprocess { $_[0]->{directives}{preprocess} }
 sub do_process { $_[0]->{directives}{process} }
 sub do_postprocess { $_[0]->{directives}{postprocess} }
-sub do_dry_run { $_[0]->{directives}{dry_run} }
-sub be_quiet { $_[0]->{directives}{quiet} }
 
 sub say {
     my ($self, @msg) = @_;
@@ -71,31 +75,30 @@ sub run_pipeline {
 
     if ($self->do_status) {
         $self->determine_read_length();
-        $self->print_status;
+        $self->print_processing_status if $self->do_process;
+        $self->print_postprocessing_status if $self->do_postprocess;
+        return;
+    }
+
+    if ($self->do_clean) {
+        $self->determine_read_length();
+        $self->print_processing_status if $self->do_process;
+        $self->print_postprocessing_status if $self->do_postprocess;
         return;
     }
     
-    if (my $chunk = $self->config->chunk) {
-        $log->debug("I was told to run chunk $chunk, ".
-                        "so I won't preprocess or postprocess the files");
-        $self->process;
-    }
-    elsif ($self->do_preprocess || $self->do_process || $self->do_postprocess) {
-        $self->show_logo();
-        $self->setup;
-        $self->check_ram;
-        $self->preprocess  if $self->do_preprocess;
-        $self->process     if $self->do_process;
-        $self->postprocess if $self->do_postprocess;
-    }
-    else {
-        $self->show_logo();
-        $self->setup;
-        $self->check_ram;
-        $self->preprocess;
-        $self->process;
-        $self->postprocess;
-    }
+#    if (my $chunk = $self->config->chunk) {
+#        $log->debug("I was told to run chunk $chunk, ".
+#                        "so I won't preprocess or postprocess the files");
+#        $self->process;
+#    }
+
+    $self->show_logo;
+    $self->setup;
+    $self->check_ram;
+    $self->preprocess  if $self->do_preprocess;
+    $self->process     if $self->do_process;
+    $self->postprocess if $self->do_postprocess;
 
 }
 
@@ -167,6 +170,10 @@ sub get_options {
         "maxIntron|blat-max-intron=s"     => \(my $blat_max_intron = 500000)
     );
 
+    unless ($do_preprocess || $do_process || $do_postprocess) {
+        $do_preprocess = $do_process = $do_postprocess = 1;
+    }
+          
     $self->{directives} = {
         version      => $do_version,
         kill         => $do_kill,
@@ -179,8 +186,8 @@ sub get_options {
         veryclean    => $do_veryclean,
         preprocess   => $do_preprocess,
         process      => $do_process,
-        postpreprocess => $do_postprocess,
-        quiet => $quiet
+        postprocess  => $do_postprocess,
+        quiet        => $quiet
     };
 
     $c->set('bowtie_nu_limit', 100) if $limit_bowtie_nu;
@@ -304,6 +311,9 @@ sub config {
 
 sub preprocess {
     my ($self) = @_;
+    $self->say();
+    $self->say("Preprocessing");
+    $self->say("-------------");
     $self->check_input();
     $self->reformat_reads();
     $self->determine_read_length();
@@ -406,9 +416,14 @@ sub process {
     $self->determine_read_length();
     my $config = $self->config;
 
-    $log->info("Chunk is ". ($config->chunk ? "yes" : "no"));
+    $log->debug("Chunk is ". ($config->chunk ? "yes" : "no"));
 
-    if (my $chunk = $config->chunk) {
+    my $n = $config->num_chunks || 1;
+    $self->say("Processing in $n chunks");
+    $self->say("-----------------------");
+
+    if ($n == 1 || $config->chunk) {
+        my $chunk = $config->chunk || 1;
         $log->info("Running chunk $chunk");
         my $config = $self->config->for_chunk($chunk);
         my $w = RUM::Workflows->chunk_workflow($config);
@@ -422,21 +437,12 @@ sub process {
     elsif ($config->num_chunks) {
         $self->process_in_chunks;
     }
-    else {
-        $log->info("Running whole job (not splitting into chunks)");
-        my $w = RUM::Workflows->chunk_workflow($config);
-        if ($self->do_clean) {
-            $w->clean($self->do_veryclean);
-        }
-        else {
-            $w->execute($self->step_printer($w));        
-        }
-    }
 }
 
 sub postprocess {
     my ($self) = @_;
-    $log->info("Postprocessing");
+    $self->say("Postprocessing");
+    $self->say("--------------");
     $self->determine_read_length();
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
     if ($self->do_clean) {
@@ -755,18 +761,27 @@ sub reformat_reads {
     }
 }
 
-sub print_status {
+sub print_processing_status {
     my ($self) = @_;
 
     local $_;
-    my $config = $self->config;
+    my $c = $self->config;
 
     my @steps;
     my %num_completed;
     my %comments;
-    my @workflows = $self->chunk_machines;
-    for my $w (@workflows) {
 
+    my @chunks;
+
+    if ($c->chunk) {
+        push @chunks, $c->chunk;
+    }
+    else {
+        push @chunks, (1 .. $c->num_chunks || 1);
+    }
+
+    for my $chunk (@chunks) {
+        my $w = RUM::Workflows->chunk_workflow($c->for_chunk($chunk));
         my $handle_state = sub {
             my ($name, $completed) = @_;
             unless (exists $num_completed{$name}) {
@@ -780,22 +795,33 @@ sub print_status {
         $w->walk_states($handle_state);
     }
 
-    my $n = @workflows;
+    my $n = @chunks;
     my $digits = num_digits($n);
-    my $format = "%${digits}d/%${digits}d";
+    my $h1     = "   Chunks ";
+    my $h2     = "Done / Total";
+    my $format =  "%4d /  %4d ";
 
     $self->say("Processing in $n chunks");
     $self->say("-----------------------");
+    $self->say($h1);
+    $self->say($h2);
     for (@steps) {
         my $progress = sprintf $format, $num_completed{$_}, $n;
         my $comment   = $comments{$_};
-        $self->say("$progress $comment");
+        my $indent = ' ' x length($progress);
+        $self->say(wrap($progress, $indent, $comment));
     }
+
+}
+
+sub print_postprocessing_status {
+    my ($self) = @_;
+    my $c = $self->config;
 
     $self->say();
     $self->say("Postprocessing");
     $self->say("--------------");
-    my $postproc = RUM::Workflows->postprocessing_workflow($config);
+    my $postproc = RUM::Workflows->postprocessing_workflow($c);
     my $handle_state = sub {
         my ($name, $completed) = @_;
         $self->say(($completed ? "X" : " ") . " " . $postproc->comment($name));

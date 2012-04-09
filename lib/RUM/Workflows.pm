@@ -329,7 +329,7 @@ sub postprocessing_workflow {
     my ($class, $c) = @_;
 
     my $name = $c->name;
-    my @c = map { $c->for_chunk($_) } (1 .. $c->num_chunks);
+    my @c = map { $c->for_chunk($_) } (1 .. $c->num_chunks || 1);
     my $w = RUM::Workflow->new();
     my @rum_unique = map { $_->rum_unique_sorted } @c;
     my @rum_nu = map { $_->rum_nu_sorted } @c;
@@ -420,7 +420,7 @@ sub postprocessing_workflow {
                         pre => [@quants],
                         commands => [[
                             "perl", $c->script("merge_quants.pl"),
-                            "--chunks", $c->num_chunks,
+                            "--chunks", $c->num_chunks || 1,
                             "-o", post($c->quant($strand, $sense)),
                             "--strand", "$strand$sense",
                             $c->output_dir]]);
@@ -431,7 +431,7 @@ sub postprocessing_workflow {
                         commands => [[
                             "perl", $c->script("merge_quants.pl"),
                             "--alt",
-                            "--chunks", $c->num_chunks,
+                            "--chunks", $c->num_chunks || 1,
                             "-o", post($c->alt_quant($strand, $sense)),
                             "--strand", "$strand$sense",
                             $c->output_dir]]) if $c->alt_quant_model;
@@ -465,7 +465,7 @@ sub postprocessing_workflow {
                 pre => [$c->rum_unique],
                 commands => [[
                     "perl", $c->script("merge_quants.pl"),
-                    "--chunks", $c->num_chunks,
+                    "--chunks", $c->num_chunks || 1,
                     "-o", post($c->quant), 
                     $c->output_dir]]);
 
@@ -475,7 +475,7 @@ sub postprocessing_workflow {
                 commands => [[
                     "perl", $c->script("merge_quants.pl"),
                     "--alt",
-                    "--chunks", $c->num_chunks,
+                    "--chunks", $c->num_chunks || 1,
                     "-o", post($c->alt_quant),
                     $c->output_dir]]) if $c->alt_quant_model;
         }
