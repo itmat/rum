@@ -19,13 +19,7 @@ use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
 our $log = RUM::Logging->get_logger();
 our $LOGO;
 
-sub DEBUG  { $log->debug(wrap("", "", @_))  }
 sub INFO   { $log->info(wrap("", "", @_))   }
-sub WARN   { $log->warn(wrap("", "", @_))   }
-sub ERROR  { $log->error(wrap("", "", @_))  }
-sub FATAL  { $log->fatal(wrap("", "", @_))  }
-sub LOGDIE { $log->logdie(wrap("", "", @_)) }
-
 
 sub do_status { $_[0]->{directives}{status} }
 sub do_clean { $_[0]->{directives}{clean} }
@@ -586,7 +580,7 @@ sub check_read_file_pair {
                 $length_flag = 1;
             }
             if(length($line1) != $length_hold && !$config->variable_read_lengths) {
-                WARN("It seems your read lengths vary, but you didn't set -variable_length_reads. I'm going to set it for you, but it's generally safer to set it on the command-line since I only spot check the file.");
+                warn("It seems your read lengths vary, but you didn't set -variable_length_reads. I'm going to set it for you, but it's generally safer to set it on the command-line since I only spot check the file.");
                 $config->set('variable_read_lengths', 1);
             }
             $length_hold = length($line1);
@@ -649,9 +643,6 @@ sub fix_name {
     s/[^a-zA-Z0-9_.-]$//g;
     s/[^a-zA-Z0-9_.-]/_/g;
     
-#    if($_ ne $name_o) {
-#        WARN("Name changed from '$name_o' to '$_'");
-#    }
     return $_;
 }
 
