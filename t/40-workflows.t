@@ -43,7 +43,8 @@ my %defaults = (
     blat_tile_size => 12,
     blat_step_size => 6,
     blat_rep_match => 256,
-    blat_max_intron => 500000
+    blat_max_intron => 500000,
+    ram => 6
 );
 
 SKIP: {
