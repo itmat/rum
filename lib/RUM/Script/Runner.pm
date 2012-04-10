@@ -76,7 +76,7 @@ sub run_pipeline {
     $self->check_config();        
     $self->setup;
     
-    my $c = $self->config->save;
+    $self->config->save unless $self->config->chunk;
 
     if ($self->do_diagram) {
         $self->diagram;
@@ -84,7 +84,6 @@ sub run_pipeline {
     }
 
     if ($self->do_status) {
-
         $self->print_processing_status if $self->do_process;
         $self->print_postprocessing_status if $self->do_postprocess;
         return;
@@ -94,13 +93,13 @@ sub run_pipeline {
         $self->clean;
         return;
     }
-    
+    my $chunk = $self->config->chunk;
     $self->show_logo;
     $self->setup;
-    $self->check_ram unless $self->config->chunk;
-    $self->preprocess  if $self->do_preprocess;
+    $self->check_ram unless $chunk;
+    $self->preprocess  if $self->do_preprocess && !$chunk;
     $self->process     if $self->do_process;
-    $self->postprocess if $self->do_postprocess;
+    $self->postprocess if $self->do_postprocess && !$chunk;
 
 }
 
@@ -137,7 +136,7 @@ sub get_options {
         "name=s"      => \(my $name),
 
         # Control how we divide up the job.
-        "chunks=s" => \(my $num_chunks = 0),
+        "chunks=s" => \(my $num_chunks),
         "ram=s"    => \(my $ram = 6),
         "qsub"     => \(my $do_qsub),
 
@@ -182,8 +181,17 @@ sub get_options {
     ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
     $c->set(argv => [@ARGV]);
 
+    if ($c->chunk) {
+        RUM::Usage->bad("Can't use --preprocess with --chunk")
+              if $do_preprocess;
+        RUM::Usage->bad("Can't use --postprocess with --chunk")
+              if $do_postprocess;
+    }
+
     unless ($do_preprocess || $do_process || $do_postprocess) {
-        $do_preprocess = $do_process = $do_postprocess = 1;
+        $do_preprocess  = ! $chunk;
+        $do_process     = 1;
+        $do_postprocess = ! $chunk;
     }
           
     $self->{directives} = {
@@ -422,8 +430,8 @@ sub process_in_chunks {
     my @tasks; # Maps a chunk number to a RUM::RestartableTask
     
     for my $chunk ($self->chunk_nums) {
-        my @argv = (@{ $self->config->argv }, "--chunk", $chunk);
-        push @argv, "--veryclean", if $self->do_clean;
+        my @argv = ("--output", $self->config->output_dir,
+                    "--chunk", $chunk);
         my $cmd = "$0 @argv > /dev/null";
         my $config = $self->config->for_chunk($chunk);                
         my $workflow = RUM::Workflows->chunk_workflow($config);
