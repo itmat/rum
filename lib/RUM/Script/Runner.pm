@@ -22,6 +22,7 @@ our $LOGO;
 sub do_version { $_[0]->{directives}{version} }
 sub do_help { $_[0]->{directives}{help} }
 sub do_help_config { $_[0]->{directives}{help_config} }
+sub do_diagram { $_[0]->{directives}{diagram} }
 
 sub be_quiet { $_[0]->{directives}{quiet} }
 sub do_qsub { $_[0]->{directives}{qsub} }
@@ -73,22 +74,28 @@ sub run_pipeline {
     my ($self) = @_;
 
     $self->check_config();        
+    $self->determine_read_length();
+
+    if ($self->do_diagram) {
+        $self->diagram;
+        return;
+    }
 
     if ($self->do_status) {
-        $self->determine_read_length();
+
         $self->print_processing_status if $self->do_process;
         $self->print_postprocessing_status if $self->do_postprocess;
         return;
     }
 
-    if ($self->do_clean) {
+    if ($self->do_clean || $self->do_veryclean) {
         $self->clean;
         return;
     }
     
     $self->show_logo;
     $self->setup;
-    $self->check_ram;
+    $self->check_ram unless $self->config->chunk;
     $self->preprocess  if $self->do_preprocess;
     $self->process     if $self->do_process;
     $self->postprocess if $self->do_postprocess;
@@ -113,6 +120,7 @@ sub get_options {
         "dry-run|n"    => \(my $do_dry_run),
         "clean"        => \(my $do_clean),
         "veryclean"        => \(my $do_veryclean),
+        "diagram"        => \(my $do_diagram),
 
         # Options controlling which portions of the pipeline to run.
         "preprocess"   => \(my $do_preprocess),
@@ -169,6 +177,7 @@ sub get_options {
           
     $self->{directives} = {
         version      => $do_version,
+        diagram      => $do_diagram,
         kill         => $do_kill,
         shell_script => $do_shell_script,
         help         => $do_help,
@@ -305,15 +314,45 @@ sub config {
 
 sub clean {
     my ($self) = @_;
+    my $c = $self->config;
     $self->determine_read_length;
-    my $very = $self->{do_veryclean};
+    my $very = $self->do_veryclean;
 
     if ($self->do_process) {
         for my $w ($self->chunk_workflows) {
-            $w->clean(1);
+            $w->clean($very);
         }
     }
 
+    if ($self->do_postprocess) {
+        RUM::Workflows->postprocessing_workflow($c)->clean($very);
+    }
+}
+
+sub diagram {
+    my ($self) = @_;
+
+    print "My num chunks is ", $self->config->num_chunks, "\n";
+
+    if ($self->do_process) {
+        for my $c ($self->chunk_configs) {
+            my $dot = $self->config->in_output_dir(sprintf("chunk%03d.dot", $c->chunk));
+            my $pdf = $self->config->in_output_dir(sprintf("chunk%03d.pdf", $c->chunk));
+            open my $dot_out, ">", $dot;
+            RUM::Workflows->chunk_workflow($c)->state_machine->dotty($dot_out);
+            close $dot_out;
+            system("dot -o$pdf -Tpdf $dot");
+        }
+    }
+
+    if ($self->do_postprocess) {
+        my $dot = $self->config->in_output_dir("postprocessing.dot");
+        my $pdf = $self->config->in_output_dir("postprocessing.pdf");
+        open my $dot_out, ">", $dot;
+        RUM::Workflows->postprocessing_workflow($self->config)->state_machine->dotty($dot_out);
+        close $dot_out;
+        system("dot -o$pdf -Tpdf $dot");
+    }
 }
 
 sub preprocess {

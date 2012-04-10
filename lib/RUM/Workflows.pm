@@ -202,13 +202,6 @@ sub chunk_workflow {
              "-o", post($c->rum_nu),
              pre($c->rum_nu_deduped)]);
     }
-    else {
-        $m->step(
-            "Move NU file",
-            ["mv",
-             pre($c->rum_nu_deduped),
-             post($c->rum_nu)]);
-    }
 
     $m->step(
         "Produce RUM_Unique",
@@ -344,13 +337,13 @@ sub postprocessing_workflow {
                 $c->novel_inferred_internal_exons_quantifications);
 
     $w->step(
-        "Merge RUM_Unique.* files",
+        "Merge RUM_Unique files",
         ["perl", $c->script("merge_sorted_RUM_files.pl"),
             "-o", post($c->rum_unique),
          map { pre($_) } @rum_unique]);
 
     $w->step(
-        "Merge RUM_NU.* files",
+        "Merge RUM_NU files",
         ["perl", $c->script("merge_sorted_RUM_files.pl"),
          "-o", post($c->rum_nu),
          map { pre($_) } @rum_nu]);
@@ -665,10 +658,7 @@ sub postprocessing_workflow {
          $c->in_output_dir("novel_exon_quant_temp"),
          ">", post($c->novel_inferred_internal_exons_quantifications)]);
 
-    my @mapping_stats = map { $_->mapping_stats } @c;
-    
     $w->start([@start]);
-
     $w->set_goal([@goal]);
     return $w;
 }

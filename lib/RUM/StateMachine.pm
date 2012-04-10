@@ -355,7 +355,7 @@ sub dotty {
 
     for my $edge (@edges) {
         my ($u, $e, $v) = @$edge;
-        $e =~ s/[-\s]/_/g;
+        $e =~ s/[-\s,()]/_/g;
         print $fh "  $u -> $v [label=$e];\n";
     }
 
