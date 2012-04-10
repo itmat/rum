@@ -54,7 +54,7 @@ Set this flag if aligning DNA sequence data.
 
 Set this min length alignment to be reported
 
-=item B<--num-insertions-allowed> I<n>
+=item B<--max-insertions> I<n>
 
 Allow n insertions in one read.  The default is n=1.  Setting n>1 only
 allowed for single end reads.  Don't raise it unless you know what you

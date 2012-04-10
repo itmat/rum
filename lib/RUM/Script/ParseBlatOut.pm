@@ -33,7 +33,7 @@ sub main {
         "unique-out=s" => \(my $outfile1),
         "non-unique-out=s" => \(my $outfile2),
         "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "num-insertions-allowed=s" => \(my $num_insertions_allowed = 1),
+        "max-insertions=s" => \(my $num_insertions_allowed = 1),
         "match-length-cutoff=s"    => \(my $match_length_cutoff = 0),
         "dna" => \(my $dna),
         "help|h"    => sub { RUM::Usage->help },
