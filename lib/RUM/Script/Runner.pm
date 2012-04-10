@@ -94,6 +94,7 @@ sub run_pipeline {
         return;
     }
     my $chunk = $self->config->chunk;
+    $self->say("Chunk is $chunk");
     $self->show_logo;
     $self->setup;
     $self->check_ram unless $chunk;
@@ -137,7 +138,7 @@ sub get_options {
 
         # Control how we divide up the job.
         "chunks=s" => \(my $num_chunks),
-        "ram=s"    => \(my $ram = 6),
+        "ram=s"    => \(my $ram),
         "qsub"     => \(my $do_qsub),
 
         # Control logging and cleanup of temporary files.
@@ -392,6 +393,7 @@ sub preprocess {
     $self->check_input();
     $self->reformat_reads();
     $self->determine_read_length();
+    $self->config->save;
 }
 
 sub step_printer {
@@ -410,15 +412,15 @@ sub submit_chunks {
     my $n = $c->num_chunks;
     $log->info("Creating $n chunks");
 
-    my @argv = (@{ $c->argv }, "--chunk", '$SGE_TASK_ID');
-    #my $job_sh_name = $c->in_output_dir("rum_" . $c->name . ".sh");
-    #open my $job_sh, ">", $job_sh_name or croak "$job_sh_name: $!";
-    #print $job_sh "$0 @argv\n";
-    #close $job_sh;
-    #chmod(755, $job_sh_name) == 1 or croak 
-    #    "chmod 744 $job_sh_name: $!";
-    my $out = `qsub -V -cwd -j y -b y @argv`;
-    $self->say("Submitted job: $out");
+    my @argv = ("--output", $c->output_dir, "--chunk", '$SGE_TASK_ID');
+    my $job_sh_name = $c->in_output_dir("rum_" . $c->name . ".sh");
+    open my $job_sh, ">", $job_sh_name or croak "$job_sh_name: $!";
+    print $job_sh "perl $0 @argv\n";
+    close $job_sh;
+    my $cmd = "qsub -V -cwd -j y -b y -t 1:$n sh $job_sh_name";
+    my $out = `$cmd`;
+    $self->say("Submitted it: $out");
+    exit;
 }
 
 sub process_in_chunks {
@@ -1051,38 +1053,54 @@ sub breakup_file  {
     return 0;
 }
 
+sub genome_size {
+    my ($self) = @_;
+
+    $self->say("Determining how much RAM you need based on your genome.");
+
+    my $c = $self->config;
+    my $genome_blat = $c->genome_fa;
+
+    my $gs1 = -s $genome_blat;
+    my $gs2 = 0;
+    my $gs3 = 0;
+
+    open my $in, "<", $genome_blat or croak "$genome_blat: $!";
+
+    local $_;
+    while (defined($_ = <$in>)) {
+        next unless /^>/;
+        $gs2 += length;
+        $gs3 += 1;
+    }
+
+    my $genome_size = $gs1 - $gs2 - $gs3;
+    my $gs4 = &format_large_int($genome_size);
+    my $gsz = $genome_size / 1000000000;
+    my $min_ram = int($gsz * 1.67)+1;
+}
+
 sub check_ram {
 
     my ($self) = @_;
 
-    return if $self->do_postprocess;
-
     my $c = $self->config;
+    return if $c->ram_ok;
 
-    my $genome_blat = $c->genome_fa;
-    my $output_dir = $c->output_dir;
-    my $gs1 = -s $genome_blat;
-    `grep ">" $genome_blat > $output_dir/temp.1`;
-    my $gs2 = -s "$output_dir/temp.1";
-    my $gs3 = `wc -l $output_dir/temp.1`;
-    $gs3 =~ s/^\s*(\d+)//;
-    $gs3 = $1;
+    if (!$c->ram) {
+        $self->say("I'm going to try to figure out how much RAM ",
+                   "you have. If you see some error messages here, ",
+                   " don't worry, these are harmless.");
+        my $available = $self->available_ram;
+        $c->set('ram', $available);
+    }
 
-    my $genome_size = $gs1 - $gs2 - $gs3;
+    my $genome_size = $self->genome_size;
     my $gs4 = &format_large_int($genome_size);
-    `yes|rm $output_dir/temp.1`;
     my $gsz = $genome_size / 1000000000;
     my $min_ram = int($gsz * 1.67)+1;
     
-    $self->say("I'm going to try to figure out how much RAM ",
-               "you have. If you see some error messages here, ",
-               " don't worry, these are harmless.");
     $self->say();
-    #sleep($PAUSE_TIME * 2);
-    
-    if (!$c->ram) {
-        $c->set('ram', $self->available_ram);
-    }
 
     my $totalram = $c->ram;
     my $RAMperchunk;
@@ -1090,7 +1108,7 @@ sub check_ram {
 
     # We couldn't figure out RAM, warn user.
     if ($totalram) {
-        $RAMperchunk = int($totalram / ($c->num_chunks||1));
+        $RAMperchunk = $totalram / ($c->num_chunks||1);
     } else {
         warn("Warning: I could not determine how much RAM you " ,
              "have.  If you have less than $min_ram gigs per ",
@@ -1102,10 +1120,10 @@ sub check_ram {
     if ($totalram) {
 
         if($RAMperchunk >= $min_ram) {
-            $self->say(
-                "It seems like you have $totalram Gb of RAM on ",
-                "your machine. Unless you have too much other stuff ",
-                "running, RAM should not be a problem.");
+            $self->say(sprintf(
+                "It seems like you have %.2f Gb of RAM on ".
+                "your machine. Unless you have too much other stuff ".
+                "running, RAM should not be a problem.", $RAMperchunk));
         } else {
             $self->say(
                 "Warning: you have only $RAMperchunk Gb of RAM ",
@@ -1113,7 +1131,7 @@ sub check_ram {
                 "you will probably need more like $min_ram Gb ",
                 "per chunk. Anyway I can try and see what ",
                 "happens.");
-            $self->say("Do you really want me to proceed?  Enter 'Y' or 'N': ");
+            print("Do you really want me to proceed?  Enter 'Y' or 'N': ");
             local $_ = <STDIN>;
             if(/^n$/i) {
                 exit();
@@ -1129,6 +1147,8 @@ sub check_ram {
         }
 
         $c->set('ram', $ram);
+        $c->set('ram_ok', 1);
+        $c->save;
         # sleep($PAUSE_TIME);
     }
 

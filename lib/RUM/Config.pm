@@ -19,6 +19,7 @@ RUM::Config - Configuration for a RUM job
 =cut
 
 our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
+                              ram_ok
  match_length_cutoff num_chunks bin_dir genome_bowtie
  genome_fa transcriptome_bowtie annotations num_chunks read_length
  min_overlap max_insertions match_length_cutoff limit_nu_cutoff
@@ -100,7 +101,8 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
 
 our %DEFAULTS = (
     num_chunks => 1,
-    ram => 6,
+    ram => undef,
+    ram_ok => 0,
     max_insertions => 1,
     strand_specific => 0,
     min_identity => 93,
