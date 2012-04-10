@@ -38,8 +38,8 @@ BEGIN { use_ok('RUM::Script::Runner') or BAIL_OUT "Couldn't load RUM::Script::Ru
 sub capturing_stdout (&) {
     
     my ($code) = @_;
-
-    open my $out, ">", \(my $data) or die "Can't open output string: $!";
+    
+    open my $out, ">", \(my $data = "") or die "Can't open output string: $!";
     *STDOUT_BAK = *STDOUT;
 
     eval { 

@@ -695,7 +695,7 @@ sub determine_read_length {
 
     my @lines = head($self->config->reads_fa, 2);
     my $read = $lines[1];
-    my $len = split(//,$read);
+    my $len = length($read);
     my $min = $self->config->min_length;
     $log->debug("Read length is $len, min is " . ($min ||"")) if $log->is_debug;
     if ($self->config->variable_read_lengths) {

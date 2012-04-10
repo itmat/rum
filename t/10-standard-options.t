@@ -56,7 +56,7 @@ sub run_main {
 
     # Temporarily redirect STDERR to a string, so the die message
     # doesn't get printed to my test output.
-    my $stderr_data;
+    my $stderr_data = "";
     open my $stderr, ">", \$stderr_data;
     *STDERR_BAK = *STDERR;
     *STDERR = $stderr;
