@@ -75,6 +75,13 @@ sub run_pipeline {
 
     $self->check_config();        
     $self->determine_read_length();
+    
+    my $c = $self->config;
+    my $config_filename = $c->in_output_dir($c->name. "_conf.pl");
+
+    open my $config_out, ">", $config_filename or croak
+            "Can't open config file $config_filename: $!";
+    $c->export($config_out);
 
     if ($self->do_diagram) {
         $self->diagram;

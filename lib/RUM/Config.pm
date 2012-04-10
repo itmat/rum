@@ -6,6 +6,7 @@ use Carp;
 use FindBin qw($Bin);
 use RUM::Logging;
 use File::Spec;
+use Data::Dumper;
 
 our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
@@ -346,6 +347,9 @@ sub ram_opt {
     return $_[0]->ram == 6 ? "" : "--ram ".$_[0]->ram;
 }
 
-
+sub export {
+    my ($self, $fh) = @_;
+    print $fh Dumper($self);
+}
 
 1;
