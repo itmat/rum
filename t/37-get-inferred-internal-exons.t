@@ -13,8 +13,8 @@ use_ok "RUM::Script::GetInferredInternalExons";
 
 my $cov = "$INPUT_DIR/RUM_Unique.cov";
 my $junctions = "$INPUT_DIR/junctions_high-quality.bed";
-my $out = temp_filename(TEMPLATE => "inferred.XXXXXX");
-my $bed_out = temp_filename(TEMPLATE => "inferred-bed.XXXXXX");
+my $out = temp_filename(TEMPLATE => "inferred.XXXXXX", UNLINK => 0);
+my $bed_out = temp_filename(TEMPLATE => "inferred-bed.XXXXXX", UNLINK => 0);
 
 our $genes = "_testing/indexes/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
 

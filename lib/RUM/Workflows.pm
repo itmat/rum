@@ -625,7 +625,8 @@ sub postprocessing_workflow {
          "--junctions", pre($c->junctions_high_quality_bed),
          "--coverage", pre($c->rum_unique_cov),
          "--genes", $c->annotations,
-         "--bed", post($c->inferred_internal_exons)]);
+         "--bed", post($c->inferred_internal_exons),
+         "> ", post($c->inferred_internal_exons_txt)]);
 
     $w->step(
         "Quantify novel exons",

@@ -1,4 +1,3 @@
-track	name="Inferred Internal Exons"  description="Inferred Internal Exons"   visibility=3    itemRgb="On"
 1:14831082-14831467	novel
 1:15083983-15084444	novel
 1:16596640-16596658	novel

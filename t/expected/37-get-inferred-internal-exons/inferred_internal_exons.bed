@@ -1,3 +1,4 @@
+track	name="Inferred Internal Exons"  description="Inferred Internal Exons"   visibility=3    itemRgb="On"
 1	14831081	14831467	.	0	.	14831081	14831467	0,205,102
 1	15083982	15084444	.	0	.	15083982	15084444	0,205,102
 1	16596639	16596658	.	0	.	16596639	16596658	0,205,102

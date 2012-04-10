@@ -1,4 +1,4 @@
-use Test::More tests => 22;
+use Test::More tests => 24;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -17,9 +17,6 @@ BEGIN {
 my $c;
 
 $c = RUM::Config->new();
-throws_ok {
-    $c->reads_fa;
-} qr/not set/;
 
 $c = RUM::Config->new(output_dir => "foo");
 is($c->output_dir, "foo");
@@ -28,7 +25,6 @@ is($c->reads_fa, "foo/reads.fa", "Chunk suffixed with no chunk");
 $c = $c->for_chunk(1);
 is($c->chunk, 1, "Chunk setting");
 is($c->reads_fa, "foo/reads.fa.1", "Getting property for chunk");
-
 
 sub should_quantify {
     my (%options) = @_;
@@ -71,3 +67,19 @@ should_not_do_junctions(dna => 1, genome_only => 0, junctions => 0);
 should_do_junctions(    dna => 1, genome_only => 0, junctions => 1);
 should_do_junctions(    dna => 1, genome_only => 1, junctions => 0);
 should_do_junctions(    dna => 1, genome_only => 1, junctions => 1);
+
+$c = RUM::Config->default;
+my $dir = tempdir(TEMPLATE => "config.XXXXXX", UNLINK => 1);
+$c->set(output_dir => $dir);
+$c->set(read_length => 45);
+$c->save;
+
+$c = RUM::Config->load($dir);
+is($c->read_length, 45, "Read config from file");
+ok(! RUM::Config->load("/foo/bar/baz"));
+
+
+my %default = %{ RUM::Config->default };
+
+my @missing = grep { not exists $default{$_} } @RUM::Config::LITERAL_PROPERTIES;
+is_deeply([@missing], [], "All properties set by default");

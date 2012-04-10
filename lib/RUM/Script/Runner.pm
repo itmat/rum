@@ -74,14 +74,9 @@ sub run_pipeline {
     my ($self) = @_;
 
     $self->check_config();        
-    $self->determine_read_length();
+    $self->setup;
     
-    my $c = $self->config;
-    my $config_filename = $c->in_output_dir($c->name. "_conf.pl");
-
-    open my $config_out, ">", $config_filename or croak
-            "Can't open config file $config_filename: $!";
-    $c->export($config_out);
+    my $c = $self->config->save;
 
     if ($self->do_diagram) {
         $self->diagram;
@@ -111,9 +106,10 @@ sub run_pipeline {
 
 sub get_options {
     my ($self) = @_;
-    my $c = RUM::Config->new(argv => [@ARGV]);
+
     my $quiet;
     Getopt::Long::Configure(qw(no_ignore_case));
+
     GetOptions(
 
         # Options for doing things other than running the RUM
@@ -126,8 +122,8 @@ sub get_options {
         "help-config"  => \(my $do_help_config),
         "dry-run|n"    => \(my $do_dry_run),
         "clean"        => \(my $do_clean),
-        "veryclean"        => \(my $do_veryclean),
-        "diagram"        => \(my $do_diagram),
+        "veryclean"    => \(my $do_veryclean),
+        "diagram"      => \(my $do_diagram),
 
         # Options controlling which portions of the pipeline to run.
         "preprocess"   => \(my $do_preprocess),
@@ -142,13 +138,13 @@ sub get_options {
 
         # Control how we divide up the job.
         "chunks=s" => \(my $num_chunks = 0),
-        "ram=s"      => \(my $ram = 6),
+        "ram=s"    => \(my $ram = 6),
         "qsub"     => \(my $do_qsub),
 
         # Control logging and cleanup of temporary files.
-        "no-clean" => \(my $no_clean),
-        "verbose|v"   => sub { $log->more_logging(1) },
-        "quiet|q"     => sub { $log->less_logging(1); $quiet = 1; },
+        "no-clean"  => \(my $no_clean),
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1); $quiet = 1; },
 
         # Advanced parameters
         "read-lengths=s" => \(my $read_lengths),
@@ -163,20 +159,28 @@ sub get_options {
         "dna" => \(my $dna),
         "genome-only" => \(my $genome_only),
         "limit-bowtie-nu" => \(my $limit_bowtie_nu),
-        "limit-nu=s" => \(my $nu_limit),
-        "alt-genes=s" => \(my $alt_genes),
+        "limit-nu=s"   => \(my $nu_limit),
+        "alt-genes=s"  => \(my $alt_genes),
         "alt-quants=s" => \(my $alt_quant),
-        "min-identity" => \(my $min_identity = 93),
+        "min-identity" => \(my $min_identity),
         "min-length=s" => \(my $min_length),
         "quals-file|qual-file=s" => \(my $quals_file),
 
         # Options for blat
-        "minIdentity|blat-min-identity=s" => \(my $blat_min_identity = 93),
-        "tileSize|blat-tile-size=s"       => \(my $blat_tile_size = 12),
-        "stepSize|blat-step-size=s"       => \(my $blat_step_size = 6),
-        "repMatch|blat-rep-match=s"       => \(my $blat_rep_match = 256),
-        "maxIntron|blat-max-intron=s"     => \(my $blat_max_intron = 500000)
+        "minIdentity|blat-min-identity=s" => \(my $blat_min_identity),
+        "tileSize|blat-tile-size=s"       => \(my $blat_tile_size),
+        "stepSize|blat-step-size=s"       => \(my $blat_step_size),
+        "repMatch|blat-rep-match=s"       => \(my $blat_rep_match),
+        "maxIntron|blat-max-intron=s"     => \(my $blat_max_intron)
     );
+
+    my $dir = $output_dir || ".";
+
+    my $c = RUM::Config->load($dir);
+    !$c or ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
+    $c = RUM::Config->default unless $c;
+    ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
+    $c->set(argv => [@ARGV]);
 
     unless ($do_preprocess || $do_process || $do_postprocess) {
         $do_preprocess = $do_process = $do_postprocess = 1;
@@ -200,36 +204,46 @@ sub get_options {
         qsub         => $do_qsub
     };
 
-    $c->set('bowtie_nu_limit', 100) if $limit_bowtie_nu;
-    $c->set('quantify', $quantify);
-    $c->set('strand_specific', $strand_specific);
-    $c->set('ram', $ram);
-    $c->set('junctions', $junctions);
-    $c->set('count_mismatches', $count_mismatches);
-    $c->set('max_insertions', $max_insertions),
-    $c->set('cleanup', !$no_clean);
-    $c->set('dna', $dna);
-    $c->set('genome_only', $genome_only);
-    $c->set('chunk', $chunk);
-    $c->set('min_length', $min_length);
-    $c->set('output_dir',  $output_dir);
-    $c->set('num_chunks',  $num_chunks);
-    $c->set('reads', [@ARGV]);
-    $c->set('preserve_names', $preserve_names);
-    $c->set('variable_length_reads', $variable_read_lengths);
-    $c->set('user_quals', $quals_file);
-    $c->set('rum_config_file', $rum_config_file);
-    $c->set('name', $name);
-    $c->set('min_identity', $min_identity);
-    $c->set('nu_limit', $nu_limit);
-    $c->set('alt_genes', $alt_genes);
-    $c->set('alt_quant_model', $alt_quant);
+    my $set = sub { 
+        my ($k, $v) = @_;
+        return unless defined $v;
+        my $existing = $c->get($k);
+#        warn "Changing $k from $existing to $v" 
+#            if defined($existing) && $existing ne $v;
 
-    $c->set('blat_min_identity', $blat_min_identity);
-    $c->set('blat_tile_size', $blat_tile_size);
-    $c->set('blat_step_size', $blat_step_size);
-    $c->set('blat_rep_match', $blat_rep_match);
-    $c->set('blat_max_intron', $blat_max_intron);
+        $c->set($k, $v);
+    };
+
+    $c->set('bowtie_nu_limit', 100) if $limit_bowtie_nu;
+    $set->('quantify', $quantify);
+    $set->('strand_specific', $strand_specific);
+    $set->('ram', $ram);
+    $set->('junctions', $junctions);
+    $set->('count_mismatches', $count_mismatches);
+    $set->('max_insertions', $max_insertions),
+    $set->('cleanup', !$no_clean);
+    $set->('dna', $dna);
+    $set->('genome_only', $genome_only);
+    $set->('chunk', $chunk);
+    $set->('min_length', $min_length);
+    $set->('output_dir',  $output_dir);
+    $set->('num_chunks',  $num_chunks);
+    $set->('reads', @ARGV ? [@ARGV] : undef);
+    $set->('preserve_names', $preserve_names);
+    $set->('variable_length_reads', $variable_read_lengths);
+    $set->('user_quals', $quals_file);
+    $set->('rum_config_file', $rum_config_file);
+    $set->('name', $name);
+    $set->('min_identity', $min_identity);
+    $set->('nu_limit', $nu_limit);
+    $set->('alt_genes', $alt_genes);
+    $set->('alt_quant_model', $alt_quant);
+
+    $set->('blat_min_identity', $blat_min_identity);
+    $set->('blat_tile_size', $blat_tile_size);
+    $set->('blat_step_size', $blat_step_size);
+    $set->('blat_rep_match', $blat_rep_match);
+    $set->('blat_max_intron', $blat_max_intron);
     
     $self->{config} = $c;
 }
@@ -261,7 +275,7 @@ sub check_config {
 
     $reads && (@$reads == 1 || @$reads == 2) or push @errors,
         "Please provide one or two read files";
-    if (@$reads == 2) {
+    if ($reads && @$reads == 2) {
         $reads->[0] ne $reads->[1] or push @errors,
         "You specified the same file for the forward and reverse reads, ".
             "must be an error";

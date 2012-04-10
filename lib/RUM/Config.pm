@@ -86,19 +86,65 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     quals_fa           => "quals.fa",
     log_file           => "rum.log",
     error_log_file     => "rum-errors.log",
-    mapping_stats         => "mapping_stats.txt",
-    junctions_all_rum => "junctions_all.rum",
-    junctions_all_bed => "junctions_all.bed",
+    mapping_stats      => "mapping_stats.txt",
+    junctions_all_rum  => "junctions_all.rum",
+    junctions_all_bed  => "junctions_all.bed",
     "junctions_high_quality_bed" => "junctions_high-quality.bed",
-    rum_unique_cov => "RUM_Unique.cov",
-    rum_nu_cov => "RUM_nu.cov",
-    u_footprint => "u_footprint",
-    nu_footprint => "nu_footprint",
+    rum_unique_cov     => "RUM_Unique.cov",
+    rum_nu_cov         => "RUM_nu.cov",
+    u_footprint        => "u_footprint",
+    nu_footprint       => "nu_footprint",
     inferred_internal_exons => "inferred_internal_exons.bed",
+    inferred_internal_exons_txt => "inferred_internal_exons.txt",
 );
 
 our %DEFAULTS = (
-    num_chunks            => 0,
+    num_chunks => 1,
+    ram => 6,
+    max_insertions => 1,
+    strand_specific => 0,
+    min_identity => 93,
+    blat_min_identity => 93,
+    blat_tile_size => 12,
+    blat_step_size => 6,
+    blat_rep_match => 256,
+    blat_max_intron => 500000,
+
+    output_dir => ".",
+    name => "",
+    rum_config_file => "",
+    reads => undef,
+    user_quals => undef,
+    alt_genes => undef,
+    alt_quant_model => undef,
+
+    dna => 0,
+    forward => undef,
+    paired_end => 0,
+    bin_dir => undef,
+    genome_bowtie => undef,
+    genome_fa => undef,
+    transcriptome_bowtie => undef,
+    annotations => undef,
+    read_length => undef,
+    config_file => undef,
+    bowtie_bin => undef,
+    mdust_bin => undef,
+    blat_bin => undef,
+    trans_bowtie => undef,
+    input_needs_splitting => undef,
+    input_is_preformatted => undef,
+    count_mismatches => undef,
+    argv => undef,
+    alt_quant => undef,
+    genome_only => 0,
+    cleanup => 1,
+    junctions => 0,
+    mapping_stats => undef,
+    quantify => 0,
+    novel_inferred_internal_exons_quantifications => 0,
+
+    # Old defaults
     preserve_names        => 0,
     variable_length_reads => 0,
     min_length            => undef,
@@ -110,6 +156,11 @@ our %DEFAULTS = (
     chunk                 => undef,
     bowtie_nu_limit       => undef
 );
+
+sub default {
+    my ($class) = @_;
+    return $class->new(%DEFAULTS);
+}
 
 =head1 CONSTRUCTOR
 
@@ -312,14 +363,7 @@ sub AUTOLOAD {
     
     return if $name eq "DESTROY";
     
-    is_property($name) or croak "No such property $name";
-    
-    if ($CHUNK_SUFFIXED_PROPERTIES{$name}) {
-        return $self->chunk_suffixed($CHUNK_SUFFIXED_PROPERTIES{$name});
-    }
-    exists $self->{$name} or croak "Property $name was not set";
-
-    return $self->{$name};
+    return $self->get($name);
 }
 
 sub should_quantify {
@@ -347,9 +391,33 @@ sub ram_opt {
     return $_[0]->ram == 6 ? "" : "--ram ".$_[0]->ram;
 }
 
-sub export {
-    my ($self, $fh) = @_;
+sub save {
+    my ($self) = @_;
+
+    my $filename = $self->in_output_dir("rum_job_config.pl");
+    open my $fh, ">", $filename or croak "$filename: $!";
     print $fh Dumper($self);
+}
+
+sub load {
+    my ($class, $dir) = @_;
+    my $filename = "$dir/rum_job_config.pl";
+    return unless -e $filename;
+    my $conf = do $filename;
+    ref($conf) =~ /$class/ or croak "$filename did not return a $class";
+    return $conf;
+}
+
+sub get {
+    my ($self, $name) = @_;
+    is_property($name) or croak "No such property $name";
+    
+    if ($CHUNK_SUFFIXED_PROPERTIES{$name}) {
+        return $self->chunk_suffixed($CHUNK_SUFFIXED_PROPERTIES{$name});
+    }
+    exists $self->{$name} or croak "Property $name was not set";
+
+    return $self->{$name};
 }
 
 1;
