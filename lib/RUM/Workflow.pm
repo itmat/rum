@@ -136,6 +136,12 @@ sub add_command {
     $self->{sm}->add($pre, $post, $name);
 }
 
+=item step($name, @commands)
+
+Creates a step with the given name and commands.
+
+=cut
+
 sub step {
     my ($self, $name, @commands) = @_;
     $self->add_command(name => $name, commands => \@commands);
@@ -257,6 +263,13 @@ sub walk_states {
     $self->{sm}->walk($f) or $log->warn("Hit a dead end");
     
 }
+
+=item all_commands($name)
+
+Return the names of all the steps on the path from the current state
+to a goal state.
+
+=cut
 
 sub all_commands {
     my ($self) = @_;
@@ -443,6 +456,13 @@ sub _get_temp {
 sub pre { {pre => shift} }
 sub post { {post => shift} }
 
+
+=item clean($clean_goal)
+
+Removes files created by all intermediate states, not required by a
+goal state. If $clean_goal is true, removes all goal files as well.
+
+=cut
 
 sub clean {
     my ($self, $clean_goal) = @_;

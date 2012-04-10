@@ -317,6 +317,12 @@ sub chunk_workflow {
     return $m;
 }
 
+=item postprocessing_workflow($config)
+
+Return the workflow for the postprocessing phase.
+
+=cut
+
 sub postprocessing_workflow {
 
     my ($class, $c) = @_;

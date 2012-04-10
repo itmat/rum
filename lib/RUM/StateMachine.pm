@@ -309,6 +309,17 @@ sub walk {
     return 1;
 }
 
+=item dfs($callback)
+
+=item dfs($callback, $state)
+
+Do a depth-first search of the state machine starting at $state or the
+start state if it's not provided. $callback must be a CODE ref, and it
+will be called for each path from one state $u to another state $v with transition $t, as
+
+  $callback->($u, $t, $v)
+
+=cut
 
 sub dfs {
     my ($self, $callback, $state, $visited, $q) = @_;
@@ -329,6 +340,13 @@ sub dfs {
         }
     }
 }
+
+=item dotty($fh)
+
+Print a dotty file representing the state machine to the given
+filehandle.
+
+=cut
 
 sub dotty {
     my ($self, $fh) = @_;
