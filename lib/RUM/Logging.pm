@@ -104,6 +104,7 @@ use strict;
 use warnings;
 use FindBin qw($Bin);
 use RUM::Logger;
+use File::Spec qw(splitpath);
 
 FindBin->again();
 
@@ -129,11 +130,14 @@ sub _init {
     $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
 }
 
+my (undef, $OWN_PATH) = File::Spec->splitpath($INC{'RUM/Logging.pm'});
+warn $OWN_PATH;
+
 our @LOG4PERL_CONFIGS = (
         $ENV{RUM_LOG_CONFIG} || "",      # RUM_LOG_CONFIG environment variable
         "rum_logging.conf",              # rum_logging.conf in current dir
         "$ENV{HOME}/.rum_logging.conf",  # ~/.rum_logging.conf
-        "$Bin/../conf/rum_logging.conf"  # config file included in distribution
+        "$Bin/../conf/rum_logging.conf",  # config file included in distribution
     );
 
 sub _init_log4perl {
@@ -155,7 +159,7 @@ sub _init_log4perl {
     # Now try to initialize Log::Log4perl with a config file.
     my @configs = grep { -r } @LOG4PERL_CONFIGS;
     my $config = $configs[0];
-
+    warn "Config is @LOG4PERL_CONFIGS";
     eval {
         Log::Log4perl->init($config);
         my $log = Log::Log4perl->get_logger();

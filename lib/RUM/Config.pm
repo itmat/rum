@@ -85,8 +85,6 @@ our %CHUNK_SUFFIXED_PROPERTIES = (
     chr_counts_nu      => "chr_counts_nu",
     reads_fa           => "reads.fa",
     quals_fa           => "quals.fa",
-    log_file           => "rum.log",
-    error_log_file     => "rum-errors.log",
     mapping_stats      => "mapping_stats.txt",
     junctions_all_rum  => "junctions_all.rum",
     junctions_all_bed  => "junctions_all.bed",
@@ -395,7 +393,7 @@ sub ram_opt {
 
 sub save {
     my ($self) = @_;
-
+    $log->debug("Saving config file, chunks is " . $self->num_chunks);
     my $filename = $self->in_output_dir("rum_job_config.pl");
     open my $fh, ">", $filename or croak "$filename: $!";
     print $fh Dumper($self);
@@ -421,5 +419,9 @@ sub get {
 
     return $self->{$name};
 }
+
+sub log_file { $_[0]->chunk_replaced("rum_%03d.log") }
+sub error_log_file { $_[0]->chunk_replaced("rum_errors_%03d.log") }
+
 
 1;

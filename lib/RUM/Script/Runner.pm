@@ -14,6 +14,7 @@ use RUM::Repository;
 use RUM::Usage;
 use RUM::Logging;
 use RUM::Pipeline;
+use RUM::Cluster::SGE;
 use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
 
 our $log = RUM::Logging->get_logger();
@@ -97,11 +98,22 @@ sub run_pipeline {
     $self->say("Chunk is $chunk");
     $self->show_logo;
     $self->setup;
-    $self->check_ram unless $chunk;
-    $self->preprocess  if $self->do_preprocess && !$chunk;
-    $self->process     if $self->do_process;
-    $self->postprocess if $self->do_postprocess && !$chunk;
 
+    if (! $self->do_qsub && ! $chunk) {
+        $self->check_ram;
+    }
+
+    if ($self->do_qsub) {
+        my $cluster = RUM::Cluster::SGE->new($self->config);
+        $cluster->submit_preproc  if $self->do_preprocess;
+        $cluster->submit_proc     if $self->do_process;
+        $cluster->submit_postproc if $self->do_postprocess;
+    }
+    else {
+        $self->preprocess  if $self->do_preprocess && !$chunk;
+        $self->process     if $self->do_process;
+        $self->postprocess if $self->do_postprocess && !$chunk;
+    }
 }
 
 sub get_options {
@@ -387,6 +399,7 @@ sub diagram {
 
 sub preprocess {
     my ($self) = @_;
+
     $self->say();
     $self->say("Preprocessing");
     $self->say("-------------");
@@ -406,22 +419,6 @@ sub step_printer {
     };
 }
 
-sub submit_chunks {
-    my ($self) = @_;
-    my $c = $self->config;
-    my $n = $c->num_chunks;
-    $log->info("Creating $n chunks");
-
-    my @argv = ("--output", $c->output_dir, "--chunk", '$SGE_TASK_ID');
-    my $job_sh_name = $c->in_output_dir("rum_" . $c->name . ".sh");
-    open my $job_sh, ">", $job_sh_name or croak "$job_sh_name: $!";
-    print $job_sh "perl $0 @argv\n";
-    close $job_sh;
-    my $cmd = "qsub -V -cwd -j y -b y -t 1:$n sh $job_sh_name";
-    my $out = `$cmd`;
-    $self->say("Submitted it: $out");
-    exit;
-}
 
 sub process_in_chunks {
     my ($self) = @_;
@@ -524,12 +521,7 @@ sub process {
         $w->execute($self->step_printer($w));
     }
     elsif ($config->num_chunks) {
-        if ($self->do_qsub) {
-            $self->submit_chunks;
-        }
-        else {
-            $self->process_in_chunks;
-        }
+        $self->process_in_chunks;
     }
 }
 
