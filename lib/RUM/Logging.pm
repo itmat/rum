@@ -126,7 +126,7 @@ $SIG{__DIE__} = sub {
     RUM::Logging->get_logger("RUM::Script")->logdie(@_);
 };
 
-sub init {
+sub _init {
     $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
 }
 
@@ -176,6 +176,8 @@ sub _init_rum_logger {
     $LOGGER_CLASS->init();
 }
 
+__PACKAGE__->_init;
+
 =head1 CLASS METHODS
 
 =over 4
@@ -199,7 +201,7 @@ $name, uses the package name of the caller as the name. For example:
 
 sub get_logger {
     my ($self, $name) = @_;
-    $self->init;
+
     unless (defined($name)) {
         my ($package) = caller(0);
         $name = $package;
