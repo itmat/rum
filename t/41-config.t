@@ -1,4 +1,4 @@
-use Test::More tests => 24;
+use Test::More tests => 23;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -20,11 +20,11 @@ $c = RUM::Config->new();
 
 $c = RUM::Config->new(output_dir => "foo");
 is($c->output_dir, "foo");
-is($c->reads_fa, "foo/reads.fa", "Chunk suffixed with no chunk");
+is($c->chunk_suffixed("reads.fa"), "foo/reads.fa", "Chunk suffixed with no chunk");
 
 $c = $c->for_chunk(1);
 is($c->chunk, 1, "Chunk setting");
-is($c->reads_fa, "foo/reads.fa.1", "Getting property for chunk");
+is($c->chunk_suffixed("reads.fa"), "foo/reads.fa.1", "Getting property for chunk");
 
 sub should_quantify {
     my (%options) = @_;
@@ -81,5 +81,4 @@ ok(! RUM::Config->load("/foo/bar/baz"));
 
 my %default = %{ RUM::Config->default };
 
-my @missing = grep { not exists $default{$_} } @RUM::Config::LITERAL_PROPERTIES;
-is_deeply([@missing], [], "All properties set by default");
+

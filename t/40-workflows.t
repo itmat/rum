@@ -1,4 +1,4 @@
-use Test::More tests => 27;
+use Test::More tests => 25;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -22,11 +22,9 @@ my $repo = RUM::Repository->new(root_dir => "$Bin/../_testing");
 my @indexes = eval { $repo->indexes(pattern => qr/TAIR/); };
 
 my $out_dir = "$Bin/tmp/40-workflows";
-my $state_dir = "$out_dir/state";
 my $conf_dir = $repo->conf_dir;
 my $index_dir = $repo->indexes_dir;
 my $annotations = "$index_dir/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
-
 
 my %defaults = (
     strand_specific => 0,
@@ -62,10 +60,7 @@ SKIP: {
 
     $config->load_rum_config_file;
     rmtree($out_dir);
-    mkpath($config->state_dir);
-    
-    is($config->genome_bowtie_out, "$out_dir/X.1", "genome bowtie out");
-    is($config->blat_output, "$out_dir/R.1.blat", "blat out");
+    mkpath $out_dir;
 
     my $chunk = RUM::Workflows->chunk_workflow($config);
 

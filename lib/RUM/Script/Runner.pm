@@ -41,7 +41,7 @@ sub do_postprocess { $_[0]->{directives}{postprocess} }
 
 sub say {
     my ($self, @msg) = @_;
-    $log->info("@msg");
+    #$log->info("@msg");
     print wrap("", "", @msg) . "\n" unless $self->be_quiet;
 }
 
@@ -76,9 +76,14 @@ sub run_pipeline {
 
     $self->check_config();        
     $self->setup;
-    
-    $self->config->save if $self->do_save;
+
+    if ($self->do_save) {
+        $self->say("Saving configuration");
+        $self->config->save;
+        return;
+    }
     return if $self->do_dry_run;
+
 
     if ($self->do_diagram) {
         $self->diagram;
@@ -100,7 +105,7 @@ sub run_pipeline {
     $self->show_logo;
     $self->setup;
 
-    if (! $self->do_qsub && ! $chunk) {
+    if ($self->do_process && ! $self->do_qsub && ! $chunk) {
         $self->check_ram;
     }
 
@@ -698,7 +703,7 @@ sub determine_read_length {
     
     my ($self) = @_;
 
-    my @lines = head($self->config->chunk_suffixed("reads.fa"), 2);
+    my @lines = head($self->config->in_output_dir("reads.fa.1"), 2);
     my $read = $lines[1];
     my $len = length($read);
     my $min = $self->config->min_length;
@@ -1080,6 +1085,7 @@ sub check_ram {
     my ($self) = @_;
 
     my $c = $self->config;
+
     return if $c->ram_ok;
 
     if (!$c->ram) {
@@ -1160,13 +1166,13 @@ sub available_ram {
     local $_;
 
     # this should work on linux
-    $_ = `free -g`; 
+    $_ = `free -g 2>/dev/null`; 
     if (/Mem:\s+(\d+)/s) {
         return $1;
     }
 
     # this should work on freeBSD
-    $_ = `grep memory /var/run/dmesg.boot`;
+    $_ = `grep memory /var/run/dmesg.boot 2>/dev/null`;
     if (/avail memory = (\d+)/) {
         return int($1 / 1000000000);
     }

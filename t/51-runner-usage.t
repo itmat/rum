@@ -124,7 +124,7 @@ like(run_rum("--help-config"),
      qr/bowtie genome index/, "--help-config prints config info");
 
 sub tmp_out {
-    return tempdir(TEMPLATE => "runner-usage.XXXXXX", UNLINK => 1);
+    return tempdir(TEMPLATE => "runner-usage.XXXXXX", CLEANUP => 1);
 }
 
 # Check that it fails if required arguments are missing
@@ -159,7 +159,7 @@ rum_fails_ok(["--config", "missing-config-file",
 
 my $name = 'a' x 300;
 rum_fails_ok(
-    ["--config", $config, "--output", "bar", "--name", $name," in.fq"],
+    ["--config", $config, "--output", tmp_out(), "--name", $name," in.fq"],
     qr/250 characters/, "Long name");
 
 # Check that we set some default values correctly
@@ -199,23 +199,23 @@ is(rum("--config", $config,
    "Clean up name with invalid characters");
 
 # Check that rum fails if a read file is missing
-rum_fails_ok(["--config", $config, "--output", "bar",
+rum_fails_ok(["--config", $config, "--output", tmp_out(),
               "--name", "asdf", "asdf.fq", "-q"],
              qr/asdf.fq.*no such file or directory/i,
              "Read file doesn't exist");    
-rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf", 
+rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf", 
               $forward_64_fq, "asdf.fq", "-q"],
              qr/asdf.fq.*no such file or directory/i, 
              "Read file doesn't exist");    
 
 # Check bad reads
-rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf", 
+rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf", 
               $bad_reads, "-q"],
              qr/you appear to have entries/i, "Bad reads");    
-rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf",
+rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf",
               $bad_reads, $good_reads_same_size_as_bad, "-q"], 
              qr/you appear to have entries/i, "Bad reads");    
-rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf",
+rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf",
               $good_reads_same_size_as_bad, $bad_reads, "-q"],
              qr/you appear to have entries/i, "Bad reads");    
 
@@ -233,8 +233,8 @@ diag "Here I am";
     ok($rum->config->paired_end, "$prefix is paired end");
     ok($rum->config->input_is_preformatted, "$prefix is preformatted");
     ok($rum->config->input_needs_splitting, "$prefix needs splitting");
-    ok(-e $rum->config->reads_fa, "$prefix: made reads");
-    ok(! -e $rum->config->quals_fa, "$prefix: didn't make quals");
+    ok(-e $rum->config->in_output_dir("reads.fa.1"), "$prefix: made reads");
+    ok(! -e $rum->config->in_output_dir("quals.fa.1"), "$prefix: didn't make quals");
 }
 
 # Check that we process a single forward-read-only fasta file correctly
