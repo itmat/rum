@@ -189,7 +189,12 @@ sub transition {
 
         # If all the bits in $pre aren't set in $state, then we can't
         # use this transition.
-        next unless ($from & $pre) == $pre;
+        if (my $missing = $pre & ~$from) {
+
+            $log->debug("transition($from, $instruction) failed, missing ".
+                            join(", ", $self->flags($missing)));
+            next;
+        }
         
         $to = $from | $post;
 
@@ -289,7 +294,7 @@ sub walk {
     my ($self, $callback, $start) = @_;
 
     my $state = defined($start) ? $start : $self->start;
-    
+
   STATE: while (!$self->is_goal($state)) {
         $log->debug("Looking at state $state");
         local $_;
@@ -315,7 +320,8 @@ sub walk {
 
 Do a depth-first search of the state machine starting at $state or the
 start state if it's not provided. $callback must be a CODE ref, and it
-will be called for each path from one state $u to another state $v with transition $t, as
+will be called for each path from one state $u to another state $v
+with transition $t, as
 
   $callback->($u, $t, $v)
 

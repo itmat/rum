@@ -18,85 +18,6 @@ RUM::Config - Configuration for a RUM job
 
 =cut
 
-our @LITERAL_PROPERTIES = qw (forward chunk output_dir paired_end
-                              ram_ok
- match_length_cutoff num_chunks bin_dir genome_bowtie
- genome_fa transcriptome_bowtie annotations num_chunks read_length
- min_overlap max_insertions match_length_cutoff limit_nu_cutoff
- preserve_names variable_length_reads config_file
- bowtie_bin mdust_bin blat_bin trans_bowtie min_length reads
- input_needs_splitting
- input_is_preformatted
- count_mismatches
- argv
- rum_config_file
- name
- min_identity
- nu_limit
- alt_genes
- alt_quant
- dna
- genome_only
- cleanup
- junctions
- ram
- strand_specific
- user_quals
- mapping_stats
- quantify
- alt_quant_model
- novel_inferred_internal_exons_quantifications
- bowtie_nu_limit
-    blat_min_identity
-blat_tile_size
-blat_step_size
-blat_rep_match
-blat_max_intron
-                         );
-
-our %CHUNK_SUFFIXED_PROPERTIES = (
-    genome_bowtie_out  => "X",
-    trans_bowtie_out   => "Y",
-    bowtie_unmapped    => "R",
-    blat_unique        => "BlatUnique",
-    blat_nu            => "BlatNU",
-    gu                 => "GU",
-    tu                 => "TU",
-    gnu                => "GNU",
-    tnu                => "TNU",
-    cnu                => "CNU",
-    bowtie_unique      => "BowtieUnique",
-    bowtie_nu          => "BowtieNU",
-    bowtie_blat_unique => "RUM_Unique_temp",
-    bowtie_blat_nu     => "RUM_NU_temp",
-    cleaned_unique     => "RUM_Unique_temp2",
-    cleaned_nu         => "RUM_NU_temp2",
-    sam_header         => "sam_header",
-    rum_nu_id_sorted   => "RUM_NU_idsorted",
-    rum_nu_deduped     => "RUM_NU_temp3",
-    rum_nu             => "RUM_NU",
-    rum_unique         => "RUM_Unique",
-    quals_file         => "quals",
-    sam_file           => "RUM.sam",
-    nu_stats           => "nu_stats",
-    rum_unique_sorted  => "RUM_Unique.sorted",
-    rum_nu_sorted      => "RUM_NU.sorted",
-    chr_counts_u       => "chr_counts_u",
-    chr_counts_nu      => "chr_counts_nu",
-    reads_fa           => "reads.fa",
-    quals_fa           => "quals.fa",
-    mapping_stats      => "mapping_stats.txt",
-    junctions_all_rum  => "junctions_all.rum",
-    junctions_all_bed  => "junctions_all.bed",
-    "junctions_high_quality_bed" => "junctions_high-quality.bed",
-    rum_unique_cov     => "RUM_Unique.cov",
-    rum_nu_cov         => "RUM_nu.cov",
-    u_footprint        => "u_footprint",
-    nu_footprint       => "nu_footprint",
-    inferred_internal_exons => "inferred_internal_exons.bed",
-    inferred_internal_exons_txt => "inferred_internal_exons.txt",
-);
-
 our %DEFAULTS = (
     num_chunks => 1,
     ram => undef,
@@ -178,7 +99,7 @@ sub new {
     my ($class, %options) = @_;
     my %data = %DEFAULTS;
     
-    for (@LITERAL_PROPERTIES) {
+    for (keys %DEFAULTS) {
         if (exists $options{$_}) {
             $data{$_} = delete $options{$_};
         }
@@ -298,14 +219,6 @@ sub blat_opts {
     return join(" ", map("-$_='$opts{$_}'", sort keys %opts));
 }
 
-# These functions return filenames that are named uniquely for this
-# chunk.
-
-sub blat_output  { $_[0]->chunk_replaced("R.%d.blat") }
-sub mdust_output { $_[0]->chunk_replaced("R.%d.mdust") }
-
-sub state_dir { $_[0]->chunk_replaced("state-%03d") }
-
 # $quantify and $quantify_specified default to false
 # Both set to true if --quantify is given
 # $quantify set to true if --dna is not given
@@ -340,13 +253,9 @@ sub pipeline_sh { $_[0]->chunk_suffixed("pipeline.sh") }
 # TODO: Maybe support name mapping?
 sub name_mapping_opt   { "" } 
 
-sub properties {
-    (@LITERAL_PROPERTIES, keys %CHUNK_SUFFIXED_PROPERTIES, keys %DEFAULTS)
-}
-
 sub is_property {
     my $name = shift;
-    grep { $name eq $_ } (@LITERAL_PROPERTIES, keys %CHUNK_SUFFIXED_PROPERTIES)
+    exists $DEFAULTS{$name};
 }
 
 sub set {
@@ -388,7 +297,7 @@ sub novel_inferred_internal_exons_quantifications {
 }
 
 sub ram_opt {
-    return $_[0]->ram == 6 ? "" : "--ram ".$_[0]->ram;
+    return $_[0]->ram ? "--ram ".$_[0]->ram : "";
 }
 
 sub save {
@@ -412,16 +321,9 @@ sub get {
     my ($self, $name) = @_;
     is_property($name) or croak "No such property $name";
     
-    if ($CHUNK_SUFFIXED_PROPERTIES{$name}) {
-        return $self->chunk_suffixed($CHUNK_SUFFIXED_PROPERTIES{$name});
-    }
     exists $self->{$name} or croak "Property $name was not set";
 
     return $self->{$name};
 }
-
-sub log_file { $_[0]->chunk_replaced("rum_%03d.log") }
-sub error_log_file { $_[0]->chunk_replaced("rum_errors_%03d.log") }
-
 
 1;

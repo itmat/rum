@@ -7,23 +7,23 @@ use Getopt::Long;
 use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
 use Carp;
-
+use RUM::Logging;
 use RUM::Workflows;
 use RUM::WorkflowRunner;
 use RUM::Repository;
 use RUM::Usage;
-use RUM::Logging;
 use RUM::Pipeline;
 use RUM::Cluster::SGE;
 use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
 
-our $log = RUM::Logging->get_logger();
+our $log = RUM::Logging->get_logger;
 our $LOGO;
 
 sub do_version { $_[0]->{directives}{version} }
 sub do_help { $_[0]->{directives}{help} }
 sub do_help_config { $_[0]->{directives}{help_config} }
 sub do_diagram { $_[0]->{directives}{diagram} }
+sub do_save { $_[0]->{directives}{save} }
 
 sub be_quiet { $_[0]->{directives}{quiet} }
 sub do_qsub { $_[0]->{directives}{qsub} }
@@ -67,7 +67,7 @@ sub run {
         $self->export_shell_script;
     }
     else {
-        $self->run_pipeline unless $self->do_dry_run;
+        $self->run_pipeline;
     }
 }
 
@@ -77,7 +77,8 @@ sub run_pipeline {
     $self->check_config();        
     $self->setup;
     
-    $self->config->save unless $self->config->chunk;
+    $self->config->save if $self->do_save;
+    return if $self->do_dry_run;
 
     if ($self->do_diagram) {
         $self->diagram;
@@ -110,9 +111,9 @@ sub run_pipeline {
         $cluster->submit_postproc if $self->do_postprocess;
     }
     else {
-        $self->preprocess  if $self->do_preprocess && !$chunk;
+        $self->preprocess  if $self->do_preprocess;
         $self->process     if $self->do_process;
-        $self->postprocess if $self->do_postprocess && !$chunk;
+        $self->postprocess if $self->do_postprocess;
     }
 }
 
@@ -136,6 +137,7 @@ sub get_options {
         "clean"        => \(my $do_clean),
         "veryclean"    => \(my $do_veryclean),
         "diagram"      => \(my $do_diagram),
+        "save"         => \(my $do_save),
 
         # Options controlling which portions of the pipeline to run.
         "preprocess"   => \(my $do_preprocess),
@@ -186,6 +188,7 @@ sub get_options {
         "maxIntron|blat-max-intron=s"     => \(my $blat_max_intron)
     );
 
+
     my $dir = $output_dir || ".";
 
     my $c = RUM::Config->load($dir);
@@ -215,6 +218,7 @@ sub get_options {
         help         => $do_help,
         help_config  => $do_help_config,
         dry_run      => $do_dry_run,
+        save         => $do_save,
         status       => $do_status,
         clean        => $do_clean,
         veryclean    => $do_veryclean,
@@ -440,8 +444,7 @@ sub process_in_chunks {
                 $pid_to_chunk{$pid} = $chunk;
             }
             else {
-                $ENV{RUM_CHUNK_LOG} = $config->log_file;
-                $ENV{RUM_CHUNK_ERROR_LOG} = $config->error_log_file;
+                $ENV{RUM_CHUNK} = $chunk;
                 exec $cmd;
             }
         };
@@ -695,7 +698,7 @@ sub determine_read_length {
     
     my ($self) = @_;
 
-    my @lines = head($self->config->reads_fa, 2);
+    my @lines = head($self->config->chunk_suffixed("reads.fa"), 2);
     my $read = $lines[1];
     my $len = length($read);
     my $min = $self->config->min_length;
@@ -773,8 +776,8 @@ sub reformat_reads {
 
     my @reads = @{ $config->reads };
 
-    my $reads_fa = $config->reads_fa;
-    my $quals_fa = $config->quals_fa;
+    my $reads_fa = $config->chunk_suffixed("reads.fa");
+    my $quals_fa = $config->chunk_suffixed("quals.fa");
 
     my $name_mapping_opt = $config->preserve_names ?
         "-name_mapping $output_dir/read_names_mapping" : "";    
@@ -819,7 +822,7 @@ sub reformat_reads {
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
         $self->{input_needs_splitting} = 1;
-        my $X = join("\n", head($config->quals_fa, 20));
+        my $X = join("\n", head($config->chunk_suffixed("quals.fa"), 20));
         if($X =~ /\S/s && !($X =~ /Sorry, can\'t figure these files out/s)) {
             $have_quals = "true";
         }
@@ -832,7 +835,7 @@ sub reformat_reads {
 
         if ($have_quals) {
             $self->say( "Half done splitting; starting qualities...");
-            breakup_file($config->quals_fa, 1);
+            breakup_file($config->chunk_suffixed("quals.fa"), 1);
         }
         elsif ($config->user_quals) {
             $self->say( "Half done splitting; starting qualities...");
@@ -1014,7 +1017,7 @@ sub breakup_file  {
 
     for(my $i=1; $i < $c->num_chunks; $i++) {
         my $chunk_config = $c->for_chunk($i);
-	my $outfilename = $chunk_config->reads_fa;
+	my $outfilename = $chunk_config->chunk_suffixed("reads.fa");
 
         $log->debug("Building $outfilename");
 	open(OUTFILE, ">$outfilename");
@@ -1035,7 +1038,7 @@ sub breakup_file  {
 	close(OUTFILE);
     }
     my $chunk_config = $c->num_chunks ? $c->for_chunk($c->num_chunks) : $c;
-    my $outfilename = $chunk_config->reads_fa();
+    my $outfilename = $chunk_config->chunk_suffixed("reads.fa");
     open(OUTFILE, ">$outfilename");
     while(my $line = <INFILE>) {
 	print OUTFILE $line;

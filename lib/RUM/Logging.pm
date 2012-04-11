@@ -126,12 +126,9 @@ $SIG{__DIE__} = sub {
     RUM::Logging->get_logger("RUM::Script")->logdie(@_);
 };
 
-sub _init {
+sub init {
     $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
 }
-
-my (undef, $OWN_PATH) = File::Spec->splitpath($INC{'RUM/Logging.pm'});
-warn $OWN_PATH;
 
 our @LOG4PERL_CONFIGS = (
         $ENV{RUM_LOG_CONFIG} || "",      # RUM_LOG_CONFIG environment variable
@@ -139,6 +136,8 @@ our @LOG4PERL_CONFIGS = (
         "$ENV{HOME}/.rum_logging.conf",  # ~/.rum_logging.conf
         "$Bin/../conf/rum_logging.conf",  # config file included in distribution
     );
+
+push @LOG4PERL_CONFIGS, map { "$_/../conf/rum_logging.conf" } @INC;
 
 sub _init_log4perl {
 
@@ -159,7 +158,7 @@ sub _init_log4perl {
     # Now try to initialize Log::Log4perl with a config file.
     my @configs = grep { -r } @LOG4PERL_CONFIGS;
     my $config = $configs[0];
-    warn "Config is @LOG4PERL_CONFIGS";
+
     eval {
         Log::Log4perl->init($config);
         my $log = Log::Log4perl->get_logger();
@@ -176,8 +175,6 @@ sub _init_rum_logger {
     $LOGGER_CLASS = "RUM::Logger";
     $LOGGER_CLASS->init();
 }
-
-__PACKAGE__->_init();
 
 =head1 CLASS METHODS
 
@@ -202,6 +199,7 @@ $name, uses the package name of the caller as the name. For example:
 
 sub get_logger {
     my ($self, $name) = @_;
+    $self->init;
     unless (defined($name)) {
         my ($package) = caller(0);
         $name = $package;
