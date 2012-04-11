@@ -112,8 +112,6 @@ sub new {
     return bless \%data, $class;
 }
 
-
-
 sub variable_read_lengths {
     $_[0]->variable_length_reads
 }

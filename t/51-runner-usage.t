@@ -22,6 +22,8 @@ our $reverse_64_fa = "$SHARED_INPUT_DIR/reverse64.fa";
 our $alt_genes     = "$SHARED_INPUT_DIR/alt_genes.txt";
 our $alt_quant     = "$SHARED_INPUT_DIR/alt_quant.txt";
 
+our $log = RUM::Logging->get_logger;
+
 BEGIN { use_ok('RUM::Script::Runner') or BAIL_OUT "Couldn't load RUM::Script::Runner" }
 
 {
@@ -182,7 +184,7 @@ rum_fails_ok(
     ok(!$c->count_mismatches, "no count mismatches");
     ok(!$c->junctions, "no junctions");
     ok(!$c->strand_specific, "no strand-specific");
-    is($c->ram, 6, "ram");
+    is($c->ram, undef, "ram");
 
     is($c->bowtie_nu_limit, undef, "Bowtie nu limit");
     is($c->nu_limit, undef, "nu limit");
@@ -217,12 +219,15 @@ rum_fails_ok(["--config", $config, "--output", "bar", "--name", "asdf",
               $good_reads_same_size_as_bad, $bad_reads, "-q"],
              qr/you appear to have entries/i, "Bad reads");    
 
+diag "Here I am";
+
 # Check that we preprocess a single paired-end fasta file correctly
 {
+    $log->warn("About to preprocess");
     my $rum = preprocess("--config", $config,
                          "-o", tempdir(CLEANUP => 1),
                          "--name", "asdf", "$SHARED_INPUT_DIR/reads.fa");
-    
+    diag "I preprocessed";
     my $prefix = "1, paired, fa, no chunks";
     
     ok($rum->config->paired_end, "$prefix is paired end");

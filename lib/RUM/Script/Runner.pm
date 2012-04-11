@@ -96,7 +96,7 @@ sub run_pipeline {
         return;
     }
     my $chunk = $self->config->chunk;
-    $self->say("Chunk is $chunk");
+
     $self->show_logo;
     $self->setup;
 
@@ -361,7 +361,7 @@ sub config {
 sub clean {
     my ($self) = @_;
     my $c = $self->config;
-    $self->determine_read_length;
+
     my $very = $self->do_veryclean;
 
     if ($self->do_process) {
@@ -507,7 +507,7 @@ sub process_in_chunks {
 
 sub process {
     my ($self) = @_;
-    $self->determine_read_length();
+
     my $config = $self->config;
 
     $log->debug("Chunk is ". ($config->chunk ? "yes" : "no"));
@@ -532,7 +532,7 @@ sub postprocess {
     my ($self) = @_;
     $self->say("Postprocessing");
     $self->say("--------------");
-    $self->determine_read_length();
+
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
     $w->execute($self->step_printer($w));
 }
@@ -1194,7 +1194,7 @@ sub available_ram {
     }
     return 0;
 }
-        
+
 
 1;
 
