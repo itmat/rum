@@ -62,7 +62,47 @@ defaults. The option -kill is also quite useful to stop a run, because
 killing just the main program will not always kill the spawned
 processes.
 
-=head2 Common Options
+=head2 Commands
+
+These boolean options tell RUM_runner what to do. If none of them are
+supplied, it will run all outstanding steps in the pipeline.
+
+=over 4
+
+=item B<--save>
+
+Save the job configuration in a file in the output directory. This
+allows you to run this program again without specifying the
+configuration options.
+
+=item B<--preprocess>
+
+=item B<--process>
+
+=item B<--postprocess>
+
+Run only the preprocessing, processing, or postprocessing phase.
+
+=item B<--status>
+
+Just check the status of the job. This can be combined with the
+--preprocessing, --processing, and --postprocessing to just show the
+status for those phases. It can also be combined with --chunk to just
+show the status for one chunk.
+
+=item B<--clean> 
+
+Remove all intermediate files from the output directory.
+
+=item B<--veryclean>
+
+Remove all inermediate and result files from the output directory.
+
+=back
+
+=head2 Job Configuration
+
+=head3 Common
 
 =over 4
 
@@ -104,7 +144,7 @@ characters.
 
 =back
 
-=head2 Less Common Options
+=head3 Less Common
 
 =over 4
 

@@ -19,6 +19,7 @@ RUM::Config - Configuration for a RUM job
 =cut
 
 our %DEFAULTS = (
+    qsub => 0,
     num_chunks => 1,
     ram => undef,
     ram_ok => 0,

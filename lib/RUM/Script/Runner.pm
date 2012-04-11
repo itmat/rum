@@ -26,7 +26,6 @@ sub do_diagram { $_[0]->{directives}{diagram} }
 sub do_save { $_[0]->{directives}{save} }
 
 sub be_quiet { $_[0]->{directives}{quiet} }
-sub do_qsub { $_[0]->{directives}{qsub} }
 
 sub do_status { $_[0]->{directives}{status} }
 sub do_clean { $_[0]->{directives}{clean} }
@@ -80,45 +79,48 @@ sub run_pipeline {
     if ($self->do_save) {
         $self->say("Saving configuration");
         $self->config->save;
-        return;
     }
-    return if $self->do_dry_run;
-
-
-    if ($self->do_diagram) {
+    elsif ($self->do_diagram) {
         $self->diagram;
-        return;
     }
-
-    if ($self->do_status) {
+    elsif ($self->do_status) {
         $self->print_processing_status if $self->do_process;
         $self->print_postprocessing_status if $self->do_postprocess;
-        return;
     }
-
-    if ($self->do_clean || $self->do_veryclean) {
+    elsif ($self->do_clean || $self->do_veryclean) {
+        $self->say("Cleaning up");
         $self->clean;
-        return;
-    }
-    my $chunk = $self->config->chunk;
-
-    $self->show_logo;
-    $self->setup;
-
-    if ($self->do_process && ! $self->do_qsub && ! $chunk) {
-        $self->check_ram;
-    }
-
-    if ($self->do_qsub) {
-        my $cluster = RUM::Cluster::SGE->new($self->config);
-        $cluster->submit_preproc  if $self->do_preprocess;
-        $cluster->submit_proc     if $self->do_process;
-        $cluster->submit_postproc if $self->do_postprocess;
     }
     else {
-        $self->preprocess  if $self->do_preprocess;
-        $self->process     if $self->do_process;
-        $self->postprocess if $self->do_postprocess;
+        my $is_child = $self->{is_child};
+
+        $self->show_logo;
+        $self->setup;
+
+        $self->check_ram unless $is_child;
+
+        # If this is a qsub job and it's not a child process, we need
+        # to submit the child processes
+        if ($self->config->qsub && ! $is_child) {
+            my $cluster = RUM::Cluster::SGE->new($self->config);
+            if ($self->do_preprocess) {
+                $self->say("Submitting preprocessing task");
+                $cluster->submit_preproc;
+            }
+            if ($self->do_process) {
+                $self->say("Submitting chunks");
+                $cluster->submit_proc;
+            }
+            if ($self->do_postprocess) {
+                $self->say("Submitting postprocessing chunks");
+                $cluster->submit_postproc;
+            }
+        }
+        else {
+            $self->preprocess  if $self->do_preprocess;
+            $self->process     if $self->do_process;
+            $self->postprocess if $self->do_postprocess;
+        }
     }
 }
 
@@ -143,6 +145,7 @@ sub get_options {
         "veryclean"    => \(my $do_veryclean),
         "diagram"      => \(my $do_diagram),
         "save"         => \(my $do_save),
+        "child"        => \(my $is_child),
 
         # Options controlling which portions of the pipeline to run.
         "preprocess"   => \(my $do_preprocess),
@@ -158,7 +161,7 @@ sub get_options {
         # Control how we divide up the job.
         "chunks=s" => \(my $num_chunks),
         "ram=s"    => \(my $ram),
-        "qsub"     => \(my $do_qsub),
+        "qsub"     => \(my $qsub),
 
         # Control logging and cleanup of temporary files.
         "no-clean"  => \(my $no_clean),
@@ -214,6 +217,8 @@ sub get_options {
         $do_process     = 1;
         $do_postprocess = ! $chunk;
     }
+
+    $self->{is_child} = $is_child;
           
     $self->{directives} = {
         version      => $do_version,
@@ -231,7 +236,6 @@ sub get_options {
         process      => $do_process,
         postprocess  => $do_postprocess,
         quiet        => $quiet,
-        qsub         => $do_qsub
     };
 
     my $set = sub { 
@@ -274,7 +278,7 @@ sub get_options {
     $set->('blat_step_size', $blat_step_size);
     $set->('blat_rep_match', $blat_rep_match);
     $set->('blat_max_intron', $blat_max_intron);
-    
+    $set->('qsub', $qsub);
     $self->{config} = $c;
 }
 

@@ -15,9 +15,9 @@ sub new {
     my $dir = $config->output_dir;
 
     $self->{cmd} = {};
-    $self->{cmd}{preproc}  =  "perl $0 --output $dir --preprocess";
-    $self->{cmd}{proc}     =  "perl $0 --output $dir --chunks \$SGE_TASK_ID";
-    $self->{cmd}{postproc} =  "perl $0 --output $dir --postprocess";
+    $self->{cmd}{preproc}  =  "perl $0 --child --output $dir --preprocess";
+    $self->{cmd}{proc}     =  "perl $0 --child --output $dir --chunk \$SGE_TASK_ID";
+    $self->{cmd}{postproc} =  "perl $0 --child --output $dir --postprocess";
 
     return bless $self, $class;
 }
@@ -86,4 +86,9 @@ sub qsub {
 
     return $self->parse_qsub_out($out);
 }
+
+sub qstat {
+    
+}
+
 1;
