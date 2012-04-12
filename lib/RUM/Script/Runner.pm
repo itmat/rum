@@ -16,6 +16,8 @@ use RUM::Pipeline;
 use RUM::Cluster::SGE;
 use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
 
+our $CLUSTER_CHECK_INTERVAL = 30;
+
 our $log = RUM::Logging->get_logger;
 our $LOGO;
 
@@ -120,6 +122,44 @@ sub run_pipeline {
             $self->preprocess  if $self->do_preprocess;
             $self->process     if $self->do_process;
             $self->postprocess if $self->do_postprocess;
+        }
+    }
+}
+
+sub monitor_cluster {
+    my ($self) = @_;
+    while (1) {
+        sleep $CLUSTER_CHECK_INTERVAL;
+        my $cluster = $self->cluster;
+        $cluster->update_status;
+
+        if ($self->do_process) {
+            my @failed_chunks;
+            for my $c ($self->chunk_configs) {
+                my $w = RUM::Workflows->chunk_workflow($c);
+                if ($w->is_complete) {
+                    $log->debug("Chunk " . $c->chunk . " is done");
+                }
+                elsif ($cluster->proc_ok) {
+                    $log->debug("Looks like chunk ". $c->chunk . " is ok");
+                }
+                else {
+                    $log->error("Chunk " . $c->chunk . " seems to have failed");
+                    push @failed_chunks, $c->chunk;
+                }
+            }
+        }
+        if ($self->do_postprocess) {
+            my $w = RUM::Workflows->postprocessing_workflow;
+            if ($w->is_complete) {
+                $log->debug("Postprocessing is done");
+            }
+            elsif ($cluster->postproc_ok) {
+                $log->debug("Looks like postprocessing is ok");
+            }
+            else {
+                $log->error("Postprocessing seems to have failed");
+            }
         }
     }
 }

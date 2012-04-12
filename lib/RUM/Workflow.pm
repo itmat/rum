@@ -420,6 +420,13 @@ sub execute {
     $self->{sm}->walk($f);
 }
 
+sub is_complete {
+    my ($self) = @_;
+    my $goal = $self->state_machine->goal_mask;
+    my $state = $self->state;
+    return ($goal & ~$state) == 0;
+}
+
 # Given an array ref of filenames, initialize flags for any that I
 # don't already know about, and return a bit string representing the
 # set of states where all those files exist.
