@@ -172,10 +172,12 @@ sub update_status {
 
 sub _build_job_states {
     my ($self, $jobs) = @_;
-    my $jid_map = $self->{jids};
 
+    # For preproc and postproc, %states maps a job id to the state of
+    # that job according to qstat. For proc, %states maps a job id to
+    # an array ref where each slot holds the status for that task of
+    # the array job.
     my %states;
-
     for my $job (@{ $jobs }) {
         my ($jid, $state, $task_id) = @$job{'job_id', 'state', 'task_id'};
 
@@ -188,6 +190,17 @@ sub _build_job_states {
         }
     }
     $self->{job_states} = \%states;
+    my @jids = keys %states;
+
+    # Some of the jids I used to know about might have
+    # disappeared. Remove from my jids map any jids that no longer
+    # appear in qstat.
+    for my $phase (qw(preproc proc postproc)) {
+        my @jids = @{ $self->{jids}{$phase} };
+        my @active = grep { $states{$_} } @jids;
+        $self->{jids}{phase}  = \@active;
+    }
+    
 }
 
 sub _job_state {
@@ -228,6 +241,7 @@ sub _some_job_ok {
 
     return 0;
 }
+
 
 sub preproc_ok {
     my ($self) = @_;
