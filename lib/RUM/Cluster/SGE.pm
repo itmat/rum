@@ -168,6 +168,7 @@ sub update_status {
     $log->debug("qstat: $_") foreach @qstat;
 
     $self->_build_job_states($self->parse_qstat_out(@qstat));
+    $self->save;
 }
 
 sub _build_job_states {
@@ -198,7 +199,7 @@ sub _build_job_states {
     for my $phase (qw(preproc proc postproc)) {
         my @jids = @{ $self->{jids}{$phase} };
         my @active = grep { $states{$_} } @jids;
-        $self->{jids}{phase}  = \@active;
+        $self->{jids}{$phase}  = \@active;
     }
     
 }
