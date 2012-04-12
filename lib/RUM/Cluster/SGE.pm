@@ -168,7 +168,6 @@ sub _build_job_states {
 
     for my $job (@{ $jobs }) {
         my ($jid, $state, $task_id) = @$job{'job_id', 'state', 'task_id'};
-        warn "Here";
 
         if ($task_id) {
             $states{$jid} ||= [];
@@ -195,31 +194,44 @@ sub _job_state {
     return $state;
 }
 
-sub _job_ok {
-    my ($self, $jid, $chunk) = @_;
-    my $state = $self->_job_state($jid, $chunk);
-    return $state && $state =~ /r|w/;
-}
-
 sub _some_job_ok {
-    my ($self, $jids, $task) = @_;
-    my @ok = grep { $self->_job_ok($_, $task) } @$jids;
-    return @ok == 1;
+    my ($self, $phase, $jids, $task) = @_;
+    my @jids = @{ $jids };
+    my @states = map { $self->_job_state($_, $task) || "" } @jids;
+    my @ok = grep { $_ && /r|w/ } @states;
+    
+    my $msg = "I have these jobs for phase $phase";
+    $msg .= " task $task" if $task;
+    $msg .= ": [";
+    $msg .= join(", ", map "$jids[$_]($states[$_])", (0 .. $#jids)) . "]";
+
+    if (@ok == 1) {
+        $log->debug($msg);
+        return 1;
+    }
+    if (@ok == 0) {
+        $log->error("$msg and none of them are running or waiting");
+    }
+    else {
+        $log->error("$msg and more than one of them are running or waiting");
+    }
+
+    return 0;
 }
 
 sub preproc_ok {
     my ($self) = @_;
-    return $self->_some_job_ok($self->preproc_jids);
+    return $self->_some_job_ok("preproc", $self->preproc_jids);
 }
 
 sub proc_ok {
     my ($self, $chunk) = @_;
-    return $self->_some_job_ok($self->proc_jids, $chunk);
+    return $self->_some_job_ok("proc", $self->proc_jids, $chunk);
 }
 
 sub postproc_ok {
     my ($self) = @_;
-    return $self->_some_job_ok($self->postproc_jids);
+    return $self->_some_job_ok("postproc", $self->postproc_jids);
 }
 
 1;

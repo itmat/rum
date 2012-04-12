@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 22;
+use Test::More tests => 19;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -70,8 +70,6 @@ is_deeply($sge->preproc_jids, [628724], "Get preproc job id");
 $sge->_build_job_states($sge->parse_qstat_out($QSTAT_UNGROUPED));
 is($sge->{job_states}{628724}, 'r', "Set state to r");
 is($sge->_job_state(628724), 'r', "Can get job state");
-ok($sge->_job_ok(628724), "Job is ok");
-ok( ! $sge->_job_ok(12345), "Job we don't know about is not ok");
 
 ok($sge->preproc_ok, "Preproc is ok");
 ok( ! $sge->proc_ok(1), "Proc is not ok");
@@ -89,6 +87,5 @@ is_deeply($sge->postproc_jids, [636814], "Get postproc job id");
 $sge->_build_job_states($sge->parse_qstat_out($QSTAT_UNGROUPED));
 is($sge->{job_states}{636814}, 'hqw', "Set state to hqw");
 is($sge->_job_state(636814), 'hqw', "Can get job state");
-ok($sge->_job_ok(636814), "Job is ok");
 ok($sge->postproc_ok, "Postproc is ok");
 
