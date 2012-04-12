@@ -63,14 +63,27 @@ sub submit_preproc {
 }
 
 sub submit_proc {
-    my ($self, $c) = @_;
+    my ($self, @chunks) = @_;
     my $sh = $self->_write_shell_script("proc");
     my $n = $self->config->num_chunks;
-    my @args = ("-t", "1:$n");
+
     my @prereqs = @{ $self->preproc_jids };
+
+    my @args;
+    my @jids;
+
     push @args, "-hold_jid", join(",", @prereqs) if @prereqs;
-    my $jid = $self->qsub(@args, "sh", $sh);
-    push @{ $self->proc_jids }, $jid;
+
+    if (@chunks) {
+        for my $chunk (@chunks) {
+            push @jids, $self->qsub(@args, "-t", $chunk, "sh", $sh);
+        }
+    }
+    else {
+        push @jids, $self->qsub(@args, "-t", "1:$n", "sh", $sh);
+    }
+
+    push @{ $self->proc_jids }, @jids;
 }
 
 sub submit_postproc {

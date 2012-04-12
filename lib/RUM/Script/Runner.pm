@@ -116,8 +116,15 @@ sub run_pipeline {
                 $cluster->submit_preproc;
             }
             if ($self->do_process) {
-                $self->say("Submitting chunks");
-                $cluster->submit_proc;
+                if (my $chunk = $self->config->chunk) {
+                    $self->say("Submitting chunk $chunk");
+                    $cluster->submit_proc($chunk);
+                }
+                else {
+                    $self->say("Submitting all chunks");
+                    $cluster->submit_proc;
+                }
+
             }
             if ($self->do_postprocess) {
                 $self->say("Submitting postprocessing chunks");
@@ -156,6 +163,7 @@ sub monitor_cluster {
                 }
                 else {
                     $log->error("Chunk " . $c->chunk . " seems to have failed");
+                    
                     push @failed_chunks, $c->chunk;
                 }
             }
