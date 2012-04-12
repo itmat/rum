@@ -863,7 +863,7 @@ sub print_processing_status {
     my @steps;
     my %num_completed;
     my %comments;
-
+    my %progress;
     my @chunks;
 
     if ($c->chunk) {
@@ -879,9 +879,11 @@ sub print_processing_status {
             my ($name, $completed) = @_;
             unless (exists $num_completed{$name}) {
                 $num_completed{$name} = 0;
+                $progress{$name} = "";
                 $comments{$name} = $w->comment($name);
                 push @steps, $name;
             }
+            $progress{$name} .= $completed ? "X" : " ";
             $num_completed{$name} += $completed;
         };
 
@@ -890,16 +892,17 @@ sub print_processing_status {
 
     my $n = @chunks;
     my $digits = num_digits($n);
-    my $h1     = "   Chunks ";
-    my $h2     = "Done / Total";
-    my $format =  "%4d /  %4d ";
+    #my $h1     = "   Chunks ";
+    #my $h2     = "Done / Total";
+    #my $format =  "%4d /  %4d ";
 
     $self->say("Processing in $n chunks");
     $self->say("-----------------------");
-    $self->say($h1);
-    $self->say($h2);
+    #$self->say($h1);
+    #$self->say($h2);
     for (@steps) {
-        my $progress = sprintf $format, $num_completed{$_}, $n;
+        #my $progress = sprintf $format, $num_completed{$_}, $n;
+        my $progress = $progress{$_} . " ";
         my $comment   = $comments{$_};
         my $indent = ' ' x length($progress);
         $self->say(wrap($progress, $indent, $comment));
