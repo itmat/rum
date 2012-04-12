@@ -368,7 +368,7 @@ Return the workflow for the postprocessing phase.
 sub postprocessing_workflow {
 
     my ($class, $c) = @_;
-
+    $c or croak "I need a config";
     my $rum_nu = $c->chunk_replaced("RUM_NU");
     my $rum_unique = $c->chunk_replaced("RUM_Unique");
     my $rum_unique_cov = $c->chunk_replaced("RUM_Unique.cov");

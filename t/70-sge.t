@@ -44,8 +44,10 @@ job-ID  prior   name       user         state submit/start at     queue         
  636814 0.00000 sh         midel        hqw   04/11/2012 14:55:50                                    1      
 EOF
 
+my @QSTAT_UNGROUPED = split /\n/, $QSTAT_UNGROUPED;
+my @QSTAT_GROUPED = split /\n/, $QSTAT_GROUPED;
 
-is_deeply($class->parse_qstat_out($QSTAT_UNGROUPED),
+is_deeply($class->parse_qstat_out(@QSTAT_UNGROUPED),
           [{job_id => 628724, state => 'r'},
            {job_id => 636537, state => 'r'},
            {job_id => 636813, state => 'r', task_id => 1},
@@ -54,7 +56,7 @@ is_deeply($class->parse_qstat_out($QSTAT_UNGROUPED),
            {job_id => 636814, state => 'hqw'}],
           "qstat ungrouped");
 
-is_deeply($class->parse_qstat_out($QSTAT_GROUPED),
+is_deeply($class->parse_qstat_out(@QSTAT_GROUPED),
           [{job_id => 628724, state => 'r'},
            {job_id => 636537, state => 'r'},
            {job_id => 636813, state => 'qw', task_id => 1},
@@ -67,7 +69,7 @@ my $sge = RUM::Cluster::SGE->new(RUM::Config->new(output_dir => tempdir(CLEANUP 
 
 push @{ $sge->preproc_jids }, 628724;
 is_deeply($sge->preproc_jids, [628724], "Get preproc job id");
-$sge->_build_job_states($sge->parse_qstat_out($QSTAT_UNGROUPED));
+$sge->_build_job_states($sge->parse_qstat_out(@QSTAT_UNGROUPED));
 is($sge->{job_states}{628724}, 'r', "Set state to r");
 is($sge->_job_state(628724), 'r', "Can get job state");
 
@@ -76,7 +78,7 @@ ok( ! $sge->proc_ok(1), "Proc is not ok");
 
 push @{ $sge->proc_jids }, 636813;
 is_deeply($sge->proc_jids, [636813], "Get proc job id");
-$sge->_build_job_states($sge->parse_qstat_out($QSTAT_UNGROUPED));
+$sge->_build_job_states($sge->parse_qstat_out(@QSTAT_UNGROUPED));
 is_deeply($sge->{job_states}{636813}, [undef, 'r', 'r', 'r'], "Set state to r");
 is($sge->_job_state(636813, 3), 'r', "Can get job state");
 ok($sge->proc_ok(3), "Proc chunk is ok");
@@ -84,7 +86,7 @@ ok(! $sge->proc_ok(4), "Unknown chunk is not ok");
 
 push @{ $sge->postproc_jids }, 636814;
 is_deeply($sge->postproc_jids, [636814], "Get postproc job id");
-$sge->_build_job_states($sge->parse_qstat_out($QSTAT_UNGROUPED));
+$sge->_build_job_states($sge->parse_qstat_out(@QSTAT_UNGROUPED));
 is($sge->{job_states}{636814}, 'hqw', "Set state to hqw");
 is($sge->_job_state(636814), 'hqw', "Can get job state");
 ok($sge->postproc_ok, "Postproc is ok");

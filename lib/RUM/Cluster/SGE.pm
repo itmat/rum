@@ -3,9 +3,10 @@ package RUM::Cluster::SGE;
 use strict;
 use warnings;
 
-use RUM::Logging;
-
 use Carp;
+use Data::Dumper;
+
+use RUM::Logging;
 
 our $log = RUM::Logging->get_logger();
 
@@ -113,17 +114,21 @@ sub _extract_field {
 }
 
 sub parse_qstat_out {
-    (my $self, local $_) = @_;
+    my ($self, @lines) = @_;
 
+    # Get the header line and determine the offset and length of each
+    # field from it
+    local $_ = shift @lines;
     my ($job_start,   $job_len)   = _field_start_len("job-ID");
     my ($state_start, $state_len) = _field_start_len("state");
     my ($task_start,  $task_len)  = _field_start_len("ja-task-ID");
 
+    # Shift of the dash line
+    shift @lines;
+
     my @result;
 
-    my @lines = split /\n/;
-
-    for my $line (@lines[2..$#lines]) {
+    for my $line (@lines) {
         my $job   = _extract_field $line, $job_start, $job_len or croak
             "Got empty job id from line $line";
         my $state   = _extract_field $line, $state_start, $state_len or croak
@@ -152,13 +157,13 @@ sub parse_qstat_out {
 sub update_status {
     my ($self) = @_;
 
-    my $qstat = `qstat`;
+    my @qstat = `qstat`;
     if ($?) {
         croak "qstat command failed: $!";
     }
-    $log->debug("Qstat output was\n$qstat");
+    $log->debug("qstat: $_") foreach @qstat;
 
-    $self->_build_job_states($self->parse_qstat_out($qstat));
+    $self->_build_job_states($self->parse_qstat_out(@qstat));
 }
 
 sub _build_job_states {
@@ -227,12 +232,19 @@ sub preproc_ok {
 
 sub proc_ok {
     my ($self, $chunk) = @_;
+    $chunk or croak "$self->proc_ok() called without chunk";
     return $self->_some_job_ok("proc", $self->proc_jids, $chunk);
 }
 
 sub postproc_ok {
     my ($self) = @_;
     return $self->_some_job_ok("postproc", $self->postproc_jids);
+}
+
+sub save {
+    my ($self) = @_;
+    open my $out, ">", $self->config->in_output_dir("rum_sge_job_ids");
+    print $out Dumper($self->{jids});
 }
 
 1;

@@ -105,6 +105,7 @@ sub run_pipeline {
         # to submit the child processes
         if ($self->config->qsub && ! $is_child) {
             my $cluster = RUM::Cluster::SGE->new($self->config);
+            $self->{cluster} = $cluster;
             if ($self->do_preprocess) {
                 $self->say("Submitting preprocessing task");
                 $cluster->submit_preproc;
@@ -117,6 +118,8 @@ sub run_pipeline {
                 $self->say("Submitting postprocessing chunks");
                 $cluster->submit_postproc;
             }
+            $self->cluster->save;
+            $self->monitor_cluster;
         }
         else {
             $self->preprocess  if $self->do_preprocess;
@@ -128,10 +131,13 @@ sub run_pipeline {
 
 sub monitor_cluster {
     my ($self) = @_;
+
     while (1) {
-        sleep $CLUSTER_CHECK_INTERVAL;
+    
         my $cluster = $self->cluster;
         $cluster->update_status;
+
+        my $still_running;
 
         if ($self->do_process) {
             my @failed_chunks;
@@ -140,8 +146,9 @@ sub monitor_cluster {
                 if ($w->is_complete) {
                     $log->debug("Chunk " . $c->chunk . " is done");
                 }
-                elsif ($cluster->proc_ok) {
+                elsif ($cluster->proc_ok($c->chunk)) {
                     $log->debug("Looks like chunk ". $c->chunk . " is ok");
+                    $still_running = 1;
                 }
                 else {
                     $log->error("Chunk " . $c->chunk . " seems to have failed");
@@ -149,18 +156,23 @@ sub monitor_cluster {
                 }
             }
         }
+
         if ($self->do_postprocess) {
-            my $w = RUM::Workflows->postprocessing_workflow;
+            my $w = RUM::Workflows->postprocessing_workflow($self->config);
             if ($w->is_complete) {
                 $log->debug("Postprocessing is done");
             }
             elsif ($cluster->postproc_ok) {
+                $still_running = 1;
                 $log->debug("Looks like postprocessing is ok");
             }
             else {
                 $log->error("Postprocessing seems to have failed");
             }
         }
+        
+        last unless $still_running;
+        sleep $CLUSTER_CHECK_INTERVAL;
     }
 }
 
@@ -403,9 +415,9 @@ sub check_config {
 }
 
 
-sub config {
-    return $_[0]->{config};
-}
+sub config { $_[0]->{config} }
+
+sub cluster { $_[0]->{cluster} }
 
 sub clean {
     my ($self) = @_;
