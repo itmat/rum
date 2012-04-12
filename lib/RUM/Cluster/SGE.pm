@@ -26,6 +26,10 @@ sub new {
     $self->{jids}{proc} = [];
     $self->{jids}{postproc} = [];
 
+    my $filename = $config->in_output_dir("rum_sge_job_ids");
+    if (-e $filename) {
+        $self->{jids} = do $filename;
+    }
     return bless $self, $class;
 }
 
@@ -246,5 +250,6 @@ sub save {
     open my $out, ">", $self->config->in_output_dir("rum_sge_job_ids");
     print $out Dumper($self->{jids});
 }
+
 
 1;

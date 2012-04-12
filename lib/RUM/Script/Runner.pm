@@ -30,6 +30,7 @@ sub do_save { $_[0]->{directives}{save} }
 sub be_quiet { $_[0]->{directives}{quiet} }
 
 sub do_status { $_[0]->{directives}{status} }
+sub do_monitor { $_[0]->{directives}{monitor} }
 sub do_clean { $_[0]->{directives}{clean} }
 sub do_veryclean { $_[0]->{directives}{veryclean} }
 
@@ -93,6 +94,10 @@ sub run_pipeline {
         $self->say("Cleaning up");
         $self->clean;
     }
+    elsif ($self->do_monitor) {
+        $self->{cluster} = RUM::Cluster::SGE->new($self->config);
+        $self->monitor_cluster;
+    }
     else {
         my $is_child = $self->{is_child};
 
@@ -119,7 +124,6 @@ sub run_pipeline {
                 $cluster->submit_postproc;
             }
             $self->cluster->save;
-            $self->monitor_cluster;
         }
         else {
             $self->preprocess  if $self->do_preprocess;
@@ -198,6 +202,7 @@ sub get_options {
         "diagram"      => \(my $do_diagram),
         "save"         => \(my $do_save),
         "child"        => \(my $is_child),
+        "monitor"      => \(my $do_monitor),
 
         # Options controlling which portions of the pipeline to run.
         "preprocess"   => \(my $do_preprocess),
@@ -281,6 +286,7 @@ sub get_options {
         help_config  => $do_help_config,
         dry_run      => $do_dry_run,
         save         => $do_save,
+        monitor      => $do_monitor,
         status       => $do_status,
         clean        => $do_clean,
         veryclean    => $do_veryclean,
