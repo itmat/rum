@@ -54,7 +54,7 @@ sub submit_preproc {
     $log->info("Submitting preprocessing job");
     my $sh = $self->_write_shell_script("preproc");
     my $jid = $self->qsub("sh", $sh);
-    push @{ $self->preproc_jid }, $jid;
+    push @{ $self->preproc_jids }, $jid;
 }
 
 sub submit_proc {
@@ -65,16 +65,17 @@ sub submit_proc {
     my @prereqs = @{ $self->preproc_jids };
     push @args, "-hold_jid", join(",", @prereqs) if @prereqs;
     my $jid = $self->qsub(@args, "sh", $sh);
-    push @{ self->proc_jids }, $jid;
+    push @{ $self->proc_jids }, $jid;
 }
 
 sub submit_postproc {
     my ($self, $c) = @_;
     my $sh = $self->_write_shell_script("postproc");
     my @args;
-    my @prereqs = $self->proc_jids;
+    my @prereqs = @{ $self->proc_jids };
     push @args, "-hold_jid", join(",", @prereqs) if @prereqs;
-    push @{ $self->postproc_jids }, $self->qsub(@args, "sh", $sh);
+    my $jid = $self->qsub(@args, "sh", $sh);
+    push @{ $self->postproc_jids }, $jid;
 }
 
 sub parse_qsub_out {
