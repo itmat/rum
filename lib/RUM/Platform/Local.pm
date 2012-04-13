@@ -1,5 +1,21 @@
 package RUM::Platform::Local;
 
+=head1 NAME
+
+RUM::Platform::Local - A platform that runs the pipeline locally
+
+=head1 DESCRIPTION
+
+Runs the preprocessing and postprocessing phases simply by executing
+the workflows in the current process. Runs the processing phase by
+forking a subprocess for each chunk.
+
+=head1 METHODS
+
+=over 4
+
+=cut
+
 use strict;
 use warnings;
 
@@ -13,11 +29,21 @@ use base 'RUM::Platform';
 
 our $log = RUM::Logging->get_logger;
 
+our $READ_CHECK_LINES = 50000;
+
+
 ################################################################################
 ###
 ### Preprocessing
 ###
 
+=item preprocess
+
+Checks the read files for quality and reformats them, splitting them
+into chunks if necessary. Determines the read length and saves the
+configuration so that we don't need to repeat that step.
+
+=cut
 
 sub preprocess {
     my ($self) = @_;
@@ -25,35 +51,34 @@ sub preprocess {
     $self->say();
     $self->say("Preprocessing");
     $self->say("-------------");
-    $self->check_input();
-    $self->reformat_reads();
-    $self->determine_read_length();
+    $self->_check_input();
+    $self->_reformat_reads();
+    $self->_determine_read_length();
     $self->config->save;
 }
 
 
-our $READ_CHECK_LINES = 50000;
 
 
-sub check_input {
+sub _check_input {
     my ($self) = @_;
     $log->debug("Checking input files");
-    $self->check_reads_for_quality;
+    $self->_check_reads_for_quality;
 
-    if ($self->reads == 1) {
-        $self->check_single_reads_file;
+    if ($self->_reads == 1) {
+        $self->_check_single_reads_file;
     }
     else {
-        $self->check_read_file_pair;
+        $self->_check_read_file_pair;
     }
 
 }
 
-sub check_single_reads_file {
+sub _check_single_reads_file {
     my ($self) = @_;
 
     my $config = $self->config;
-    my @reads  = $self->reads;
+    my @reads  = $self->_reads;
 
     # ??? I think if there are two read files, they are definitely
     # paired end. Not sure what implications this has for
@@ -82,7 +107,7 @@ sub check_single_reads_file {
 }
 
 
-sub check_reads_for_quality {
+sub _check_reads_for_quality {
     my ($self) = @_;
 
     for my $filename (@{ $self->config->reads }) {
@@ -99,21 +124,21 @@ sub check_reads_for_quality {
     }
 }
 
-sub check_read_files_same_size {
+sub _check_read_files_same_size {
     my ($self) = @_;
-    my @sizes = map -s, $self->reads;
+    my @sizes = map -s, $self->_reads;
     $sizes[0] == $sizes[1] or die
         "The fowards and reverse files are different sizes. $sizes[0]
         versus $sizes[1].  They should be the exact same size.";
 }
 
-sub check_read_file_pair {
+sub _check_read_file_pair {
 
     my ($self) = @_;
 
     my @reads = @{ $self->config->reads };
 
-    $self->check_read_files_same_size();
+    $self->_check_read_files_same_size();
 
     my $config = $self->config;
 
@@ -175,7 +200,7 @@ sub check_read_file_pair {
     unlink($quals_temp);
 }
 
-sub determine_read_length {
+sub _determine_read_length {
     
     my ($self) = @_;
 
@@ -196,7 +221,7 @@ sub determine_read_length {
     }
 }
 
-sub reformat_reads {
+sub _reformat_reads {
 
     my ($self) = @_;
 
@@ -267,21 +292,21 @@ sub reformat_reads {
         # This should only be entered when we have one read file
         $self->say("Splitting read file, please be patient...");        
 
-        $self->breakup_file($reads[0], 0);
+        $self->_breakup_file($reads[0], 0);
 
         if ($have_quals) {
             $self->say( "Half done splitting; starting qualities...");
-            breakup_file($config->chunk_suffixed("quals.fa"), 1);
+            _breakup_file($config->chunk_suffixed("quals.fa"), 1);
         }
         elsif ($config->user_quals) {
             $self->say( "Half done splitting; starting qualities...");
-            breakup_file($config->user_quals, 1);
+            _breakup_file($config->user_quals, 1);
         }
         $self->say("Done splitting");
     }
 }
 
-sub breakup_file  {
+sub _breakup_file  {
     my ($self, $FILE, $qualflag) = @_;
 
     my $c = $self->config;
@@ -354,6 +379,15 @@ sub breakup_file  {
 
 ## Processing
 
+=item process
+
+Runs the processing phase. If the configuration specifies a single
+chunk, we run that chunk in the foreground and print messages to
+stdout. If not, we fork off a subprocess for each chunk and wait for
+all the chunks to finish.
+
+=cut
+
 sub process {
     my ($self) = @_;
 
@@ -370,15 +404,15 @@ sub process {
         $log->info("Running chunk $chunk");
         my $config = $self->config->for_chunk($chunk);
         my $w = RUM::Workflows->chunk_workflow($config);
-        $w->execute($self->step_printer($w));
+        $w->execute($self->_step_printer($w));
     }
     elsif ($config->num_chunks) {
-        $self->process_in_chunks;
+        $self->_process_in_chunks;
     }
 }
 
 
-sub process_in_chunks {
+sub _process_in_chunks {
     my ($self) = @_;
     my $n = $self->config->num_chunks;
     $log->info("Creating $n chunks");
@@ -441,7 +475,7 @@ sub process_in_chunks {
     
 }
 
-sub step_printer {
+sub _step_printer {
     my ($self, $workflow) = @_;
     return sub {
         my ($step, $skipping) = @_;
@@ -453,16 +487,22 @@ sub step_printer {
 
 ## Post-processing
 
+=item postprocess
+
+Runs the postprocessing phase, in the current process.
+
+=cut
+
 sub postprocess {
     my ($self) = @_;
     $self->say("Postprocessing");
     $self->say("--------------");
 
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
-    $w->execute($self->step_printer($w));
+    $w->execute($self->_step_printer($w));
 }
 
-sub reads {
+sub _reads {
     return @{ $_[0]->config->reads };
 }
 

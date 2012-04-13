@@ -111,4 +111,6 @@ sub chunk_nums {
 
 =back
 
+=cut
+
 1;

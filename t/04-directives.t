@@ -4,7 +4,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 6;
+use Test::More tests => 5;
 use Test::Exception;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
@@ -23,6 +23,6 @@ $d->unset_save;
 
 ok( ! $d->save, "Directive was unset");
 
-ok( $d->run, "I should run the pipeline");
+
 
 

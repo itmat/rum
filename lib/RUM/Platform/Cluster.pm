@@ -1,7 +1,29 @@
 package RUM::Platform::Cluster;
 
+=head1 NAME
+
+RUM::Platform::Cluster - Abstract base class for a platform that runs on a cluster
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+This attempts to provide an abstraction over platforms that are based
+on a cluster. There is currently only one implementation:
+L<RUM::Platform::SGE>.
+
+=head1 OBJECT METHODS
+
+=over 4
+
+=back
+
+=cut
+
 use strict;
 use warnings;
+
+use Carp;
 
 use RUM::Logging;
 
@@ -11,11 +33,25 @@ our $log = RUM::Logging->get_logger;
 
 our $CLUSTER_CHECK_INTERVAL = 30;
 
+=item preprocess
+
+Submits the preprocessing task.
+
+=cut
+
 sub preprocess {
     my ($self) = @_;
     $self->say("Submitting preprocessing task");
     $self->submit_preproc;
 }
+
+=item process
+
+Submits the processing tasks, and periodically polls them to check
+their status, attempting to restart any tasks that don't seem to be
+running.
+
+=cut
 
 sub process {
     my ($self) = @_;
@@ -89,6 +125,12 @@ sub process {
     
 }
 
+=item postprocess
+
+Submits the postprocessing task, and periodically polls it to check on
+its status, restarting it if it seems to have failed.
+
+=cut
 
 sub postprocess {
     my ($self) = @_;
@@ -129,5 +171,50 @@ sub postprocess {
     } while ($still_running);
 
 }
+
+=head2 Abstract Methods
+
+=over 4
+
+=item submit_preproc
+
+=item submit_proc
+
+=item submit_postproc
+
+Subclasses must implement these methods to submit the respective
+tasks.
+
+submit_preproc and submit_postproc will be called with no arguments.
+
+submit_proc may be called with either no arguments or an optional
+$chunk argument. If called with no arguments, the implementation
+should submit all chunks. If called with a $chunk argument, the
+implementation should submit only the job for that chunk.
+
+=item update_status
+
+A subclass should implement this so that it refreshes whatever data
+structure it uses to store the status of its jobs.
+
+=back
+
+=item proc_ok
+
+=item postproc_ok
+
+A subclass should implement these methods so that they return a true
+value if the processing or postprocessing phase (respectively) is in
+an 'ok' state, where it is either running or waiting to be run.
+
+=cut
+
+sub submit_preproc { croak "Not implemented" }
+sub submit_proc { croak "Not implemented" }
+sub submit_postproc { croak "Not implemented" }
+sub update_status { croak "Not implemented" }
+sub proc_ok { croak "Not implemented" }
+sub postproc_ok { croak "Not implemented" }
+
 
 1;
