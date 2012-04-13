@@ -17,16 +17,14 @@ use RUM::Pipeline;
 use RUM::Cluster::SGE;
 use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
 
+use base 'RUM::Base';
+
 our $CLUSTER_CHECK_INTERVAL = 30;
 
 our $log = RUM::Logging->get_logger;
 our $LOGO;
 
-sub config { $_[0]->{config} }
-
 sub cluster { $_[0]->{cluster} }
-
-sub directives { $_[0]->{directives} }
 
 ################################################################################
 ###
@@ -64,13 +62,6 @@ sub chunk_configs {
 sub chunk_workflows {
     my ($self) = @_;
     map { RUM::Workflows->chunk_workflow($_) } $self->chunk_configs;
-}
-
-
-sub say {
-    my ($self, @msg) = @_;
-    #$log->info("@msg");
-    print wrap("", "", @msg) . "\n" unless $self->directives->quiet;
 }
 
 sub main {
@@ -225,6 +216,7 @@ sub get_options {
     $set->('blat_rep_match', $blat_rep_match);
     $set->('blat_max_intron', $blat_max_intron);
     $set->('qsub', $qsub);
+
     $self->{config} = $c;
 }
 
