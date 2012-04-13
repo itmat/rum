@@ -105,7 +105,7 @@ sub preprocess {
     capturing_stdout { 
         $RUM::Script::Runner::log->less_logging(2);
         $rum->{directives}{quiet} = 1;
-        $rum->preprocess;
+        $rum->platform->preprocess;
     };
     
     return $rum;
@@ -264,7 +264,7 @@ diag "Here I am";
     my $rum = rum(@argv, "-o", tempdir(CLEANUP => 1),
                   $forward_64_fq, $reverse_64_fq);
 
-    $rum->preprocess;
+    $rum->platform->preprocess;
     my $forward_64_fq = $rum->config->output_dir . "/reads.fa";
     my $quals = $rum->config->output_dir . "/quals.fa";
 
