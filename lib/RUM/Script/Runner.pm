@@ -12,8 +12,6 @@ use RUM::Logging;
 use RUM::Workflows;
 use RUM::Usage;
 use RUM::Pipeline;
-use RUM::Cluster::SGE;
-use RUM::Platform::Local;
 use RUM::Common qw(format_large_int);
 
 use base 'RUM::Base';
@@ -313,6 +311,17 @@ sub run {
     }
 }
 
+sub platform {
+    my ($self) = @_;
+
+    my $platform_name = ($self->config->qsub && ! $self->directives->child) ?
+        "SGE" : "Local";
+    my $platform_class = "RUM::Platform::$platform_name";
+    my $platform_file = "RUM/Platform/$platform_name.pm";
+    require $platform_file;
+    my $platform = $platform_class->new($self->config, $self->directives);
+}
+
 sub run_pipeline {
     my ($self) = @_;
 
@@ -341,8 +350,7 @@ sub run_pipeline {
 
         $self->check_ram unless $d->child;
 
-        my $platform_class = ($self->config->qsub && ! $d->child) ? "RUM::Cluster::SGE" : "RUM::Platform::Local";
-        my $platform = $platform_class->new($self->config, $self->directives);
+        my $platform = $self->platform;
 
         if ($d->preprocess || $d->all) {
             $platform->preprocess;

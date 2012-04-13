@@ -1,4 +1,4 @@
-package RUM::Cluster::SGE;
+package RUM::Platform::SGE;
 
 use strict;
 use warnings;
