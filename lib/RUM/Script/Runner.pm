@@ -10,22 +10,17 @@ use Carp;
 use RUM::Directives;
 use RUM::Logging;
 use RUM::Workflows;
-use RUM::WorkflowRunner;
-use RUM::Repository;
 use RUM::Usage;
 use RUM::Pipeline;
 use RUM::Cluster::SGE;
 use RUM::Platform::Local;
-use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
+use RUM::Common qw(format_large_int);
 
 use base 'RUM::Base';
-
-our $CLUSTER_CHECK_INTERVAL = 30;
 
 our $log = RUM::Logging->get_logger;
 our $LOGO;
 
-sub cluster { $_[0]->{cluster} }
 
 ################################################################################
 ###
@@ -346,159 +341,19 @@ sub run_pipeline {
 
         $self->check_ram unless $d->child;
 
-        # If this is a qsub job and it's not a child process, we need
-        # to submit the child processes
-        if ($self->config->qsub && ! $d->child) {
-            $self->{cluster} = RUM::Cluster::SGE->new($self->config);
+        my $platform_class = ($self->config->qsub && ! $d->child) ? "RUM::Cluster::SGE" : "RUM::Platform::Local";
+        my $platform = $platform_class->new($self->config, $self->directives);
 
-            if ($d->preprocess || $d->all) {
-                $self->say("Submitting preprocessing task");
-                $self->preprocess_on_cluster;
-            }
-            if ($d->process || $d->all) {
-                if (my $chunk = $self->config->chunk) {
-                    $self->say("Submitting chunk $chunk");
-                    $self->cluster->submit_proc($chunk);
-                }
-                else {
-                    $self->say("Submitting all chunks");
-                    $self->process_on_cluster;
-                }
-
-            }
-            if ($d->postprocess || $d->all) {
-                $self->say("Submitting postprocessing chunks");
-                $self->postprocess_on_cluster;
-            }
-
+        if ($d->preprocess || $d->all) {
+            $platform->preprocess;
         }
-        else {
-            my $platform = RUM::Platform::Local->new($self->config, $self->directives);
-            $platform->preprocess  if $d->preprocess  || $d->all;
-            $platform->process     if $d->process     || $d->all;
-            $platform->postprocess if $d->postprocess || $d->all;
+        if ($d->process || $d->all) {
+            $platform->process;
+        }
+        if ($d->postprocess || $d->all) {
+            $platform->postprocess;
         }
     }
-}
-
-################################################################################
-###
-### Running jobs on the cluster
-###
-
-sub preprocess_on_cluster {
-    my ($self) = @_;
-    my $cluster = $self->cluster;
-    $cluster->submit_preproc;
-}
-
-sub process_on_cluster {
-    my ($self) = @_;
-
-    my $cluster = $self->cluster;
-
-    # Build a list of tasks, one for each chunk, that bundles together
-    # the chunk number, configuration, workflow, and workflow runner.
-    my @tasks;
-    for my $chunk ($self->chunk_nums) {
-        my $config = $self->config->for_chunk($chunk);
-        my $workflow = RUM::Workflows->chunk_workflow($config);
-        my $run = sub { $cluster->submit_proc($chunk) };
-        my $runner = RUM::WorkflowRunner->new($workflow, $run);
-        push @tasks, {
-            chunk => $chunk,
-            config => $config,
-            workflow => $workflow,
-            runner => $runner
-        };
-    }
-
-    # First submit all the chunks as one array job
-    $cluster->submit_proc;
-    
-    while (1) {
-
-        # Counter of tasks that are still running
-        my $still_running = 0;
-
-        # Refresh the cluster's status so that calls to proc_ok will
-        # return the latest status
-        $cluster->update_status;
-
-        for my $t (@tasks) {
-
-            my ($workflow, $chunk, $runner) = @$t{qw(workflow chunk runner)};
-
-            # If the state of the workflow indicates that it's
-            # complete (based on the files that exist), we can
-            # consider it done.
-            if ($workflow->is_complete) {
-                $log->debug("Chunk $chunk is done");
-            }
-
-            # If the job appears to be running or waiting on the
-            # cluster, increment $still_running so we wait for it to
-            # finish.
-            elsif ($cluster->proc_ok($chunk)) {
-                $log->debug("Looks like chunk $chunk is running or waiting");
-                $still_running++;
-            }
-
-            # Otherwise the task is not done and it's not running, so
-            # submit it again unless we've exceeded the restart limit.
-            elsif ($runner->run) {
-                $log->error("Chunk $chunk is not queued; started it");
-                $still_running++;
-            }
-            else {
-                $log->error("Restarted $chunk too many times; giving up");
-            }
-        }
-        last unless $still_running;
-        sleep $CLUSTER_CHECK_INTERVAL;
-    }
-    
-}
-
-sub postprocess_on_cluster {
-    my ($self) = @_;
-
-    my $cluster = $self->cluster;
-    my $config = $self->config;
-    my $workflow = RUM::Workflows->postprocessing_workflow($config);
-
-    my $run = sub { $cluster->submit_postproc };
-    my $runner = RUM::WorkflowRunner->new($workflow, $run);
-
-    $runner->run;
-    my $still_running;
-
-    do {
-        $still_running = 0;
-
-        sleep $CLUSTER_CHECK_INTERVAL;
-
-        if ($workflow->is_complete) {
-            $log->debug("Postprocessing is done");
-        }
-
-        elsif ($cluster->postproc_ok) {
-            $log->debug("Looks like postprocessing is running or waiting");
-            $still_running = 1;
-        }
-
-        elsif ($runner->run) {
-            $log->error("Postprocessing is not queued; starting it");
-            $still_running = 1;
-        }
-        else {
-            $log->error("Restarted postprocessing too many times; giving up");
-        }
-        
-        sleep $CLUSTER_CHECK_INTERVAL;
-        
-    } while ($still_running);
-
 }
 
 
@@ -548,13 +403,6 @@ sub diagram {
         system("dot -o$pdf -Tpdf $dot");
     }
 }
-
-
-
-
-
-
-
 
 sub setup {
     my ($self) = @_;
@@ -645,7 +493,7 @@ sub print_processing_status {
     }
 
     my $n = @chunks;
-    my $digits = num_digits($n);
+    #my $digits = num_digits($n);
     #my $h1     = "   Chunks ";
     #my $h2     = "Done / Total";
     #my $format =  "%4d /  %4d ";
@@ -694,38 +542,10 @@ sub export_shell_script {
 }
 
 
-$LOGO = <<'EOF';
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                 _   _   _   _   _   _    _
-               // \// \// \// \// \// \/
-              //\_//\_//\_//\_//\_//\_//
-        o_O__O_ o
-       | ====== |       .-----------.
-       `--------'       |||||||||||||
-        || ~~ ||        |-----------|
-        || ~~ ||        | .-------. |
-        ||----||        ! | UPENN | !
-       //      \\        \`-------'/
-      // /!  !\ \\        \_  O  _/
-     !!__________!!         \   /
-     ||  ~~~~~~  ||          `-'
-     || _        ||
-     |||_|| ||\/|||
-     ||| \|_||  |||
-     ||          ||
-     ||  ~~~~~~  ||
-     ||__________||
-.----|||        |||------------------.
-     ||\\      //||                 /|
-     |============|                //
-     `------------'               //
----------------------------------'/
----------------------------------'
-  ____________________________________________________________
-- The RNA-Seq Unified Mapper (RUM) Pipeline has been initiated -
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-EOF
-
+################################################################################
+###
+### Checking available memory
+###
 
 sub genome_size {
     my ($self) = @_;
@@ -874,6 +694,38 @@ sub available_ram {
     }
     return 0;
 }
+
+$LOGO = <<'EOF';
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                 _   _   _   _   _   _    _
+               // \// \// \// \// \// \/
+              //\_//\_//\_//\_//\_//\_//
+        o_O__O_ o
+       | ====== |       .-----------.
+       `--------'       |||||||||||||
+        || ~~ ||        |-----------|
+        || ~~ ||        | .-------. |
+        ||----||        ! | UPENN | !
+       //      \\        \`-------'/
+      // /!  !\ \\        \_  O  _/
+     !!__________!!         \   /
+     ||  ~~~~~~  ||          `-'
+     || _        ||
+     |||_|| ||\/|||
+     ||| \|_||  |||
+     ||          ||
+     ||  ~~~~~~  ||
+     ||__________||
+.----|||        |||------------------.
+     ||\\      //||                 /|
+     |============|                //
+     `------------'               //
+---------------------------------'/
+---------------------------------'
+  ____________________________________________________________
+- The RNA-Seq Unified Mapper (RUM) Pipeline has been initiated -
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+EOF
 
 
 1;

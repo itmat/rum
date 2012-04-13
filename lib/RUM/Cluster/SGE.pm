@@ -8,13 +8,15 @@ use Data::Dumper;
 
 use RUM::Logging;
 
+use base 'RUM::Platform::Cluster';
+
 our $log = RUM::Logging->get_logger();
 
 sub new {
-    my ($class, $config) = @_;
-    my $self = {};
-    $self->{config} = $config;
+    my ($class, $config, $directives) = @_;
 
+    my $self = $class->SUPER::new($config, $directives);
+    
     my $dir = $config->output_dir;
 
     $self->{cmd} = {};

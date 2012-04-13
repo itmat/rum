@@ -2,11 +2,14 @@ package RUM::Config;
 
 use strict;
 use warnings;
+
 use Carp;
 use FindBin qw($Bin);
-use RUM::Logging;
 use File::Spec;
 use Data::Dumper;
+
+use RUM::Logging;
+use RUM::ConfigFile;
 
 our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;

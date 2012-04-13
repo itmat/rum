@@ -3,13 +3,17 @@ package RUM::Base;
 use strict;
 use warnings;
 
+use Carp;
+
 use Text::Wrap qw(wrap fill);
 
 sub new {
     my ($class, $config, $directives) = @_;
     my $self = {};
-    $self->{config} = $config;
-    $self->{directives} = $directives;
+    $self->{config} = $config or croak
+        "$class->new called without config";
+    $self->{directives} = $directives or croak
+        "$class->new called without directives";
     bless $self, $class;
 }
 
