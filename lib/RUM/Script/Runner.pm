@@ -109,26 +109,26 @@ sub run_pipeline {
         # If this is a qsub job and it's not a child process, we need
         # to submit the child processes
         if ($self->config->qsub && ! $is_child) {
-            my $cluster = RUM::Cluster::SGE->new($self->config);
-            $self->{cluster} = $cluster;
+            $self->{cluster} = RUM::Cluster::SGE->new($self->config);
+
             if ($self->do_preprocess) {
                 $self->say("Submitting preprocessing task");
-                $cluster->submit_preproc;
+                $self->preprocess_on_cluster;
             }
             if ($self->do_process) {
                 if (my $chunk = $self->config->chunk) {
                     $self->say("Submitting chunk $chunk");
-                    $cluster->submit_proc($chunk);
+                    $self->cluster->submit_proc($chunk);
                 }
                 else {
                     $self->say("Submitting all chunks");
-                    $cluster->submit_proc;
+                    $self->process_on_cluster;
                 }
 
             }
             if ($self->do_postprocess) {
                 $self->say("Submitting postprocessing chunks");
-                $cluster->submit_postproc;
+                $self->cluster->submit_postproc;
             }
             $self->cluster->save;
         }
@@ -139,6 +139,89 @@ sub run_pipeline {
         }
     }
 }
+
+################################################################################
+###
+### Running jobs on the cluster
+###
+
+sub preprocess_on_cluster {
+    my ($self) = @_;
+    my $cluster = $self->cluster;
+    $cluster->submit_preproc;
+}
+
+sub process_on_cluster {
+    my ($self) = @_;
+
+    my $cluster = $self->cluster;
+
+    # Build a list of tasks, one for each chunk, that bundles together
+    # the chunk number, configuration, workflow, and workflow runner.
+    my @tasks;
+    for my $chunk ($self->chunk_nums) {
+        my $config = $self->config->for_chunk($chunk);
+        my $workflow = RUM::Workflows->chunk_workflow($config);
+        my $run = sub { $cluster->submit_proc($chunk) };
+        my $runner = RUM::WorkflowRunner->new($workflow, $run);
+        push @tasks, {
+            chunk => $chunk,
+            config => $config,
+            workflow => $workflow,
+            runner => $runner
+        };
+    }
+
+    # First submit all the chunks as one array job
+    $cluster->submit_proc;
+    
+    while (1) {
+
+        # Counter of tasks that are still running
+        my $still_running = 0;
+
+        # Refresh the cluster's status so that calls to proc_ok will
+        # return the latest status
+        $cluster->update_status;
+
+        for my $t (@tasks) {
+
+            my ($workflow, $chunk, $runner) = @$t{qw(workflow chunk runner)};
+
+            # If the state of the workflow indicates that it's
+            # complete (based on the files that exist), we can
+            # consider it done.
+            if ($workflow->is_complete) {
+                $log->debug("Chunk $chunk is done");
+            }
+
+            # If the job appears to be running or waiting on the
+            # cluster, increment $still_running so we wait for it to
+            # finish.
+            elsif ($cluster->proc_ok($chunk)) {
+                $log->debug("Looks like chunk $chunk is running or waiting");
+                $still_running++;
+            }
+
+            # Otherwise the task is not done and it's not running, so
+            # submit it again unless we've exceeded the restart limit.
+            else {
+                if ($runner->run) {
+                    $log->error("Chunk $chunk is not queued; started it");
+                    $still_running++;
+                }
+                else {
+                    $log->error("Restarted $chunk too many times; giving up");
+                }
+            }
+        }
+        last unless $still_running;
+        sleep $CLUSTER_CHECK_INTERVAL;
+    }
+    
+}
+
+
 
 sub monitor_cluster {
     my ($self) = @_;
@@ -1003,6 +1086,11 @@ sub chunk_nums {
 sub chunk_configs {
     my ($self) = @_;
     map { $self->config->for_chunk($_) } $self->chunk_nums;
+}
+
+sub chunk_workflow {
+    my ($self, $chunk) = @_;
+    RUM::Workflows->chunk_workflow($self->config->for_chunk($chunk));
 }
 
 sub chunk_workflows {
