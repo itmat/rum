@@ -30,7 +30,6 @@ sub do_save { $_[0]->{directives}{save} }
 sub be_quiet { $_[0]->{directives}{quiet} }
 
 sub do_status { $_[0]->{directives}{status} }
-sub do_monitor { $_[0]->{directives}{monitor} }
 sub do_clean { $_[0]->{directives}{clean} }
 sub do_veryclean { $_[0]->{directives}{veryclean} }
 
@@ -93,10 +92,6 @@ sub run_pipeline {
     elsif ($self->do_clean || $self->do_veryclean) {
         $self->say("Cleaning up");
         $self->clean;
-    }
-    elsif ($self->do_monitor) {
-        $self->{cluster} = RUM::Cluster::SGE->new($self->config);
-        $self->monitor_cluster;
     }
     else {
         my $is_child = $self->{is_child};
@@ -260,54 +255,6 @@ sub postprocess_on_cluster {
 
 }
 
-sub monitor_cluster {
-    my ($self) = @_;
-
-    while (1) {
-    
-        my $cluster = $self->cluster;
-        $cluster->update_status;
-
-        my $still_running;
-
-        if ($self->do_process) {
-            my @failed_chunks;
-            for my $c ($self->chunk_configs) {
-                my $w = RUM::Workflows->chunk_workflow($c);
-                if ($w->is_complete) {
-                    $log->debug("Chunk " . $c->chunk . " is done");
-                }
-                elsif ($cluster->proc_ok($c->chunk)) {
-                    $log->debug("Looks like chunk ". $c->chunk . " is ok");
-                    $still_running = 1;
-                }
-                else {
-                    $log->error("Chunk " . $c->chunk . " seems to have failed");
-                    
-                    push @failed_chunks, $c->chunk;
-                }
-            }
-        }
-
-        if ($self->do_postprocess) {
-            my $w = RUM::Workflows->postprocessing_workflow($self->config);
-            if ($w->is_complete) {
-                $log->debug("Postprocessing is done");
-            }
-            elsif ($cluster->postproc_ok) {
-                $still_running = 1;
-                $log->debug("Looks like postprocessing is ok");
-            }
-            else {
-                $log->error("Postprocessing seems to have failed");
-            }
-        }
-        
-        last unless $still_running;
-        sleep $CLUSTER_CHECK_INTERVAL;
-    }
-}
-
 sub get_options {
     my ($self) = @_;
 
@@ -330,7 +277,6 @@ sub get_options {
         "diagram"      => \(my $do_diagram),
         "save"         => \(my $do_save),
         "child"        => \(my $is_child),
-        "monitor"      => \(my $do_monitor),
 
         # Options controlling which portions of the pipeline to run.
         "preprocess"   => \(my $do_preprocess),
@@ -414,7 +360,6 @@ sub get_options {
         help_config  => $do_help_config,
         dry_run      => $do_dry_run,
         save         => $do_save,
-        monitor      => $do_monitor,
         status       => $do_status,
         clean        => $do_clean,
         veryclean    => $do_veryclean,
