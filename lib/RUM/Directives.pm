@@ -1,5 +1,32 @@
 package RUM::Directives;
 
+=head1 NAME
+
+RUM::Directives - Bundle of boolean flags that tell rum_runner what tasks to do
+
+=head1 SYNOPSIS
+
+  my $d = RUM::Directives->new;
+
+  $d->set_<directive>;
+
+  $d->unset_<directive>;
+
+  if ($d-><directive>) {
+    ...
+  }
+
+=head1 DESCRIPTION
+
+Bundles together a bunch of boolean options that the user can provide.
+Some of those options are I<actions>, which tell rum_runner what to
+do, and others are I<modifiers>, which change the behavior of an
+I<action>. Please see L<rum_runner> for a description of the actions
+and modifiers.
+
+=cut
+
+
 use strict;
 use warnings;
 
@@ -34,17 +61,21 @@ our @MODIFIERS = qw(
     all
 );
 
+=head1 CONSTRUCTORS
+
+=over 4
+
+=item new
+
+=back
+
+=cut
+
 sub new {
     my ($class) = @_;
     my %self = map { ($_ => undef) } (@ACTIONS, @MODIFIERS);
     $self{all} = 1;
     bless \%self, $class;
-}
-
-sub run {
-    my ($self, $phase) = @_;
-    my @actions = grep { $self->{$_} } @ACTIONS;
-    return !@actions;
 }
 
 sub AUTOLOAD {

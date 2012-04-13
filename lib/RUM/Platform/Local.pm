@@ -462,4 +462,8 @@ sub postprocess {
     $w->execute($self->step_printer($w));
 }
 
+sub reads {
+    return @{ $_[0]->config->reads };
+}
+
 1;

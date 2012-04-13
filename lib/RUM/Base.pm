@@ -1,11 +1,49 @@
 package RUM::Base;
 
+=head1 NAME
+
+RUM::Base - Base class for a few RUM classes
+
+=head1 SYNOPSIS
+
+  use base 'RUM::Base';
+
+  ...
+
+  my $config = $self->config;
+  my $directives = $self->directives;
+  my @reads = $self->reads;
+  $self->say("Message to user");
+  my @chunks = $self->chunk_nums;
+
+=head1 DESCRIPTION
+
+Provides a few methods that are commonly used by RUM::Runner and
+RUM::Platform and its subclasses; basically any class that needs
+access to the RUM::Config for the job and the RUM::Directives for this
+invocation of rum_runner.
+
+=cut
+
 use strict;
 use warnings;
 
 use Carp;
 
 use Text::Wrap qw(wrap fill);
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new($config, $directives)
+
+Subclasses that defined a I<new> method should call me in the
+constructor before doing anything else.
+
+=back
+
+=cut
 
 sub new {
     my ($class, $config, $directives) = @_;
@@ -17,14 +55,36 @@ sub new {
     bless $self, $class;
 }
 
+=head1 METHODS
+
+=over 4
+
+=cut
+
+
+=item config
+
+Return the config for this RUM job.
+
+=cut
+
 sub config { $_[0]->{config} }
+
+=item directives
+
+Return the RUM::Directives for this invocation of
+RUM::Runner. Directives are boolean flags that the user provides to
+RUM::Runner to tell it what to do.
+
+=cut
 
 sub directives { $_[0]->{directives} }
 
-sub reads {
-    return @{ $_[0]->config->reads };
-}
+=item say(@msg)
 
+Print a message to the user, wrapping long lines.
+
+=cut
 
 sub say {
     my ($self, @msg) = @_;
@@ -49,6 +109,6 @@ sub chunk_nums {
     return (1 .. $c->num_chunks || 1)
 }
 
-
+=back
 
 1;
