@@ -128,9 +128,9 @@ sub run_pipeline {
             }
             if ($self->do_postprocess) {
                 $self->say("Submitting postprocessing chunks");
-                $self->cluster->submit_postproc;
+                $self->postprocess_on_cluster;
             }
-            $self->cluster->save;
+
         }
         else {
             $self->preprocess  if $self->do_preprocess;
@@ -205,14 +205,12 @@ sub process_on_cluster {
 
             # Otherwise the task is not done and it's not running, so
             # submit it again unless we've exceeded the restart limit.
+            elsif ($runner->run) {
+                $log->error("Chunk $chunk is not queued; started it");
+                $still_running++;
+            }
             else {
-                if ($runner->run) {
-                    $log->error("Chunk $chunk is not queued; started it");
-                    $still_running++;
-                }
-                else {
-                    $log->error("Restarted $chunk too many times; giving up");
-                }
+                $log->error("Restarted $chunk too many times; giving up");
             }
         }
         last unless $still_running;
@@ -221,7 +219,46 @@ sub process_on_cluster {
     
 }
 
+sub postprocess_on_cluster {
+    my ($self) = @_;
 
+    my $cluster = $self->cluster;
+    my $config = $self->config;
+    my $workflow = RUM::Workflows->postprocessing_workflow($config);
+
+    my $run = sub { $cluster->submit_postproc };
+    my $runner = RUM::WorkflowRunner->new($workflow, $run);
+
+    $runner->run;
+    my $still_running;
+
+    do {
+        $still_running = 0;
+
+        sleep $CLUSTER_CHECK_INTERVAL;
+
+        if ($workflow->is_complete) {
+            $log->debug("Postprocessing is done");
+        }
+
+        elsif ($cluster->postproc_ok) {
+            $log->debug("Looks like postprocessing is running or waiting");
+            $still_running = 1;
+        }
+
+        elsif ($runner->run) {
+            $log->error("Postprocessing is not queued; starting it");
+            $still_running = 1;
+        }
+        else {
+            $log->error("Restarted postprocessing too many times; giving up");
+        }
+        
+        sleep $CLUSTER_CHECK_INTERVAL;
+        
+    } while ($still_running);
+
+}
 
 sub monitor_cluster {
     my ($self) = @_;
