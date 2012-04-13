@@ -21,6 +21,10 @@ our $CLUSTER_CHECK_INTERVAL = 30;
 our $log = RUM::Logging->get_logger;
 our $LOGO;
 
+sub config { $_[0]->{config} }
+
+sub cluster { $_[0]->{cluster} }
+
 sub do_version { $_[0]->{directives}{version} }
 sub do_help { $_[0]->{directives}{help} }
 sub do_help_config { $_[0]->{directives}{help_config} }
@@ -40,6 +44,47 @@ sub do_preprocess { $_[0]->{directives}{preprocess} }
 sub do_process { $_[0]->{directives}{process} }
 sub do_postprocess { $_[0]->{directives}{postprocess} }
 
+
+
+################################################################################
+###
+### Simple accessors and convenience functions
+###
+
+=item chunk_nums
+
+Return a list of chunk numbers I'm supposed to process, which is a
+single number if I was run with a --chunk option, or all of the chunks
+from 1 to $n otherwise.
+
+=cut
+
+sub chunk_nums {
+    my ($self) = @_;
+    my $c = $self->config;
+    if ($c->chunk) {
+        return ($c->chunk);
+    }
+    return (1 .. $c->num_chunks || 1)
+}
+
+=item chunk_configs
+
+Return a list of the RUM::Config objects, one for each chunk
+
+=cut
+
+sub chunk_configs {
+    my ($self) = @_;
+    map { $self->config->for_chunk($_) } $self->chunk_nums;
+}
+
+sub chunk_workflows {
+    my ($self) = @_;
+    map { RUM::Workflows->chunk_workflow($_) } $self->chunk_configs;
+}
+
+
 sub say {
     my ($self, @msg) = @_;
     #$log->info("@msg");
@@ -51,209 +96,17 @@ sub main {
     $class->new->run;
 }
 
-sub run {
-    my ($self) = @_;
-    $self->get_options();
-
-    if ($self->do_version) {
-        $self->say("RUM version $RUM::Pipeline::VERSION, released $RUM::Pipeline::RELEASE_DATE");
-    }
-    elsif ($self->do_help) {
-        RUM::Usage->help;
-    }
-    elsif ($self->do_help_config) {
-        $self->say($RUM::ConfigFile::DOC);
-    }
-    elsif ($self->do_shell_script) {
-        $self->export_shell_script;
-    }
-    else {
-        $self->run_pipeline;
-    }
-}
-
-sub run_pipeline {
-    my ($self) = @_;
-
-    $self->check_config();        
-    $self->setup;
-
-    if ($self->do_save) {
-        $self->say("Saving configuration");
-        $self->config->save;
-    }
-    elsif ($self->do_diagram) {
-        $self->diagram;
-    }
-    elsif ($self->do_status) {
-        $self->print_processing_status if $self->do_process;
-        $self->print_postprocessing_status if $self->do_postprocess;
-    }
-    elsif ($self->do_clean || $self->do_veryclean) {
-        $self->say("Cleaning up");
-        $self->clean;
-    }
-    else {
-        my $is_child = $self->{is_child};
-
-        $self->show_logo;
-        $self->setup;
-
-        $self->check_ram unless $is_child;
-
-        # If this is a qsub job and it's not a child process, we need
-        # to submit the child processes
-        if ($self->config->qsub && ! $is_child) {
-            $self->{cluster} = RUM::Cluster::SGE->new($self->config);
-
-            if ($self->do_preprocess) {
-                $self->say("Submitting preprocessing task");
-                $self->preprocess_on_cluster;
-            }
-            if ($self->do_process) {
-                if (my $chunk = $self->config->chunk) {
-                    $self->say("Submitting chunk $chunk");
-                    $self->cluster->submit_proc($chunk);
-                }
-                else {
-                    $self->say("Submitting all chunks");
-                    $self->process_on_cluster;
-                }
-
-            }
-            if ($self->do_postprocess) {
-                $self->say("Submitting postprocessing chunks");
-                $self->postprocess_on_cluster;
-            }
-
-        }
-        else {
-            $self->preprocess  if $self->do_preprocess;
-            $self->process     if $self->do_process;
-            $self->postprocess if $self->do_postprocess;
-        }
-    }
-}
-
 ################################################################################
 ###
-### Running jobs on the cluster
+### Parsing and validating command line options
 ###
 
-sub preprocess_on_cluster {
-    my ($self) = @_;
-    my $cluster = $self->cluster;
-    $cluster->submit_preproc;
-}
+=item get_options
 
-sub process_on_cluster {
-    my ($self) = @_;
+Parse @ARGV and build a RUM::Config from it. Also set some flags in
+$self->{directives} based on some boolean options.
 
-    my $cluster = $self->cluster;
-
-    # Build a list of tasks, one for each chunk, that bundles together
-    # the chunk number, configuration, workflow, and workflow runner.
-    my @tasks;
-    for my $chunk ($self->chunk_nums) {
-        my $config = $self->config->for_chunk($chunk);
-        my $workflow = RUM::Workflows->chunk_workflow($config);
-        my $run = sub { $cluster->submit_proc($chunk) };
-        my $runner = RUM::WorkflowRunner->new($workflow, $run);
-        push @tasks, {
-            chunk => $chunk,
-            config => $config,
-            workflow => $workflow,
-            runner => $runner
-        };
-    }
-
-    # First submit all the chunks as one array job
-    $cluster->submit_proc;
-    
-    while (1) {
-
-        # Counter of tasks that are still running
-        my $still_running = 0;
-
-        # Refresh the cluster's status so that calls to proc_ok will
-        # return the latest status
-        $cluster->update_status;
-
-        for my $t (@tasks) {
-
-            my ($workflow, $chunk, $runner) = @$t{qw(workflow chunk runner)};
-
-            # If the state of the workflow indicates that it's
-            # complete (based on the files that exist), we can
-            # consider it done.
-            if ($workflow->is_complete) {
-                $log->debug("Chunk $chunk is done");
-            }
-
-            # If the job appears to be running or waiting on the
-            # cluster, increment $still_running so we wait for it to
-            # finish.
-            elsif ($cluster->proc_ok($chunk)) {
-                $log->debug("Looks like chunk $chunk is running or waiting");
-                $still_running++;
-            }
-
-            # Otherwise the task is not done and it's not running, so
-            # submit it again unless we've exceeded the restart limit.
-            elsif ($runner->run) {
-                $log->error("Chunk $chunk is not queued; started it");
-                $still_running++;
-            }
-            else {
-                $log->error("Restarted $chunk too many times; giving up");
-            }
-        }
-        last unless $still_running;
-        sleep $CLUSTER_CHECK_INTERVAL;
-    }
-    
-}
-
-sub postprocess_on_cluster {
-    my ($self) = @_;
-
-    my $cluster = $self->cluster;
-    my $config = $self->config;
-    my $workflow = RUM::Workflows->postprocessing_workflow($config);
-
-    my $run = sub { $cluster->submit_postproc };
-    my $runner = RUM::WorkflowRunner->new($workflow, $run);
-
-    $runner->run;
-    my $still_running;
-
-    do {
-        $still_running = 0;
-
-        sleep $CLUSTER_CHECK_INTERVAL;
-
-        if ($workflow->is_complete) {
-            $log->debug("Postprocessing is done");
-        }
-
-        elsif ($cluster->postproc_ok) {
-            $log->debug("Looks like postprocessing is running or waiting");
-            $still_running = 1;
-        }
-
-        elsif ($runner->run) {
-            $log->error("Postprocessing is not queued; starting it");
-            $still_running = 1;
-        }
-        else {
-            $log->error("Restarted postprocessing too many times; giving up");
-        }
-        
-        sleep $CLUSTER_CHECK_INTERVAL;
-        
-    } while ($still_running);
-
-}
+=cut
 
 sub get_options {
     my ($self) = @_;
@@ -413,6 +266,14 @@ sub get_options {
     $self->{config} = $c;
 }
 
+
+=item check_config
+
+Check my RUM::Config for errors. Calls RUM::Usage->bad (which exits)
+if there are any errors.
+
+=cut
+
 sub check_config {
     my ($self) = @_;
 
@@ -493,10 +354,219 @@ sub check_config {
     
 }
 
+################################################################################
+###
+### High-level orchestration
+###
 
-sub config { $_[0]->{config} }
+sub run {
+    my ($self) = @_;
+    $self->get_options();
 
-sub cluster { $_[0]->{cluster} }
+    if ($self->do_version) {
+        $self->say("RUM version $RUM::Pipeline::VERSION, released $RUM::Pipeline::RELEASE_DATE");
+    }
+    elsif ($self->do_help) {
+        RUM::Usage->help;
+    }
+    elsif ($self->do_help_config) {
+        $self->say($RUM::ConfigFile::DOC);
+    }
+    elsif ($self->do_shell_script) {
+        $self->export_shell_script;
+    }
+    else {
+        $self->run_pipeline;
+    }
+}
+
+sub run_pipeline {
+    my ($self) = @_;
+
+    $self->check_config();        
+    $self->setup;
+
+    if ($self->do_save) {
+        $self->say("Saving configuration");
+        $self->config->save;
+    }
+    elsif ($self->do_diagram) {
+        $self->diagram;
+    }
+    elsif ($self->do_status) {
+        $self->print_processing_status if $self->do_process;
+        $self->print_postprocessing_status if $self->do_postprocess;
+    }
+    elsif ($self->do_clean || $self->do_veryclean) {
+        $self->say("Cleaning up");
+        $self->clean;
+    }
+    else {
+        my $is_child = $self->{is_child};
+
+        $self->show_logo;
+
+        $self->check_ram unless $is_child;
+
+        # If this is a qsub job and it's not a child process, we need
+        # to submit the child processes
+        if ($self->config->qsub && ! $is_child) {
+            $self->{cluster} = RUM::Cluster::SGE->new($self->config);
+
+            if ($self->do_preprocess) {
+                $self->say("Submitting preprocessing task");
+                $self->preprocess_on_cluster;
+            }
+            if ($self->do_process) {
+                if (my $chunk = $self->config->chunk) {
+                    $self->say("Submitting chunk $chunk");
+                    $self->cluster->submit_proc($chunk);
+                }
+                else {
+                    $self->say("Submitting all chunks");
+                    $self->process_on_cluster;
+                }
+
+            }
+            if ($self->do_postprocess) {
+                $self->say("Submitting postprocessing chunks");
+                $self->postprocess_on_cluster;
+            }
+
+        }
+        else {
+            $self->preprocess  if $self->do_preprocess;
+            $self->process     if $self->do_process;
+            $self->postprocess if $self->do_postprocess;
+        }
+    }
+}
+
+################################################################################
+###
+### Running jobs on the cluster
+###
+
+sub preprocess_on_cluster {
+    my ($self) = @_;
+    my $cluster = $self->cluster;
+    $cluster->submit_preproc;
+}
+
+sub process_on_cluster {
+    my ($self) = @_;
+
+    my $cluster = $self->cluster;
+
+    # Build a list of tasks, one for each chunk, that bundles together
+    # the chunk number, configuration, workflow, and workflow runner.
+    my @tasks;
+    for my $chunk ($self->chunk_nums) {
+        my $config = $self->config->for_chunk($chunk);
+        my $workflow = RUM::Workflows->chunk_workflow($config);
+        my $run = sub { $cluster->submit_proc($chunk) };
+        my $runner = RUM::WorkflowRunner->new($workflow, $run);
+        push @tasks, {
+            chunk => $chunk,
+            config => $config,
+            workflow => $workflow,
+            runner => $runner
+        };
+    }
+
+    # First submit all the chunks as one array job
+    $cluster->submit_proc;
+    
+    while (1) {
+
+        # Counter of tasks that are still running
+        my $still_running = 0;
+
+        # Refresh the cluster's status so that calls to proc_ok will
+        # return the latest status
+        $cluster->update_status;
+
+        for my $t (@tasks) {
+
+            my ($workflow, $chunk, $runner) = @$t{qw(workflow chunk runner)};
+
+            # If the state of the workflow indicates that it's
+            # complete (based on the files that exist), we can
+            # consider it done.
+            if ($workflow->is_complete) {
+                $log->debug("Chunk $chunk is done");
+            }
+
+            # If the job appears to be running or waiting on the
+            # cluster, increment $still_running so we wait for it to
+            # finish.
+            elsif ($cluster->proc_ok($chunk)) {
+                $log->debug("Looks like chunk $chunk is running or waiting");
+                $still_running++;
+            }
+
+            # Otherwise the task is not done and it's not running, so
+            # submit it again unless we've exceeded the restart limit.
+            elsif ($runner->run) {
+                $log->error("Chunk $chunk is not queued; started it");
+                $still_running++;
+            }
+            else {
+                $log->error("Restarted $chunk too many times; giving up");
+            }
+        }
+        last unless $still_running;
+        sleep $CLUSTER_CHECK_INTERVAL;
+    }
+    
+}
+
+sub postprocess_on_cluster {
+    my ($self) = @_;
+
+    my $cluster = $self->cluster;
+    my $config = $self->config;
+    my $workflow = RUM::Workflows->postprocessing_workflow($config);
+
+    my $run = sub { $cluster->submit_postproc };
+    my $runner = RUM::WorkflowRunner->new($workflow, $run);
+
+    $runner->run;
+    my $still_running;
+
+    do {
+        $still_running = 0;
+
+        sleep $CLUSTER_CHECK_INTERVAL;
+
+        if ($workflow->is_complete) {
+            $log->debug("Postprocessing is done");
+        }
+
+        elsif ($cluster->postproc_ok) {
+            $log->debug("Looks like postprocessing is running or waiting");
+            $still_running = 1;
+        }
+
+        elsif ($runner->run) {
+            $log->error("Postprocessing is not queued; starting it");
+            $still_running = 1;
+        }
+        else {
+            $log->error("Restarted postprocessing too many times; giving up");
+        }
+        
+        sleep $CLUSTER_CHECK_INTERVAL;
+        
+    } while ($still_running);
+
+}
+
+
+################################################################################
+###
+### Other tasks not directly involved with running the pipeline
+###
 
 sub clean {
     my ($self) = @_;
@@ -541,6 +611,20 @@ sub diagram {
     }
 }
 
+
+
+sub step_printer {
+    my ($self, $workflow) = @_;
+    return sub {
+        my ($step, $skipping) = @_;
+        my $indent = $skipping ? "(skipping) " : "(running)  ";
+        my $comment = $workflow->comment($step);
+        $self->say(wrap($indent, "           ", $comment));
+    };
+}
+
+
+
 sub preprocess {
     my ($self) = @_;
 
@@ -553,14 +637,27 @@ sub preprocess {
     $self->config->save;
 }
 
-sub step_printer {
-    my ($self, $workflow) = @_;
-    return sub {
-        my ($step, $skipping) = @_;
-        my $indent = $skipping ? "(skipping) " : "(running)  ";
-        my $comment = $workflow->comment($step);
-        $self->say(wrap($indent, "           ", $comment));
-    };
+sub process {
+    my ($self) = @_;
+
+    my $config = $self->config;
+
+    $log->debug("Chunk is ". ($config->chunk ? "yes" : "no"));
+
+    my $n = $config->num_chunks || 1;
+    $self->say("Processing in $n chunks");
+    $self->say("-----------------------");
+
+    if ($n == 1 || $config->chunk) {
+        my $chunk = $config->chunk || 1;
+        $log->info("Running chunk $chunk");
+        my $config = $self->config->for_chunk($chunk);
+        my $w = RUM::Workflows->chunk_workflow($config);
+        $w->execute($self->step_printer($w));
+    }
+    elsif ($config->num_chunks) {
+        $self->process_in_chunks;
+    }
 }
 
 
@@ -594,17 +691,6 @@ sub process_in_chunks {
         $task->run;
     }
 
-    #my $status_pid;
-    #if (my $pid = fork) {
-    #    $status_pid = $pid;
-    #}
-    #else {
-    #    while (1) {
-    #        sleep 5;
-    #        $self->print_status;
-    #    }
-    #}
-
     # Repeatedly wait for one of my children to exit. Check the
     # exit status, and if it is non-zero, attempt to restart the
     # child process unless it has failed too many times.
@@ -618,13 +704,6 @@ sub process_in_chunks {
         
         my $chunk = delete $pid_to_chunk{$pid} or $log->warn(
             "I don't know what chunk pid $pid is for");
-
-        #unless (keys %pid_to_chunk) {
-        #    $log->info("All chunks have finished");
-        #    kill(9, $status_pid);
-        #    wait;
-        #    last;
-        #}
 
         my $task = $tasks[$chunk];
         my $prefix = "PID $pid (chunk $chunk)";
@@ -645,28 +724,6 @@ sub process_in_chunks {
     
 }
 
-sub process {
-    my ($self) = @_;
-
-    my $config = $self->config;
-
-    $log->debug("Chunk is ". ($config->chunk ? "yes" : "no"));
-
-    my $n = $config->num_chunks || 1;
-    $self->say("Processing in $n chunks");
-    $self->say("-----------------------");
-
-    if ($n == 1 || $config->chunk) {
-        my $chunk = $config->chunk || 1;
-        $log->info("Running chunk $chunk");
-        my $config = $self->config->for_chunk($chunk);
-        my $w = RUM::Workflows->chunk_workflow($config);
-        $w->execute($self->step_printer($w));
-    }
-    elsif ($config->num_chunks) {
-        $self->process_in_chunks;
-    }
-}
 
 sub postprocess {
     my ($self) = @_;
@@ -687,9 +744,9 @@ sub setup {
 }
 
 ################################################################################
-##
-## Preprocessing checks on the input files
-##
+###
+### Preprocessing checks on the input files
+###
 
 our $READ_CHECK_LINES = 50000;
 
@@ -1056,29 +1113,6 @@ sub print_postprocessing_status {
     $postproc->walk_states($handle_state);
 }
 
-sub chunk_nums {
-    my ($self) = @_;
-    my $c = $self->config;
-    if ($c->chunk) {
-        return ($c->chunk);
-    }
-    return (1 .. $c->num_chunks || 1)
-}
-
-sub chunk_configs {
-    my ($self) = @_;
-    map { $self->config->for_chunk($_) } $self->chunk_nums;
-}
-
-sub chunk_workflow {
-    my ($self, $chunk) = @_;
-    RUM::Workflows->chunk_workflow($self->config->for_chunk($chunk));
-}
-
-sub chunk_workflows {
-    my ($self) = @_;
-    map { RUM::Workflows->chunk_workflow($_) } $self->chunk_configs;
-}
 
 sub export_shell_script {
     my ($self) = @_;
