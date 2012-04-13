@@ -7,6 +7,7 @@ use Getopt::Long;
 use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
 use Carp;
+use RUM::Directives;
 use RUM::Logging;
 use RUM::Workflows;
 use RUM::WorkflowRunner;
@@ -25,26 +26,7 @@ sub config { $_[0]->{config} }
 
 sub cluster { $_[0]->{cluster} }
 
-sub do_version { $_[0]->{directives}{version} }
-sub do_help { $_[0]->{directives}{help} }
-sub do_help_config { $_[0]->{directives}{help_config} }
-sub do_diagram { $_[0]->{directives}{diagram} }
-sub do_save { $_[0]->{directives}{save} }
-
-sub be_quiet { $_[0]->{directives}{quiet} }
-
-sub do_status { $_[0]->{directives}{status} }
-sub do_clean { $_[0]->{directives}{clean} }
-sub do_veryclean { $_[0]->{directives}{veryclean} }
-
-sub do_shell_script { $_[0]->{directives}{shell_script} }
-sub do_dry_run { $_[0]->{directives}{dry_run} }
-
-sub do_preprocess { $_[0]->{directives}{preprocess} }
-sub do_process { $_[0]->{directives}{process} }
-sub do_postprocess { $_[0]->{directives}{postprocess} }
-
-
+sub directives { $_[0]->{directives} }
 
 ################################################################################
 ###
@@ -88,7 +70,7 @@ sub chunk_workflows {
 sub say {
     my ($self, @msg) = @_;
     #$log->info("@msg");
-    print wrap("", "", @msg) . "\n" unless $self->be_quiet;
+    print wrap("", "", @msg) . "\n" unless $self->directives->quiet;
 }
 
 sub main {
@@ -114,27 +96,29 @@ sub get_options {
     my $quiet;
     Getopt::Long::Configure(qw(no_ignore_case));
 
+    my $d = $self->{directives} = RUM::Directives->new;
+
     GetOptions(
 
         # Options for doing things other than running the RUM
         # pipeline.
-        "version|V"    => \(my $do_version),
-        "kill"         => \(my $do_kill),
-        "status"       => \(my $do_status),
-        "shell-script" => \(my $do_shell_script),
-        "help|h"       => \(my $do_help),
-        "help-config"  => \(my $do_help_config),
-        "dry-run|n"    => \(my $do_dry_run),
-        "clean"        => \(my $do_clean),
-        "veryclean"    => \(my $do_veryclean),
-        "diagram"      => \(my $do_diagram),
-        "save"         => \(my $do_save),
-        "child"        => \(my $is_child),
+        "version|V"    => sub { $d->set_version },
+        "kill"         => sub { $d->set_kill },
+        "status"       => sub { $d->set_status },
+        "shell-script" => sub { $d->set_shell_script },
+        "help|h"       => sub { $d->set_help },
+        "help-config"  => sub { $d->set_help_config },
+        "dry-run|n"    => sub { $d->set_dry_run },
+        "clean"        => sub { $d->set_clean },
+        "veryclean"    => sub { $d->set_veryclean },
+        "diagram"      => sub { $d->set_diagram },
+        "save"         => sub { $d->set_save },
+        "child"        => sub { $d->set_child },
 
         # Options controlling which portions of the pipeline to run.
-        "preprocess"   => \(my $do_preprocess),
-        "process"      => \(my $do_process),
-        "postprocess"  => \(my $do_postprocess),
+        "preprocess"   => sub { $d->set_preprocess;  $d->unset_all; },
+        "process"      => sub { $d->set_process;     $d->unset_all; },
+        "postprocess"  => sub { $d->set_postprocess; $d->unset_all; },
         "chunk=s"      => \(my $chunk),
 
         # Options typically entered by a user to define a job.
@@ -189,38 +173,16 @@ sub get_options {
     ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
     $c->set(argv => [@ARGV]);
 
-    if ($c->chunk) {
+    # If a chunk is specified, that implies that the user wants to do
+    # the 'processing' phase, so unset preprocess and postprocess
+    if ($chunk) {
         RUM::Usage->bad("Can't use --preprocess with --chunk")
-              if $do_preprocess;
+              if $d->preprocess;
         RUM::Usage->bad("Can't use --postprocess with --chunk")
-              if $do_postprocess;
+              if $d->postprocess;
+        $d->unset_all;
+        $d->set_process;
     }
-
-    unless ($do_preprocess || $do_process || $do_postprocess) {
-        $do_preprocess  = ! $chunk;
-        $do_process     = 1;
-        $do_postprocess = ! $chunk;
-    }
-
-    $self->{is_child} = $is_child;
-          
-    $self->{directives} = {
-        version      => $do_version,
-        diagram      => $do_diagram,
-        kill         => $do_kill,
-        shell_script => $do_shell_script,
-        help         => $do_help,
-        help_config  => $do_help_config,
-        dry_run      => $do_dry_run,
-        save         => $do_save,
-        status       => $do_status,
-        clean        => $do_clean,
-        veryclean    => $do_veryclean,
-        preprocess   => $do_preprocess,
-        process      => $do_process,
-        postprocess  => $do_postprocess,
-        quiet        => $quiet,
-    };
 
     my $set = sub { 
         my ($k, $v) = @_;
@@ -362,17 +324,17 @@ sub check_config {
 sub run {
     my ($self) = @_;
     $self->get_options();
-
-    if ($self->do_version) {
+    my $d = $self->directives;
+    if ($d->version) {
         $self->say("RUM version $RUM::Pipeline::VERSION, released $RUM::Pipeline::RELEASE_DATE");
     }
-    elsif ($self->do_help) {
+    elsif ($d->help) {
         RUM::Usage->help;
     }
-    elsif ($self->do_help_config) {
+    elsif ($d->help_config) {
         $self->say($RUM::ConfigFile::DOC);
     }
-    elsif ($self->do_shell_script) {
+    elsif ($d->shell_script) {
         $self->export_shell_script;
     }
     else {
@@ -383,41 +345,41 @@ sub run {
 sub run_pipeline {
     my ($self) = @_;
 
+    my $d = $self->directives;
     $self->check_config();        
     $self->setup;
 
-    if ($self->do_save) {
+    if ($d->save) {
         $self->say("Saving configuration");
         $self->config->save;
     }
-    elsif ($self->do_diagram) {
+    elsif ($d->diagram) {
         $self->diagram;
     }
-    elsif ($self->do_status) {
-        $self->print_processing_status if $self->do_process;
-        $self->print_postprocessing_status if $self->do_postprocess;
+    elsif ($d->status) {
+        $self->print_processing_status if $d->process || $d->all;
+        $self->print_postprocessing_status if $d->postprocess || $d->all;
     }
-    elsif ($self->do_clean || $self->do_veryclean) {
+    elsif ($d->clean || $d->veryclean) {
         $self->say("Cleaning up");
         $self->clean;
     }
     else {
-        my $is_child = $self->{is_child};
 
         $self->show_logo;
 
-        $self->check_ram unless $is_child;
+        $self->check_ram unless $d->child;
 
         # If this is a qsub job and it's not a child process, we need
         # to submit the child processes
-        if ($self->config->qsub && ! $is_child) {
+        if ($self->config->qsub && ! $d->child) {
             $self->{cluster} = RUM::Cluster::SGE->new($self->config);
 
-            if ($self->do_preprocess) {
+            if ($d->preprocess || $d->all) {
                 $self->say("Submitting preprocessing task");
                 $self->preprocess_on_cluster;
             }
-            if ($self->do_process) {
+            if ($d->process || $d->all) {
                 if (my $chunk = $self->config->chunk) {
                     $self->say("Submitting chunk $chunk");
                     $self->cluster->submit_proc($chunk);
@@ -428,16 +390,16 @@ sub run_pipeline {
                 }
 
             }
-            if ($self->do_postprocess) {
+            if ($d->postprocess || $d->all) {
                 $self->say("Submitting postprocessing chunks");
                 $self->postprocess_on_cluster;
             }
 
         }
         else {
-            $self->preprocess  if $self->do_preprocess;
-            $self->process     if $self->do_process;
-            $self->postprocess if $self->do_postprocess;
+            $self->preprocess  if $d->preprocess  || $d->all;
+            $self->process     if $d->process     || $d->all;
+            $self->postprocess if $d->postprocess || $d->all;
         }
     }
 }
@@ -571,17 +533,16 @@ sub postprocess_on_cluster {
 sub clean {
     my ($self) = @_;
     my $c = $self->config;
+    my $d = $self->directives;
 
-    my $very = $self->do_veryclean;
-
-    if ($self->do_process) {
+    if ($d->process || $d->all) {
         for my $w ($self->chunk_workflows) {
-            $w->clean($very);
+            $w->clean($d->veryclean);
         }
     }
 
-    if ($self->do_postprocess) {
-        RUM::Workflows->postprocessing_workflow($c)->clean($very);
+    if ($d->postprocess || $d->all) {
+        RUM::Workflows->postprocessing_workflow($c)->clean($d->veryclean);
     }
 }
 
@@ -589,8 +550,8 @@ sub diagram {
     my ($self) = @_;
 
     print "My num chunks is ", $self->config->num_chunks, "\n";
-
-    if ($self->do_process) {
+    my $d = $self->directives;
+    if ($d->process || $d->all) {
         for my $c ($self->chunk_configs) {
             my $dot = $self->config->in_output_dir(sprintf("chunk%03d.dot", $c->chunk));
             my $pdf = $self->config->in_output_dir(sprintf("chunk%03d.pdf", $c->chunk));
@@ -601,7 +562,7 @@ sub diagram {
         }
     }
 
-    if ($self->do_postprocess) {
+    if ($d->postprocess || $d->all) {
         my $dot = $self->config->in_output_dir("postprocessing.dot");
         my $pdf = $self->config->in_output_dir("postprocessing.pdf");
         open my $dot_out, ">", $dot;
