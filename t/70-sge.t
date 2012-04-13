@@ -7,12 +7,12 @@ use Test::Exception;
 use FindBin qw($Bin);
 use File::Temp qw(tempdir);
 use lib "$Bin/../lib";
-use RUM::Cluster::SGE;
 use RUM::Config;
+use RUM::Directives;
 
-BEGIN { use_ok('RUM::Cluster::SGE') or BAIL_OUT "Couldn't load RUM::Cluster::SGE" }
+BEGIN { use_ok('RUM::Platform::SGE') or BAIL_OUT "Couldn't load RUM::Platform::SGE" }
 
-my $class = "RUM::Cluster::SGE";
+my $class = "RUM::Platform::SGE";
 is ($class->parse_qsub_out(
     'Your job-array 634877.1-10:1 ("sh") has been submitted'),
     634877, 
@@ -65,7 +65,9 @@ is_deeply($class->parse_qstat_out(@QSTAT_GROUPED),
            {job_id => 636814, state => 'hqw'}],
           "qstat ungrouped");
 
-my $sge = RUM::Cluster::SGE->new(RUM::Config->new(output_dir => tempdir(CLEANUP => 1)));
+my $sge = RUM::Platform::SGE->new(
+    RUM::Config->new(output_dir => tempdir(CLEANUP => 1)),
+    RUM::Directives->new);
 
 push @{ $sge->preproc_jids }, 628724;
 is_deeply($sge->preproc_jids, [628724], "Get preproc job id");

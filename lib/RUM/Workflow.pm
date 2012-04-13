@@ -420,6 +420,13 @@ sub execute {
     $self->{sm}->walk($f);
 }
 
+=item is_complete
+
+Return a true value if the current state is a goal state, false
+otherwise.
+
+=cut
+
 sub is_complete {
     my ($self) = @_;
     my $goal = $self->state_machine->goal_mask;
