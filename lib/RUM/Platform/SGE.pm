@@ -309,5 +309,15 @@ sub save {
     print $out Dumper($self->{jids});
 }
 
+sub start_parent {
+    my ($self) = @_;
+    my $d = $self->directives;
+    my $dir = $self->config->output_dir;
+    my $cmd =  "perl $0 --parent --output $dir";
+    $cmd .= " --preprocess"  if $d->preprocess;
+    $cmd .= " --process"     if $d->postprocess;
+    $cmd .= " --postprocess" if $d->postprocess;
+    $self->_qsub($cmd);
+}
 
 1;

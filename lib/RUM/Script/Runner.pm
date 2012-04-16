@@ -82,6 +82,7 @@ sub get_options {
         "diagram"      => sub { $d->set_diagram },
         "save"         => sub { $d->set_save },
         "child"        => sub { $d->set_child },
+        "parent"       => sub { $d->set_parent },
 
         # Options controlling which portions of the pipeline to run.
         "preprocess"   => sub { $d->set_preprocess;  $d->unset_all; },
@@ -98,6 +99,7 @@ sub get_options {
         "chunks=s" => \(my $num_chunks),
         "ram=s"    => \(my $ram),
         "qsub"     => \(my $qsub),
+        "platform=s" => \(my $platform),
 
         # Control logging and cleanup of temporary files.
         "no-clean"  => \(my $no_clean),
@@ -162,6 +164,8 @@ sub get_options {
         $c->set($k, $v);
     };
 
+    $platform = 'SGE' if $qsub;
+
     $c->set('bowtie_nu_limit', 100) if $limit_bowtie_nu;
     $set->('quantify', $quantify);
     $set->('strand_specific', $strand_specific);
@@ -192,8 +196,7 @@ sub get_options {
     $set->('blat_step_size', $blat_step_size);
     $set->('blat_rep_match', $blat_rep_match);
     $set->('blat_max_intron', $blat_max_intron);
-    $set->('qsub', $qsub);
-
+    $set->('platform', $platform);
     $self->{config} = $c;
 }
 
@@ -314,19 +317,19 @@ sub run {
 sub platform {
     my ($self) = @_;
 
-    my $platform_name = ($self->config->qsub && ! $self->directives->child) ?
-        "SGE" : "Local";
-    my $platform_class = "RUM::Platform::$platform_name";
-    my $platform_file = "RUM/Platform/$platform_name.pm";
-    require $platform_file;
-    my $platform = $platform_class->new($self->config, $self->directives);
+    my $name = $self->directives->child ? "Local" : $self->config->platform;
+    my $class = "RUM::Platform::$name";
+    my $file = "RUM/Platform/$name.pm";
+    require $file;
+    my $platform = $class->new($self->config, $self->directives);
 }
 
 sub run_pipeline {
     my ($self) = @_;
 
     my $d = $self->directives;
-    $self->check_config();        
+    $self->check_config;        
+    $self->check_gamma;
     $self->setup;
 
     if ($d->save) {
@@ -351,6 +354,12 @@ sub run_pipeline {
         $self->check_ram unless $d->child;
 
         my $platform = $self->platform;
+
+        if ( ref($platform) !~ /Local/ && ! ( $d->parent || $d->child ) ) {
+            $self->say("Submitting tasks and exiting");
+            $platform->start_parent;
+            return;
+        }
 
         if ($d->preprocess || $d->all) {
             $platform->preprocess;
@@ -457,7 +466,7 @@ sub fix_name {
 sub check_gamma {
     my ($self) = @_;
     my $host = `hostname`;
-    if ($host =~ /login.genomics.upenn.edu/ && !$self->config->qsub) {
+    if ($host =~ /login.genomics.upenn.edu/ && !$self->config->platform eq 'Local') {
         die("you cannot run RUM on the PGFI cluster without using the --qsub option.");
     }
 }

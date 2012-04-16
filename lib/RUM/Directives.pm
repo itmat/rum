@@ -54,6 +54,7 @@ our @ACTIONS = qw(
 our @MODIFIERS = qw(
     quiet
     child
+    parent
     dry_run
     preprocess
     process
