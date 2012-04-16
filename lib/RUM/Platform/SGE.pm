@@ -1,5 +1,16 @@
 package RUM::Platform::SGE;
 
+=head1 NAME
+
+RUM::Platform::SGE - Run the rum pipeline on the Sun Grid Engine.
+
+=head1 DESCRIPTION
+
+Provides methods for submitting phases of the rum pipeline to the Sun
+Grid Engine, and checking on their status.
+
+=cut
+
 use strict;
 use warnings;
 
@@ -11,6 +22,16 @@ use RUM::Logging;
 use base 'RUM::Platform::Cluster';
 
 our $log = RUM::Logging->get_logger();
+
+=head1 CONSTRUCTORS
+
+=over 4
+
+=item new
+
+=back
+
+=cut
 
 sub new {
     my ($class, $config, $directives) = @_;
@@ -35,13 +56,13 @@ sub new {
     return bless $self, $class;
 }
 
-sub config {
-    $_[0]->{config};
-}
+# These methods return the SGE job ids for the jobs that are currently
+# running to perform the preprocessing, processing, and postprocessing
+# phases.
 
-sub preproc_jids  { $_[0]->{jids}{preproc} };
-sub proc_jids     { $_[0]->{jids}{proc} };
-sub postproc_jids { $_[0]->{jids}{postproc} };
+sub _preproc_jids  { $_[0]->{jids}{preproc} };
+sub _proc_jids     { $_[0]->{jids}{proc} };
+sub _postproc_jids { $_[0]->{jids}{postproc} };
 
 sub _write_shell_script {
     my ($self, $phase) = @_;
@@ -60,8 +81,8 @@ sub submit_preproc {
     my ($self) = @_;
     $log->info("Submitting preprocessing job");
     my $sh = $self->_write_shell_script("preproc");
-    my $jid = $self->qsub("sh", $sh);
-    push @{ $self->preproc_jids }, $jid;
+    my $jid = $self->_qsub("sh", $sh);
+    push @{ $self->_preproc_jids }, $jid;
 }
 
 sub submit_proc {
@@ -69,7 +90,7 @@ sub submit_proc {
     my $sh = $self->_write_shell_script("proc");
     my $n = $self->config->num_chunks;
 
-    my @prereqs = @{ $self->preproc_jids };
+    my @prereqs = @{ $self->_preproc_jids };
 
     my @args;
     my @jids;
@@ -78,33 +99,33 @@ sub submit_proc {
 
     if (@chunks) {
         for my $chunk (@chunks) {
-            push @jids, $self->qsub(@args, "-t", $chunk, "sh", $sh);
+            push @jids, $self->_qsub(@args, "-t", $chunk, "sh", $sh);
         }
     }
     else {
-        push @jids, $self->qsub(@args, "-t", "1:$n", "sh", $sh);
+        push @jids, $self->_qsub(@args, "-t", "1:$n", "sh", $sh);
     }
 
-    push @{ $self->proc_jids }, @jids;
+    push @{ $self->_proc_jids }, @jids;
 }
 
 sub submit_postproc {
     my ($self, $c) = @_;
     my $sh = $self->_write_shell_script("postproc");
     my @args;
-    my @prereqs = @{ $self->proc_jids };
+    my @prereqs = @{ $self->_proc_jids };
     push @args, "-hold_jid", join(",", @prereqs) if @prereqs;
-    my $jid = $self->qsub(@args, "sh", $sh);
-    push @{ $self->postproc_jids }, $jid;
+    my $jid = $self->_qsub(@args, "sh", $sh);
+    push @{ $self->_postproc_jids }, $jid;
 }
 
-sub parse_qsub_out {
+sub _parse_qsub_out {
     my $self = shift;
     local $_ = shift;
     /Your.* job(-array)? (\d+)/ and return $2;
 }
 
-sub qsub {
+sub _qsub {
     my ($self, @args) = @_;
     my $cmd = "qsub -V -cwd -j y -b y @args";
     $log->debug("Running '$cmd'");
@@ -114,7 +135,7 @@ sub qsub {
         croak "Error running qsub @args: $!";
     }
 
-    return $self->parse_qsub_out($out);
+    return $self->_parse_qsub_out($out);
 }
 
 sub _field_start_len {
@@ -132,7 +153,7 @@ sub _extract_field {
     return $text if $text;
 }
 
-sub parse_qstat_out {
+sub _parse_qstat_out {
     my ($self, @lines) = @_;
 
     # Get the header line and determine the offset and length of each
@@ -182,7 +203,7 @@ sub update_status {
     }
     $log->debug("qstat: $_") foreach @qstat;
 
-    $self->_build_job_states($self->parse_qstat_out(@qstat));
+    $self->_build_job_states($self->_parse_qstat_out(@qstat));
     $self->save;
 }
 
@@ -261,18 +282,18 @@ sub _some_job_ok {
 
 sub preproc_ok {
     my ($self) = @_;
-    return $self->_some_job_ok("preproc", $self->preproc_jids);
+    return $self->_some_job_ok("preproc", $self->_preproc_jids);
 }
 
 sub proc_ok {
     my ($self, $chunk) = @_;
     $chunk or croak "$self->proc_ok() called without chunk";
-    return $self->_some_job_ok("proc", $self->proc_jids, $chunk);
+    return $self->_some_job_ok("proc", $self->_proc_jids, $chunk);
 }
 
 sub postproc_ok {
     my ($self) = @_;
-    return $self->_some_job_ok("postproc", $self->postproc_jids);
+    return $self->_some_job_ok("postproc", $self->_postproc_jids);
 }
 
 sub save {
