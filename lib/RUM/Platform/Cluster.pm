@@ -25,6 +25,7 @@ use warnings;
 
 use Carp;
 
+use RUM::WorkflowRunner;
 use RUM::Logging;
 
 use base 'RUM::Platform';
@@ -119,6 +120,7 @@ sub process {
                 $log->error("Restarted $chunk too many times; giving up");
             }
         }
+        $log->debug("$still_running chunks are still running");
         last unless $still_running;
         sleep $CLUSTER_CHECK_INTERVAL;
     }
@@ -148,6 +150,7 @@ sub postprocess {
         $still_running = 0;
 
         sleep $CLUSTER_CHECK_INTERVAL;
+        $self->update_status;
 
         if ($workflow->is_complete) {
             $log->debug("Postprocessing is done");
@@ -165,9 +168,10 @@ sub postprocess {
         else {
             $log->error("Restarted postprocessing too many times; giving up");
         }
-        
+
+        $log->debug("Postprocessing is " . 
+                        ($still_running ? "still running" : "finished"));
         sleep $CLUSTER_CHECK_INTERVAL;
-        
     } while ($still_running);
 
 }

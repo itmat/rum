@@ -95,7 +95,13 @@ sub submit_proc {
     my @args;
     my @jids;
 
-    push @args, "-hold_jid", join(",", @prereqs) if @prereqs;
+    if (@prereqs) {
+        $log->info("Submitting processing job; waiting for preprocessing (@prereqs) to finish");
+        push @args, "-hold_jid", join(",", @prereqs) if @prereqs;
+    }
+    else {
+        $log->info("Submitting processing jobs");
+    }
 
     if (@chunks) {
         for my $chunk (@chunks) {
@@ -111,6 +117,7 @@ sub submit_proc {
 
 sub submit_postproc {
     my ($self, $c) = @_;
+    $log->info("Submitting postprocessing job");
     my $sh = $self->_write_shell_script("postproc");
     my @args;
     my @prereqs = @{ $self->_proc_jids };
@@ -258,7 +265,7 @@ sub _some_job_ok {
     my ($self, $phase, $jids, $task) = @_;
     my @jids = @{ $jids };
     my @states = map { $self->_job_state($_, $task) || "" } @jids;
-    my @ok = grep { $_ && /r|w/ } @states;
+    my @ok = grep { $_ && /r|w|t/ } @states;
     
     my $msg = "I have these jobs for phase $phase";
     $msg .= " task $task" if $task;
