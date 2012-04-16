@@ -374,8 +374,10 @@ sub postprocessing_workflow {
     my $rum_unique_cov = $c->chunk_replaced("RUM_Unique.cov");
     my $rum_nu_cov = $c->chunk_replaced("RUM_NU.cov");
 
+    my @chunks = (1 .. $c->num_chunks || 1);
+
     my $name = $c->name;
-    my @c = map { $c->for_chunk($_) } (1 .. $c->num_chunks || 1);
+    my @c = map { $c->for_chunk($_) } @chunks;
     my $w = RUM::Workflow->new();
     my @rum_unique = map { $_->chunk_suffixed("RUM_Unique.sorted") } @c;
     my @rum_nu = map { $_->chunk_suffixed("RUM_NU.sorted") } @c;
@@ -726,6 +728,25 @@ sub postprocessing_workflow {
         ["grep -v transcript",
          $c->in_output_dir("novel_exon_quant_temp"),
          ">", post($c->novel_inferred_internal_exons_quantifications)]);
+
+    my $sam_headers = $c->in_output_dir("sam_header");
+    my @sam_headers = map "$sam_headers.$_", @chunks;
+
+    my $sam_file = $c->in_output_dir("RUM.sam");
+    my @sam_files = map "$sam_file.$_", @chunks;
+
+    $w->step(
+        "Merge SAM headers",
+        ["perl", $c->script("rum_merge_sam_headers.pl"),
+         map(pre($_), @sam_headers), "> ", post($sam_headers)]);
+
+    $w->step("Concatenate SAM files",
+         ["cat", 
+          pre($sam_headers), 
+          map(pre($_), @sam_files), 
+          ">", post($sam_file)]);
+    
+    push @goal, $sam_file;
 
     $w->start([@start]);
     $w->set_goal([@goal]);
