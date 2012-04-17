@@ -69,27 +69,38 @@ sub new {
     return bless $self, $class;
 }
 
-# These methods return the SGE job ids for the jobs that are currently
-# running to perform the preprocessing, processing, and postprocessing
-# phases.
+=item start_parent
 
-sub _parent_jids   { $_[0]->{jids}{parent} };
-sub _preproc_jids  { $_[0]->{jids}{preproc} };
-sub _proc_jids     { $_[0]->{jids}{proc} };
-sub _postproc_jids { $_[0]->{jids}{postproc} };
+Submits a job to run rum_runner on this output directory with the
+--parent option. This way, when the user runs rum_runner with --qsub
+or --platform SGE, that process calls start_parent and then exits
+quickly. When rum_runner is called with --parent, it monitors the
+status of the other tasks it submits.
 
-sub _write_shell_script {
-    my ($self, $phase) = @_;
-    my $filename = $self->config->in_output_dir(
-        $self->config->name . "_$phase" . ".sh");
-    open my $out, ">", $filename or croak "Can't open $filename for writing: $!";
-    my $cmd = $self->{cmd}{$phase} or croak "Don't have command for phase $phase";
+Updates $JOB_ID_FILE so that we keep track of which jobs we've
+submitted.
 
-    print $out 'RUM_CHUNK=$SGE_TASK_ID\n';
-    print $out $self->{cmd}{$phase};
-    close $out;
-    return $filename;
+=cut
+
+sub start_parent {
+    my ($self) = @_;
+    my $d = $self->directives;
+    my $dir = $self->config->output_dir;
+    my $cmd =  "-b y $0 --parent --output $dir";
+    $cmd .= " --preprocess"  if $d->preprocess;
+    $cmd .= " --process"     if $d->postprocess;
+    $cmd .= " --postprocess" if $d->postprocess;
+    my $jid = $self->_qsub($cmd);
+    push @{ $self->_parent_jids }, $jid;
+    $self->save;
 }
+
+=item submit_preproc
+
+Submits the preprocessing task, adds the job ids to my state, and
+updates $JOB_ID_FILE.
+
+=cut
 
 sub submit_preproc {
     my ($self) = @_;
@@ -99,6 +110,15 @@ sub submit_preproc {
     push @{ $self->_preproc_jids }, $jid;
     $self->save;
 }
+
+=item submit_preproc
+
+Submits an array job to run all of the chunks, adds the job id to my
+state, and updates $JOB_ID_FILE. The array job depends on the
+preprocessing job, if I have the job id of a preprocessing job on
+record.
+
+=cut
 
 sub submit_proc {
     my ($self, @chunks) = @_;
@@ -131,6 +151,16 @@ sub submit_proc {
     $self->save;
 }
 
+=item submit_postproc
+
+Submits a job for the postprocessing phase and updates
+$JOB_ID_FILE. Note that this does not add a dependency on the array
+job for the processing phase, since we may restart one or more of
+those array tasks if they fail. The caller must not call
+submit_postproc until the processing is done.
+
+=cut
+
 sub submit_postproc {
     my ($self, $c) = @_;
     $log->info("Submitting postprocessing job");
@@ -142,6 +172,54 @@ sub submit_postproc {
     push @{ $self->_postproc_jids }, $jid;
     $self->save;
 }
+
+=item update_status
+
+Run qstat and parse the results, updating my internal model of the
+status of all jobs.
+
+=cut
+
+sub update_status {
+    my ($self) = @_;
+
+    my @qstat = `qstat`;
+    if ($?) {
+        croak "qstat command failed: $!";
+    }
+    $log->debug("qstat: $_") foreach @qstat;
+
+    $self->_build_job_states($self->_parse_qstat_out(@qstat));
+    $self->save;
+}
+
+sub preproc_ok {
+    my ($self) = @_;
+    return $self->_some_job_ok("preproc", $self->_preproc_jids);
+}
+
+sub proc_ok {
+    my ($self, $chunk) = @_;
+    $chunk or croak "$self->proc_ok() called without chunk";
+    return $self->_some_job_ok("proc", $self->_proc_jids, $chunk);
+}
+
+sub postproc_ok {
+    my ($self) = @_;
+    return $self->_some_job_ok("postproc", $self->_postproc_jids);
+}
+
+sub save {
+    my ($self) = @_;
+    open my $out, ">", $self->config->in_output_dir("rum_sge_job_ids");
+    print $out Dumper($self->{jids});
+}
+
+
+################################################################################
+###
+### Private methods
+###
 
 sub _parse_qsub_out {
     my $self = shift;
@@ -218,19 +296,6 @@ sub _parse_qstat_out {
     return \@result;
 }
 
-sub update_status {
-    my ($self) = @_;
-
-    my @qstat = `qstat`;
-    if ($?) {
-        croak "qstat command failed: $!";
-    }
-    $log->debug("qstat: $_") foreach @qstat;
-
-    $self->_build_job_states($self->_parse_qstat_out(@qstat));
-    $self->save;
-}
-
 sub _build_job_states {
     my ($self, $jobs) = @_;
 
@@ -304,40 +369,8 @@ sub _some_job_ok {
 }
 
 
-sub preproc_ok {
-    my ($self) = @_;
-    return $self->_some_job_ok("preproc", $self->_preproc_jids);
-}
 
-sub proc_ok {
-    my ($self, $chunk) = @_;
-    $chunk or croak "$self->proc_ok() called without chunk";
-    return $self->_some_job_ok("proc", $self->_proc_jids, $chunk);
-}
 
-sub postproc_ok {
-    my ($self) = @_;
-    return $self->_some_job_ok("postproc", $self->_postproc_jids);
-}
-
-sub save {
-    my ($self) = @_;
-    open my $out, ">", $self->config->in_output_dir("rum_sge_job_ids");
-    print $out Dumper($self->{jids});
-}
-
-sub start_parent {
-    my ($self) = @_;
-    my $d = $self->directives;
-    my $dir = $self->config->output_dir;
-    my $cmd =  "-b y $0 --parent --output $dir";
-    $cmd .= " --preprocess"  if $d->preprocess;
-    $cmd .= " --process"     if $d->postprocess;
-    $cmd .= " --postprocess" if $d->postprocess;
-    my $jid = $self->_qsub($cmd);
-    push @{ $self->_parent_jids }, $jid;
-    $self->save;
-}
 
 sub stop {
     my ($self) = @_;
@@ -366,5 +399,29 @@ sub stop {
         }
     }
 }
+
+# These methods return the SGE job ids for the jobs that are currently
+# running to perform the preprocessing, processing, and postprocessing
+# phases.
+
+sub _parent_jids   { $_[0]->{jids}{parent} };
+sub _preproc_jids  { $_[0]->{jids}{preproc} };
+sub _proc_jids     { $_[0]->{jids}{proc} };
+sub _postproc_jids { $_[0]->{jids}{postproc} };
+
+sub _write_shell_script {
+    my ($self, $phase) = @_;
+    my $filename = $self->config->in_output_dir(
+        $self->config->name . "_$phase" . ".sh");
+    open my $out, ">", $filename or croak "Can't open $filename for writing: $!";
+    my $cmd = $self->{cmd}{$phase} or croak "Don't have command for phase $phase";
+
+    print $out 'RUM_CHUNK=$SGE_TASK_ID\n';
+    print $out $self->{cmd}{$phase};
+    close $out;
+    return $filename;
+}
+
+
 
 1;
