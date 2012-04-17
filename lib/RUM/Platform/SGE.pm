@@ -18,10 +18,19 @@ use Carp;
 use Data::Dumper;
 
 use RUM::Logging;
-
+use RUM::Common qw(shell);
 use base 'RUM::Platform::Cluster';
 
 our $log = RUM::Logging->get_logger();
+
+our @JOB_TYPES = qw(parent preproc proc postproc);
+our %JOB_TYPE_NAMES = (
+    parent => "parent",
+    preproc => "preprocessing",
+    proc => "processing",
+    postproc => "postprocessing"
+);
+
 
 =head1 CONSTRUCTORS
 
@@ -45,6 +54,7 @@ sub new {
     $self->{cmd}{proc}     =  "perl $0 --child --output $dir --chunk \$SGE_TASK_ID";
     $self->{cmd}{postproc} =  "perl $0 --child --output $dir --postprocess";
 
+    $self->{jids}{parent} = [];
     $self->{jids}{preproc} = [];
     $self->{jids}{proc} = [];
     $self->{jids}{postproc} = [];
@@ -60,6 +70,7 @@ sub new {
 # running to perform the preprocessing, processing, and postprocessing
 # phases.
 
+sub _parent_jids   { $_[0]->{jids}{parent} };
 sub _preproc_jids  { $_[0]->{jids}{preproc} };
 sub _proc_jids     { $_[0]->{jids}{proc} };
 sub _postproc_jids { $_[0]->{jids}{postproc} };
@@ -81,8 +92,9 @@ sub submit_preproc {
     my ($self) = @_;
     $log->info("Submitting preprocessing job");
     my $sh = $self->_write_shell_script("preproc");
-    my $jid = $self->_qsub("sh", $sh);
+    my $jid = $self->_qsub($sh);
     push @{ $self->_preproc_jids }, $jid;
+    $self->save;
 }
 
 sub submit_proc {
@@ -105,14 +117,15 @@ sub submit_proc {
 
     if (@chunks) {
         for my $chunk (@chunks) {
-            push @jids, $self->_qsub(@args, "-t", $chunk, "sh", $sh);
+            push @jids, $self->_qsub(@args, "-t", $chunk, $sh);
         }
     }
     else {
-        push @jids, $self->_qsub(@args, "-t", "1:$n", "sh", $sh);
+        push @jids, $self->_qsub(@args, "-t", "1:$n", $sh);
     }
 
     push @{ $self->_proc_jids }, @jids;
+    $self->save;
 }
 
 sub submit_postproc {
@@ -124,6 +137,7 @@ sub submit_postproc {
     push @args, "-hold_jid", join(",", @prereqs) if @prereqs;
     my $jid = $self->_qsub(@args, "sh", $sh);
     push @{ $self->_postproc_jids }, $jid;
+    $self->save;
 }
 
 sub _parse_qsub_out {
@@ -134,7 +148,7 @@ sub _parse_qsub_out {
 
 sub _qsub {
     my ($self, @args) = @_;
-    my $cmd = "qsub -V -cwd -j y -b y @args";
+    my $cmd = "qsub -V -cwd -j y @args";
     $log->debug("Running '$cmd'");
     my $out = `$cmd`;
     $log->debug("'$cmd' produced output $out");
@@ -239,7 +253,7 @@ sub _build_job_states {
     # Some of the jids I used to know about might have
     # disappeared. Remove from my jids map any jids that no longer
     # appear in qstat.
-    for my $phase (qw(preproc proc postproc)) {
+    for my $phase (qw(parent preproc proc postproc)) {
         my @jids = @{ $self->{jids}{$phase} };
         my @active = grep { $states{$_} } @jids;
         $self->{jids}{$phase}  = \@active;
@@ -313,11 +327,42 @@ sub start_parent {
     my ($self) = @_;
     my $d = $self->directives;
     my $dir = $self->config->output_dir;
-    my $cmd =  "perl $0 --parent --output $dir";
+    my $cmd =  "-b y $0 --parent --output $dir";
     $cmd .= " --preprocess"  if $d->preprocess;
     $cmd .= " --process"     if $d->postprocess;
     $cmd .= " --postprocess" if $d->postprocess;
-    $self->_qsub($cmd);
+    my $jid = $self->_qsub($cmd);
+    push @{ $self->_parent_jids }, $jid;
+    $self->save;
+}
+
+sub stop {
+    my ($self) = @_;
+    $self->update_status;
+
+    my @table = (
+        ["parent",         $self->_parent_jids ],
+        ["preprocessing",  $self->_preproc_jids ],
+        ["processing",     $self->_proc_jids ],
+        ["postprocessing", $self->_postproc_jids ]
+    );
+
+    for my $row (@table) {
+        my ($name, $jids) = @{ $row };
+
+        my @jids = @{ $jids };
+
+        if (my @jids = @{ $jids }) {
+            $self->say("Deleting $name job ids @jids");
+            system("qdel @jids");
+            if ($?) {
+                warn "Couldn't delete jobs: " . ($? >> 8);
+            }
+        }
+        else {
+            $self->say("Don't seem to have any $name job ids running");
+        }
+    }
 }
 
 1;

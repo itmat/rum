@@ -648,7 +648,7 @@ sub postprocessing_workflow {
         ["perl", $c->script("rum2cov.pl"),
          "-o", post($rum_unique_cov),
          "--name", "'$name Unique Mappers'",
-         "--stats", $u_footprint,
+         "--stats", post($u_footprint),
          pre($rum_unique)]);
 
     $w->step(
@@ -656,7 +656,7 @@ sub postprocessing_workflow {
         ["perl", $c->script("rum2cov.pl"),
          "-o", post($rum_nu_cov),
          "--name", "'$name Non-Unique Mappers'",
-         "--stats", $nu_footprint,
+         "--stats", post($nu_footprint),
          pre($rum_nu)]);
     
     if ($c->strand_specific) {
@@ -711,7 +711,7 @@ sub postprocessing_workflow {
         "Merge novel exons",
         ["perl", $c->script("merge_quants.pl"),
          "--chunks", 1,
-         "-o", $c->in_output_dir("novel_exon_quant_temp"),
+         "-o", post($c->in_output_dir("novel_exon_quant_temp")),
          "--header",
          $c->output_dir],
         ["grep -v transcript",

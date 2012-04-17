@@ -309,6 +309,9 @@ sub run {
     elsif ($d->shell_script) {
         $self->export_shell_script;
     }
+    elsif ($d->kill) {
+        $self->stop;
+    }
     else {
         $self->run_pipeline;
     }
@@ -378,6 +381,12 @@ sub run_pipeline {
 ###
 ### Other tasks not directly involved with running the pipeline
 ###
+
+sub stop {
+    my ($self) = @_;
+    $self->say("Killing job");
+    $self->platform->stop;
+}
 
 sub clean {
     my ($self) = @_;
