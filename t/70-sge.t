@@ -13,12 +13,12 @@ use RUM::Directives;
 BEGIN { use_ok('RUM::Platform::SGE') or BAIL_OUT "Couldn't load RUM::Platform::SGE" }
 
 my $class = "RUM::Platform::SGE";
-is ($class->parse_qsub_out(
+is ($class->_parse_qsub_out(
     'Your job-array 634877.1-10:1 ("sh") has been submitted'),
     634877, 
     "job-array output");
 
-is ($class->parse_qsub_out(
+is ($class->_parse_qsub_out(
     'Your job 634877 ("sh") has been submitted'),
     634877, 
     "job output");
@@ -47,7 +47,7 @@ EOF
 my @QSTAT_UNGROUPED = split /\n/, $QSTAT_UNGROUPED;
 my @QSTAT_GROUPED = split /\n/, $QSTAT_GROUPED;
 
-is_deeply($class->parse_qstat_out(@QSTAT_UNGROUPED),
+is_deeply($class->_parse_qstat_out(@QSTAT_UNGROUPED),
           [{job_id => 628724, state => 'r'},
            {job_id => 636537, state => 'r'},
            {job_id => 636813, state => 'r', task_id => 1},
@@ -56,7 +56,7 @@ is_deeply($class->parse_qstat_out(@QSTAT_UNGROUPED),
            {job_id => 636814, state => 'hqw'}],
           "qstat ungrouped");
 
-is_deeply($class->parse_qstat_out(@QSTAT_GROUPED),
+is_deeply($class->_parse_qstat_out(@QSTAT_GROUPED),
           [{job_id => 628724, state => 'r'},
            {job_id => 636537, state => 'r'},
            {job_id => 636813, state => 'qw', task_id => 1},
@@ -69,26 +69,26 @@ my $sge = RUM::Platform::SGE->new(
     RUM::Config->new(output_dir => tempdir(CLEANUP => 1)),
     RUM::Directives->new);
 
-push @{ $sge->preproc_jids }, 628724;
-is_deeply($sge->preproc_jids, [628724], "Get preproc job id");
-$sge->_build_job_states($sge->parse_qstat_out(@QSTAT_UNGROUPED));
+push @{ $sge->_preproc_jids }, 628724;
+is_deeply($sge->_preproc_jids, [628724], "Get preproc job id");
+$sge->_build_job_states($sge->_parse_qstat_out(@QSTAT_UNGROUPED));
 is($sge->{job_states}{628724}, 'r', "Set state to r");
 is($sge->_job_state(628724), 'r', "Can get job state");
 
 ok($sge->preproc_ok, "Preproc is ok");
 ok( ! $sge->proc_ok(1), "Proc is not ok");
 
-push @{ $sge->proc_jids }, 636813;
-is_deeply($sge->proc_jids, [636813], "Get proc job id");
-$sge->_build_job_states($sge->parse_qstat_out(@QSTAT_UNGROUPED));
+push @{ $sge->_proc_jids }, 636813;
+is_deeply($sge->_proc_jids, [636813], "Get proc job id");
+$sge->_build_job_states($sge->_parse_qstat_out(@QSTAT_UNGROUPED));
 is_deeply($sge->{job_states}{636813}, [undef, 'r', 'r', 'r'], "Set state to r");
 is($sge->_job_state(636813, 3), 'r', "Can get job state");
 ok($sge->proc_ok(3), "Proc chunk is ok");
 ok(! $sge->proc_ok(4), "Unknown chunk is not ok");
 
-push @{ $sge->postproc_jids }, 636814;
-is_deeply($sge->postproc_jids, [636814], "Get postproc job id");
-$sge->_build_job_states($sge->parse_qstat_out(@QSTAT_UNGROUPED));
+push @{ $sge->_postproc_jids }, 636814;
+is_deeply($sge->_postproc_jids, [636814], "Get postproc job id");
+$sge->_build_job_states($sge->_parse_qstat_out(@QSTAT_UNGROUPED));
 is($sge->{job_states}{636814}, 'hqw', "Set state to hqw");
 is($sge->_job_state(636814), 'hqw', "Can get job state");
 ok($sge->postproc_ok, "Postproc is ok");
