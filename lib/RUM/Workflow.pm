@@ -405,8 +405,8 @@ sub execute {
 #                    my $oldhandler = $SIG{TERM};
 
                     $SIG{TERM} = sub {
-                        warn "Caught SIGTERM, killing child process ($to[0])";
-                        kill 9, $pid;
+                        $log->warn("Caught SIGTERM, killing child process ($to[0])");
+                        kill 15, $pid;
                         waitpid $pid, 0;
                         die;
                     };

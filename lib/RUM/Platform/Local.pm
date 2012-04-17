@@ -422,10 +422,10 @@ sub _process_in_chunks {
     my @tasks; # Maps a chunk number to a RUM::RestartableTask
     
     $SIG{TERM} = sub {
-        warn "Caught SIGTERM, killing child processes\n";
+        $log->warn("Caught SIGTERM, killing child processes");
         for my $pid (keys %pid_to_chunk) {
-            warn "  Killing $pid (chunk $pid_to_chunk{$pid})\n";
-            kill 9, $pid;
+            $log->warn("  Killing $pid (chunk $pid_to_chunk{$pid})");
+            kill 15, $pid;
             waitpid $pid, 0;
         }
         die;
