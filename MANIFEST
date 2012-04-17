@@ -54,6 +54,7 @@ bin/rum_indexes
 bin/rum_install.pl
 bin/rum_junctions_to_bed
 bin/rum_merge_junctions
+bin/rum_merge_sam_headers.pl
 bin/rum_runner
 bin/RUM_runner.pl
 bin/rum_sort.pl
@@ -113,6 +114,7 @@ lib/RUM/Script/MergeGuAndTu.pm
 lib/RUM/Script/MergeJunctions.pm
 lib/RUM/Script/MergeNuStats.pm
 lib/RUM/Script/MergeQuants.pm
+lib/RUM/Script/MergeSamHeaders.pm
 lib/RUM/Script/MergeSortedRumFiles.pm
 lib/RUM/Script/ParseBlatOut.pm
 lib/RUM/Script/QuantifyExons.pm
