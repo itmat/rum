@@ -1,0 +1,34 @@
+
+
+Test --dna
+
+Test --blat-only
+
+Why aren't junctions being run?
+
+Add back disk space check
+
+Check log files for errors?
+
+Add quality checks
+
+Print final stats to log file
+
+Don't run if already running in dir
+
+Add hourly status updates?
+
+Make sure we print out all the same messages
+
+Print out email address if we give up?
+
+Make sure usage message matches options.
+
+Done
+----
+
+Assemble sam file
+Qsub job should exit immediately
+Add back kill option
+Print out configuration to log file
+Test without log4perl
