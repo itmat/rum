@@ -443,6 +443,7 @@ sub _process_in_chunks {
             }
             else {
                 $ENV{RUM_CHUNK} = $chunk;
+                open STDOUT, ">", $config->chunk_replaced("chunk_%d.out");
                 exec @cmd;
             }
         };

@@ -7,6 +7,8 @@ use Getopt::Long;
 use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
 use Carp;
+use Data::Dumper;
+
 use RUM::Directives;
 use RUM::Logging;
 use RUM::Workflows;
@@ -365,6 +367,8 @@ sub run_pipeline {
 
         $self->check_ram unless $d->child;
 
+        $self->dump_config;
+
         my $platform = $self->platform;
 
         if ( ref($platform) !~ /Local/ && ! ( $d->parent || $d->child ) ) {
@@ -576,6 +580,21 @@ sub export_shell_script {
     }
 }
 
+
+sub dump_config {
+    my ($self) = @_;
+    $log->debug("-" x 40);
+    $log->debug("Job configuration");
+    $log->debug("RUM Version: $RUM::Pipeline::VERSION");
+    
+    for my $key ($self->config->properties) {
+        my $val = $self->config->get($key);
+        next unless defined $val;
+        $val = Data::Dumper->new([$val])->Indent(0)->Dump if ref($val);
+        $log->debug("$key: $val");
+    }
+    $log->debug("-" x 40);
+}
 
 ################################################################################
 ###

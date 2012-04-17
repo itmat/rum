@@ -328,4 +328,7 @@ sub get {
     return $self->{$name};
 }
 
+sub properties {
+    sort keys %DEFAULTS;
+}
 1;
