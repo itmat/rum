@@ -53,90 +53,114 @@ sub chunk_workflow {
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
-    $m->step(
-        "Run bowtie on genome",
-        [$c->bowtie_bin,
-         $c->bowtie_cutoff_opt,
-         "--best", 
-         "--strata",
-         "-f", $c->genome_bowtie,
-         $reads_fa,
-         "-v", 3,
-         "--suppress", "6,7,8",
-         "-p", 1,
-         "--quiet",
-         "> ", post($genome_bowtie_out)]);
-    
-    $m->step(
-        "Run bowtie on transcriptome",
-        [$c->bowtie_bin,
-         $c->bowtie_cutoff_opt,
-         "--best", 
-         "--strata",
-         "-f", $c->trans_bowtie,
-         $reads_fa,
-         "-v", 3,
-         "--suppress", "6,7,8",
-         "-p", 1,
-         "--quiet",
-         "> ", post($trans_bowtie_out)]);
+    unless ($c->blat_only) {
+        $m->step(
+            "Run bowtie on genome",
+            [$c->bowtie_bin,
+             $c->bowtie_cutoff_opt,
+             "--best", 
+             "--strata",
+             "-f", $c->genome_bowtie,
+             $reads_fa,
+             "-v", 3,
+             "--suppress", "6,7,8",
+             "-p", 1,
+             "--quiet",
+             "> ", post($genome_bowtie_out)]);
+    }
+
+    unless ($c->dna || $c->blat_only || $c->genome_only) {
+        $m->step(
+            "Run bowtie on transcriptome",
+            [$c->bowtie_bin,
+             $c->bowtie_cutoff_opt,
+             "--best", 
+             "--strata",
+             "-f", $c->trans_bowtie,
+             $reads_fa,
+             "-v", 3,
+             "--suppress", "6,7,8",
+             "-p", 1,
+             "--quiet",
+             "> ", post($trans_bowtie_out)]);
+    }
     
     my $gu = $c->chunk_suffixed("GU");
-    my $tu = $c->chunk_suffixed("TU");
     my $gnu = $c->chunk_suffixed("GNU");
+
+    my $tu = $c->chunk_suffixed("TU");
     my $tnu = $c->chunk_suffixed("TNU");
     my $cnu = $c->chunk_suffixed("CNU");
+
+    # IF we're running in DNA mode, we don't run bowtie against the
+    # transcriptome, so just send the output from make_GU_and_GNU.pl
+    # straight to BowtieUnique and BowtieNU.
+    if ($c->dna || $c->genome_only) {
+        $gu = $c->chunk_suffixed("BowtieUnique");
+        $gnu = $c->chunk_suffixed("BowtieNU");
+    }
  
 #    my $quals_file = $c->chunk_suffixed("quals");
 
     # If we have the genome bowtie output, we can make the unique and
     # non-unique files for it.
-    $m->step(
-        "Separate unique and non-unique mappers from genome bowtie output",
-        ["perl", $c->script("make_GU_and_GNU.pl"), 
-         "--unique", post($gu),
-         "--non-unique", post($gnu),
-         $c->paired_end_opt(),
-         pre($genome_bowtie_out)]);
+    unless ($c->blat_only) {
+        $m->step(
+            "Separate unique and non-unique mappers from genome bowtie output",
+            ["perl", $c->script("make_GU_and_GNU.pl"), 
+             "--unique", post($gu),
+             "--non-unique", post($gnu),
+             $c->paired_end_opt(),
+             pre($genome_bowtie_out)]);
+    }
     
     # If we have the transcriptome bowtie output, we can make the
     # unique and non-unique files for it.
-    $m->step(
-        "Separate unique and non-unique mappers from transcriptome bowtie output",
-        ["perl", $c->script("make_TU_and_TNU.pl"), 
-         "--unique",        post($tu),
-         "--non-unique",    post($tnu),
-         "--bowtie-output", pre($trans_bowtie_out),
-         "--genes",         $c->annotations,
-         $c->paired_end_opt]);
+    unless ($c->dna || $c->blat_only || $c->genome_only) {
+        $m->step(
+            "Separate unique and non-unique mappers from transcriptome bowtie output",
+            ["perl", $c->script("make_TU_and_TNU.pl"), 
+             "--unique",        post($tu),
+             "--non-unique",    post($tnu),
+             "--bowtie-output", pre($trans_bowtie_out),
+             "--genes",         $c->annotations,
+             $c->paired_end_opt]);
     
-    # If we have the non-unique files for both the genome and the
-    # transcriptome, we can merge them.
-    $m->step(
-        "Merge non-unique mappers together",
-        ["perl", $c->script("merge_GNU_and_TNU_and_CNU.pl"),
-         "--gnu", pre($gnu),
-         "--tnu", pre($tnu),
-         "--cnu", pre($cnu),
-         "--out", post($bowtie_nu)]);
+        # If we have the non-unique files for both the genome and the
+        # transcriptome, we can merge them.
+        $m->step(
+            "Merge non-unique mappers together",
+            ["perl", $c->script("merge_GNU_and_TNU_and_CNU.pl"),
+             "--gnu", pre($gnu),
+             "--tnu", pre($tnu),
+             "--cnu", pre($cnu),
+             "--out", post($bowtie_nu)]);
+        
+        # If we have the unique files for both the genome and the
+        # transcriptome, we can merge them.
+        my $min_overlap_opt = defined($c->min_overlap)
+            ? "--min-overlap".$c->min_overlap : "";
+        $m->step(
+            "Merge unique mappers together",
+            [
+                "perl", $c->script("merge_GU_and_TU.pl"),
+                "--gu", pre($gu),
+                "--tu", pre($tu),
+                "--gnu", pre($gnu),
+                "--tnu", pre($tnu),
+                "--bowtie-unique", post($bowtie_unique),
+                "--cnu",  post($cnu),
+                $c->paired_end_opt,
+                "--read-length", $c->read_length,
+                $min_overlap_opt]);
+    }
 
-    # If we have the unique files for both the genome and the
-    # transcriptome, we can merge them.
-    my $min_overlap_opt = defined($c->min_overlap)
-        ? "--min-overlap".$c->min_overlap : "";
-    $m->step(
-        "Merge unique mappers together",
-        [
-            "perl", $c->script("merge_GU_and_TU.pl"),
-            "--gu", pre($gu),
-            "--tu", pre($tu),
-            "--gnu", pre($gnu),
-            "--tnu", pre($tnu),
-            "--bowtie-unique", post($bowtie_unique),
-            "--cnu",  post($cnu),
-            $c->paired_end_opt,
-            "--read-length", $c->read_length,
-            $min_overlap_opt]);
+    if ($c->blat_only) {
+        $m->step(
+            "Make empty bowtie output",
+            ["touch", post($bowtie_unique)],
+            ["touch", post($bowtie_nu)]);
+    }
     
     # If we have the merged bowtie unique mappers and the merged
     # bowtie non-unique mappers, we can create the unmapped file.
@@ -541,8 +565,13 @@ sub postprocessing_workflow {
     my $junctions_high_quality_bed = 
         $c->in_output_dir("junctions_high-quality.bed");
     
-
     if ($c->should_do_junctions) {
+
+        push @goal, (
+            $junctions_all_rum,
+            $junctions_all_bed,
+            $junctions_high_quality_bed);
+
         my $annotations = $c->alt_genes || $c->annotations;
 
         # Closure that takes a strand (p, m, or undef), type (all or
@@ -701,12 +730,12 @@ sub postprocessing_workflow {
 
     $w->step(
         "Quantify novel exons",
-        ["perl", $c->script("quantify_exons.pl"),
+        ["perl", $c->script("quantifyexons.pl"),
          "--exons-in", pre($inferred_internal_exons),
          "--unique-in", pre($rum_unique),
          "--non-unique-in", pre($rum_nu),
          "-o", post($c->in_output_dir("quant_novel.1")),
-         "--novel", "--counts-only"]);
+         "--novel", "--countsonly"]);
 
     $w->step(
         "Merge novel exons",

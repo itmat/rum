@@ -1,11 +1,3 @@
-
-
-Test --dna
-
-Test --blat-only
-
-Why aren't junctions being run?
-
 Add back disk space check
 
 Check log files for errors?
@@ -32,3 +24,6 @@ Qsub job should exit immediately
 Add back kill option
 Print out configuration to log file
 Test without log4perl
+Why aren't junctions being run?
+Test --dna
+Test --blat-only

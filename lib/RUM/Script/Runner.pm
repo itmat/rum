@@ -207,6 +207,7 @@ sub get_options {
     $set->('blat_step_size', $blat_step_size);
     $set->('blat_rep_match', $blat_rep_match);
     $set->('blat_max_intron', $blat_max_intron);
+    $set->('blat_only', $blat_only);
     $set->('platform', $platform);
     $self->{config} = $c;
 }

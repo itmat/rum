@@ -63,6 +63,7 @@ our %DEFAULTS = (
     argv => undef,
     alt_quant => undef,
     genome_only => 0,
+    blat_only => 0,
     cleanup => 1,
     junctions => 0,
     mapping_stats => undef,
