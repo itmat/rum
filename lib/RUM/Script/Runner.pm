@@ -401,18 +401,43 @@ sub stop {
     $self->platform->stop;
 }
 
+sub cleanup_reads_and_quals {
+    my ($self) = @_;
+    for my $c ($self->chunk_configs) {
+        unlink($c->chunk_suffixed("quals.fa"),
+               $c->chunk_suffixed("reads.fa"));
+    }
+
+}
+
 sub clean {
     my ($self) = @_;
     my $c = $self->config;
     my $d = $self->directives;
 
-    if ($d->process || $d->all) {
+    # If user ran rum_runner --clean, clean up all the results from
+    # the chunks; just leave the merged files.
+    if ($d->all) {
+        $self->cleanup_reads_and_quals;
+        for my $w ($self->chunk_workflows) {
+            $w->clean(1);
+        }
+        RUM::Workflows->postprocessing_workflow($c)->clean($d->veryclean);
+    }
+
+    # Otherwise just clean up whichever phases they asked
+    elsif ($d->preprocess) {
+        $self->cleanup_reads_and_quals;
+    }
+
+    # Otherwise just clean up whichever phases they asked
+    elsif ($d->process) {
         for my $w ($self->chunk_workflows) {
             $w->clean($d->veryclean);
         }
     }
 
-    if ($d->postprocess || $d->all) {
+    if ($d->postprocess) {
         RUM::Workflows->postprocessing_workflow($c)->clean($d->veryclean);
     }
 }
