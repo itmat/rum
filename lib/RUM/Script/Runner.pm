@@ -19,6 +19,15 @@ use base 'RUM::Base';
 our $log = RUM::Logging->get_logger;
 our $LOGO;
 
+=head1 NAME
+
+RUM::Script::Runner
+
+=head1 METHODS
+
+=over 4
+
+=cut
 
 ################################################################################
 ###

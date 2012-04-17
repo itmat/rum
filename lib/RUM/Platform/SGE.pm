@@ -71,6 +71,12 @@ sub new {
     return bless $self, $class;
 }
 
+=head1 METHODS
+
+=over 4
+
+=cut
+
 =item start_parent
 
 Submits a job to run rum_runner on this output directory with the
@@ -423,7 +429,5 @@ sub _write_shell_script {
     close $out;
     return $filename;
 }
-
-
 
 1;

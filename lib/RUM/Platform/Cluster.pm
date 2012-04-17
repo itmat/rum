@@ -16,8 +16,6 @@ L<RUM::Platform::SGE>.
 
 =over 4
 
-=back
-
 =cut
 
 use strict;
@@ -176,6 +174,8 @@ sub postprocess {
 
 }
 
+=back
+
 =head2 Abstract Methods
 
 =over 4
@@ -200,8 +200,6 @@ implementation should submit only the job for that chunk.
 
 A subclass should implement this so that it refreshes whatever data
 structure it uses to store the status of its jobs.
-
-=back
 
 =item proc_ok
 
