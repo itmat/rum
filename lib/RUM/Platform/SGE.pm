@@ -119,7 +119,7 @@ sub submit_preproc {
     $self->save;
 }
 
-=item submit_preproc
+=item submit_proc
 
 Submits an array job to run all of the chunks, adds the job id to my
 state, and updates $JOB_ID_FILE. The array job depends on the
@@ -201,6 +201,18 @@ sub update_status {
     $self->save;
 }
 
+=item preproc_ok
+
+=item proc_ok
+
+=item postproc_ok
+
+These methods return true if the preproc, proc, or postproc phase is
+in an 'ok' status, meaning that it is running or at least in the queue
+in a state that indicates it can be run in the future.
+
+=cut
+
 sub preproc_ok {
     my ($self) = @_;
     return $self->_some_job_ok("preproc", $self->_preproc_jids);
@@ -216,6 +228,12 @@ sub postproc_ok {
     my ($self) = @_;
     return $self->_some_job_ok("postproc", $self->_postproc_jids);
 }
+
+=item save
+
+Save the job ids to the $JOB_IDS_FILE.
+
+=cut
 
 sub save {
     my ($self) = @_;
@@ -378,7 +396,11 @@ sub _some_job_ok {
 
 
 
+=item stop
 
+Delete all jobs associated with this output directory.
+
+=cut
 
 sub stop {
     my ($self) = @_;
