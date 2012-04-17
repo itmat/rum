@@ -178,7 +178,7 @@ List of string field names. See the man page for ps for allowable fields.
 
 =back
 
-Each item in the returned list is a hashref contianing whatever fields
+Each item in the returned list is a hashref containing whatever fields
 were requested in the "fields" option.
 
 =cut

@@ -76,6 +76,7 @@ is($sge->{job_states}{628724}, 'r', "Set state to r");
 is($sge->_job_state(628724), 'r', "Can get job state");
 
 ok($sge->preproc_ok, "Preproc is ok");
+RUM::Logging->get_logger("RUM::Platform::SGE")->less_logging(5);
 ok( ! $sge->proc_ok(1), "Proc is not ok");
 
 push @{ $sge->_proc_jids }, 636813;
