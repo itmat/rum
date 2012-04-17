@@ -1,4 +1,4 @@
-use Test::More tests => 5;
+use Test::More tests => 8;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -20,16 +20,16 @@ my $w = RUM::Workflow->new();
 $w->add_command(
     name => "code ref of array ref of array refs",
     commands => sub { 
-        [["sort", "input", "> intermediate"],
-         ["uniq", "-c", "intermediate", "> output"]]
+        [["sort", "input", ">", "intermediate"],
+         ["uniq", "-c", "intermediate", ">", "output"]]
     }
 );
 
 $w->add_command(
     name => "array ref of array refs",
     commands => 
-        [["sort", "input", "> intermediate"],
-         ["uniq", "-c", "intermediate", "> output"]]
+        [["sort", "input", ">", "intermediate"],
+         ["uniq", "-c", "intermediate", ">", "output"]]
 );
 
 
@@ -41,17 +41,20 @@ $w->add_command(
 );
 
 is_deeply([$w->commands("array ref of array refs")],
-          ["sort input > intermediate", 
-           "uniq -c intermediate > output"],
+          [["sort", "input", ">", "intermediate"],
+           ["uniq", "-c", "intermediate", ">", "output"]],
           "array ref of array refs");
 
 is_deeply([$w->commands("code ref of array ref of array refs")],
-          ["sort input > intermediate", 
-           "uniq -c intermediate > output"],
+          [["sort", "input", ">", "intermediate"],
+           ["uniq", "-c", "intermediate", ">", "output"]],
           "code ref of array ref of array refs");
 
 my @cmds = $w->commands("with tags");
-like($cmds[0], qr/sort input > output/, "with tags");
+is($cmds[0][0], "sort", "with tags");
+is($cmds[0][1], "input", "with tags");
+is($cmds[0][2], ">", "with tags");
+like($cmds[0][3], qr/output/, "with tags");
 
 my $in = "$SHARED_INPUT_DIR/forward64.fq";
 $w = RUM::Workflow->new();
