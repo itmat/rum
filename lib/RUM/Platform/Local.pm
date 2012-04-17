@@ -421,10 +421,19 @@ sub _process_in_chunks {
     my %pid_to_chunk; # Maps a process ID to the chunk it is running
     my @tasks; # Maps a chunk number to a RUM::RestartableTask
     
+    $SIG{TERM} = sub {
+        warn "Caught SIGTERM, killing child processes\n";
+        for my $pid (keys %pid_to_chunk) {
+            warn "  Killing $pid (chunk $pid_to_chunk{$pid})\n";
+            kill 9, $pid;
+            waitpid $pid, 0;
+        }
+        die;
+    };
+
     for my $chunk ($self->chunk_nums) {
-        my @argv = ("--output", $self->config->output_dir,
-                    "--chunk", $chunk);
-        my $cmd = "$0 @argv > /dev/null";
+        my @cmd = ($0, "--output", $self->config->output_dir,
+                   "--chunk", $chunk);
         my $config = $self->config->for_chunk($chunk);                
         my $workflow = RUM::Workflows->chunk_workflow($config);
 
@@ -434,7 +443,7 @@ sub _process_in_chunks {
             }
             else {
                 $ENV{RUM_CHUNK} = $chunk;
-                exec $cmd;
+                exec @cmd;
             }
         };
 
@@ -473,6 +482,8 @@ sub _process_in_chunks {
             $log->info("$prefix finished");
         }
     }
+
+    delete $SIG{TERM};
     
 }
 
