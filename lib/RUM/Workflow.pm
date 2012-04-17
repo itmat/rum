@@ -401,7 +401,18 @@ sub execute {
                 }
 
                 if (my $pid = fork) {
+
+#                    my $oldhandler = $SIG{TERM};
+
+                    $SIG{TERM} = sub {
+                        warn "Caught SIGTERM, killing child process ($to[0])";
+                        kill 9, $pid;
+                        waitpid $pid, 0;
+                        die;
+                    };
+                    
                     waitpid($pid, 0);
+#                    $SIG{TERM} = $oldhandler;
 
                     if ($?) {
                         die "Error running @$cmd: $!";
