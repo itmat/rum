@@ -299,7 +299,7 @@ sub commands {
     ref($commands) =~ /^ARRAY/ or croak
         "Commands must be an array ref, not $commands";
 
-    return map "@$_", @$commands;
+    return @$commands;
 }
 
 =item shell_script($filehandle)
@@ -384,18 +384,44 @@ sub execute {
 
         unless ($completed) {
             for my $cmd (@cmds) {
-                $log->debug("Running $cmd");
-                my $status = system($cmd);
-                if ($status) {
-                    die "Error running $cmd: $!";
+                $log->debug("Running @$cmd");
+
+                my $stdout;
+                my $stdout_mode;
+                my @from = @ { $cmd };
+                my @to;
+                while (local $_ = shift @from) {
+                    if (/\s*(>>|>)\s*/){
+                        $stdout = shift(@from);
+                        $stdout_mode = $1;
+                    }
+                    else {
+                        push @to, $_;
+                    }
+                }
+
+                if (my $pid = fork) {
+                    waitpid($pid, 0);
+
+                    if ($?) {
+                        die "Error running @$cmd: $!";
+                    }                    
+                }
+                else {
+                    if ($stdout) {
+                        close STDOUT;
+                        open STDOUT, $stdout_mode, $stdout or croak "Can't open output $stdout: $!";
+                    }
+                    exec(@to);
                 }
             }
-
+            
             for ($sm->flags($new & ~$old)) {
                 if (my $temp = $self->_get_temp($_)) {
                     -e and $log->warn(
                         "File $_ already exists; ".
                             "I thought it would be created by $step");
+                    -s or $log->warn("File $_ is empty");
                     rename($temp, $_) or croak
                         "Couldn't rename temporary file $temp to $_: $!";
                 }
@@ -403,16 +429,14 @@ sub execute {
                     $log->warn("$_ was not first created as a temporary file");
                 }
             }
-
+            
             my $state = $self->state;
-
+            
             if ($new != $state) {
                 my @missing = $sm->flags($new & ~$state);
                 my @extra   = $sm->flags($state & ~$new);
                 $log->warn("I am not in the state I'm supposed to be. I am missing @missing and have extra files @extra");
             }
-
-
         }
 
     };

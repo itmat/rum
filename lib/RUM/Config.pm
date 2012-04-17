@@ -218,7 +218,7 @@ sub blat_opts {
         repMatch => $self->blat_rep_match,
         maxIntron => $self->blat_max_intron);
 
-    return join(" ", map("-$_='$opts{$_}'", sort keys %opts));
+    return map("-$_=$opts{$_}", sort keys %opts);
 }
 
 # $quantify and $quantify_specified default to false

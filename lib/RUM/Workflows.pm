@@ -420,29 +420,30 @@ sub postprocessing_workflow {
         commands => sub {
             my $reads = $reads_fa;
             local $_ = `tail -2 $reads`;
-            my $max_seq_opt = /seq.(\d+)/s ? "--max-seq $1" : "";
+            my @max_seq_opt = /seq.(\d+)/s ? ("--max-seq", $1) : ();
             my $out = $w->temp($mapping_stats);
             return [
                 ["perl", $c->script("count_reads_mapped.pl"),
                  "--unique-in", $rum_unique,
                  "--non-unique-in", $rum_nu,
                  "--min-seq", 1,
-                 $max_seq_opt,
-                 "> ", $w->temp($mapping_stats)],
-                ["echo '' >> $out"],
-                ["echo RUM_Unique reads per chromosome >> $out"],
-                ["echo ------------------------------- >> $out"],
+                 @max_seq_opt,
+                 ">", $w->temp($mapping_stats)],
+                ["echo", ">>", $out],
+                ["echo", "RUM_Unique reads per chromosome", ">>", $out],
+                ["echo", "-------------------------------", ">>", $out],
                 ["perl", $c->script("merge_chr_counts.pl"),
-                 "-o $out @chr_counts_u"],
+                 "-o", $out, @chr_counts_u],
 
-                ["echo '' >> $out"],
-                ["echo RUM_NU reads per chromosome >> $out"],
-                ["echo --------------------------- >> $out"],
+
+                ["echo", ">>", $out],
+                ["echo", "RUM_NU reads per chromosome", ">>", $out],
+                ["echo", "-------------------------------", ">>", $out],
                 ["perl", $c->script("merge_chr_counts.pl"),
-                 "-o $out @chr_counts_nu"],
+                 "-o", $out, @chr_counts_nu],
 
                 ["perl", $c->script("merge_nu_stats.pl"), "-n", $c->num_chunks, 
-                 $c->output_dir, ">> $out"]
+                 $c->output_dir, ">>", $out]
             ];
         }
     );
@@ -714,19 +715,8 @@ sub postprocessing_workflow {
          "-o", post($c->in_output_dir("novel_exon_quant_temp")),
          "--header",
          $c->output_dir],
-        ["grep -v transcript",
-         $c->in_output_dir("novel_exon_quant_temp"),
-         ">", post($c->novel_inferred_internal_exons_quantifications)]);
-
-    $w->step(
-        "Merge novel exons",
-        ["perl", $c->script("merge_quants.pl"),
-         "--chunks", 1,
-         "-o", $c->in_output_dir("novel_exon_quant_temp"),
-         "--header",
-         $c->output_dir],
-        ["grep -v transcript",
-         $c->in_output_dir("novel_exon_quant_temp"),
+        ["grep", "-v", "transcript",
+         post($c->in_output_dir("novel_exon_quant_temp")),
          ">", post($c->novel_inferred_internal_exons_quantifications)]);
 
     my $sam_headers = $c->in_output_dir("sam_header");
