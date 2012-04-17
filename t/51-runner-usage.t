@@ -324,12 +324,12 @@ sub chunk_cmd_like {
         $config->set('read_length', 75);
         my $workflow = RUM::Workflows->chunk_workflow($config);
         my @commands = $workflow->commands($step);
-        
+        my @cmd = @{ $commands[0] };
         if ($negate) {
-            unlike($commands[0], $re, $comment);           
+            unlike("@cmd", $re, $comment);           
         }
         else {
-            like($commands[0], $re, $comment);        
+            like("@cmd", $re, $comment);        
         }
 
     };
@@ -352,12 +352,13 @@ sub postproc_cmd_like {
         $config->set('read_length', 75);
         my $workflow = RUM::Workflows->postprocessing_workflow($config);
         my @commands = $workflow->commands($step);
+        my @cmd = @{ $commands[0] };
         
         if ($negate) {
-            unlike($commands[0], $re, $comment);           
+            unlike("@cmd", $re, $comment);           
         }
         else {
-            like($commands[0], $re, $comment);        
+            like("@cmd", $re, $comment);        
         }
 
     };
@@ -415,7 +416,7 @@ chunk_cmd_like([@standard_args, "--strand-specific"],
 # Check the blat options
 chunk_cmd_like([@standard_args],
                "Run blat on unmapped reads",
-               qr/-maxIntron='500000' -minIdentity='93' -repMatch='256' -stepSize='6' -tileSize='12'/,
+               qr/-maxIntron=500000 -minIdentity=93 -repMatch=256 -stepSize=6 -tileSize=12/,
                "Blat default options");
 
 chunk_cmd_like([@standard_args,
@@ -426,7 +427,7 @@ chunk_cmd_like([@standard_args,
                 "--tileSize",    5,
             ],
                "Run blat on unmapped reads",
-               qr/-maxIntron='1' -minIdentity='2' -repMatch='3' -stepSize='4' -tileSize='5'/,
+               qr/-maxIntron=1 -minIdentity=2 -repMatch=3 -stepSize=4 -tileSize=5/,
                "Blat specified options");
 rum_fails_ok([@standard_args, "--minIdentity", 200],
              qr/identity must be an integer/i,
