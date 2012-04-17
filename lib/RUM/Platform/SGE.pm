@@ -38,12 +38,18 @@ our %JOB_TYPE_NAMES = (
 
 =item new
 
+Construct a RUM::Cluster::SGE with the given configuration and
+directives. Loads the state of the jobs from rum_sge_job_ids in the
+output directory, if such a file exists.
+
 =back
 
 =cut
 
 sub new {
     my ($class, $config, $directives) = @_;
+
+    local $_;
 
     my $self = $class->SUPER::new($config, $directives);
     
@@ -54,10 +60,7 @@ sub new {
     $self->{cmd}{proc}     =  "perl $0 --child --output $dir --chunk \$SGE_TASK_ID";
     $self->{cmd}{postproc} =  "perl $0 --child --output $dir --postprocess";
 
-    $self->{jids}{parent} = [];
-    $self->{jids}{preproc} = [];
-    $self->{jids}{proc} = [];
-    $self->{jids}{postproc} = [];
+    $self->{jids}{$_} = [] for @JOB_TYPES;
 
     my $filename = $config->in_output_dir("rum_sge_job_ids");
     if (-e $filename) {
@@ -253,7 +256,7 @@ sub _build_job_states {
     # Some of the jids I used to know about might have
     # disappeared. Remove from my jids map any jids that no longer
     # appear in qstat.
-    for my $phase (qw(parent preproc proc postproc)) {
+    for my $phase (@JOB_TYPES) {
         my @jids = @{ $self->{jids}{$phase} };
         my @active = grep { $states{$_} } @jids;
         $self->{jids}{$phase}  = \@active;
@@ -347,12 +350,11 @@ sub stop {
         ["postprocessing", $self->_postproc_jids ]
     );
 
-    for my $row (@table) {
-        my ($name, $jids) = @{ $row };
+    for my $type (@JOB_TYPES) {
+        my $name = $JOB_TYPE_NAMES{$type};
+        my @jids = @{ $self->{jids}{$type} };
 
-        my @jids = @{ $jids };
-
-        if (my @jids = @{ $jids }) {
+        if (@jids) {
             $self->say("Deleting $name job ids @jids");
             system("qdel @jids");
             if ($?) {
