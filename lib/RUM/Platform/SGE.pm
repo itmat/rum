@@ -23,6 +23,8 @@ use base 'RUM::Platform::Cluster';
 
 our $log = RUM::Logging->get_logger();
 
+
+our $JOB_ID_FILE = "rum_sge_job_ids";
 our @JOB_TYPES = qw(parent preproc proc postproc);
 our %JOB_TYPE_NAMES = (
     parent => "parent",
@@ -62,7 +64,7 @@ sub new {
 
     $self->{jids}{$_} = [] for @JOB_TYPES;
 
-    my $filename = $config->in_output_dir("rum_sge_job_ids");
+    my $filename = $config->in_output_dir($JOB_ID_FILE);
     if (-e $filename) {
         $self->{jids} = do $filename;
     }
@@ -211,7 +213,7 @@ sub postproc_ok {
 
 sub save {
     my ($self) = @_;
-    open my $out, ">", $self->config->in_output_dir("rum_sge_job_ids");
+    open my $out, ">", $self->config->in_output_dir($JOB_ID_FILE);
     print $out Dumper($self->{jids});
 }
 
