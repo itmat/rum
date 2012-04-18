@@ -1,20 +1,14 @@
 Add back disk space check
-
 Check log files for errors?
-
 Add quality checks
+Don't run if already running in dir
 
 Print final stats to log file
 
-Don't run if already running in dir
-
-Add hourly status updates?
-
-Make sure we print out all the same messages
-
 Print out email address if we give up?
-
+Make sure we print out all the same messages
 Make sure usage message matches options.
+
 
 Done
 ----
@@ -27,3 +21,7 @@ Test without log4perl
 Why aren't junctions being run?
 Test --dna
 Test --blat-only
+
+Won't do
+--------
+Add hourly status updates (rum_runner --status should take care of that)

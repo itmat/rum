@@ -56,7 +56,6 @@ our @MODIFIERS = qw(
     quiet
     child
     parent
-    dry_run
     preprocess
     process
     postprocess

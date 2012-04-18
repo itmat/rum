@@ -81,17 +81,18 @@ sub get_options {
 
         # Options for doing things other than running the RUM
         # pipeline.
-        "version|V"    => sub { $d->set_version },
-        "kill"         => sub { $d->set_kill },
+        "save"         => sub { $d->set_save },
         "status"       => sub { $d->set_status },
-        "shell-script" => sub { $d->set_shell_script },
-        "help|h"       => sub { $d->set_help },
-        "help-config"  => sub { $d->set_help_config },
-        "dry-run|n"    => sub { $d->set_dry_run },
+        "kill"         => sub { $d->set_kill },
         "clean"        => sub { $d->set_clean },
         "veryclean"    => sub { $d->set_veryclean },
+        "shell-script" => sub { $d->set_shell_script },
+        "version|V"    => sub { $d->set_version },
+        "help|h"       => sub { $d->set_help },
+        "help-config"  => sub { $d->set_help_config },
+
+        # Advanced (user shouldn't run these)
         "diagram"      => sub { $d->set_diagram },
-        "save"         => sub { $d->set_save },
         "child"        => sub { $d->set_child },
         "parent"       => sub { $d->set_parent },
 
@@ -105,37 +106,34 @@ sub get_options {
         "config=s"    => \(my $rum_config_file),
         "output|o=s"  => \(my $output_dir),
         "name=s"      => \(my $name),
-
-        # Control how we divide up the job.
         "chunks=s" => \(my $num_chunks),
-        "ram=s"    => \(my $ram),
         "qsub"     => \(my $qsub),
         "platform=s" => \(my $platform),
 
-        # Control logging and cleanup of temporary files.
-        "no-clean"  => \(my $no_clean),
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1); $quiet = 1; },
+# Good until here
 
-        # Advanced parameters
-        "read-lengths=s" => \(my $read_lengths),
-        "max-insertions-per-read=s" => \(my $max_insertions = 1),
-        "strand-specific" => \(my $strand_specific),
-        "preserve-names" => \(my $preserve_names),
-        "junctions" => \(my $junctions),
-        "blat-only" => \(my $blat_only),
-        "quantify" => \(my $quantify),
-        "count-mismatches" => \(my $count_mismatches),
-        "variable-read-lengths|variable-length-reads" => \(my $variable_read_lengths),
-        "dna" => \(my $dna),
-        "genome-only" => \(my $genome_only),
-        "limit-bowtie-nu" => \(my $limit_bowtie_nu),
-        "limit-nu=s"   => \(my $nu_limit),
         "alt-genes=s"  => \(my $alt_genes),
         "alt-quants=s" => \(my $alt_quant),
+        "blat-only" => \(my $blat_only),
+        "count-mismatches" => \(my $count_mismatches),
+        "dna" => \(my $dna),
+        "genome-only" => \(my $genome_only),
+        "junctions" => \(my $junctions),
+        "limit-bowtie-nu" => \(my $limit_bowtie_nu),
+        "limit-nu=s"   => \(my $nu_limit),
+        "max-insertions-per-read=s" => \(my $max_insertions = 1),
         "min-identity" => \(my $min_identity),
         "min-length=s" => \(my $min_length),
+        "no-clean"  => \(my $no_clean),
+        "preserve-names" => \(my $preserve_names),
         "quals-file|qual-file=s" => \(my $quals_file),
+        "quantify" => \(my $quantify),
+        "quiet|q"   => sub { $log->less_logging(1); $quiet = 1; },
+        "ram=s"    => \(my $ram),
+        "read-lengths=s" => \(my $read_lengths),
+        "strand-specific" => \(my $strand_specific),
+        "variable-read-lengths|variable-length-reads" => \(my $variable_read_lengths),
+        "verbose|v" => sub { $log->more_logging(1) },
 
         # Options for blat
         "minIdentity|blat-min-identity=s" => \(my $blat_min_identity),
@@ -806,6 +804,13 @@ $LOGO = <<'EOF';
 - The RNA-Seq Unified Mapper (RUM) Pipeline has been initiated -
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 EOF
+
+
+################################################################################
+###
+### Finishing up
+###
+
 
 
 1;

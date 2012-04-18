@@ -14,95 +14,98 @@ RUM::Script->run_with_logging("RUM::Script::Runner");
 
 =head1 NAME
 
-RUM_runner
+rum_runner
 
 =head1 SYNOPSIS
 
-  RUM_runner.pl [OPTIONS] --config <config_file> -o <output_dir> --name <name> READS [REVERSE_READS]
-  RUM_runner.pl [OPTIONS] --help | --version | --kill | --status
+  rum_runner [ACTION] [OPTIONS] [FORWARD [REVERSE]]
 
 =head1 DESCRIPTION
 
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  RUM version: $version
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                   _   _   _   _   _   _
-                 // \\// \\// \\// \\// \\// \\/
-                //\\_//\\_//\\_//\\_//\\_//\\_//
-          o_O__O_ o
-         | ====== |       .-----------.
-         `--------'       |||||||||||||
-          || ~~ ||        |-----------|
-          || ~~ ||        | .-------. |
-          ||----||        ! | UPENN | !
-         //      \\        \`-------'/
-        // /!  !\ \\        \_  O  _/
-       !!__________!!         \   /
-       ||  ~~~~~~  ||          `-'
-       || _        ||
-       |||_|| ||\/|||
-       ||| \|_||  |||
-       ||          ||
-       ||  ~~~~~~  ||
-       ||__________||
-  .----|||        |||------------------.
-       ||\\      //||                 /|
-       |============|                //
-       `------------'               //
-  ---------------------------------'/
-  ---------------------------------'
-    .------------------------------------.
-    | RNA-Seq Unified Mapper (RUM) Usage |
-    ` ================================== '
+Runs the RUM pipeline. 
+
+Default config files are supplied with each organism.  If you need to
+make or modify one then running RUM_runner.pl with the one argument
+'config' gives an explaination of the the file.
+
+This program writes very large intermediate files.  If you have a
+large genome such as mouse or human then it is recommended to run in
+chunks on a cluster, or a machine with multiple processors.  Running
+with under five million reads per chunk is usually best, and getting
+it under a million reads per chunk will speed things considerably.
 
 =head1 OPTIONS
 
-There are many options, but RUM is typically run with the
-defaults. The option -kill is also quite useful to stop a run, because
-killing just the main program will not always kill the spawned
-processes.
+=head2 Actions
 
-=head2 Commands
-
-These boolean options tell RUM_runner what to do. If none of them are
-supplied, it will run all outstanding steps in the pipeline.
+These commands tell RUM_runner what to do. If you do not specify any
+action, rum_runner will run all outstanding steps in the pipeline, but
+you can tell it to do other things like save the configuration for the
+job, check the status, or kill a job.
 
 =over 4
 
 =item B<--save>
 
-Save the job configuration in a file in the output directory. This
-allows you to run this program again without specifying the
-configuration options.
+Save any options supplied on the command line to a file in the output
+directory, so you can run rum_runner again without specifying the same
+options.
 
-=item B<--preprocess>
+  # Set up the job
+  rum_runner -o data_dir --name foobar --config rum.config_h19 reads.fa --save
 
-=item B<--process>
+  # Then later run it
+  rum_runner -o data_dir
 
-=item B<--postprocess>
-
-Run only the preprocessing, processing, or postprocessing phase.
+  # Or check the status
+  rum_runner -o data_dir --status
 
 =item B<--status>
 
-Just check the status of the job. This can be combined with the
---preprocessing, --processing, and --postprocessing to just show the
-status for those phases. It can also be combined with --chunk to just
-show the status for one chunk.
+Check the status of a job running in the output directory specified by
+-o or --output, or the current directory if not specified.
 
-=item B<--clean> 
+This can be combined with the --preprocessing, --processing, and
+--postprocessing to just show the status for those phases. It can also
+be combined with --chunk to just show the status for one chunk.
 
-Remove all intermediate files from the output directory.
+=item B<--kill>
+
+Attempt to kill the job running in the specified output directory, or
+current directory if not specified. Note that this only kills jobs
+running on a cluster. For jobs running locally, you can just kill the
+parent process and it should terminate all child processes.
+
+=item B<--clean>
 
 =item B<--veryclean>
 
-Remove all inermediate and result files from the output directory.
+Use --clean to delete intermediate files in the specified output
+directory. Use --veryclean to delete all intermediate and final result
+files.
+
+=item B<--shell-script>
+
+TODO: This is not working yet.
+
+Rather than run the job, just export some shell scripts that will run it.
+
+=item B<-V>, B<--version>
+
+Print out the version of RUM.
+
+=item B<-h>, B<--help>
+
+Print usage information.
 
 =back
 
-=head2 Job Configuration
+=head2 Common Job Configuration Options
 
-=head3 Common
+You will probably specify all of these options for any given job. Note
+that if you run C<rum_runner [OPTIONS] --save> it will save the
+configuration in the output directory so you won't have to use the
+same options if you need to run the job again.
 
 =over 4
 
@@ -125,7 +128,10 @@ make your own config file, run this program with the single argument
 
 =item B<-o>, B<--output-dir> I<output_dir>
 
-Where to write the temp, interemediate, and results files.
+Where to write the temp, intermediate, and results files. Defaults to
+the current directory. Note that rum_runner will read the job
+configuration file from this directory, so if you need to run the job
+again, you do not need to run it with the same options.
 
 =item B<--chunks> I<num_chunks>
 
@@ -142,70 +148,44 @@ A string to identify this run - use only alphanumeric, underscores,
 and dashes.  No whitespace or other characters.  Must be less than 250
 characters.
 
-=back
+=item B<--platform> I<platform_name>
 
-=head3 Less Common
+Specify the cluster platform that you are running on. If not supplied,
+I will assume that you are not running on a cluster. You can still
+specify more than one chunk. You may not want to use more chunks than
+you have cores, because that can slow things down considerably. 
+
+Known values for I<name> are:
 
 =over 4
 
-=item B<--strand-specific>
+=item * Local
 
-If the data are strand specific, then you can use this option to
-generate strand specific coverage plots and quantified values.
+Not on a cluster; run all jobs locally simply by executing the
+programs directly.
 
-=item B<--dna>
+=item * SGE
 
-Run in dna mode, meaning don't map across splice junctions.
+Sun Grid Engine. Use qsub to submit jobs, qstat to check their status,
+and qdel to kill them.
 
-=item B<--genome-only>
+=back
 
-Do RNA mapping, but without using a transcript database.  Note: there
-will be no feature quantifications in this mode, because those are
-based on the transcript database.
+You can also specify the platform using the following aliases:
 
-=item B<--variable-read-lengths>
+=over 4
 
-Set this if your reads are not all of the same length.
+=item B<--qsub>
 
-=item B<--limit-nu> I<n>
+Alias for C<--platform SGE>.
 
-Limits the number of ambiguous mappers in the final output by removing
-all reads that map to n locations or more.
+=back
 
-=item B<--limit-bowtie-nu>
+=back
 
-Limits the number of ambiguous mappers in the Bowtie run to a max of
-100.  If you have short reads and a large genome, or a very repetitive
-genome, this might be necessary to keep the bowtie files from getting
-out of hand - 10Gb per lane is not abnormal but 100Gb might be. (note:
-45 bases is considered short for mouse, 70 bases considered long,
-between it's hard to say).
+=head2 Advanced Job Configuration Options
 
-=item B<--quantify>
-
-Use this *if* using the -dna flag and you still want quantified
-features.  If this is set you *must* have the gene models file
-specified in the rum config file.  Without the -dna flag quantified
-features are generated by default so you don't need to set this.
-
-=item B<--junctions>
-
-Use this *if* using the -dna flag and you still want junction
-calls. If this is set you should have the gene models file specified
-in the rum config file (if you have one).  Without the -dna flag
-junctions generated by default so you don't need to set this.
-
-=item B<--min-length> I<x>
-
-Don't report alignments less than this long.  The default = 50 if the
-readlength >= 80, else = 35 if readlength >= 45 else = 0.8 *
-readlength.  Don't set this too low you will start to pick up a lot of
-garbage.
-
-=item B<--count-mismatches>
-
-Report in the last column the number of mismatches, ignoring
-insertions
+=over 4
 
 =item B<--alt-genes> I<x>
 
@@ -219,16 +199,46 @@ If specified x will be used to quantify features in addition to the
 gene models file specified in the config file.  Both are reported to
 separate files.
 
-=item B<--qsub>
+=item B<--blat-only>
 
-Use qsub to fire the job off to multiple nodes on a cluster.  This
-means you're on a cluster that understands qsub like the Sun Grid
-Engine.
+Don't run bowtie, only blat and the parts of the pipeline that deal
+with blat results.
 
-Note: without using -qsub, you can still specify more than one chunk.
-It should fire each chunk off to a separate core.  But don't use more
-chunks than you have cores, because that can slow things down
-considerably.
+=item B<--count-mismatches>
+
+Report in the last column the number of mismatches, ignoring
+insertions
+
+=item B<--dna>
+
+Run in dna mode, meaning don't map across splice junctions.
+
+=item B<--genome-only>
+
+Do RNA mapping, but without using a transcript database.  Note: there
+will be no feature quantifications in this mode, because those are
+based on the transcript database.
+
+=item B<--junctions>
+
+Use this *if* using the -dna flag and you still want junction
+calls. If this is set you should have the gene models file specified
+in the rum config file (if you have one).  Without the -dna flag
+junctions generated by default so you don't need to set this.
+
+=item B<--limit-bowtie-nu>
+
+Limits the number of ambiguous mappers in the Bowtie run to a max of
+100.  If you have short reads and a large genome, or a very repetitive
+genome, this might be necessary to keep the bowtie files from getting
+out of hand - 10Gb per lane is not abnormal but 100Gb might be. (note:
+45 bases is considered short for mouse, 70 bases considered long,
+between it's hard to say).
+
+=item B<--limit-nu> I<n>
+
+Limits the number of ambiguous mappers in the final output by removing
+all reads that map to n locations or more.
 
 =item B<--max-insertions-per-read> I<n>
 
@@ -237,14 +247,32 @@ n>1 is only allowed for single end reads.  Don't raise it unless you
 know what you are doing, because it can greatly increase the false
 alignments.
 
-=item B<--no-clean>
+=item B<--min-identity> I<x>
 
-Do not remove the intermediate and temp files after finishing.
+TODO: Describe me
+
+=item B<--min-length> I<x>
+
+Don't report alignments less than this long.  The default = 50 if the
+readlength >= 80, else = 35 if readlength >= 45 else = 0.8 *
+readlength.  Don't set this too low you will start to pick up a lot of
+garbage.
 
 =item B<--preserve-names>
 
 Keep the original read names in the SAM output file.  Note: this
 doesn't work when there are variable length reads.
+
+=item B<--quals-file> I<filename>
+
+Specify a qualities file separately from a reads file. TODO: Describe me more.
+
+=item B<--quantify>
+
+Use this *if* using the -dna flag and you still want quantified
+features.  If this is set you *must* have the gene models file
+specified in the rum config file.  Without the -dna flag quantified
+features are generated by default so you don't need to set this.
 
 =item B<--ram> I<n>
 
@@ -253,21 +281,18 @@ you have.  In that case, with this option you can specify the number
 of Gb of ram you want to dedicate to each chunk.  This is rarely
 necessary and never necessary if you have at least 6 Gb per chunk.
 
-=back
+=item B<--read-length> I<x>
 
-=head2 Commands
+Specify the length of the reads. By default I will determine it from the input.
 
-=over 4
+=item B<--strand-specific>
 
-=item B<--kill>
+If the data are strand specific, then you can use this option to
+generate strand specific coverage plots and quantified values.
 
-To kill a job, run with all the same parameters but add -kill.  Note:
-it is not sufficient to just terminate RUM_runner.pl, that will leave
-other phantom processes.  Use -kill instead.
+=item B<--variable-read-lengths>
 
-=item B<-V>, B<--version>
-
-Returns the current version.
+Set this if your reads are not all of the same length.
 
 =back
 
@@ -304,20 +329,75 @@ change this.
 Run blat with maxIntron=x (default x=50000).  You shouldn't need to
 change this.
 
+=back
 
+=head2 Other Options
 
-Default config files are supplied with each organism.  If you need to
-make or modify one then running RUM_runner.pl with the one argument
-'config' gives an explaination of the the file.
+These options are not saved as part of the configuration file, and
+only affect how RUM behaves on one invocation.
 
-This program writes very large intermediate files.  If you have a
-large genome such as mouse or human then it is recommended to run in
-chunks on a cluster, or a machine with multiple processors.  Running
-with under five million reads per chunk is usually best, and getting
-it under a million reads per chunk will speed things considerably.
+=over 4
 
-You can put an 's' after the number of chunks if they have already
-been broken into chunks, so as to avoid repeating this time-consuming
-step.
+=item B<--chunk> I<chunk_num>
+
+Just run the processing phase of the chunk with the specified number.
+
+=item B<--no-clean>
+
+Do not remove the intermediate and temp files after finishing.
+
+=item B<--preprocessing>
+
+=item B<--processing>
+
+=item B<--postprocessing>
+
+The RUM pipeline can be broken into three distinct phases:
+preprocessing (splitting the input files into chunks), processing
+(mapping the reads for each chunk, possibly distributed), and
+postprocessing (merging the results together). By default rum_runner
+will run any outstanding steps in all three phases, but you can tell
+it to run just one of the phases by supplying the corresponding
+option.
+
+=item B<-q>, B<--quiet>
+
+Print less output than usual.
+
+=back
+
+=head1 LOGO
+
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  RUM version: $version
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                   _   _   _   _   _   _
+                 // \\// \\// \\// \\// \\// \\/
+                //\\_//\\_//\\_//\\_//\\_//\\_//
+          o_O__O_ o
+         | ====== |       .-----------.
+         `--------'       |||||||||||||
+          || ~~ ||        |-----------|
+          || ~~ ||        | .-------. |
+          ||----||        ! | UPENN | !
+         //      \\        \`-------'/
+        // /!  !\ \\        \_  O  _/
+       !!__________!!         \   /
+       ||  ~~~~~~  ||          `-'
+       || _        ||
+       |||_|| ||\/|||
+       ||| \|_||  |||
+       ||          ||
+       ||  ~~~~~~  ||
+       ||__________||
+  .----|||        |||------------------.
+       ||\\      //||                 /|
+       |============|                //
+       `------------'               //
+  ---------------------------------'/
+  ---------------------------------'
+    .------------------------------------.
+    | RNA-Seq Unified Mapper (RUM) Usage |
+    ` ================================== '
 
 =cut
