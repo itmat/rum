@@ -16,6 +16,12 @@ use RUM::Usage;
 use RUM::Pipeline;
 use RUM::Common qw(format_large_int);
 
+use RUM::Action::Help;
+use RUM::Action::Version;
+use RUM::Action::Status;
+use RUM::Action::Diagram;
+use RUM::Action::Clean;
+
 use base 'RUM::Base';
 
 our $log = RUM::Logging->get_logger;
@@ -69,6 +75,14 @@ $self->{directives} based on some boolean options.
 
 =cut
 
+our %ACTIONS = (
+    help => "RUM::Action::Help",
+    version => "RUM::Action::Version",
+    status  => "RUM::Action::Status",
+    diagram => "RUM::Action::Diagram",
+    clean   => "RUM::Action::Clean"
+);
+
 sub get_options {
     my ($self) = @_;
 
@@ -79,17 +93,16 @@ sub get_options {
 
     my $action = shift(@ARGV) || "";
 
-    if    ($action eq 'status')    { $d->set_status }
-    elsif ($action eq 'kill')      { $d->set_kill }
+    if    ($action eq 'kill')      { $d->set_kill }
     elsif ($action eq 'run')       { $d->set_run }
-    elsif ($action eq 'clean')     { $d->set_clean }
-    elsif ($action eq 'veryclean') { $d->set_veryclean }
-    elsif ($action eq 'version')   { $d->set_version }
-    elsif ($action eq 'help')      { $d->set_help }
-    elsif ($action eq 'diagram')   { $d->set_diagram }
+    elsif (my $class = $ACTIONS{$action}) {
+        $class->run;
+        exit;
+    }
     else {
         RUM::Usage->bad("Please specify an action");
     }
+
 
     GetOptions(
 
@@ -326,16 +339,7 @@ sub run {
     my ($self) = @_;
     $self->get_options();
     my $d = $self->directives;
-    if ($d->version) {
-        $self->say("RUM version $RUM::Pipeline::VERSION, released $RUM::Pipeline::RELEASE_DATE");
-    }
-    elsif ($d->help) {
-        RUM::Usage->help;
-    }
-    elsif ($d->help_config) {
-        $self->say($RUM::ConfigFile::DOC);
-    }
-    elsif ($d->shell_script) {
+    if ($d->shell_script) {
         $self->export_shell_script;
     }
     elsif ($d->kill) {
@@ -364,42 +368,28 @@ sub run_pipeline {
     $self->check_gamma;
     $self->setup;
 
-    if ($d->diagram) {
-        $self->diagram;
+    $self->show_logo;
+    
+    $self->check_ram unless $d->child;
+    $self->config->save unless $d->child;
+    $self->dump_config;
+    
+    my $platform = $self->platform;
+    
+    if ( ref($platform) !~ /Local/ && ! ( $d->parent || $d->child ) ) {
+        $self->say("Submitting tasks and exiting");
+        $platform->start_parent;
+        return;
     }
-    elsif ($d->status) {
-        $self->print_processing_status if $d->process || $d->all;
-        $self->print_postprocessing_status if $d->postprocess || $d->all;
+    
+    if ($d->preprocess || $d->all) {
+        $platform->preprocess;
     }
-    elsif ($d->clean || $d->veryclean) {
-        $self->say("Cleaning up");
-        $self->clean;
+    if ($d->process || $d->all) {
+        $platform->process;
     }
-    else {
-
-        $self->show_logo;
-
-        $self->check_ram unless $d->child;
-        $self->config->save unless $d->child;
-        $self->dump_config;
-
-        my $platform = $self->platform;
-
-        if ( ref($platform) !~ /Local/ && ! ( $d->parent || $d->child ) ) {
-            $self->say("Submitting tasks and exiting");
-            $platform->start_parent;
-            return;
-        }
-
-        if ($d->preprocess || $d->all) {
-            $platform->preprocess;
-        }
-        if ($d->process || $d->all) {
-            $platform->process;
-        }
-        if ($d->postprocess || $d->all) {
-            $platform->postprocess;
-        }
+    if ($d->postprocess || $d->all) {
+        $platform->postprocess;
     }
 }
 
@@ -415,72 +405,7 @@ sub stop {
     $self->platform->stop;
 }
 
-sub cleanup_reads_and_quals {
-    my ($self) = @_;
-    for my $c ($self->chunk_configs) {
-        unlink($c->chunk_suffixed("quals.fa"),
-               $c->chunk_suffixed("reads.fa"));
-    }
 
-}
-
-sub clean {
-    my ($self) = @_;
-    my $c = $self->config;
-    my $d = $self->directives;
-
-    # If user ran rum_runner --clean, clean up all the results from
-    # the chunks; just leave the merged files.
-    if ($d->all) {
-        $self->cleanup_reads_and_quals;
-        for my $w ($self->chunk_workflows) {
-            $w->clean(1);
-        }
-        RUM::Workflows->postprocessing_workflow($c)->clean($d->veryclean);
-    }
-
-    # Otherwise just clean up whichever phases they asked
-    elsif ($d->preprocess) {
-        $self->cleanup_reads_and_quals;
-    }
-
-    # Otherwise just clean up whichever phases they asked
-    elsif ($d->process) {
-        for my $w ($self->chunk_workflows) {
-            $w->clean($d->veryclean);
-        }
-    }
-
-    if ($d->postprocess) {
-        RUM::Workflows->postprocessing_workflow($c)->clean($d->veryclean);
-    }
-}
-
-sub diagram {
-    my ($self) = @_;
-
-    print "My num chunks is ", $self->config->num_chunks, "\n";
-    my $d = $self->directives;
-    if ($d->process || $d->all) {
-        for my $c ($self->chunk_configs) {
-            my $dot = $self->config->in_output_dir(sprintf("chunk%03d.dot", $c->chunk));
-            my $pdf = $self->config->in_output_dir(sprintf("chunk%03d.pdf", $c->chunk));
-            open my $dot_out, ">", $dot;
-            RUM::Workflows->chunk_workflow($c)->state_machine->dotty($dot_out);
-            close $dot_out;
-            system("dot -o$pdf -Tpdf $dot");
-        }
-    }
-
-    if ($d->postprocess || $d->all) {
-        my $dot = $self->config->in_output_dir("postprocessing.dot");
-        my $pdf = $self->config->in_output_dir("postprocessing.pdf");
-        open my $dot_out, ">", $dot;
-        RUM::Workflows->postprocessing_workflow($self->config)->state_machine->dotty($dot_out);
-        close $dot_out;
-        system("dot -o$pdf -Tpdf $dot");
-    }
-}
 
 sub setup {
     my ($self) = @_;
@@ -534,76 +459,7 @@ sub check_gamma {
 
 
 
-sub print_processing_status {
-    my ($self) = @_;
 
-    local $_;
-    my $c = $self->config;
-
-    my @steps;
-    my %num_completed;
-    my %comments;
-    my %progress;
-    my @chunks;
-
-    if ($c->chunk) {
-        push @chunks, $c->chunk;
-    }
-    else {
-        push @chunks, (1 .. $c->num_chunks || 1);
-    }
-
-    for my $chunk (@chunks) {
-        my $w = RUM::Workflows->chunk_workflow($c->for_chunk($chunk));
-        my $handle_state = sub {
-            my ($name, $completed) = @_;
-            unless (exists $num_completed{$name}) {
-                $num_completed{$name} = 0;
-                $progress{$name} = "";
-                $comments{$name} = $w->comment($name);
-                push @steps, $name;
-            }
-            $progress{$name} .= $completed ? "X" : " ";
-            $num_completed{$name} += $completed;
-        };
-
-        $w->walk_states($handle_state);
-    }
-
-    my $n = @chunks;
-    #my $digits = num_digits($n);
-    #my $h1     = "   Chunks ";
-    #my $h2     = "Done / Total";
-    #my $format =  "%4d /  %4d ";
-
-    $self->say("Processing in $n chunks");
-    $self->say("-----------------------");
-    #$self->say($h1);
-    #$self->say($h2);
-    for (@steps) {
-        #my $progress = sprintf $format, $num_completed{$_}, $n;
-        my $progress = $progress{$_} . " ";
-        my $comment   = $comments{$_};
-        my $indent = ' ' x length($progress);
-        $self->say(wrap($progress, $indent, $comment));
-    }
-
-}
-
-sub print_postprocessing_status {
-    my ($self) = @_;
-    my $c = $self->config;
-
-    $self->say();
-    $self->say("Postprocessing");
-    $self->say("--------------");
-    my $postproc = RUM::Workflows->postprocessing_workflow($c);
-    my $handle_state = sub {
-        my ($name, $completed) = @_;
-        $self->say(($completed ? "X" : " ") . " " . $postproc->comment($name));
-    };
-    $postproc->walk_states($handle_state);
-}
 
 
 sub export_shell_script {

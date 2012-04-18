@@ -48,10 +48,8 @@ constructor before doing anything else.
 sub new {
     my ($class, $config, $directives) = @_;
     my $self = {};
-    $self->{config} = $config or croak
-        "$class->new called without config";
-    $self->{directives} = $directives or croak
-        "$class->new called without directives";
+    $self->{config} = $config; # or croak        "$class->new called without config";
+    $self->{directives} = $directives; # or croak        "$class->new called without directives";
     bless $self, $class;
 }
 
