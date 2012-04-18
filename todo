@@ -1,4 +1,3 @@
-Make sure we can run it from a different directory
 Don't run if already running in dir (based on lock file)
 Check log files for errors?
 Add back disk space check
@@ -24,6 +23,7 @@ Make sure usage message matches options.
 Doesn't produce chunk logs without log4perl
 Require a flag to actually run it
 Save automatically, but only once
+Make sure we can run it from a different directory
 
 
 Won't do

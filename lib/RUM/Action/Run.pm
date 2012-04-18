@@ -16,6 +16,7 @@ use RUM::Usage;
 use RUM::Pipeline;
 use RUM::Common qw(format_large_int);
 
+use RUM::Lock;
 use RUM::Action::Help;
 use RUM::Action::Version;
 use RUM::Action::Status;
@@ -289,6 +290,16 @@ sub check_config {
     
 }
 
+sub get_lock {
+    my ($self) = @_;
+    return if $self->directives->parent || $self->directives->child;
+    my $c = $self->config;
+    my $dir = $c->output_dir;
+    my $lock = $c->lock_file;
+    RUM::Lock->acquire($lock) or die
+          "It seems like rum_runner may already be running in $dir. You can try running \"$0 kill\" to stop it. If you are sure there's nothing running in $dir, remove $lock and try again.\n";
+}
+
 ################################################################################
 ###
 ### High-level orchestration
@@ -303,6 +314,8 @@ sub run {
     $self->check_config;        
     $self->check_gamma;
     $self->setup;
+    $self->get_lock;
+
 
     $self->show_logo;
     
@@ -342,7 +355,9 @@ sub setup {
     unless (-d $output_dir) {
         mkpath($output_dir) or die "mkdir $output_dir: $!";
     }
-
+    unless (-d "$output_dir/.rum") {
+        mkpath("$output_dir/.rum") or die "mkdir $output_dir/.rum: $!";
+    }
 }
 
 

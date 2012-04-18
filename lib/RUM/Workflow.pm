@@ -408,11 +408,12 @@ sub execute {
                         $log->warn("Caught SIGTERM, killing child process ($to[0])");
                         kill 15, $pid;
                         waitpid $pid, 0;
+                        RUM::Lock->release;
                         die;
                     };
                     
                     waitpid($pid, 0);
-#                    $SIG{TERM} = $oldhandler;
+ #                   $SIG{TERM} = $oldhandler;
 
                     if ($?) {
                         die "Error running @$cmd: $!";

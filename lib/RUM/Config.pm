@@ -349,5 +349,9 @@ sub error_log_file {
     $self->chunk_replaced("rum_errors_%03d.log");
 }
 
+sub lock_file {
+    my ($self) = @_;
+    $self->in_output_dir(".rum/lock");
+}
 
 1;
