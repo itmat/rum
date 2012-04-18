@@ -1,12 +1,13 @@
-Add back disk space check
+Make sure we can run it from a different directory
+Don't run if already running in dir (based on lock file)
 Check log files for errors?
+Add back disk space check
 Add quality checks
-Don't run if already running in dir
-
 Print final stats to log file
-
 Print out email address if we give up?
 Make sure we print out all the same messages
+Add --help, -h.
+Change docs to focus on -o
 
 Done
 ----
