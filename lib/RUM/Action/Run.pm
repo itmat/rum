@@ -29,6 +29,12 @@ use base 'RUM::Base';
 our $log = RUM::Logging->get_logger;
 our $LOGO;
 
+$SIG{INT} = $SIG{TERM} = sub {
+    warn("Caught SIG@_, removing lock");
+    RUM::Lock->release;
+    die;
+};
+
 =head1 NAME
 
 RUM::Action::Run
@@ -297,8 +303,13 @@ sub get_lock {
     my $dir = $c->output_dir;
     my $lock = $c->lock_file;
     RUM::Lock->acquire($lock) or die
-          "It seems like rum_runner may already be running in $dir. You can try running \"$0 kill\" to stop it. If you are sure there's nothing running in $dir, remove $lock and try again.\n";
+          "It seems like rum_runner may already be running in $dir. You can try running \"$0 kill\" to stop it. If you #are sure there's nothing running in $dir, remove $lock and try again.\n";
+
 }
+
+
+
+
 
 ################################################################################
 ###

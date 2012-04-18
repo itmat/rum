@@ -15,6 +15,7 @@ our @EXPORT_OK = qw(pre post);
 
 our $log = RUM::Logging->get_logger;
 
+
 =head1 NAME
 
 RUM::Workflow - Generic library for specifying a workflow as a
@@ -402,18 +403,19 @@ sub execute {
 
                 if (my $pid = fork) {
 
-#                    my $oldhandler = $SIG{TERM};
+                    my $oldhandler = $SIG{TERM};
 
                     $SIG{TERM} = sub {
-                        $log->warn("Caught SIGTERM, killing child process ($to[0])");
+                        warn("Caught SIGTERM, killing child process ($to[0])");
                         kill 15, $pid;
                         waitpid $pid, 0;
                         RUM::Lock->release;
+                        $oldhandler->(@_) if $oldhandler;
                         die;
                     };
                     
                     waitpid($pid, 0);
- #                   $SIG{TERM} = $oldhandler;
+                    $SIG{TERM} = $oldhandler;
 
                     if ($?) {
                         die "Error running @$cmd: $!";
