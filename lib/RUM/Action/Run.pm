@@ -113,7 +113,6 @@ sub get_options {
 
     );
 
-
     my $dir = $output_dir || ".";
 
     my $c = RUM::Config->load($dir);
@@ -125,7 +124,7 @@ sub get_options {
     }
     else {
         $c = RUM::Config->default unless $c;
-        $c->set('output_dir', $dir);
+        $c->set('output_dir', File::Spec->rel2abs($dir));
     }
 
     ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
@@ -158,36 +157,42 @@ sub get_options {
 
     $platform = 'SGE' if $qsub;
 
-    $set->('bowtie_nu_limit', 100) if $limit_bowtie_nu;
-    $set->('quantify', $quantify);
-    $set->('strand_specific', $strand_specific);
-    $set->('ram', $ram);
-    $set->('junctions', $junctions);
-    $set->('count_mismatches', $count_mismatches);
-    $set->('max_insertions', $max_insertions),
-    $set->('cleanup', !$no_clean);
-    $set->('dna', $dna);
-    $set->('genome_only', $genome_only);
-    $set->('chunk', $chunk);
-    $set->('min_length', $min_length);
-    $set->('num_chunks',  $num_chunks);
-    $set->('reads', @ARGV ? [@ARGV] : undef) if @ARGV && @ARGV ne @{ $c->reads || [] };
-    $set->('preserve_names', $preserve_names);
-    $set->('variable_length_reads', $variable_read_lengths);
-    $set->('user_quals', $quals_file);
-    $set->('rum_config_file', $rum_config_file);
-    $set->('name', $name);
-    $set->('min_identity', $min_identity);
-    $set->('nu_limit', $nu_limit);
+    $alt_genes = File::Spec->rel2abs($alt_genes) if $alt_genes;
+    $alt_quant = File::Spec->rel2abs($alt_genes) if $alt_quant;
+    $rum_config_file = File::Spec->rel2abs($rum_config_file) if $rum_config_file;
+
+    my @reads = map { File::Spec->rel2abs($_) } @ARGV;
+
     $set->('alt_genes', $alt_genes);
     $set->('alt_quant_model', $alt_quant);
+    $set->('bowtie_nu_limit', 100) if $limit_bowtie_nu;
     $set->('blat_min_identity', $blat_min_identity);
     $set->('blat_tile_size', $blat_tile_size);
     $set->('blat_step_size', $blat_step_size);
     $set->('blat_rep_match', $blat_rep_match);
     $set->('blat_max_intron', $blat_max_intron);
     $set->('blat_only', $blat_only);
+    $set->('chunk', $chunk);
+    $set->('cleanup', !$no_clean);
+    $set->('count_mismatches', $count_mismatches);
+    $set->('dna', $dna);
+    $set->('genome_only', $genome_only);
+    $set->('junctions', $junctions);
+    $set->('max_insertions', $max_insertions),
+    $set->('min_identity', $min_identity);
+    $set->('min_length', $min_length);
+    $set->('name', $name);
+    $set->('nu_limit', $nu_limit);
+    $set->('num_chunks',  $num_chunks);
     $set->('platform', $platform);
+    $set->('preserve_names', $preserve_names);
+    $set->('quantify', $quantify);
+    $set->('ram', $ram);
+    $set->('reads', @reads ? [@reads] : undef) if @reads && @reads ne @{ $c->reads || [] };
+    $set->('rum_config_file', $rum_config_file);
+    $set->('strand_specific', $strand_specific);
+    $set->('user_quals', $quals_file);
+    $set->('variable_length_reads', $variable_read_lengths);
 
     if ($did_set && $did_load && !$force && !$d->child) {
         RUM::Usage->bad("I found job settings in " . $c->settings_filename . ", but you specified different settings on the command line. I won't run without the --force flag. If you want to use the saved settings, please don't provide any extra options on the command line. If you need to change the settings, please either delete " . $c->settings_filename . " or run again with --force.");

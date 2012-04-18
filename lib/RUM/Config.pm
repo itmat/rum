@@ -154,7 +154,6 @@ sub load_rum_config_file {
     -e $data{genome_fa} or die
         "the file '$data{genome_fa}' does not seem to exist.";
     
-    $self->set("config_file", $path);
     local $_;
     for (keys %data) {
         $self->set($_, $data{$_});
