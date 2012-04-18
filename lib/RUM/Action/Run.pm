@@ -1,4 +1,4 @@
-package RUM::Script::Runner;
+package RUM::Action::Run;
 
 use strict;
 use warnings;
@@ -30,39 +30,13 @@ our $LOGO;
 
 =head1 NAME
 
-RUM::Script::Runner
+RUM::Action::Run
 
 =head1 METHODS
 
 =over 4
 
 =cut
-
-################################################################################
-###
-### Simple accessors and convenience functions
-###
-
-=item chunk_configs
-
-Return a list of the RUM::Config objects, one for each chunk
-
-=cut
-
-sub chunk_configs {
-    my ($self) = @_;
-    map { $self->config->for_chunk($_) } $self->chunk_nums;
-}
-
-sub chunk_workflows {
-    my ($self) = @_;
-    map { RUM::Workflows->chunk_workflow($_) } $self->chunk_configs;
-}
-
-sub main {
-    my ($class) = @_;
-    $class->new->run;
-}
 
 ################################################################################
 ###
@@ -76,15 +50,6 @@ $self->{directives} based on some boolean options.
 
 =cut
 
-our %ACTIONS = (
-    help => "RUM::Action::Help",
-    version => "RUM::Action::Version",
-    status  => "RUM::Action::Status",
-    diagram => "RUM::Action::Diagram",
-    clean   => "RUM::Action::Clean",
-    kill => "RUM::Action::Kill"
-);
-
 sub get_options {
     my ($self) = @_;
 
@@ -92,20 +57,6 @@ sub get_options {
     Getopt::Long::Configure(qw(no_ignore_case));
 
     my $d = $self->{directives} = RUM::Directives->new;
-
-    my $action = shift(@ARGV) || "";
-
-    if ($action eq 'run') {
-        $d->set_run;
-    }
-    elsif (my $class = $ACTIONS{$action}) {
-        $class->run;
-        exit;
-    }
-    else {
-        RUM::Usage->bad("Please specify an action");
-    }
-
 
     GetOptions(
 
@@ -339,13 +290,9 @@ sub check_config {
 ###
 
 sub run {
-    my ($self) = @_;
+    my ($class) = @_;
+    my $self = $class->new;
     $self->get_options();
-    $self->run_pipeline;
-}
-
-sub run_pipeline {
-    my ($self) = @_;
 
     my $d = $self->directives;
     $self->check_config;        
@@ -433,11 +380,6 @@ sub check_gamma {
         die("you cannot run RUM on the PGFI cluster without using the --qsub option.");
     }
 }
-
-
-
-
-
 
 sub export_shell_script {
     my ($self) = @_;
