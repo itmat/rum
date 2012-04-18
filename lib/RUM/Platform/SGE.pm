@@ -24,7 +24,7 @@ use base 'RUM::Platform::Cluster';
 our $log = RUM::Logging->get_logger();
 
 
-our $JOB_ID_FILE = "rum_sge_job_ids";
+our $JOB_ID_FILE = ".rum/sge_job_ids";
 our @JOB_TYPES = qw(parent preproc proc postproc);
 our %JOB_TYPE_NAMES = (
     parent => "parent",
@@ -41,7 +41,7 @@ our %JOB_TYPE_NAMES = (
 =item new
 
 Construct a RUM::Cluster::SGE with the given configuration and
-directives. Loads the state of the jobs from rum_sge_job_ids in the
+directives. Loads the state of the jobs from .rum/sge_job_ids in the
 output directory, if such a file exists.
 
 =back

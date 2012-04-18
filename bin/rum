@@ -14,23 +14,22 @@ RUM::Script->run_with_logging("RUM::Script::Main");
 
 =head1 NAME
 
-rum_runner
+rum - RNA-Seq Unified Mapper
 
 =head1 SYNOPSIS
 
-  rum_runner run [OPTIONS] [FORWARD [REVERSE]]
-
-  rum_runner status    [OPTIONS] 
-  rum_runner kill      [OPTIONS]
-  rum_runner clean     [OPTIONS]
-  rum_runner veryclean [OPTIONS]
-
-  rum_runner help
-  rum_runner version
+  rum run    [-o dir] [OPTIONS] [FORWARD [REVERSE]]
+  rum status [-o dir] [OPTIONS] 
+  rum kill   [-o dir] [OPTIONS]
+  rum clean  [-o dir] [OPTIONS]
+  rum help
+  rum version
 
 =head1 DESCRIPTION
 
-Runs the RUM pipeline. 
+Runs the RUM pipeline.
+
+TODO: Describe typical usage.
 
 Default config files are supplied with each organism.  If you need to
 make or modify one then running RUM_runner.pl with the one argument

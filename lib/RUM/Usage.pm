@@ -65,7 +65,18 @@ sub bad {
     my ($package) = caller(0);
     my $log = RUM::Logging->get_logger();
     $log->fatal("Improper usage of $package->main(): $msg");
-    pod2usage("\n$msg\n");
+    pod2usage({
+        -message => "\n$msg\n",
+        -verbose => 0,
+        -exitval => "NOEXIT"});
+    if ($0 =~ /rum$/) {
+        print("Please see $0 help for more information.\n");
+    }
+    else {
+        print("Please see $0 --help for more information.\n");
+    }
+
+    exit(1);
 }
 
 1;
