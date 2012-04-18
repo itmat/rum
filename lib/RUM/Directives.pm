@@ -48,6 +48,7 @@ our @ACTIONS = qw(
     veryclean
     shell_script
     kill
+    run
 );
 
 # This are just boolean flags that modify the behavior of the

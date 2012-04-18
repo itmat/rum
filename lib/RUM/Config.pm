@@ -15,6 +15,8 @@ our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
 FindBin->again;
 
+our $FILENAME = "rum_job_settings";
+
 =head1 NAME
 
 RUM::Config - Configuration for a RUM job
@@ -300,20 +302,20 @@ sub novel_inferred_internal_exons_quantifications {
 }
 
 sub ram_opt {
-    return $_[0]->ram ? "--ram ".$_[0]->ram : "";
+    return $_[0]->ram ? ("--ram", $_[0]->ram) : ();
 }
 
 sub save {
     my ($self) = @_;
     $log->debug("Saving config file, chunks is " . $self->num_chunks);
-    my $filename = $self->in_output_dir("rum_job_config.pl");
+    my $filename = $self->in_output_dir($FILENAME);
     open my $fh, ">", $filename or croak "$filename: $!";
     print $fh Dumper($self);
 }
 
 sub load {
     my ($class, $dir) = @_;
-    my $filename = "$dir/rum_job_config.pl";
+    my $filename = "$dir/$FILENAME";
     return unless -e $filename;
     my $conf = do $filename;
     ref($conf) =~ /$class/ or croak "$filename did not return a $class";
@@ -331,5 +333,10 @@ sub get {
 
 sub properties {
     sort keys %DEFAULTS;
+}
+
+sub settings_filename {
+    my ($self) = @_;
+    return ($self->in_output_dir($FILENAME));
 }
 1;

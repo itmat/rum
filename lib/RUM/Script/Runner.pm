@@ -77,22 +77,23 @@ sub get_options {
 
     my $d = $self->{directives} = RUM::Directives->new;
 
+    my $action = shift(@ARGV) || "";
+
+    if    ($action eq 'status')    { $d->set_status }
+    elsif ($action eq 'kill')      { $d->set_kill }
+    elsif ($action eq 'run')       { $d->set_run }
+    elsif ($action eq 'clean')     { $d->set_clean }
+    elsif ($action eq 'veryclean') { $d->set_veryclean }
+    elsif ($action eq 'version')   { $d->set_version }
+    elsif ($action eq 'help')      { $d->set_help }
+    elsif ($action eq 'diagram')   { $d->set_diagram }
+    else {
+        RUM::Usage->bad("Please specify an action");
+    }
+
     GetOptions(
 
-        # Options for doing things other than running the RUM
-        # pipeline.
-        "save"         => sub { $d->set_save },
-        "status"       => sub { $d->set_status },
-        "kill"         => sub { $d->set_kill },
-        "clean"        => sub { $d->set_clean },
-        "veryclean"    => sub { $d->set_veryclean },
-        "shell-script" => sub { $d->set_shell_script },
-        "version|V"    => sub { $d->set_version },
-        "help|h"       => sub { $d->set_help },
-        "help-config"  => sub { $d->set_help_config },
-
         # Advanced (user shouldn't run these)
-        "diagram"      => sub { $d->set_diagram },
         "child"        => sub { $d->set_child },
         "parent"       => sub { $d->set_parent },
 
@@ -106,41 +107,43 @@ sub get_options {
         "config=s"    => \(my $rum_config_file),
         "output|o=s"  => \(my $output_dir),
         "name=s"      => \(my $name),
-        "chunks=s" => \(my $num_chunks),
-        "qsub"     => \(my $qsub),
-        "platform=s" => \(my $platform),
+        "chunks=s"    => \(my $num_chunks),
+        "qsub"        => \(my $qsub),
+        "platform=s"  => \(my $platform),
 
-# Good until here
-
-        "alt-genes=s"  => \(my $alt_genes),
-        "alt-quants=s" => \(my $alt_quant),
-        "blat-only" => \(my $blat_only),
+        # Advanced options
+        "alt-genes=s"      => \(my $alt_genes),
+        "alt-quants=s"     => \(my $alt_quant),
+        "blat-only"        => \(my $blat_only),
         "count-mismatches" => \(my $count_mismatches),
-        "dna" => \(my $dna),
-        "genome-only" => \(my $genome_only),
-        "junctions" => \(my $junctions),
-        "limit-bowtie-nu" => \(my $limit_bowtie_nu),
-        "limit-nu=s"   => \(my $nu_limit),
-        "max-insertions-per-read=s" => \(my $max_insertions = 1),
-        "min-identity" => \(my $min_identity),
-        "min-length=s" => \(my $min_length),
-        "no-clean"  => \(my $no_clean),
-        "preserve-names" => \(my $preserve_names),
-        "quals-file|qual-file=s" => \(my $quals_file),
-        "quantify" => \(my $quantify),
-        "quiet|q"   => sub { $log->less_logging(1); $quiet = 1; },
+        "dna"              => \(my $dna),
+        "genome-only"      => \(my $genome_only),
+        "junctions"        => \(my $junctions),
+        "limit-bowtie-nu"  => \(my $limit_bowtie_nu),
+        "limit-nu=s"       => \(my $nu_limit),
+        "max-insertions-per-read=s" => \(my $max_insertions),
+        "min-identity"              => \(my $min_identity),
+        "min-length=s"              => \(my $min_length),
+        "no-clean"                  => \(my $no_clean),
+        "preserve-names"            => \(my $preserve_names),
+        "quals-file|qual-file=s"    => \(my $quals_file),
+        "quantify"                  => \(my $quantify),
         "ram=s"    => \(my $ram),
         "read-lengths=s" => \(my $read_lengths),
         "strand-specific" => \(my $strand_specific),
         "variable-read-lengths|variable-length-reads" => \(my $variable_read_lengths),
-        "verbose|v" => sub { $log->more_logging(1) },
 
         # Options for blat
         "minIdentity|blat-min-identity=s" => \(my $blat_min_identity),
         "tileSize|blat-tile-size=s"       => \(my $blat_tile_size),
         "stepSize|blat-step-size=s"       => \(my $blat_step_size),
         "repMatch|blat-rep-match=s"       => \(my $blat_rep_match),
-        "maxIntron|blat-max-intron=s"     => \(my $blat_max_intron)
+        "maxIntron|blat-max-intron=s"     => \(my $blat_max_intron),
+
+        "force|f"   => \(my $force),
+        "quiet|q"   => sub { $log->less_logging(1); $quiet = 1; },
+        "verbose|v" => sub { $log->more_logging(1) },
+
     );
 
 
@@ -148,7 +151,16 @@ sub get_options {
 
     my $c = RUM::Config->load($dir);
     !$c or ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
-    $c = RUM::Config->default unless $c;
+    my $did_load;
+    if ($c) {
+        $self->say("Using settings found in " . $c->settings_filename);
+        $did_load = 1;
+    }
+    else {
+        $c = RUM::Config->default unless $c;
+        $c->set('output_dir', $dir);
+    }
+
     ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
     $c->set(argv => [@ARGV]);
 
@@ -163,19 +175,23 @@ sub get_options {
         $d->set_process;
     }
 
+    my $did_set;
+
     my $set = sub { 
         my ($k, $v) = @_;
         return unless defined $v;
         my $existing = $c->get($k);
-#        warn "Changing $k from $existing to $v" 
-#            if defined($existing) && $existing ne $v;
+        if (defined($existing) && $existing ne $v) {
+            $did_set = 1;
+            $log->warn("Changing $k from $existing to $v");
+        }
 
         $c->set($k, $v);
     };
 
     $platform = 'SGE' if $qsub;
 
-    $c->set('bowtie_nu_limit', 100) if $limit_bowtie_nu;
+    $set->('bowtie_nu_limit', 100) if $limit_bowtie_nu;
     $set->('quantify', $quantify);
     $set->('strand_specific', $strand_specific);
     $set->('ram', $ram);
@@ -187,9 +203,8 @@ sub get_options {
     $set->('genome_only', $genome_only);
     $set->('chunk', $chunk);
     $set->('min_length', $min_length);
-    $set->('output_dir',  $output_dir);
     $set->('num_chunks',  $num_chunks);
-    $set->('reads', @ARGV ? [@ARGV] : undef);
+    $set->('reads', @ARGV ? [@ARGV] : undef) if @ARGV && @ARGV ne @{ $c->reads };
     $set->('preserve_names', $preserve_names);
     $set->('variable_length_reads', $variable_read_lengths);
     $set->('user_quals', $quals_file);
@@ -199,7 +214,6 @@ sub get_options {
     $set->('nu_limit', $nu_limit);
     $set->('alt_genes', $alt_genes);
     $set->('alt_quant_model', $alt_quant);
-
     $set->('blat_min_identity', $blat_min_identity);
     $set->('blat_tile_size', $blat_tile_size);
     $set->('blat_step_size', $blat_step_size);
@@ -207,6 +221,11 @@ sub get_options {
     $set->('blat_max_intron', $blat_max_intron);
     $set->('blat_only', $blat_only);
     $set->('platform', $platform);
+
+    if ($did_set && $did_load && !$force && !$d->child) {
+        RUM::Usage->bad("I found job settings in " . $c->settings_filename . ", but you specified different settings on the command line. I won't run without the --force flag. If you want to use the saved settings, please don't provide any extra options on the command line. If you need to change the settings, please either delete " . $c->settings_filename . " or run again with --force.");
+    }
+
     $self->{config} = $c;
 }
 
@@ -345,11 +364,7 @@ sub run_pipeline {
     $self->check_gamma;
     $self->setup;
 
-    if ($d->save) {
-        $self->say("Saving configuration");
-        $self->config->save;
-    }
-    elsif ($d->diagram) {
+    if ($d->diagram) {
         $self->diagram;
     }
     elsif ($d->status) {
@@ -365,7 +380,7 @@ sub run_pipeline {
         $self->show_logo;
 
         $self->check_ram unless $d->child;
-
+        $self->config->save unless $d->child;
         $self->dump_config;
 
         my $platform = $self->platform;

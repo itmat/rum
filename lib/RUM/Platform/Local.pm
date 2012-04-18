@@ -432,7 +432,7 @@ sub _process_in_chunks {
     };
 
     for my $chunk ($self->chunk_nums) {
-        my @cmd = ($0, "--output", $self->config->output_dir,
+        my @cmd = ($0, "run", "--child", "--output", $self->config->output_dir,
                    "--chunk", $chunk);
         my $config = $self->config->for_chunk($chunk);                
         my $workflow = RUM::Workflows->chunk_workflow($config);

@@ -58,9 +58,9 @@ sub new {
     my $dir = $config->output_dir;
 
     $self->{cmd} = {};
-    $self->{cmd}{preproc}  =  "perl $0 --child --output $dir --preprocess";
-    $self->{cmd}{proc}     =  "perl $0 --child --output $dir --chunk \$SGE_TASK_ID";
-    $self->{cmd}{postproc} =  "perl $0 --child --output $dir --postprocess";
+    $self->{cmd}{preproc}  =  "perl $0 run --child --output $dir --preprocess";
+    $self->{cmd}{proc}     =  "perl $0 run --child --output $dir --chunk \$SGE_TASK_ID";
+    $self->{cmd}{postproc} =  "perl $0 run --child --output $dir --postprocess";
 
     $self->{jids}{$_} = [] for @JOB_TYPES;
 
@@ -94,7 +94,7 @@ sub start_parent {
     my ($self) = @_;
     my $d = $self->directives;
     my $dir = $self->config->output_dir;
-    my $cmd =  "-b y $0 --parent --output $dir";
+    my $cmd =  "-b y $0 run --parent --output $dir";
     $cmd .= " --preprocess"  if $d->preprocess;
     $cmd .= " --process"     if $d->postprocess;
     $cmd .= " --postprocess" if $d->postprocess;

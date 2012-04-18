@@ -18,7 +18,15 @@ rum_runner
 
 =head1 SYNOPSIS
 
-  rum_runner [ACTION] [OPTIONS] [FORWARD [REVERSE]]
+  rum_runner run [OPTIONS] [FORWARD [REVERSE]]
+
+  rum_runner status    [OPTIONS] 
+  rum_runner kill      [OPTIONS]
+  rum_runner clean     [OPTIONS]
+  rum_runner veryclean [OPTIONS]
+
+  rum_runner help
+  rum_runner version
 
 =head1 DESCRIPTION
 
@@ -26,7 +34,7 @@ Runs the RUM pipeline.
 
 Default config files are supplied with each organism.  If you need to
 make or modify one then running RUM_runner.pl with the one argument
-'config' gives an explaination of the the file.
+'config' gives an explanation of the the file.
 
 This program writes very large intermediate files.  If you have a
 large genome such as mouse or human then it is recommended to run in
@@ -38,29 +46,15 @@ it under a million reads per chunk will speed things considerably.
 
 =head2 Actions
 
-These commands tell RUM_runner what to do. If you do not specify any
-action, rum_runner will run all outstanding steps in the pipeline, but
-you can tell it to do other things like save the configuration for the
-job, check the status, or kill a job.
+These commands tell RUM_runner what to do.
 
 =over 4
 
-=item B<--save>
+=item B<run>
 
-Save any options supplied on the command line to a file in the output
-directory, so you can run rum_runner again without specifying the same
-options.
+Run the RUM pipeline.
 
-  # Set up the job
-  rum_runner -o data_dir --name foobar --config rum.config_h19 reads.fa --save
-
-  # Then later run it
-  rum_runner -o data_dir
-
-  # Or check the status
-  rum_runner -o data_dir --status
-
-=item B<--status>
+=item B<status>
 
 Check the status of a job running in the output directory specified by
 -o or --output, or the current directory if not specified.
@@ -69,32 +63,26 @@ This can be combined with the --preprocessing, --processing, and
 --postprocessing to just show the status for those phases. It can also
 be combined with --chunk to just show the status for one chunk.
 
-=item B<--kill>
+=item B<kill>
 
 Attempt to kill the job running in the specified output directory, or
 current directory if not specified. Note that this only kills jobs
 running on a cluster. For jobs running locally, you can just kill the
 parent process and it should terminate all child processes.
 
-=item B<--clean>
+=item B<clean>
 
-=item B<--veryclean>
+=item B<veryclean>
 
-Use --clean to delete intermediate files in the specified output
-directory. Use --veryclean to delete all intermediate and final result
+Use B<clean> to delete intermediate files in the specified output
+directory. Use B<veryclean> to delete all intermediate and final result
 files.
 
-=item B<--shell-script>
-
-TODO: This is not working yet.
-
-Rather than run the job, just export some shell scripts that will run it.
-
-=item B<-V>, B<--version>
+=item B<version>
 
 Print out the version of RUM.
 
-=item B<-h>, B<--help>
+=item B<help>
 
 Print usage information.
 
