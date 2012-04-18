@@ -70,6 +70,7 @@ sub get_options {
         # Advanced (user shouldn't run these)
         "child"        => sub { $d->set_child },
         "parent"       => sub { $d->set_parent },
+        "lock=s"         => \(my $lock),
 
         # Options controlling which portions of the pipeline to run.
         "preprocess"   => sub { $d->set_preprocess;  $d->unset_all; },
@@ -120,6 +121,11 @@ sub get_options {
 
     );
 
+    if ($lock) {
+        $log->info("Got lock argument ($lock)");
+        $RUM::Lock::FILE = $lock;
+    }
+
     my $dir = $output_dir || ".";
 
     my $c = RUM::Config->load($dir);
@@ -158,7 +164,7 @@ sub get_options {
             $did_set = 1;
             $log->warn("Changing $k from $existing to $v");
         }
-
+        
         $c->set($k, $v);
     };
 
@@ -202,7 +208,7 @@ sub get_options {
     $set->('variable_length_reads', $variable_read_lengths);
 
     if ($did_set && $did_load && !$force && !$d->child) {
-        RUM::Usage->bad("I found job settings in " . $c->settings_filename . ", but you specified different settings on the command line. I won't run without the --force flag. If you want to use the saved settings, please don't provide any extra options on the command line. If you need to change the settings, please either delete " . $c->settings_filename . " or run again with --force.");
+        die("I found job settings in " . $c->settings_filename . ", but you specified different settings on the command line. I won't run without the --force flag. If you want to use the saved settings, please don't provide any extra options on the command line. If you need to change the settings, please either delete " . $c->settings_filename . " or run again with --force.");
     }
 
     $self->{config} = $c;
@@ -302,9 +308,9 @@ sub get_lock {
     my $c = $self->config;
     my $dir = $c->output_dir;
     my $lock = $c->lock_file;
+    $log->info("Acquiring lock");
     RUM::Lock->acquire($lock) or die
           "It seems like rum_runner may already be running in $dir. You can try running \"$0 kill\" to stop it. If you #are sure there's nothing running in $dir, remove $lock and try again.\n";
-
 }
 
 
@@ -351,6 +357,7 @@ sub run {
     if ($d->postprocess || $d->all) {
         $platform->postprocess;
     }
+    RUM::Lock->release;
 }
 
 

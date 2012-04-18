@@ -2,7 +2,12 @@ package RUM::Lock;
 
 use strict;
 use warnings;
+
 use Carp;
+
+use RUM::Logging;
+our $log = RUM::Logging->get_logger;
+
 our $FILE;
 
 sub acquire {
@@ -17,8 +22,14 @@ sub acquire {
 }
 
 sub release {
-    unlink $FILE if $FILE;
-    undef $FILE;
+    if ($FILE) {
+        $log->info("Releasing lock $FILE") ;
+        unlink $FILE if $FILE;
+        undef $FILE;
+    }
+    else {
+        $log->info("No lock file to release");
+    }
 }
 
 sub DESTROY {

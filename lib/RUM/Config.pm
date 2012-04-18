@@ -15,7 +15,7 @@ our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
 FindBin->again;
 
-our $FILENAME = "rum_job_settings";
+our $FILENAME = ".rum/job_settings";
 
 =head1 NAME
 

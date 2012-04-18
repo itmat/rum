@@ -94,7 +94,7 @@ sub start_parent {
     my ($self) = @_;
     my $d = $self->directives;
     my $dir = $self->config->output_dir;
-    my $cmd =  "-b y $0 run --parent --output $dir";
+    my $cmd =  "-b y $0 run --parent --output $dir --lock $RUM::Lock::FILE";
     $cmd .= " --preprocess"  if $d->preprocess;
     $cmd .= " --process"     if $d->postprocess;
     $cmd .= " --postprocess" if $d->postprocess;
@@ -349,7 +349,6 @@ sub _build_job_states {
         my @active = grep { $states{$_} } @jids;
         $self->{jids}{$phase}  = \@active;
     }
-    
 }
 
 sub _job_state {
