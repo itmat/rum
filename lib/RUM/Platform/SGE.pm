@@ -173,10 +173,7 @@ sub submit_postproc {
     my ($self, $c) = @_;
     $log->info("Submitting postprocessing job");
     my $sh = $self->_write_shell_script("postproc");
-    my @args;
-    my @prereqs = @{ $self->_proc_jids };
-    push @args, "-hold_jid", join(",", @prereqs) if @prereqs;
-    my $jid = $self->_qsub(@args, "sh", $sh);
+    my $jid = $self->_qsub($sh);
     push @{ $self->_postproc_jids }, $jid;
     $self->save;
 }
