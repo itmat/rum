@@ -18,6 +18,9 @@ use RUM::Workflows;
 
 our %ACTIONS = (
     help => "RUM::Action::Help",
+    '-h' => "RUM::Action::Help",
+    '-help' => "RUM::Action::Help",
+    '--help' => "RUM::Action::Help",
     version => "RUM::Action::Version",
     status  => "RUM::Action::Status",
     diagram => "RUM::Action::Diagram",
