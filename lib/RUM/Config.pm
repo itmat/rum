@@ -339,4 +339,16 @@ sub settings_filename {
     my ($self) = @_;
     return ($self->in_output_dir($FILENAME));
 }
+
+sub log_file {
+    my ($self) = @_;
+    $self->chunk_replaced("rum_%03d.log");
+}
+
+sub error_log_file {
+    my ($self) = @_;
+    $self->chunk_replaced("rum_errors_%03d.log");
+}
+
+
 1;

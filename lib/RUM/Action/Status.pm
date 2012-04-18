@@ -47,8 +47,11 @@ sub print_processing_status {
         push @chunks, (1 .. $c->num_chunks || 1);
     }
 
+    my @errored_chunks;
+
     for my $chunk (@chunks) {
-        my $w = RUM::Workflows->chunk_workflow($c->for_chunk($chunk));
+        my $config = $c->for_chunk($chunk);
+        my $w = RUM::Workflows->chunk_workflow($config);
         my $handle_state = sub {
             my ($name, $completed) = @_;
             unless (exists $num_completed{$name}) {
@@ -60,8 +63,13 @@ sub print_processing_status {
             $progress{$name} .= $completed ? "X" : " ";
             $num_completed{$name} += $completed;
         };
+        my $error_log = $config->error_log_file;
 
         $w->walk_states($handle_state);
+        if (-s $config->error_log_file) {
+            push @errored_chunks, "!!! There are errors in the error log file for chunk $chunk: $error_log";
+        }
+
     }
 
     my $n = @chunks;
@@ -80,6 +88,11 @@ sub print_processing_status {
         my $comment   = $comments{$_};
         my $indent = ' ' x length($progress);
         $self->say(wrap($progress, $indent, $comment));
+    }
+
+    print "\n" if @errored_chunks;
+    for my $line (@errored_chunks) {
+        warn "$line\n";
     }
 
 }

@@ -3,17 +3,18 @@ package RUM::Script::Main;
 use strict;
 use warnings;
 
-use RUM::Action::Help;
-use RUM::Action::Version;
-use RUM::Action::Status;
-use RUM::Action::Diagram;
 use RUM::Action::Clean;
+use RUM::Action::Diagram;
+use RUM::Action::Help;
 use RUM::Action::Kill;
+use RUM::Action::Run;
+use RUM::Action::Status;
+use RUM::Action::Version;
+
 use RUM::Usage;
 use RUM::Directives;
 use RUM::Config;
 use RUM::Workflows;
-use RUM::Script::Runner;
 
 our %ACTIONS = (
     help => "RUM::Action::Help",
@@ -22,7 +23,7 @@ our %ACTIONS = (
     diagram => "RUM::Action::Diagram",
     clean   => "RUM::Action::Clean",
     kill    => "RUM::Action::Kill",
-    run     => "RUM::Script::Runner"
+    run     => "RUM::Action::Run"
 );
 
 sub main {
