@@ -47,7 +47,9 @@ logger by opening the output filehandle.
 =cut
 
 sub init {
-    open $FH, ">>", "rum.log" unless $FH;
+    my $name = $ENV{RUM_CHUNK} ? sprintf("rum_%03d.log", $ENV{RUM_CHUNK}) 
+        : "rum.log";
+    open $FH, ">>", $name unless $FH;
 }
 
 =item RUM::Logger->get_logger()

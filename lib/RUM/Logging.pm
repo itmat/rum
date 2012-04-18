@@ -151,7 +151,7 @@ sub _init_log4perl {
         die if $ENV{RUM_HIDE_LOG4PERL};
     };
     if ($@) {
-        warn $LOG4PERL_MISSING_MSG;
+        warn $LOG4PERL_MISSING_MSG unless $ENV{RUM_WARNED_LOG4PERL_MISSING}++;
         return;
     }
 

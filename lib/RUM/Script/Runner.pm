@@ -204,7 +204,7 @@ sub get_options {
     $set->('chunk', $chunk);
     $set->('min_length', $min_length);
     $set->('num_chunks',  $num_chunks);
-    $set->('reads', @ARGV ? [@ARGV] : undef) if @ARGV && @ARGV ne @{ $c->reads };
+    $set->('reads', @ARGV ? [@ARGV] : undef) if @ARGV && @ARGV ne @{ $c->reads || [] };
     $set->('preserve_names', $preserve_names);
     $set->('variable_length_reads', $variable_read_lengths);
     $set->('user_quals', $quals_file);
