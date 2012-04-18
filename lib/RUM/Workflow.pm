@@ -432,7 +432,6 @@ sub execute {
                     -e and $log->warn(
                         "File $_ already exists; ".
                             "I thought it would be created by $step");
-                    -s or $log->warn("File $_ is empty");
                     rename($temp, $_) or croak
                         "Couldn't rename temporary file $temp to $_: $!";
                 }

@@ -405,8 +405,14 @@ sub postprocessing_workflow {
     my $w = RUM::Workflow->new();
     my @rum_unique = map { $_->chunk_suffixed("RUM_Unique.sorted") } @c;
     my @rum_nu = map { $_->chunk_suffixed("RUM_NU.sorted") } @c;
+    my $sam_headers = $c->in_output_dir("sam_header");
+    my @sam_headers = map "$sam_headers.$_", @chunks;
 
-    my @start = (@rum_unique, @rum_nu);
+    my $sam_file = $c->in_output_dir("RUM.sam");
+    my @sam_files = map "$sam_file.$_", @chunks;
+
+
+    my @start = (@rum_unique, @rum_nu, @sam_headers, @sam_files);
     my $mapping_stats = $c->chunk_suffixed("mapping_stats.txt");
     my $inferred_internal_exons = $c->in_output_dir("inferred_internal_exons.bed");
     my $inferred_internal_exons_txt = $c->in_output_dir("inferred_internal_exons.txt");
@@ -747,12 +753,6 @@ sub postprocessing_workflow {
         ["grep", "-v", "transcript",
          post($c->in_output_dir("novel_exon_quant_temp")),
          ">", post($c->novel_inferred_internal_exons_quantifications)]);
-
-    my $sam_headers = $c->in_output_dir("sam_header");
-    my @sam_headers = map "$sam_headers.$_", @chunks;
-
-    my $sam_file = $c->in_output_dir("RUM.sam");
-    my @sam_files = map "$sam_file.$_", @chunks;
 
     $w->step(
         "Merge SAM headers",
