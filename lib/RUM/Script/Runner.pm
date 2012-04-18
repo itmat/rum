@@ -21,6 +21,7 @@ use RUM::Action::Version;
 use RUM::Action::Status;
 use RUM::Action::Diagram;
 use RUM::Action::Clean;
+use RUM::Action::Kill;
 
 use base 'RUM::Base';
 
@@ -80,7 +81,8 @@ our %ACTIONS = (
     version => "RUM::Action::Version",
     status  => "RUM::Action::Status",
     diagram => "RUM::Action::Diagram",
-    clean   => "RUM::Action::Clean"
+    clean   => "RUM::Action::Clean",
+    kill => "RUM::Action::Kill"
 );
 
 sub get_options {
@@ -93,8 +95,9 @@ sub get_options {
 
     my $action = shift(@ARGV) || "";
 
-    if    ($action eq 'kill')      { $d->set_kill }
-    elsif ($action eq 'run')       { $d->set_run }
+    if ($action eq 'run') {
+        $d->set_run;
+    }
     elsif (my $class = $ACTIONS{$action}) {
         $class->run;
         exit;
@@ -338,26 +341,7 @@ sub check_config {
 sub run {
     my ($self) = @_;
     $self->get_options();
-    my $d = $self->directives;
-    if ($d->shell_script) {
-        $self->export_shell_script;
-    }
-    elsif ($d->kill) {
-        $self->stop;
-    }
-    else {
-        $self->run_pipeline;
-    }
-}
-
-sub platform {
-    my ($self) = @_;
-
-    my $name = $self->directives->child ? "Local" : $self->config->platform;
-    my $class = "RUM::Platform::$name";
-    my $file = "RUM/Platform/$name.pm";
-    require $file;
-    my $platform = $class->new($self->config, $self->directives);
+    $self->run_pipeline;
 }
 
 sub run_pipeline {
@@ -398,13 +382,6 @@ sub run_pipeline {
 ###
 ### Other tasks not directly involved with running the pipeline
 ###
-
-sub stop {
-    my ($self) = @_;
-    $self->say("Killing job");
-    $self->platform->stop;
-}
-
 
 
 sub setup {

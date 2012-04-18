@@ -107,6 +107,18 @@ sub chunk_nums {
     return (1 .. $c->num_chunks || 1)
 }
 
+sub platform {
+    my ($self) = @_;
+
+    my $name = $self->directives->child ? "Local" : $self->config->platform;
+    my $class = "RUM::Platform::$name";
+    my $file = "RUM/Platform/$name.pm";
+    require $file;
+    my $platform = $class->new($self->config, $self->directives);
+}
+
+
+
 =back
 
 =cut

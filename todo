@@ -7,8 +7,6 @@ Print final stats to log file
 
 Print out email address if we give up?
 Make sure we print out all the same messages
-Make sure usage message matches options.
-
 
 Done
 ----
@@ -21,6 +19,11 @@ Test without log4perl
 Why aren't junctions being run?
 Test --dna
 Test --blat-only
+Make sure usage message matches options.
+Doesn't produce chunk logs without log4perl
+Require a flag to actually run it
+Save automatically, but only once
+
 
 Won't do
 --------
