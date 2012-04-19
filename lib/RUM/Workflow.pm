@@ -368,7 +368,8 @@ sub execute {
 
     local $_;
 
-    $sm->start($self->state);
+    #$sm->start($self->state);
+
     $log->debug("Executing workflow");
     my $f = sub {
         my ($sm, $old, $step, $new) = @_;
@@ -384,6 +385,7 @@ sub execute {
         $callback->($step, $completed) if $callback;
 
         unless ($completed) {
+
             for my $cmd (@cmds) {
                 $log->debug("Running @$cmd");
 
@@ -453,7 +455,6 @@ sub execute {
         }
 
     };
-
     $self->{sm}->walk($f);
 }
 

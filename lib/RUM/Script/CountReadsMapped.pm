@@ -94,21 +94,21 @@ sub main {
                 $num_unjoined_consistent++;
             }
             if ($unjoined{$seqnum} > 2) {
-                print STDERR "in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($unjoined{$seqnum}) $line\n";
+                $log->error("SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($unjoined{$seqnum}) $line");
             }
         }
         if ($type eq "a") {
             $typea{$seqnum}++;
             $num_areads++;
             if ($typea{$seqnum} > 1) {
-                print STDERR "in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($typea{$seqnum}) $line\n";
+                $log->error("SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($typea{$seqnum}) $line");
             }
         }
         if ($type eq "b") {
             $typeb{$seqnum}++;
             $num_breads++;
             if ($typeb{$seqnum} > 1) {
-                print STDERR "in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($typeb{$seqnum}) $line\n";
+                $log->error("in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($typeb{$seqnum}) $line");
             }
         }
     }

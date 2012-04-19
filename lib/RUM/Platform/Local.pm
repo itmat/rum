@@ -443,6 +443,7 @@ sub _process_in_chunks {
             }
             else {
                 $ENV{RUM_CHUNK} = $chunk;
+                $ENV{RUM_OUTPUT_DIR} = $config->output_dir;
                 open STDOUT, ">", $config->chunk_replaced("chunk_%d.out");
                 exec @cmd;
             }
@@ -513,6 +514,7 @@ sub postprocess {
 
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
     $w->execute($self->_step_printer($w));
+
 }
 
 sub _reads {

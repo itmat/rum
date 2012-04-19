@@ -3,6 +3,11 @@ package RUM::Script::Main;
 use strict;
 use warnings;
 
+use RUM::Directives;
+use RUM::Config;
+use RUM::Workflows;
+
+
 our %ACTIONS = (
     help => "RUM::Action::Help",
     '-h' => "RUM::Action::Help",

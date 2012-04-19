@@ -166,7 +166,7 @@ sub get_options {
     }
 
     my $dir = $output_dir || ".";
-
+    $ENV{RUM_OUTPUT_DIR} = $dir;
     my $c = RUM::Config->load($dir);
     !$c or ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
     my $did_load;
@@ -647,5 +647,28 @@ EOF
 
 1;
 
+__END__
+
+sub print_stats {
+    my $ufpfile = $
+    my $ufpfile = $output_dir/u_footprint.txt`;
+    chomp($ufpfile);
+    $ufpfile =~ /(\d+)$/;
+    my $uf = $1;
+    my $nufpfile = `cat $output_dir/nu_footprint.txt`;
+    chomp($nufpfile);
+    $nufpfile =~ /(\d+)$/;
+    my $nuf = $1;
+    my $UF = &format_large_int($uf);
+    my $NUF = &format_large_int($nuf);
+    
+    my $UFp = int($uf / $genome_size * 10000) / 100;
+    my $NUFp = int($nuf / $genome_size * 10000) / 100;
+    
+    my $gs4 = &format_large_int($genome_size);
+    $log->info("genome size: $gs4\n");
+    $log->info("number of bases covered by unique mappers: $UF ($UFp%)\n");
+    $log->info("number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n");    
+}
 
 =back

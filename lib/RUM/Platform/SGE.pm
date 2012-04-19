@@ -443,6 +443,8 @@ sub _write_shell_script {
     my $cmd = $self->{cmd}{$phase} or croak "Don't have command for phase $phase";
 
     print $out 'RUM_CHUNK=$SGE_TASK_ID\n';
+    print $out 'RUM_OUTPUT_DIR=' . $self->config->output_dir . "\n";
+
     print $out $self->{cmd}{$phase};
     close $out;
     return $filename;

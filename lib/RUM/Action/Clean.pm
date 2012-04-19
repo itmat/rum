@@ -15,7 +15,6 @@ use warnings;
 
 use Getopt::Long;
 use Text::Wrap qw(wrap fill);
-
 use base 'RUM::Base';
 
 =item run
@@ -73,6 +72,7 @@ sub clean {
     my ($self) = @_;
     my $c = $self->config;
     my $d = $self->directives;
+    my $dir = $c->output_dir;
 
     # If user ran rum_runner --clean, clean up all the results from
     # the chunks; just leave the merged files.
@@ -99,6 +99,10 @@ sub clean {
 
     if ($d->postprocess) {
         RUM::Workflows->postprocessing_workflow($c)->clean($d->veryclean);
+    }
+
+    if ($d->veryclean) {
+        system "rm -f $dir/_tmp_* $dir/*.log $dir/rum.error-log";
     }
 }
 

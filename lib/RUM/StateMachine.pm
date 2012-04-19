@@ -296,6 +296,7 @@ sub walk {
     my $state = defined($start) ? $start : $self->start;
 
   STATE: while (!$self->is_goal($state)) {
+
         $log->debug("Looking at state $state");
         local $_;
         for (sort($self->instructions)) {

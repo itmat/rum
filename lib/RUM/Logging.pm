@@ -109,13 +109,21 @@ use File::Spec qw(splitpath);
 our $LOGGING_DIR;
 
 BEGIN { 
-    for (my $i = 0; $i < @ARGV; $i++) {
-        local $_ = $ARGV[$i];
-        if (/^(-o|--output|--out|--output-dir)/) {
-            $LOGGING_DIR = $ARGV[$i+1];
-            last;
+
+    if ($ENV{RUM_OUTPUT_DIR}) {
+        $LOGGING_DIR = $ENV{RUM_OUTPUT_DIR};
+    }
+
+    elsif ($0 =~ /rum$/) {
+        for (my $i = 0; $i < @ARGV; $i++) {
+            local $_ = $ARGV[$i];
+            if (/^(-o|--output|--out|--output-dir)/) {
+                $LOGGING_DIR = $ARGV[$i+1];
+                last;
+            }
         }
     }
+
     $LOGGING_DIR ||= ".";
 }
 
@@ -180,12 +188,12 @@ sub _init_log4perl {
     eval {
         Log::Log4perl->init($config);
         my $log = Log::Log4perl->get_logger();
-        $log->debug("Using log4perl config at $config");
+        $log->debug("$0 initializing, using log4perl config at $config");
     };
     if ($@) {
         warn "Error initializing $LOG4PERL with $config: $@";
     }
-
+    
     $LOGGER_CLASS = $LOG4PERL;
 }
 
