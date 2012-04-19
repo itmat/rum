@@ -145,6 +145,7 @@ $SIG{__DIE__} = sub {
         # this message but catch it later
         return;
     }
+    RUM::Lock->release;
     RUM::Logging->get_logger("RUM::Death")->logdie(@_);
 };
 

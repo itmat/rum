@@ -676,8 +676,9 @@ sub postprocessing_workflow {
              pre(junctions('high-quality', 'bed'))]);
     }
 
-    my $u_footprint = $c->in_output_dir("u_footprint");
-    my $nu_footprint = $c->in_output_dir("nu_footprint");
+    my $u_footprint = $c->in_output_dir("u_footprint.txt");
+    my $nu_footprint = $c->in_output_dir("nu_footprint.txt");
+    push @goal, ($u_footprint, $nu_footprint);
 
     $w->step(
         "Make unique coverage",

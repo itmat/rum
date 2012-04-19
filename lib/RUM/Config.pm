@@ -27,6 +27,7 @@ our %DEFAULTS = (
     platform => "Local",
     num_chunks => 1,
     ram => undef,
+    genome_size => undef,
     ram_ok => 0,
     max_insertions => 1,
     strand_specific => 0,
@@ -341,12 +342,18 @@ sub settings_filename {
 
 sub log_file {
     my ($self) = @_;
-    $self->chunk_replaced("rum_%03d.log");
+    if ($self->chunk) {
+        return $self->chunk_replaced("rum_%03d.log");
+    }
+    return $self->in_output_dir("rum.log");
 }
 
 sub error_log_file {
     my ($self) = @_;
-    $self->chunk_replaced("rum_errors_%03d.log");
+    if ($self->chunk) {
+        $self->chunk_replaced("rum_errors_%03d.log");
+    }
+    $self->chunk_replaced("rum_errors.log");
 }
 
 sub lock_file {

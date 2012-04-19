@@ -397,6 +397,7 @@ sub process {
     $log->debug("Chunk is ". ($config->chunk ? "yes" : "no"));
 
     my $n = $config->num_chunks || 1;
+    $self->say();
     $self->say("Processing in $n chunks");
     $self->say("-----------------------");
 
@@ -509,6 +510,7 @@ Runs the postprocessing phase, in the current process.
 
 sub postprocess {
     my ($self) = @_;
+    $self->say();
     $self->say("Postprocessing");
     $self->say("--------------");
 
