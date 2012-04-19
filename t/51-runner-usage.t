@@ -24,7 +24,11 @@ our $alt_quant     = "$SHARED_INPUT_DIR/alt_quant.txt";
 
 our $log = RUM::Logging->get_logger;
 
-BEGIN { use_ok('RUM::Script::Runner') or BAIL_OUT "Couldn't load RUM::Script::Runner" }
+BEGIN { 
+    use_ok('RUM::Action::Run') or BAIL_OUT "Couldn't load RUM::Action::Run";
+    use_ok('RUM::Script::Main') or BAIL_OUT "Couldn't load RUM::Script::Main";
+    
+}
 
 {
     # Redefine a couple methods in RUM::Usage so we can run the
@@ -62,7 +66,7 @@ sub run_rum {
     my @args = @_;
     @ARGV = @args;
 
-    my $data = eval { capturing_stdout { RUM::Script::Runner->main() } };
+    my $data = eval { capturing_stdout { RUM::Script::Main->main() } };
     return $@ || $data;
 }
 
@@ -75,7 +79,7 @@ sub rum_fails_ok {
     @ARGV = @$args;
 
     *STDOUT = $out;
-    throws_ok { RUM::Script::Runner->main } $re, $name;
+    throws_ok { RUM::Script::Main->main } $re, $name;
     *STDOUT = *STDOUT_BAK;
 }
 
@@ -83,13 +87,13 @@ sub rum {
     my @args = @_;
 
     @ARGV = @_;
-    my $rum = RUM::Script::Runner->new();
+    my $rum = RUM::Action::Run->new();
     eval {
         $rum->get_options;
         $rum->check_config;
     };
     if ($@) {
-        BAIL_OUT("Can't get RUM::Runner: $@");
+        BAIL_OUT("Can't get RUM::Script::Main: $@");
     }
     return $rum;
 }
@@ -103,68 +107,67 @@ sub preprocess {
     my $rum = rum(@args);
 
     capturing_stdout { 
-        $RUM::Script::Runner::log->less_logging(2);
+        $RUM::Action::Run::log->less_logging(2);
         $rum->{directives}{quiet} = 1;
+        $rum->setup;
         $rum->platform->preprocess;
     };
     
     return $rum;
 }
 
-
-# Check that RUM prints out the version
-my $version = $RUM::Pipeline::VERSION;
-like(run_rum("--version"), qr/$version/, "--version prints out version");
-like(run_rum("-V"), qr/$version/, "-V prints out version");
-
-# Check that --help-config prints a description of the help file
-like(run_rum("--help-config"),
-     qr/gene annotation file/, "--help-config prints config info");
-like(run_rum("--help-config"),
-     qr/bowtie genome index/, "--help-config prints config info");
-
 sub tmp_out {
     return tempdir(TEMPLATE => "runner-usage.XXXXXX", CLEANUP => 1);
 }
 
+# Check that RUM prints out the version
+my $version = $RUM::Pipeline::VERSION;
+like(run_rum("version"), qr/$version/, "version prints out version");
+
+# Check that --help-config prints a description of the help file
+like(run_rum("help", "config"),
+     qr/gene annotation file/, "help config prints config info");
+like(run_rum("help", "config"),
+     qr/bowtie genome index/, "help config prints config info");
+
+
 # Check that it fails if required arguments are missing
-rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf"],
+rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf"],
              qr/please.*read files/i, "Missing read files");
 
-rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
               "1.fq", "2.fq", "3.fq"],
              qr/please.*read files/i, "Too many read files");
 
-rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
               "1.fq", "1.fq"],
              qr/same file for the forward and reverse/i,
              "Duplicate read file");
-
-rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
               $forward_64_fa, "$SHARED_INPUT_DIR/reads.fa"],
              qr/same size/i, "Read files are not the same size");
 
 #rum_fails_ok(["--config", $config, "--name", "asdf", "in.fq"],
 #             qr/--output/i, "Missing output dir");
 
-rum_fails_ok(["--config", $config, "--output", tmp_out(), "in.fq"],
+rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "in.fq"],
              qr/--name/i, "Missing name");
 
-rum_fails_ok(["--output", tmp_out(), "--name", "foo", "in.fq"],
+rum_fails_ok(["run", "--output", tmp_out(), "--name", "foo", "in.fq"],
              qr/--config/i, "Missing config");
 
-rum_fails_ok(["--config", "missing-config-file",
+rum_fails_ok(["run", "--config", "missing-config-file",
               "--output", tmp_out(), "--name", "asdf", "in.fq"],
              qr/no such file/i, "Config file that doesn't exist");
 
 my $name = 'a' x 300;
 rum_fails_ok(
-    ["--config", $config, "--output", tmp_out(), "--name", $name," in.fq"],
+    ["run", "--config", $config, "--output", tmp_out(), "--name", $name," in.fq"],
     qr/250 characters/, "Long name");
 
 # Check that we set some default values correctly
 {
-    my @argv = ("--config", $config,
+    my @argv = ("run", "--config", $config,
                 "--output", "foo",
                 "--name", "asdf",
                 $forward_64_fq);
@@ -172,12 +175,11 @@ rum_fails_ok(
     my $rum = rum(@argv);
     my $c = $rum->config or BAIL_OUT("Can't get RUM");
     is($c->name, "asdf", "Name");
-    is($c->output_dir, "foo", "Output dir");
-    is($c->rum_config_file, $config, "Config");
+    like($c->output_dir, qr/foo$/, "Output dir");
+    like($c->rum_config_file, qr/$config/, "Config");
     ok($c->cleanup, "cleanup");
     is($c->min_length, undef, "min length");
     is($c->max_insertions, 1, "max insertions");
-    
     ok(!$c->dna, "no DNA");
     ok(!$c->genome_only, "no genome only");
     ok(!$c->variable_read_lengths, "no variable read lengths");
@@ -185,7 +187,6 @@ rum_fails_ok(
     ok(!$c->junctions, "no junctions");
     ok(!$c->strand_specific, "no strand-specific");
     is($c->ram, undef, "ram");
-
     is($c->bowtie_nu_limit, undef, "Bowtie nu limit");
     is($c->nu_limit, undef, "nu limit");
 }
@@ -199,27 +200,25 @@ is(rum("--config", $config,
    "Clean up name with invalid characters");
 
 # Check that rum fails if a read file is missing
-rum_fails_ok(["--config", $config, "--output", tmp_out(),
+rum_fails_ok(["run","--config", $config, "--output", tmp_out(),
               "--name", "asdf", "asdf.fq", "-q"],
              qr/asdf.fq.*no such file or directory/i,
              "Read file doesn't exist");    
-rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
               $forward_64_fq, "asdf.fq", "-q"],
              qr/asdf.fq.*no such file or directory/i, 
              "Read file doesn't exist");    
 
 # Check bad reads
-rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
               $bad_reads, "-q"],
              qr/you appear to have entries/i, "Bad reads");    
-rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf",
+rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf",
               $bad_reads, $good_reads_same_size_as_bad, "-q"], 
              qr/you appear to have entries/i, "Bad reads");    
-rum_fails_ok(["--config", $config, "--output", tmp_out(), "--name", "asdf",
+rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf",
               $good_reads_same_size_as_bad, $bad_reads, "-q"],
              qr/you appear to have entries/i, "Bad reads");    
-
-diag "Here I am";
 
 # Check that we preprocess a single paired-end fasta file correctly
 {
@@ -263,7 +262,7 @@ diag "Here I am";
     my @argv = ("--config", $config, "--name", "asdf");
     my $rum = rum(@argv, "-o", tempdir(CLEANUP => 1),
                   $forward_64_fq, $reverse_64_fq);
-
+    $rum->setup;
     $rum->platform->preprocess;
     my $forward_64_fq = $rum->config->output_dir . "/reads.fa";
     my $quals = $rum->config->output_dir . "/quals.fa";
@@ -307,6 +306,7 @@ diag "Here I am";
         ok( ! -e $rum->config->output_dir . "/quals.fa.$chunk",
            "$prefix: didn't make quals $chunk");
     }
+
 }
 
 
@@ -391,7 +391,7 @@ chunk_cmd_like([@standard_args, "--limit-nu", 15], "Limit NU",
                qr/limit_nu.pl --cutoff\s*15/i, 
                "Cutoff passed to limit_nu");    
 
-rum_fails_ok([@standard_args, "--limit-nu", "asdf"],
+rum_fails_ok(["run", @standard_args, "--limit-nu", "asdf"],
                qr/nu must be an integer greater than/i, 
                "Bad --limit-nu");    
 
@@ -429,35 +429,35 @@ chunk_cmd_like([@standard_args,
                "Run blat on unmapped reads",
                qr/-maxIntron=1 -minIdentity=2 -repMatch=3 -stepSize=4 -tileSize=5/,
                "Blat specified options");
-rum_fails_ok([@standard_args, "--minIdentity", 200],
+rum_fails_ok(["run", @standard_args, "--minIdentity", 200],
              qr/identity must be an integer/i,
              "Min identity too high");
-rum_fails_ok([@standard_args, "--minIdentity", "foo"],
+rum_fails_ok(["run", @standard_args, "--minIdentity", "foo"],
              qr/identity must be an integer/i,
              "Min identity not an int");
 
 
-rum_fails_ok([@standard_args, "--min-length", 5],
+
+rum_fails_ok(["run", @standard_args, "--min-length", 5],
              qr/length must be an integer/,
              "Min length too low");
 
-rum_fails_ok([@standard_args, "--variable-length", "--preserve-names"],
+rum_fails_ok(["run", @standard_args, "--variable-length", "--preserve-names"],
              qr/can.*t use.*preserve.*names.*variable.*length/i,
              "--variable-length and --preserve-names fail");
-
 # Check --alt-genes
-rum_fails_ok([@standard_args, "--alt-genes", "foobar"],
+rum_fails_ok(["run", @standard_args, "--alt-genes", "foobar"],
              qr/foobar.*no such file/i,
              "Bad --alt-genes");
 postproc_cmd_like([@standard_args, "--alt-genes", $alt_genes],
                   "make_junctions",
                   qr/--genes $alt_genes/i,
                   "--alt-genes gets passed to make_RUM_junctions_file");
-
 # Check --alt-quant
-rum_fails_ok([@standard_args, "--alt-quant", "foobar"],
+rum_fails_ok(["run", @standard_args, "--alt-quant", "foobar"],
              qr/foobar.*no such file/i,
              "Bad --alt-quant");
+
 chunk_cmd_unlike([@standard_args, "--alt-quant", $alt_quant],
                  "Separate unique and non-unique mappers from transcriptome bowtie output",
                   qr/$alt_quant/i,
@@ -496,3 +496,4 @@ chunk_cmd_like([@standard_args, "--ram", 8],
                "Sort RUM_NU",
                qr/--ram 8/,
                "--ram is passed sort_rum_by_location.pl");
+

@@ -69,8 +69,9 @@ should_do_junctions(    dna => 1, genome_only => 1, junctions => 0);
 should_do_junctions(    dna => 1, genome_only => 1, junctions => 1);
 
 $c = RUM::Config->default;
-my $dir = tempdir(TEMPLATE => "config.XXXXXX", UNLINK => 1);
+my $dir = tempdir(TEMPLATE => "config.XXXXXX", CLEANUP => 1);
 $c->set(output_dir => $dir);
+mkdir "$dir/.rum";
 $c->set(read_length => 45);
 $c->save;
 

@@ -1,5 +1,15 @@
 package RUM::Action::Run;
 
+=head1 NAME
+
+RUM::Action::Run - Run the RUM pipeline.
+
+=head1 DESCRIPTION
+
+This action is the one that actually runs the RUM Pipeline.
+
+=cut
+
 use strict;
 use warnings;
 
@@ -15,14 +25,7 @@ use RUM::Workflows;
 use RUM::Usage;
 use RUM::Pipeline;
 use RUM::Common qw(format_large_int);
-
 use RUM::Lock;
-use RUM::Action::Help;
-use RUM::Action::Version;
-use RUM::Action::Status;
-use RUM::Action::Diagram;
-use RUM::Action::Clean;
-use RUM::Action::Kill;
 
 use base 'RUM::Base';
 
@@ -35,20 +38,57 @@ $SIG{INT} = $SIG{TERM} = sub {
     die;
 };
 
-=head1 NAME
-
-RUM::Action::Run
-
 =head1 METHODS
 
 =over 4
 
 =cut
 
-################################################################################
-###
-### Parsing and validating command line options
-###
+=item run
+
+The top-level function in this class. Parses the command-line options,
+checks the configuration and warns the user if it's invalid, does some
+setup tasks, then runs the pipeline.
+
+=cut
+
+sub run {
+    my ($class) = @_;
+    my $self = $class->new;
+    $self->get_options();
+
+    my $d = $self->directives;
+    $self->check_config;        
+    $self->check_gamma;
+    $self->setup;
+    $self->get_lock;
+
+
+    $self->show_logo;
+    
+    $self->check_ram unless $d->child;
+    $self->config->save unless $d->child;
+    $self->dump_config;
+    
+    my $platform = $self->platform;
+    
+    if ( ref($platform) !~ /Local/ && ! ( $d->parent || $d->child ) ) {
+        $self->say("Submitting tasks and exiting");
+        $platform->start_parent;
+        return;
+    }
+    
+    if ($d->preprocess || $d->all) {
+        $platform->preprocess;
+    }
+    if ($d->process || $d->all) {
+        $platform->process;
+    }
+    if ($d->postprocess || $d->all) {
+        $platform->postprocess;
+    }
+    RUM::Lock->release;
+}
 
 =item get_options
 
@@ -118,7 +158,6 @@ sub get_options {
         "force|f"   => \(my $force),
         "quiet|q"   => sub { $log->less_logging(1); $quiet = 1; },
         "verbose|v" => sub { $log->more_logging(1) },
-
     );
 
     if ($lock) {
@@ -127,7 +166,7 @@ sub get_options {
     }
 
     my $dir = $output_dir || ".";
-
+    $ENV{RUM_OUTPUT_DIR} = $dir;
     my $c = RUM::Config->load($dir);
     !$c or ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
     my $did_load;
@@ -171,7 +210,7 @@ sub get_options {
     $platform = 'SGE' if $qsub;
 
     $alt_genes = File::Spec->rel2abs($alt_genes) if $alt_genes;
-    $alt_quant = File::Spec->rel2abs($alt_genes) if $alt_quant;
+    $alt_quant = File::Spec->rel2abs($alt_quant) if $alt_quant;
     $rum_config_file = File::Spec->rel2abs($rum_config_file) if $rum_config_file;
 
     my @reads = map { File::Spec->rel2abs($_) } @ARGV;
@@ -295,12 +334,21 @@ sub check_config {
         -r $c->alt_genes or die
             "Can't read from alt gene file ".$c->alt_genes.": $!";
     }
+
     if ($c->alt_quant_model) {
         -r $c->alt_quant_model or die
             "Can't read from ".$c->alt_quant_model.": $!";
     }
     
 }
+
+=item get_lock
+
+Attempts to get a lock on the $output_dir/.rum/lock file. Dies with a
+warning message if the lock is held by someone else. Otherwise returns
+normally, and RUM::Lock::FILE will be set to the filename.
+
+=cut
 
 sub get_lock {
     my ($self) = @_;
@@ -313,59 +361,11 @@ sub get_lock {
           "It seems like rum_runner may already be running in $dir. You can try running \"$0 kill\" to stop it. If you #are sure there's nothing running in $dir, remove $lock and try again.\n";
 }
 
+=item setup
 
+Creates the output directory and .rum subdirectory.
 
-
-
-################################################################################
-###
-### High-level orchestration
-###
-
-sub run {
-    my ($class) = @_;
-    my $self = $class->new;
-    $self->get_options();
-
-    my $d = $self->directives;
-    $self->check_config;        
-    $self->check_gamma;
-    $self->setup;
-    $self->get_lock;
-
-
-    $self->show_logo;
-    
-    $self->check_ram unless $d->child;
-    $self->config->save unless $d->child;
-    $self->dump_config;
-    
-    my $platform = $self->platform;
-    
-    if ( ref($platform) !~ /Local/ && ! ( $d->parent || $d->child ) ) {
-        $self->say("Submitting tasks and exiting");
-        $platform->start_parent;
-        return;
-    }
-    
-    if ($d->preprocess || $d->all) {
-        $platform->preprocess;
-    }
-    if ($d->process || $d->all) {
-        $platform->process;
-    }
-    if ($d->postprocess || $d->all) {
-        $platform->postprocess;
-    }
-    RUM::Lock->release;
-}
-
-
-################################################################################
-###
-### Other tasks not directly involved with running the pipeline
-###
-
+=cut
 
 sub setup {
     my ($self) = @_;
@@ -378,14 +378,11 @@ sub setup {
     }
 }
 
+=item show_logo
 
-sub new {
-    my ($class) = @_;
-    my $self = {};
-    $self->{config} = undef;
-    $self->{directives} = undef;
-    bless $self, $class;
-}
+Print out the RUM logo.
+
+=cut
 
 sub show_logo {
     my ($self) = @_;
@@ -399,6 +396,12 @@ EOF
 
 }
 
+=item fix_name
+
+Remove unwanted characters from the name.
+
+=cut
+
 sub fix_name {
     local $_ = shift;
 
@@ -411,6 +414,12 @@ sub fix_name {
     return $_;
 }
 
+=item check_gamma
+
+Die if we seem to be running on gamma.
+
+=cut
+
 sub check_gamma {
     my ($self) = @_;
     my $host = `hostname`;
@@ -419,19 +428,11 @@ sub check_gamma {
     }
 }
 
-sub export_shell_script {
-    my ($self) = @_;
+=item dump_config
 
-    $self->say("Generating pipeline shell script for each chunk");
-    for my $chunk ($self->chunk_nums) {
-        my $config = $self->config->for_chunk($chunk);
-        my $w = RUM::Workflows->chunk_workflow($chunk);
-        my $file = IO::File->new($config->pipeline_sh);
-        open my $out, ">", $file or die "Can't open $file for writing: $!";
-        $w->shell_script($out);
-    }
-}
+Dump the configuration file to the log.
 
+=cut
 
 sub dump_config {
     my ($self) = @_;
@@ -448,10 +449,11 @@ sub dump_config {
     $log->debug("-" x 40);
 }
 
-################################################################################
-###
-### Checking available memory
-###
+=item genome_size
+
+Return an estimate of the size of the genome.
+
+=cut
 
 sub genome_size {
     my ($self) = @_;
@@ -474,11 +476,15 @@ sub genome_size {
         $gs3 += 1;
     }
 
-    my $genome_size = $gs1 - $gs2 - $gs3;
-    my $gs4 = &format_large_int($genome_size);
-    my $gsz = $genome_size / 1000000000;
-    my $min_ram = int($gsz * 1.67)+1;
+    return $gs1 - $gs2 - $gs3;
 }
+
+=item check_ram
+
+Make sure there seems to be enough ram, based on the size of the
+genome.
+
+=cut
 
 sub check_ram {
 
@@ -554,6 +560,12 @@ sub check_ram {
     }
 
 }
+
+=item available_ram
+
+Attempt to figure out how much ram is available, and return it.
+
+=cut
 
 sub available_ram {
 
@@ -633,13 +645,30 @@ $LOGO = <<'EOF';
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 EOF
 
-
-################################################################################
-###
-### Finishing up
-###
-
-
-
 1;
 
+__END__
+
+sub print_stats {
+    my $ufpfile = $
+    my $ufpfile = $output_dir/u_footprint.txt`;
+    chomp($ufpfile);
+    $ufpfile =~ /(\d+)$/;
+    my $uf = $1;
+    my $nufpfile = `cat $output_dir/nu_footprint.txt`;
+    chomp($nufpfile);
+    $nufpfile =~ /(\d+)$/;
+    my $nuf = $1;
+    my $UF = &format_large_int($uf);
+    my $NUF = &format_large_int($nuf);
+    
+    my $UFp = int($uf / $genome_size * 10000) / 100;
+    my $NUFp = int($nuf / $genome_size * 10000) / 100;
+    
+    my $gs4 = &format_large_int($genome_size);
+    $log->info("genome size: $gs4\n");
+    $log->info("number of bases covered by unique mappers: $UF ($UFp%)\n");
+    $log->info("number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n");    
+}
+
+=back

@@ -1,12 +1,27 @@
 package RUM::Action::Clean;
 
+=head1 NAME
+
+RUM::Action::Clean - Clean up temp files from a rum job
+
+=head1 METHODS
+
+=over 4
+
+=cut
+
 use strict;
 use warnings;
 
 use Getopt::Long;
 use Text::Wrap qw(wrap fill);
-
 use base 'RUM::Base';
+
+=item run
+
+Run the action: parse @ARGV, cleanup temp files.
+
+=cut
 
 sub run {
     my ($class) = @_;
@@ -29,6 +44,14 @@ sub run {
 }
 
 
+=item cleanup_reads_and_quals
+
+Remove all the reads.fa.* and quals.fa.* files. The preprocessing step
+(which produces these files) isn't yet modeled as a RUM::Workflow, so
+we can't us its clean method on these files.
+
+=cut
+
 sub cleanup_reads_and_quals {
     my ($self) = @_;
     for my $chunk ($self->chunk_nums) {
@@ -39,10 +62,17 @@ sub cleanup_reads_and_quals {
 
 }
 
+=item clean
+
+Remove intermediate files.
+
+=cut
+
 sub clean {
     my ($self) = @_;
     my $c = $self->config;
     my $d = $self->directives;
+    my $dir = $c->output_dir;
 
     # If user ran rum_runner --clean, clean up all the results from
     # the chunks; just leave the merged files.
@@ -70,6 +100,12 @@ sub clean {
     if ($d->postprocess) {
         RUM::Workflows->postprocessing_workflow($c)->clean($d->veryclean);
     }
+
+    if ($d->veryclean) {
+        system "rm -f $dir/_tmp_* $dir/*.log $dir/rum.error-log";
+    }
 }
 
 1;
+
+=back

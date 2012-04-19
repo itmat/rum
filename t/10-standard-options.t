@@ -44,6 +44,10 @@ my @libs;
 
 find sub {
     /^(\w*)\.pm$/ or return;
+    # Skip Main. We know it doesn't support --verbose, --quiet, or
+    # --help, because it delegates to other classes for command-line
+    # parsing.
+    return if m{Main.pm};
     push @libs, ["RUM/Script/$_", "RUM::Script::$1"];
 }, "$Bin/../lib/RUM/Script";
 

@@ -1,5 +1,18 @@
 package RUM::Action::Diagram;
 
+=head1 NAME
+
+RUM::Action::Diagram - Create a diagram of the workflow. EXPERIMENTAL!
+
+=head1 DESCRIPTION
+
+Creates a dotty diagram of the workflow. Doesn't really work too well;
+just useful for development debugging purposes.
+
+=over 4
+
+=cut
+
 use strict;
 use warnings;
 
@@ -7,6 +20,13 @@ use Getopt::Long;
 use Text::Wrap qw(wrap fill);
 
 use base 'RUM::Base';
+
+=item run
+
+Run the action parsing the command-line options and, creating the
+diagram.
+
+=cut
 
 sub run {
     my ($class) = @_;
@@ -22,6 +42,12 @@ sub run {
     $self->{config} = RUM::Config->load($dir);
     $self->diagram;
 }
+
+=item diagram
+
+Actually create the diagram.
+
+=cut
 
 sub diagram {
     my ($self) = @_;
@@ -49,5 +75,6 @@ sub diagram {
     }
 }
 
-
 1;
+
+=back

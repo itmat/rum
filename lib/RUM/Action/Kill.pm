@@ -1,5 +1,17 @@
 package RUM::Action::Kill;
 
+=head1 NAME
+
+RUM::Action::Kill - Kill a rum job
+
+=head1 DESCRIPTION
+
+Kills a running rum job.
+
+=over 4
+
+=cut
+
 use strict;
 use warnings;
 
@@ -7,6 +19,12 @@ use Getopt::Long;
 use Text::Wrap qw(wrap fill);
 
 use base 'RUM::Base';
+
+=item run
+
+Kill the job.
+
+=cut
 
 sub run {
     my ($class) = @_;
@@ -26,3 +44,5 @@ sub run {
 }
 
 1;
+
+=back
