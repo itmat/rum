@@ -30,9 +30,6 @@ use warnings;
 
 use Carp;
 
-use RUM::Logging;
-our $log = RUM::Logging->get_logger;
-
 our $FILE;
 
 =item acquire($filename)
@@ -45,7 +42,6 @@ by "someone".
 
 sub acquire {
     my ($self, $file) = @_;
-    warn "Here I am\n";
     return undef if -e $file;
     $FILE = $file;
     open my $out, ">", $file or croak "Can't open lock file $file: $!";
@@ -63,12 +59,8 @@ do nothing.
 
 sub release {
     if ($FILE) {
-        $log->info("Releasing lock $FILE") ;
         unlink $FILE if $FILE;
         undef $FILE;
-    }
-    else {
-        $log->info("No lock file to release");
     }
 }
 

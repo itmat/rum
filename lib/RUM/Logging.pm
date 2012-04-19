@@ -105,6 +105,7 @@ use warnings;
 use FindBin qw($Bin);
 use RUM::Logger;
 use File::Spec qw(splitpath);
+use RUM::Lock;
 
 our $LOGGING_DIR;
 

@@ -455,6 +455,10 @@ sub _process_in_chunks {
         $task->run;
     }
 
+    $self->say(
+        "All chunks initiated, now the long wait...",
+        "I'm going to watch for all chunks to finish, then I will merge everything");
+
     # Repeatedly wait for one of my children to exit. Check the
     # exit status, and if it is non-zero, attempt to restart the
     # child process unless it has failed too many times.
@@ -516,7 +520,6 @@ sub postprocess {
 
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
     $w->execute($self->_step_printer($w));
-
 }
 
 sub _reads {

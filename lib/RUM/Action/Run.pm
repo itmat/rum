@@ -56,28 +56,41 @@ sub run {
     my ($class) = @_;
     my $self = $class->new;
     $self->get_options();
-
+    my $c = $self->config;
     my $d = $self->directives;
     $self->check_config;        
     $self->check_gamma;
     $self->setup;
     $self->get_lock;
-
-
     $self->show_logo;
     
-    $self->check_ram unless $d->child;
+    my $platform = $self->platform;
+    my $platform_name = $c->platform;
+    my $local = $platform_name =~ /Local/;
+    
+    $self->check_ram if $local;
     $self->config->save unless $d->child;
     $self->dump_config;
     
-    my $platform = $self->platform;
-    
-    if ( ref($platform) !~ /Local/ && ! ( $d->parent || $d->child ) ) {
+    if ( !$local && ! ( $d->parent || $d->child ) ) {
         $self->logsay("Submitting tasks and exiting");
         $platform->start_parent;
         return;
     }
-    
+    my $dir = $self->config->output_dir;
+    $self->say(
+        "If this is a big job, you should keep an eye on the rum_errors*.log",
+        "files in the output directory. If all goes well they should be empty.",
+        "You can also run \"$0 status -o $dir\" to check the status of the job.");
+
+    unless ($local) {
+        $self->say(
+            "You are running this job on a $platform_name cluster. ",
+            "I am going to assume each node has sufficient RAM for this. ",
+            "If you are running a mammalian genome then you should have at ",
+            "least 6 Gigs per node");
+    }
+
     if ($d->preprocess || $d->all) {
         $platform->preprocess;
     }
@@ -86,9 +99,9 @@ sub run {
     }
     if ($d->postprocess || $d->all) {
         $platform->postprocess;
+        $self->_print_stats;
+        $self->_final_check;
     }
-    $self->_print_stats;
-    $self->_final_check;
     RUM::Lock->release;
 }
 
@@ -677,7 +690,6 @@ sub _print_stats {
         "genome size: $gs4",
         "number of bases covered by unique mappers: $UF ($UFp%)",
         "number of bases covered by non-unique mappers: $NUF ($NUFp%)");
-
     
     $log->info("$_\n") for @lines;
     my $mapping_stats = $c->in_output_dir("mapping_stats.txt");
