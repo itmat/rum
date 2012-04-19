@@ -6,7 +6,7 @@ no warnings;
 use RUM::Common qw(reversecomplement);
 use RUM::Logging;
 
-my $log = RUM::Logging->get_logger();
+our $log = RUM::Logging->get_logger();
 
 =pod
 

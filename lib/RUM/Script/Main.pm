@@ -3,19 +3,6 @@ package RUM::Script::Main;
 use strict;
 use warnings;
 
-use RUM::Action::Clean;
-use RUM::Action::Diagram;
-use RUM::Action::Help;
-use RUM::Action::Kill;
-use RUM::Action::Run;
-use RUM::Action::Status;
-use RUM::Action::Version;
-
-use RUM::Usage;
-use RUM::Directives;
-use RUM::Config;
-use RUM::Workflows;
-
 our %ACTIONS = (
     help => "RUM::Action::Help",
     '-h' => "RUM::Action::Help",
@@ -35,13 +22,17 @@ sub main {
     my $action = shift(@ARGV) || "";
 
     if (!$action) {
-        RUM::Usage->bad("Please specify an action");
+        die "Please specify an action\n";
     }
 
     elsif (my $class = $ACTIONS{$action}) {
+        my $file = $class;
+        $file =~ s/::/\//g;
+        $file .= ".pm";
+        require $file;
         $class->run;
     }
     else {
-        RUM::Usage->bad("Unknown action '$action'");
+        die "Unknown action '$action'\n";
     }
 }

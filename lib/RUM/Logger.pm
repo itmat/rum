@@ -1,4 +1,3 @@
-
 package RUM::Logger;
 
 =head1 NAME

@@ -106,15 +106,28 @@ use FindBin qw($Bin);
 use RUM::Logger;
 use File::Spec qw(splitpath);
 
+our $LOGGING_DIR;
+
+BEGIN { 
+    for (my $i = 0; $i < @ARGV; $i++) {
+        local $_ = $ARGV[$i];
+        if (/^(-o|--output|--out|--output-dir)/) {
+            $LOGGING_DIR = $ARGV[$i+1];
+            last;
+        }
+    }
+}
+
 FindBin->again();
 
 our $LOG4PERL = "Log::Log4perl";
 our $LOGGER_CLASS;
+our $LOG_FILE;
+our $ERROR_LOG_FILE;
 
 our $LOG4PERL_MISSING_MSG = <<EOF;
 You don't seem to have $LOG4PERL installed. You may want to install it
 via "cpan -i $LOG4PERL" so you can use advanced logging features.
-
 EOF
 
 $SIG{__DIE__} = sub {
@@ -127,6 +140,10 @@ $SIG{__DIE__} = sub {
 };
 
 sub _init {
+    my ($class) = @_;
+    my $chunk = $ENV{RUM_CHUNK} ? sprintf("_%03d", $ENV{RUM_CHUNK}) : "";
+    $LOG_FILE       = "$LOGGING_DIR/rum$chunk.log";
+    $ERROR_LOG_FILE = "$LOGGING_DIR/rum_errors$chunk.log";
     $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
 }
 
@@ -137,10 +154,11 @@ our @LOG4PERL_CONFIGS = (
         "$Bin/../conf/rum_logging.conf",  # config file included in distribution
     );
 
-push @LOG4PERL_CONFIGS, map { "$_/../conf/rum_logging.conf" } @INC;
+push @LOG4PERL_CONFIGS, map { "$_/RUM/rum_logging.conf" } @INC;
+
+__PACKAGE__->_init;
 
 sub _init_log4perl {
-
     # Try to load Log::Log4perl, and if we can't just return so we
     # fall back to RUM::Logger.
     eval {
@@ -158,7 +176,6 @@ sub _init_log4perl {
     # Now try to initialize Log::Log4perl with a config file.
     my @configs = grep { -r } @LOG4PERL_CONFIGS;
     my $config = $configs[0];
-
     eval {
         Log::Log4perl->init($config);
         my $log = Log::Log4perl->get_logger();
@@ -175,8 +192,6 @@ sub _init_rum_logger {
     $LOGGER_CLASS = "RUM::Logger";
     $LOGGER_CLASS->init();
 }
-
-__PACKAGE__->_init;
 
 =head1 CLASS METHODS
 
@@ -201,6 +216,10 @@ $name, uses the package name of the caller as the name. For example:
 
 sub get_logger {
     my ($self, $name) = @_;
+
+    unless ($LOGGER_CLASS) {
+        _init_rum_logger;
+    }
 
     unless (defined($name)) {
         my ($package) = caller(0);
