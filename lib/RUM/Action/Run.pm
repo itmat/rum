@@ -56,28 +56,41 @@ sub run {
     my ($class) = @_;
     my $self = $class->new;
     $self->get_options();
-
+    my $c = $self->config;
     my $d = $self->directives;
     $self->check_config;        
     $self->check_gamma;
     $self->setup;
     $self->get_lock;
-
-
     $self->show_logo;
     
-    $self->check_ram unless $d->child;
+    my $platform = $self->platform;
+    my $platform_name = $c->platform;
+    my $local = $platform_name =~ /Local/;
+    
+    $self->check_ram if $local;
     $self->config->save unless $d->child;
     $self->dump_config;
     
-    my $platform = $self->platform;
-    
-    if ( ref($platform) !~ /Local/ && ! ( $d->parent || $d->child ) ) {
-        $self->say("Submitting tasks and exiting");
+    if ( !$local && ! ( $d->parent || $d->child ) ) {
+        $self->logsay("Submitting tasks and exiting");
         $platform->start_parent;
         return;
     }
-    
+    my $dir = $self->config->output_dir;
+    $self->say(
+        "If this is a big job, you should keep an eye on the rum_errors*.log",
+        "files in the output directory. If all goes well they should be empty.",
+        "You can also run \"$0 status -o $dir\" to check the status of the job.");
+
+    unless ($local) {
+        $self->say(
+            "You are running this job on a $platform_name cluster. ",
+            "I am going to assume each node has sufficient RAM for this. ",
+            "If you are running a mammalian genome then you should have at ",
+            "least 6 Gigs per node");
+    }
+
     if ($d->preprocess || $d->all) {
         $platform->preprocess;
     }
@@ -86,6 +99,8 @@ sub run {
     }
     if ($d->postprocess || $d->all) {
         $platform->postprocess;
+        $self->_print_stats;
+        $self->_final_check;
     }
     RUM::Lock->release;
 }
@@ -171,7 +186,7 @@ sub get_options {
     !$c or ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
     my $did_load;
     if ($c) {
-        $self->say("Using settings found in " . $c->settings_filename);
+        $self->logsay("Using settings found in " . $c->settings_filename);
         $did_load = 1;
     }
     else {
@@ -458,7 +473,7 @@ Return an estimate of the size of the genome.
 sub genome_size {
     my ($self) = @_;
 
-    $self->say("Determining how much RAM you need based on your genome.");
+    $self->logsay("Determining how much RAM you need based on your genome.");
 
     my $c = $self->config;
     my $genome_blat = $c->genome_fa;
@@ -527,12 +542,12 @@ sub check_ram {
     if ($totalram) {
 
         if($RAMperchunk >= $min_ram) {
-            $self->say(sprintf(
+            $self->logsay(sprintf(
                 "It seems like you have %.2f Gb of RAM on ".
                 "your machine. Unless you have too much other stuff ".
                 "running, RAM should not be a problem.", $RAMperchunk));
         } else {
-            $self->say(
+            $self->logsay(
                 "Warning: you have only $RAMperchunk Gb of RAM ",
                 "per chunk.  Based on the size of your genome ",
                 "you will probably need more like $min_ram Gb ",
@@ -555,6 +570,7 @@ sub check_ram {
 
         $c->set('ram', $ram);
         $c->set('ram_ok', 1);
+        $c->set('genome_size', $genome_size);
         $c->save;
         # sleep($PAUSE_TIME);
     }
@@ -647,28 +663,105 @@ EOF
 
 1;
 
-__END__
+sub _read_footprint {
+    my ($self, $filename) = @_;
+    open my $in, "<", $filename or croak
+        "Can't open footprint file $filename: $!";
+    local $_ = <$in>;
+    chomp;
+    /(\d+)$/ and return $1;
+}
 
-sub print_stats {
-    my $ufpfile = $
-    my $ufpfile = $output_dir/u_footprint.txt`;
-    chomp($ufpfile);
-    $ufpfile =~ /(\d+)$/;
-    my $uf = $1;
-    my $nufpfile = `cat $output_dir/nu_footprint.txt`;
-    chomp($nufpfile);
-    $nufpfile =~ /(\d+)$/;
-    my $nuf = $1;
+sub _print_stats {
+    my ($self) = @_;
+    my $c = $self->config;
+    my $uf = $self->_read_footprint($c->in_output_dir("u_footprint.txt"));
+    my $nuf = $self->_read_footprint($c->in_output_dir("nu_footprint.txt"));
+    my $genome_size = $c->genome_size;
     my $UF = &format_large_int($uf);
     my $NUF = &format_large_int($nuf);
-    
+
     my $UFp = int($uf / $genome_size * 10000) / 100;
     my $NUFp = int($nuf / $genome_size * 10000) / 100;
     
     my $gs4 = &format_large_int($genome_size);
-    $log->info("genome size: $gs4\n");
-    $log->info("number of bases covered by unique mappers: $UF ($UFp%)\n");
-    $log->info("number of bases covered by non-unique mappers: $NUF ($NUFp%)\n\n");    
+
+    my @lines = (
+        "genome size: $gs4",
+        "number of bases covered by unique mappers: $UF ($UFp%)",
+        "number of bases covered by non-unique mappers: $NUF ($NUFp%)");
+    
+    $log->info("$_\n") for @lines;
+    my $mapping_stats = $c->in_output_dir("mapping_stats.txt");
+    open my $in, "<", $mapping_stats or croak "Can't read from $mapping_stats: $!";
+    my $newfile = "";
+    while (local $_ = <$in>) {
+        chomp;;
+        next if /chr_name/;
+        if(/RUM_Unique reads per chromosome/) {
+            for my $line (@lines) {
+                $newfile = $newfile . "$line\n";
+            }
+        }
+        $newfile = $newfile . "$_\n";
+    }
+    open my $out, ">", $mapping_stats or croak "Can't write to $mapping_stats: $!";
+    print $out $newfile;
+}
+
+sub _all_files_end_with_newlines {
+    my ($self, $file) = @_;
+    my $c = $self->config;
+
+    my @files = qw(
+                      RUM_Unique
+                      RUM_NU
+                      RUM_Unique.cov
+                      RUM_NU.cov
+                      RUM.sam
+                      
+              );
+
+    if ($c->should_quantify) {
+        push @files, "feature_quantifications_" . $c->name;
+    }
+    if ($c->should_do_junctions) {
+        push @files, ('junctions_all.rum',
+                      'junctions_all.bed',
+                      'junctions_high-quality.bed');
+    }
+
+    my $result = 1;
+    
+    for $file (@files) {
+        my $file = $self->config->in_output_dir($file);
+        my $tail = `tail $file`;
+        
+        unless ($tail =~ /\n$/) {
+            $log->error("RUM_Unique does not end with a newline, that probably means it is incomplete.");
+            $result = 0;
+        }
+    }
+    if ($result) {
+        $log->info("All files end with a newline, that's good");
+    }
+    return $result;
+}
+
+sub _final_check {
+    my ($self) = @_;
+    my $ok = 1;
+    
+    $self->say();
+    $self->logsay("Checking for errors");
+    $self->logsay("-------------------");
+
+    $ok = $self->_chunk_error_logs_are_empty && $ok;
+    $ok = $self->_all_files_end_with_newlines && $ok;
+
+    if ($ok) {
+        $self->logsay("No errors. Very good!");
+    }
 }
 
 =back

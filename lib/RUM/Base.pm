@@ -29,8 +29,11 @@ use strict;
 use warnings;
 
 use Carp;
-
 use Text::Wrap qw(wrap fill);
+
+use RUM::Logging;
+
+our $log = RUM::Logging->get_logger();
 
 =head1 CONSTRUCTOR
 
@@ -86,9 +89,25 @@ Print a message to the user, wrapping long lines.
 
 sub say {
     my ($self, @msg) = @_;
-    #$log->info("@msg");
     print wrap("", "", @msg) . "\n" unless $self->directives->quiet;
 }
+
+sub logsay {
+    my ($self, @msg) = @_;
+    $self->say(@msg);
+    my $package;
+    ref($self) =~ /(.*)=/ and $package = $1;
+    RUM::Logging->get_logger($package)->info(@msg);
+}
+
+sub alert {
+    my ($self, @msg) = @_;
+    my $package;
+    ref($self) =~ /(.*)=/ and $package = $1;
+    RUM::Logging->get_logger($package)->warn(@msg);
+}
+
+
 
 =item chunk_nums
 
@@ -123,7 +142,33 @@ sub platform {
     my $platform = $class->new($self->config, $self->directives);
 }
 
+sub _chunk_error_logs_are_empty {
+    my ($self) = @_;
+    my $c = $self->config;
+    my $result = 1;
+    for my $chunk ($self->chunk_nums) {
+        my $log_file = $c->for_chunk($chunk)->error_log_file;
+        if (-s $log_file) {
+            $self->alert("!!! Chunk $chunk had errors, please check $log_file");
+            $result = 0;
+        }
+    }
 
+    if ($result) {
+        $self->logsay("All the chunk error log files were empty, that's good");
+    }
+
+    my $log_file = $c->error_log_file;
+    if (-s $log_file) {
+        $log->warn("!!! Main log file had errors, please check $log_file");
+        $result = 0;
+    }
+    else {
+        $self->logsay("Main error log file is empty, that's good");
+    }
+
+    return $result;
+}
 
 =back
 

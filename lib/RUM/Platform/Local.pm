@@ -397,6 +397,7 @@ sub process {
     $log->debug("Chunk is ". ($config->chunk ? "yes" : "no"));
 
     my $n = $config->num_chunks || 1;
+    $self->say();
     $self->say("Processing in $n chunks");
     $self->say("-----------------------");
 
@@ -454,6 +455,10 @@ sub _process_in_chunks {
         $task->run;
     }
 
+    $self->say(
+        "All chunks initiated, now the long wait...",
+        "I'm going to watch for all chunks to finish, then I will merge everything");
+
     # Repeatedly wait for one of my children to exit. Check the
     # exit status, and if it is non-zero, attempt to restart the
     # child process unless it has failed too many times.
@@ -509,12 +514,12 @@ Runs the postprocessing phase, in the current process.
 
 sub postprocess {
     my ($self) = @_;
+    $self->say();
     $self->say("Postprocessing");
     $self->say("--------------");
 
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
     $w->execute($self->_step_printer($w));
-
 }
 
 sub _reads {

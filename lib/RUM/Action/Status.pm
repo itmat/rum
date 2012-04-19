@@ -26,6 +26,8 @@ sub run {
     $self->{config} = RUM::Config->load($dir);
     $self->print_processing_status if $d->process || $d->all;
     $self->print_postprocessing_status if $d->postprocess || $d->all;
+    $self->say();
+    $self->_chunk_error_logs_are_empty;
 }
 
 sub print_processing_status {
@@ -66,10 +68,6 @@ sub print_processing_status {
         my $error_log = $config->error_log_file;
 
         $w->walk_states($handle_state);
-        if (-s $config->error_log_file) {
-            push @errored_chunks, "!!! There are errors in the error log file for chunk $chunk: $error_log";
-        }
-
     }
 
     my $n = @chunks;
@@ -111,5 +109,7 @@ sub print_postprocessing_status {
     };
     $postproc->walk_states($handle_state);
 }
+
+
 
 1;

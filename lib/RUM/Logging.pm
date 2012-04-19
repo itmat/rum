@@ -105,6 +105,7 @@ use warnings;
 use FindBin qw($Bin);
 use RUM::Logger;
 use File::Spec qw(splitpath);
+use RUM::Lock;
 
 our $LOGGING_DIR;
 
@@ -145,6 +146,7 @@ $SIG{__DIE__} = sub {
         # this message but catch it later
         return;
     }
+    RUM::Lock->release;
     RUM::Logging->get_logger("RUM::Death")->logdie(@_);
 };
 
