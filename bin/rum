@@ -27,13 +27,25 @@ rum - RNA-Seq Unified Mapper
 
 =head1 DESCRIPTION
 
-Runs the RUM pipeline.
+Use this program to run the RUM pipeline, as well as to do things like
+check the status of a job, kill a job, and clean up after a job.
 
-TODO: Describe typical usage.
+Every time you run rum you must give it an action that tells it what
+to do. When you run the pipeline using C<rum run>, rum puts all of its
+output files in one directory, specified by the B<-o> or B<--output>
+option, or the current directory of one of those options isn't
+supplied. While the job is running you can check the status by running
+C<rum status> in the output directory or C<rum status -o dir>, where
+dir is the output directory. You can kill it by running C<rum kill> or
+C<rum kill -o dir>.
+
+=head2 Index Configuration
 
 Default config files are supplied with each organism.  If you need to
 make or modify one then running RUM_runner.pl with the one argument
 'config' gives an explanation of the the file.
+
+=head2 Tips
 
 This program writes very large intermediate files.  If you have a
 large genome such as mouse or human then it is recommended to run in
