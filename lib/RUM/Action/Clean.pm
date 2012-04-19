@@ -1,5 +1,15 @@
 package RUM::Action::Clean;
 
+=head1 NAME
+
+RUM::Action::Clean - Clean up temp files from a rum job
+
+=head1 METHODS
+
+=over 4
+
+=cut
+
 use strict;
 use warnings;
 
@@ -7,6 +17,12 @@ use Getopt::Long;
 use Text::Wrap qw(wrap fill);
 
 use base 'RUM::Base';
+
+=item run
+
+Run the action: parse @ARGV, cleanup temp files.
+
+=cut
 
 sub run {
     my ($class) = @_;
@@ -29,6 +45,14 @@ sub run {
 }
 
 
+=item cleanup_reads_and_quals
+
+Remove all the reads.fa.* and quals.fa.* files. The preprocessing step
+(which produces these files) isn't yet modeled as a RUM::Workflow, so
+we can't us its clean method on these files.
+
+=cut
+
 sub cleanup_reads_and_quals {
     my ($self) = @_;
     for my $chunk ($self->chunk_nums) {
@@ -38,6 +62,12 @@ sub cleanup_reads_and_quals {
     }
 
 }
+
+=item clean
+
+Remove intermediate files.
+
+=cut
 
 sub clean {
     my ($self) = @_;
@@ -73,3 +103,5 @@ sub clean {
 }
 
 1;
+
+=back

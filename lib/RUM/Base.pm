@@ -107,6 +107,12 @@ sub chunk_nums {
     return (1 .. $c->num_chunks || 1)
 }
 
+=item platform
+
+Return the platform that this job is configured to run on.
+
+=cut
+
 sub platform {
     my ($self) = @_;
 
