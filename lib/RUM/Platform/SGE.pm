@@ -103,6 +103,18 @@ sub start_parent {
     $self->save;
 }
 
+=item ram_args
+
+Return a list of ram-related arguments to pass to qsub.
+
+=cut
+
+sub ram_args {
+    my ($self) = @_;
+    my $ram = $self->config->ram . "G";
+    ("-l", "mem_free=$ram,h_vmem=$ram");
+}
+
 =item submit_preproc
 
 Submits the preprocessing task, adds the job ids to my state, and
@@ -135,7 +147,7 @@ sub submit_proc {
 
     my @prereqs = @{ $self->_preproc_jids };
 
-    my @args;
+    my @args = $self->ram_args;
     my @jids;
 
     if (@prereqs) {
@@ -173,7 +185,7 @@ sub submit_postproc {
     my ($self, $c) = @_;
     $log->info("Submitting postprocessing job");
     my $sh = $self->_write_shell_script("postproc");
-    my $jid = $self->_qsub($sh);
+    my $jid = $self->_qsub($self->ram_args, $sh);
     push @{ $self->_postproc_jids }, $jid;
     $self->save;
 }

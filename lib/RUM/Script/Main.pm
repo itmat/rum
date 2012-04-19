@@ -17,16 +17,16 @@ use RUM::Config;
 use RUM::Workflows;
 
 our %ACTIONS = (
-    help => "RUM::Action::Help",
-    '-h' => "RUM::Action::Help",
-    '-help' => "RUM::Action::Help",
+    help     => "RUM::Action::Help",
+    '-h'     => "RUM::Action::Help",
+    '-help'  => "RUM::Action::Help",
     '--help' => "RUM::Action::Help",
-    version => "RUM::Action::Version",
-    status  => "RUM::Action::Status",
-    diagram => "RUM::Action::Diagram",
-    clean   => "RUM::Action::Clean",
-    kill    => "RUM::Action::Kill",
-    run     => "RUM::Action::Run"
+    version  => "RUM::Action::Version",
+    status   => "RUM::Action::Status",
+    diagram  => "RUM::Action::Diagram",
+    clean    => "RUM::Action::Clean",
+    kill     => "RUM::Action::Kill",
+    run      => "RUM::Action::Run"
 );
 
 sub main {

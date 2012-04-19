@@ -21,6 +21,8 @@ sub run {
     $self->{config} = RUM::Config->load($dir);
     $self->say("Killing job");
     $self->platform->stop;
+    $RUM::Lock::FILE = $self->config->in_output_dir(".rum/lock");
+    RUM::Lock->release;
 }
 
 1;
