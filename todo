@@ -1,11 +1,12 @@
-Check log files for errors?
-Add back disk space check
 Add quality checks
 Print final stats to log file
+
+Check log files for errors?
+Add back disk space check
+
 Print out email address if we give up?
 Make sure we print out all the same messages
-Add --help, -h.
-Change docs to focus on -o
+
 
 Done
 ----
@@ -24,7 +25,8 @@ Doesn't produce chunk logs without log4perl
 Require a flag to actually run it
 Save automatically, but only once
 Make sure we can run it from a different directory
-
+Add --help, -h.
+Change docs to focus on -o
 
 Won't do
 --------
