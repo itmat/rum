@@ -1,16 +1,15 @@
-Add quality checks
-Print final stats to log file
 
-Check log files for errors?
 Add back disk space check
 
 Print out email address if we give up?
 Make sure we print out all the same messages
 
-
 Done
 ----
 
+Add quality checks
+Print final stats to log file
+Check log files for errors?
 Don't run if already running in dir (based on lock file)
 Assemble sam file
 Qsub job should exit immediately
