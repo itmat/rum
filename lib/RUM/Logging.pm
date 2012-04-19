@@ -116,6 +116,7 @@ BEGIN {
             last;
         }
     }
+    $LOGGING_DIR ||= ".";
 }
 
 FindBin->again();
