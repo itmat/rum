@@ -25,14 +25,7 @@ use RUM::Workflows;
 use RUM::Usage;
 use RUM::Pipeline;
 use RUM::Common qw(format_large_int);
-
 use RUM::Lock;
-use RUM::Action::Help;
-use RUM::Action::Version;
-use RUM::Action::Status;
-use RUM::Action::Diagram;
-use RUM::Action::Clean;
-use RUM::Action::Kill;
 
 use base 'RUM::Base';
 
@@ -165,7 +158,6 @@ sub get_options {
         "force|f"   => \(my $force),
         "quiet|q"   => sub { $log->less_logging(1); $quiet = 1; },
         "verbose|v" => sub { $log->more_logging(1) },
-
     );
 
     if ($lock) {
