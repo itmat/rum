@@ -44,6 +44,7 @@ bin/parsefasta.pl
 bin/parsefastq.pl
 bin/quantifyexons.pl
 bin/removedups.pl
+bin/rum
 bin/rum-config
 bin/rum-test-data-tool
 bin/rum2cov.pl
@@ -55,7 +56,6 @@ bin/rum_install.pl
 bin/rum_junctions_to_bed
 bin/rum_merge_junctions
 bin/rum_merge_sam_headers.pl
-bin/rum_runner
 bin/RUM_runner.pl
 bin/rum_sort.pl
 bin/sam2junctions.pl
@@ -79,6 +79,14 @@ doc/cmpChrs-changes.md
 doc/goals
 doc/how2setup_genome-indexes_forPipeline.txt
 doc/indexing.pod
+lib/RUM/Action.pm
+lib/RUM/Action/Clean.pm
+lib/RUM/Action/Diagram.pm
+lib/RUM/Action/Help.pm
+lib/RUM/Action/Kill.pm
+lib/RUM/Action/Run.pm
+lib/RUM/Action/Status.pm
+lib/RUM/Action/Version.pm
 lib/RUM/Base.pm
 lib/RUM/Common.pm
 lib/RUM/Config.pm
@@ -87,6 +95,7 @@ lib/RUM/CoverageMap.pm
 lib/RUM/Directives.pm
 lib/RUM/FileIterator.pm
 lib/RUM/Heap.pm
+lib/RUM/Lock.pm
 lib/RUM/Logger.pm
 lib/RUM/Logging.pm
 lib/RUM/Pipeline.pm
@@ -103,6 +112,7 @@ lib/RUM/Script/GetInferredInternalExons.pm
 lib/RUM/Script/GetNuStats.pm
 lib/RUM/Script/JunctionsToBed.pm
 lib/RUM/Script/LimitNU.pm
+lib/RUM/Script/Main.pm
 lib/RUM/Script/MakeGuAndGnu.pm
 lib/RUM/Script/MakeRumJunctionsFile.pm
 lib/RUM/Script/MakeTuAndTnu.pm
@@ -122,7 +132,6 @@ lib/RUM/Script/RemoveDups.pm
 lib/RUM/Script/RumToCov.pm
 lib/RUM/Script/RumToQuantifications.pm
 lib/RUM/Script/RumToSam.pm
-lib/RUM/Script/Runner.pm
 lib/RUM/Script/SortByLocation.pm
 lib/RUM/Script/SortRumById.pm
 lib/RUM/Script/SortRumByLocation.pm
