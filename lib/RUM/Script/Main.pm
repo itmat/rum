@@ -3,8 +3,9 @@ package RUM::Script::Main;
 use strict;
 use warnings;
 
-use RUM::Directives;
 use RUM::Config;
+use RUM::Directives;
+use RUM::Usage;
 use RUM::Workflows;
 
 
@@ -27,7 +28,7 @@ sub main {
     my $action = shift(@ARGV) || "";
 
     if (!$action) {
-        die "Please specify an action\n";
+        RUM::Usage->bad("Please specify an action");
     }
 
     elsif (my $class = $ACTIONS{$action}) {
@@ -38,6 +39,6 @@ sub main {
         $class->run;
     }
     else {
-        die "Unknown action '$action'\n";
+        RUM::Usage->bad("Unknown action '$action'");
     }
 }

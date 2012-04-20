@@ -223,7 +223,7 @@ sub get_options {
         my $existing = $c->get($k);
         if (defined($existing) && $existing ne $v) {
             $did_set = 1;
-            $log->warn("Changing $k from $existing to $v");
+            warn "Changing $k from $existing to $v";
         }
         
         $c->set($k, $v);

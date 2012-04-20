@@ -58,9 +58,9 @@ sub new {
     my $dir = $config->output_dir;
 
     $self->{cmd} = {};
-    $self->{cmd}{preproc}  =  "perl $0 run --child --output $dir --preprocess";
-    $self->{cmd}{proc}     =  "perl $0 run --child --output $dir --chunk \$SGE_TASK_ID";
-    $self->{cmd}{postproc} =  "perl $0 run --child --output $dir --postprocess";
+    $self->{cmd}{preproc}  =  "perl $0 align --child --output $dir --preprocess";
+    $self->{cmd}{proc}     =  "perl $0 align --child --output $dir --chunk \$SGE_TASK_ID";
+    $self->{cmd}{postproc} =  "perl $0 align --child --output $dir --postprocess";
 
     $self->{jids}{$_} = [] for @JOB_TYPES;
 

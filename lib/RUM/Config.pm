@@ -39,8 +39,8 @@ our %DEFAULTS = (
     blat_max_intron => 500000,
 
     output_dir => ".",
-    name => "",
-    rum_config_file => "",
+    name => undef,
+    rum_config_file => undef,
     reads => undef,
     user_quals => undef,
     alt_genes => undef,

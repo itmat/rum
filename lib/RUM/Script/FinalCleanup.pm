@@ -44,11 +44,14 @@ sub main {
     $sam_header_out or RUM::Usage->bad(
         "Please provide sam header output file with --sam-header-out");
 
+    my (undef, $dir, undef) = File::Spec->splitpath($unique_out);
+
     if (!$faok) {
         $log->info("Modifying genome fa file");
 
-        my $fh = File::Temp->new(TEMPLATE => "final-cleanup.XXXXXXXX",
-                                 UNLINK => 1, DIR => ".");
+        my $fh = File::Temp->new(TEMPLATE => "_tmp_final_cleanup.XXXXXXXX",
+                                 UNLINK => 1, 
+                                 DIR => $dir);
 
         open(INFILE, $genome);
         $flag = 0;

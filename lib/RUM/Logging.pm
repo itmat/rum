@@ -115,7 +115,7 @@ BEGIN {
         $LOGGING_DIR = $ENV{RUM_OUTPUT_DIR};
     }
 
-    elsif ($0 =~ /rum$/) {
+    elsif ($0 =~ /rum_runner$/) {
         for (my $i = 0; $i < @ARGV; $i++) {
             local $_ = $ARGV[$i];
             if (/^(-o|--output|--out|--output-dir)/) {
@@ -193,7 +193,7 @@ sub _init_log4perl {
     eval {
         Log::Log4perl->init($config);
         my $log = Log::Log4perl->get_logger();
-        $log->debug("$0 initializing, using log4perl config at $config");
+        $log->debug("$0 initializing, dir is $LOGGING_DIR using log4perl config at $config");
     };
     if ($@) {
         warn "Error initializing $LOG4PERL with $config: $@";
