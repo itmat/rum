@@ -65,8 +65,6 @@ sub print_processing_status {
             $progress{$name} .= $completed ? "X" : " ";
             $num_completed{$name} += $completed;
         };
-        my $error_log = $config->error_log_file;
-
         $w->walk_states($handle_state);
     }
 

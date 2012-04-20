@@ -13,6 +13,7 @@ RUM::Action::Clean - Clean up temp files from a rum job
 use strict;
 use warnings;
 
+use Carp;
 use Getopt::Long;
 use Text::Wrap qw(wrap fill);
 use base 'RUM::Base';
@@ -39,7 +40,8 @@ sub run {
         "chunk=s"      => \(my $chunk),
     );
 
-    $self->{config} = RUM::Config->load($dir);
+    $self->{config} = RUM::Config->load($dir) or croak 
+        "$dir doesn't seem to be a rum output directory";
     $self->clean;
 }
 

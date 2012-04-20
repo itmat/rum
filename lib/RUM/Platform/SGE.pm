@@ -111,7 +111,11 @@ Return a list of ram-related arguments to pass to qsub.
 
 sub ram_args {
     my ($self) = @_;
-    my $ram = $self->config->ram . "G";
+    my $genome_size = $self->config->genome_size;
+    defined($genome_size) or croak "Can't submit jobs without mem estimate";
+    my $gsz = $genome_size / 1000000000;
+    my $min_ram = int($gsz * 1.67)+1;
+    my $ram = $min_ram . "G";
     ("-l", "mem_free=$ram,h_vmem=$ram");
 }
 
@@ -454,7 +458,7 @@ sub _write_shell_script {
     open my $out, ">", $filename or croak "Can't open $filename for writing: $!";
     my $cmd = $self->{cmd}{$phase} or croak "Don't have command for phase $phase";
 
-    print $out 'RUM_CHUNK=$SGE_TASK_ID\n';
+    print $out 'RUM_CHUNK=$SGE_TASK_ID' . "\n";
     print $out 'RUM_OUTPUT_DIR=' . $self->config->output_dir . "\n";
 
     print $out $self->{cmd}{$phase};

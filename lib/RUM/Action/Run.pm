@@ -68,7 +68,21 @@ sub run {
     my $platform_name = $c->platform;
     my $local = $platform_name =~ /Local/;
     
-    $self->check_ram if $local;
+    unless ($c->genome_size) {
+        $c->set('genome_size', $self->genome_size);
+    }
+
+    if ($local) {
+        $self->check_ram;
+    }
+    else {
+        $self->say(
+            "You are running this job on a $platform_name cluster. ",
+            "I am going to assume each node has sufficient RAM for this. ",
+            "If you are running a mammalian genome then you should have at ",
+            "least 6 Gigs per node");
+    }
+
     $self->config->save unless $d->child;
     $self->dump_config;
     
@@ -83,13 +97,6 @@ sub run {
         "files in the output directory. If all goes well they should be empty.",
         "You can also run \"$0 status -o $dir\" to check the status of the job.");
 
-    unless ($local) {
-        $self->say(
-            "You are running this job on a $platform_name cluster. ",
-            "I am going to assume each node has sufficient RAM for this. ",
-            "If you are running a mammalian genome then you should have at ",
-            "least 6 Gigs per node");
-    }
 
     if ($d->preprocess || $d->all) {
         $platform->preprocess;
@@ -517,7 +524,7 @@ sub check_ram {
         $c->set('ram', $available);
     }
 
-    my $genome_size = $self->genome_size;
+    my $genome_size = $c->genome_size;
     my $gs4 = &format_large_int($genome_size);
     my $gsz = $genome_size / 1000000000;
     my $min_ram = int($gsz * 1.67)+1;
@@ -570,7 +577,7 @@ sub check_ram {
 
         $c->set('ram', $ram);
         $c->set('ram_ok', 1);
-        $c->set('genome_size', $genome_size);
+
         $c->save;
         # sleep($PAUSE_TIME);
     }

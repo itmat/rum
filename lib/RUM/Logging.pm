@@ -152,9 +152,12 @@ $SIG{__DIE__} = sub {
 
 sub _init {
     my ($class) = @_;
-    my $chunk = $ENV{RUM_CHUNK} ? sprintf("_%03d", $ENV{RUM_CHUNK}) : "";
-    $LOG_FILE       = "$LOGGING_DIR/rum$chunk.log";
-    $ERROR_LOG_FILE = "$LOGGING_DIR/rum_errors$chunk.log";
+    # TODO: Get SGE_TASK_ID out of here.
+    my $chunk = $ENV{RUM_CHUNK} || $ENV{SGE_TASK_ID};
+    # Sometimes SGE_TASK_ID is set to 'undefined'
+    undef $chunk if defined($chunk) && $chunk eq 'undefined';
+    $LOG_FILE       = $class->log_file($chunk);
+    $ERROR_LOG_FILE = $class->error_log_file($chunk);
     $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
 }
 
@@ -237,6 +240,18 @@ sub get_logger {
         $name = $package;
     }
     return $LOGGER_CLASS->get_logger($name);
+}
+
+sub log_file {
+    my ($class, $chunk) = @_;
+    my $file = $chunk ? sprintf("rum_%03d.log", $chunk) : "rum.log";
+    return "$LOGGING_DIR/$file";
+}
+
+sub error_log_file {
+    my ($class, $chunk) = @_;
+    my $file = $chunk ? sprintf("rum_errors_%03d.log", $chunk) : "rum_errors.log";
+    return "$LOGGING_DIR/$file";
 }
 
 =back

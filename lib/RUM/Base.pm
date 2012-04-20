@@ -147,7 +147,7 @@ sub _chunk_error_logs_are_empty {
     my $c = $self->config;
     my $result = 1;
     for my $chunk ($self->chunk_nums) {
-        my $log_file = $c->for_chunk($chunk)->error_log_file;
+        my $log_file = RUM::Logging->error_log_file($chunk);
         if (-s $log_file) {
             $self->alert("!!! Chunk $chunk had errors, please check $log_file");
             $result = 0;
@@ -158,7 +158,7 @@ sub _chunk_error_logs_are_empty {
         $self->logsay("All the chunk error log files were empty, that's good");
     }
 
-    my $log_file = $c->error_log_file;
+    my $log_file = RUM::Logging->error_log_file;
     if (-s $log_file) {
         $log->warn("!!! Main log file had errors, please check $log_file");
         $result = 0;
