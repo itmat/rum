@@ -25,7 +25,7 @@ our $alt_quant     = "$SHARED_INPUT_DIR/alt_quant.txt";
 our $log = RUM::Logging->get_logger;
 
 BEGIN { 
-    use_ok('RUM::Action::Run') or BAIL_OUT "Couldn't load RUM::Action::Run";
+    use_ok('RUM::Action::Align') or BAIL_OUT "Couldn't load RUM::Action::Align";
     use_ok('RUM::Script::Main') or BAIL_OUT "Couldn't load RUM::Script::Main";
     
 }
@@ -87,7 +87,7 @@ sub rum {
     my @args = @_;
 
     @ARGV = @_;
-    my $rum = RUM::Action::Run->new();
+    my $rum = RUM::Action::Align->new();
     eval {
         $rum->get_options;
         $rum->check_config;
@@ -107,7 +107,7 @@ sub preprocess {
     my $rum = rum(@args);
 
     capturing_stdout { 
-        $RUM::Action::Run::log->less_logging(2);
+        $RUM::Action::Align::log->less_logging(2);
         $rum->{directives}{quiet} = 1;
         $rum->setup;
         $rum->platform->preprocess;
@@ -132,42 +132,42 @@ like(run_rum("help", "config"),
 
 
 # Check that it fails if required arguments are missing
-rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf"],
+rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf"],
              qr/please.*read files/i, "Missing read files");
 
-rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
               "1.fq", "2.fq", "3.fq"],
              qr/please.*read files/i, "Too many read files");
 
-rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
               "1.fq", "1.fq"],
              qr/same file for the forward and reverse/i,
              "Duplicate read file");
-rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
               $forward_64_fa, "$SHARED_INPUT_DIR/reads.fa"],
              qr/same size/i, "Read files are not the same size");
 
 #rum_fails_ok(["--config", $config, "--name", "asdf", "in.fq"],
 #             qr/--output/i, "Missing output dir");
 
-rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "in.fq"],
+rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "in.fq"],
              qr/--name/i, "Missing name");
 
-rum_fails_ok(["run", "--output", tmp_out(), "--name", "foo", "in.fq"],
+rum_fails_ok(["align", "--output", tmp_out(), "--name", "foo", "in.fq"],
              qr/--config/i, "Missing config");
 
-rum_fails_ok(["run", "--config", "missing-config-file",
+rum_fails_ok(["align", "--config", "missing-config-file",
               "--output", tmp_out(), "--name", "asdf", "in.fq"],
              qr/no such file/i, "Config file that doesn't exist");
 
 my $name = 'a' x 300;
 rum_fails_ok(
-    ["run", "--config", $config, "--output", tmp_out(), "--name", $name," in.fq"],
+    ["align", "--config", $config, "--output", tmp_out(), "--name", $name," in.fq"],
     qr/250 characters/, "Long name");
 
 # Check that we set some default values correctly
 {
-    my @argv = ("run", "--config", $config,
+    my @argv = ("align", "--config", $config,
                 "--output", "foo",
                 "--name", "asdf",
                 $forward_64_fq);
@@ -200,23 +200,23 @@ is(rum("--config", $config,
    "Clean up name with invalid characters");
 
 # Check that rum fails if a read file is missing
-rum_fails_ok(["run","--config", $config, "--output", tmp_out(),
+rum_fails_ok(["align","--config", $config, "--output", tmp_out(),
               "--name", "asdf", "asdf.fq", "-q"],
              qr/asdf.fq.*no such file or directory/i,
              "Read file doesn't exist");    
-rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
               $forward_64_fq, "asdf.fq", "-q"],
              qr/asdf.fq.*no such file or directory/i, 
              "Read file doesn't exist");    
 
 # Check bad reads
-rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
               $bad_reads, "-q"],
              qr/you appear to have entries/i, "Bad reads");    
-rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf",
+rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf",
               $bad_reads, $good_reads_same_size_as_bad, "-q"], 
              qr/you appear to have entries/i, "Bad reads");    
-rum_fails_ok(["run", "--config", $config, "--output", tmp_out(), "--name", "asdf",
+rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf",
               $good_reads_same_size_as_bad, $bad_reads, "-q"],
              qr/you appear to have entries/i, "Bad reads");    
 
@@ -391,7 +391,7 @@ chunk_cmd_like([@standard_args, "--limit-nu", 15], "Limit NU",
                qr/limit_nu.pl --cutoff\s*15/i, 
                "Cutoff passed to limit_nu");    
 
-rum_fails_ok(["run", @standard_args, "--limit-nu", "asdf"],
+rum_fails_ok(["align", @standard_args, "--limit-nu", "asdf"],
                qr/nu must be an integer greater than/i, 
                "Bad --limit-nu");    
 
@@ -429,24 +429,24 @@ chunk_cmd_like([@standard_args,
                "Run blat on unmapped reads",
                qr/-maxIntron=1 -minIdentity=2 -repMatch=3 -stepSize=4 -tileSize=5/,
                "Blat specified options");
-rum_fails_ok(["run", @standard_args, "--minIdentity", 200],
+rum_fails_ok(["align", @standard_args, "--minIdentity", 200],
              qr/identity must be an integer/i,
              "Min identity too high");
-rum_fails_ok(["run", @standard_args, "--minIdentity", "foo"],
+rum_fails_ok(["align", @standard_args, "--minIdentity", "foo"],
              qr/identity must be an integer/i,
              "Min identity not an int");
 
 
 
-rum_fails_ok(["run", @standard_args, "--min-length", 5],
+rum_fails_ok(["align", @standard_args, "--min-length", 5],
              qr/length must be an integer/,
              "Min length too low");
 
-rum_fails_ok(["run", @standard_args, "--variable-length", "--preserve-names"],
+rum_fails_ok(["align", @standard_args, "--variable-length", "--preserve-names"],
              qr/can.*t use.*preserve.*names.*variable.*length/i,
              "--variable-length and --preserve-names fail");
 # Check --alt-genes
-rum_fails_ok(["run", @standard_args, "--alt-genes", "foobar"],
+rum_fails_ok(["align", @standard_args, "--alt-genes", "foobar"],
              qr/foobar.*no such file/i,
              "Bad --alt-genes");
 postproc_cmd_like([@standard_args, "--alt-genes", $alt_genes],
@@ -454,7 +454,7 @@ postproc_cmd_like([@standard_args, "--alt-genes", $alt_genes],
                   qr/--genes $alt_genes/i,
                   "--alt-genes gets passed to make_RUM_junctions_file");
 # Check --alt-quant
-rum_fails_ok(["run", @standard_args, "--alt-quant", "foobar"],
+rum_fails_ok(["align", @standard_args, "--alt-quant", "foobar"],
              qr/foobar.*no such file/i,
              "Bad --alt-quant");
 
