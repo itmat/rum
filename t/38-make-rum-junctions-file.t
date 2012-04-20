@@ -9,9 +9,8 @@ use lib "$Bin/../lib";
 
 use RUM::TestUtils;
 
-our $annotations = "_testing/indexes/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
-
-our $genome = "_testing/indexes/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs.fa";
+our $annotations = $RUM::TestUtils::GENE_INFO;
+our $genome = $RUM::TestUtils::GENOME_FA;
 
 our $unique = "$SHARED_INPUT_DIR/RUM_Unique.1";
 our $non_unique = "$SHARED_INPUT_DIR/RUM_NU.1";

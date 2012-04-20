@@ -1,4 +1,4 @@
-use Test::More tests => 79;
+use Test::More;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -7,6 +7,8 @@ use RUM::Repository;
 use RUM::TestUtils;
 use RUM::Pipeline;
 use RUM::Usage;
+use RUM::Script::Main;
+use RUM::Action::Align;
 use File::Path;
 use File::Temp qw(tempdir);
 use strict;
@@ -24,10 +26,11 @@ our $alt_quant     = "$SHARED_INPUT_DIR/alt_quant.txt";
 
 our $log = RUM::Logging->get_logger;
 
-BEGIN { 
-    use_ok('RUM::Action::Align') or BAIL_OUT "Couldn't load RUM::Action::Align";
-    use_ok('RUM::Script::Main') or BAIL_OUT "Couldn't load RUM::Script::Main";
-    
+if (-e $config) {
+    plan tests => 77;
+}
+else {
+    plan skip_all => "Don't have index installed";
 }
 
 {

@@ -16,7 +16,7 @@ my $non_unique_out = temp_filename(TEMPLATE => "non-unique.XXXXXX");
 my $unique_out = temp_filename(TEMPLATE => "unique.XXXXXX");
 my $sam_header_out = temp_filename(TEMPLATE => "sam-headers.XXXXXX");
 
-my $genome = "_testing/indexes/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs.fa";
+my $genome = $RUM::TestUtils::GENOME_FA;
 
 SKIP: {
     skip "Don't have arabidopsis index", 6 unless -e $genome;

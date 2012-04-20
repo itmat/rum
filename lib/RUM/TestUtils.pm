@@ -53,6 +53,9 @@ our $PROGRAM_NAME = do {
     $_;
 };
 
+
+our $GENOME_FA = "$Bin/../indexes/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs.fa";
+our $GENE_INFO = "$Bin/../indexes/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
 our $SHARED_INPUT_DIR = "$Bin/data/shared";
 our $INPUT_DIR = "$Bin/data/$PROGRAM_NAME";
 our $EXPECTED_DIR = "$Bin/expected/$PROGRAM_NAME";

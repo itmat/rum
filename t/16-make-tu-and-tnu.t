@@ -9,7 +9,7 @@ use lib "$Bin/../lib";
 use RUM::Script::MakeTuAndTnu;
 use RUM::TestUtils;
 
-my $gene_info = "$Bin/../_testing/indexes/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
+my $gene_info = $RUM::TestUtils::GENE_INFO;
 
 SKIP: {
     skip "Don't have arabidopsis index", 4 unless -e $gene_info;

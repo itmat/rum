@@ -1,4 +1,4 @@
-use Test::More tests => 25;
+use Test::More;
 use Test::Exception;
 
 use FindBin qw($Bin);
@@ -10,10 +10,8 @@ use File::Temp qw(tempdir);
 use strict;
 use warnings;
 
-BEGIN { 
-    use_ok('RUM::Workflows');
-    use_ok('RUM::Config');
-}                                               
+use RUM::Workflows;
+use RUM::Config;
 
 my $repo = RUM::Repository->new(root_dir => "$Bin/../_testing");
 
@@ -24,13 +22,22 @@ my @indexes = eval { $repo->indexes(pattern => qr/TAIR/); };
 my $out_dir = "$Bin/tmp/40-workflows";
 my $conf_dir = $repo->conf_dir;
 my $index_dir = $repo->indexes_dir;
-my $annotations = "$index_dir/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
+my $annotations = $RUM::TestUtils::GENE_INFO;
+my $index_conf = "$conf_dir/rum.config_Arabidopsis";
+
+if (-e $index_conf) {
+    plan test => 23;
+}
+else {
+    plan skip_all => "Don't have index installed";
+}
+
 
 my %defaults = (
     strand_specific => 0,
     output_dir => $out_dir,
     read_length => 75,
-    rum_config_file => "$conf_dir/rum.config_Arabidopsis",
+    rum_config_file => $index_conf,
     dna => 0,
     num_chunks => 2,
     genome_only => 0,
