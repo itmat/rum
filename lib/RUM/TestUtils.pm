@@ -210,6 +210,7 @@ the name of the calling function.
 
 sub temp_filename {
     my (%options) = @_;
+    mkdir "$Bin/tmp";
     $options{DIR}      = "$Bin/tmp" unless exists $options{DIR};
     $options{UNLINK}   = 1        unless exists $options{UNLINK};
     $options{TEMPLATE} = "XXXXXX" unless exists $options{TEMPLATE};
