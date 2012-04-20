@@ -13,7 +13,7 @@ use warnings;
 use RUM::Workflows;
 use RUM::Config;
 
-my $repo = RUM::Repository->new(root_dir => "$Bin/../_testing");
+my $repo = RUM::Repository->new(root_dir => "$Bin/../");
 
 # This will fail if indexes are not installed, but that's ok, because
 # we'll skip the tests anyway.
@@ -26,7 +26,7 @@ my $annotations = $RUM::TestUtils::GENE_INFO;
 my $index_conf = "$conf_dir/rum.config_Arabidopsis";
 
 if (-e $index_conf) {
-    plan test => 23;
+    plan tests => 23;
 }
 else {
     plan skip_all => "Don't have index installed";

@@ -14,7 +14,7 @@ use File::Temp qw(tempdir);
 use strict;
 use warnings;
 
-our $config = "_testing/conf/rum.config_Arabidopsis";
+our $config = "$Bin/../conf/rum.config_Arabidopsis";
 our $bad_reads  = "$SHARED_INPUT_DIR/bad-reads.fq";
 our $good_reads_same_size_as_bad  = "$SHARED_INPUT_DIR/good-reads-same-size-as-bad.fq";
 our $forward_64_fq = "$SHARED_INPUT_DIR/forward64.fq";
