@@ -88,9 +88,5 @@ conf/rum.config_
 t/tmp
 .log$
 nohup.out
-t/expected
-t/data
-t/shared
 Rakefile
-Makefile.PL
 todo
