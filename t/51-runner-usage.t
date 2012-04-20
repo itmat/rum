@@ -194,7 +194,6 @@ rum_fails_ok(
 # Check that we clean up a name
 is(rum("--config", $config,
        "--output", "foo",
-       "-n",
        "in.fq", "--name", ",foo bar,baz,")->config->name,
    "foo_bar_baz",
    "Clean up name with invalid characters");
@@ -226,7 +225,6 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
     my $rum = preprocess("--config", $config,
                          "-o", tempdir(CLEANUP => 1),
                          "--name", "asdf", "$SHARED_INPUT_DIR/reads.fa");
-    diag "I preprocessed";
     my $prefix = "1, paired, fa, no chunks";
     
     ok($rum->config->paired_end, "$prefix is paired end");

@@ -1,5 +1,21 @@
 package RUM::Action::Version;
 
+=head1 NAME
+
+RUM::Action::Status - Print status of job
+
+=head1 METHODS
+
+=over 4
+
+=item run
+
+Print the version and release date of rum.
+
+=back
+
+=cut
+
 use strict;
 use warnings;
 

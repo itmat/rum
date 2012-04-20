@@ -242,11 +242,25 @@ sub get_logger {
     return $LOGGER_CLASS->get_logger($name);
 }
 
+=item log_file($chunk)
+
+Return the log file name for the given chunk, or the master log file
+name if chunk is not a positive number.
+
+=cut
+
 sub log_file {
     my ($class, $chunk) = @_;
     my $file = $chunk ? sprintf("rum_%03d.log", $chunk) : "rum.log";
     return "$LOGGING_DIR/$file";
 }
+
+=item error_log_file($chunk)
+
+Return the error log file name for the given chunk, or the master
+error log file name if chunk is not a positive number.
+
+=cut
 
 sub error_log_file {
     my ($class, $chunk) = @_;

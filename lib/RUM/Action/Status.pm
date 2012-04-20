@@ -1,5 +1,15 @@
 package RUM::Action::Status;
 
+=head1 NAME
+
+RUM::Action::Status - Print status of job
+
+=head1 METHODS
+
+=over 4
+
+=cut
+
 use strict;
 use warnings;
 
@@ -7,6 +17,12 @@ use Getopt::Long;
 use Text::Wrap qw(wrap fill);
 
 use base 'RUM::Base';
+
+=item run
+
+Run the action.
+
+=cut
 
 sub run {
     my ($class) = @_;
@@ -29,6 +45,12 @@ sub run {
     $self->say();
     $self->_chunk_error_logs_are_empty;
 }
+
+=item print_processing_status
+
+Print the status for all the steps of the "processing" phase.
+
+=cut
 
 sub print_processing_status {
     my ($self) = @_;
@@ -93,6 +115,12 @@ sub print_processing_status {
 
 }
 
+=item print_postprocessing_status
+
+Print the status of all the steps of the "postprocessing" phase.
+
+=cut
+
 sub print_postprocessing_status {
     my ($self) = @_;
     my $c = $self->config;
@@ -108,6 +136,6 @@ sub print_postprocessing_status {
     $postproc->walk_states($handle_state);
 }
 
-
-
 1;
+
+=back

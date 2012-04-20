@@ -89,8 +89,18 @@ Print a message to the user, wrapping long lines.
 
 sub say {
     my ($self, @msg) = @_;
+    if (!@msg) {
+        @msg = ("");
+    }
     print wrap("", "", @msg) . "\n" unless $self->directives->quiet;
 }
+
+=item logsay(@msg)
+
+Print @msg to the screen (unless I'm in quiet mode) and log it at the
+info level.
+
+=cut
 
 sub logsay {
     my ($self, @msg) = @_;
@@ -99,6 +109,12 @@ sub logsay {
     ref($self) =~ /(.*)=/ and $package = $1;
     RUM::Logging->get_logger($package)->info(@msg);
 }
+
+=item alert(@msg)
+
+Log @msg at the warning level.
+
+=cut
 
 sub alert {
     my ($self, @msg) = @_;
