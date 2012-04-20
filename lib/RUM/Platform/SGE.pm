@@ -94,7 +94,7 @@ sub start_parent {
     my ($self) = @_;
     my $d = $self->directives;
     my $dir = $self->config->output_dir;
-    my $cmd =  "-b y $0 run --parent --output $dir --lock $RUM::Lock::FILE";
+    my $cmd =  "-b y $0 align --parent --output $dir --lock $RUM::Lock::FILE";
     $cmd .= " --preprocess"  if $d->preprocess;
     $cmd .= " --process"     if $d->postprocess;
     $cmd .= " --postprocess" if $d->postprocess;
@@ -268,7 +268,8 @@ sub _parse_qsub_out {
 
 sub _qsub {
     my ($self, @args) = @_;
-    my $cmd = "qsub -V -cwd -j y @args";
+    my $dir = $self->config->output_dir;
+    my $cmd = "qsub -V -cwd -j y -o $dir -e $dir @args";
     $log->debug("Running '$cmd'");
     my $out = `$cmd`;
     $log->debug("'$cmd' produced output $out");
