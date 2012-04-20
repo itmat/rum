@@ -11,3 +11,4 @@ RUM::Action - Base class for Action classes, which implement the logic required 
 
 =cut
 
+1;
