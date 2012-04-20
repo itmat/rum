@@ -168,7 +168,7 @@ our @LOG4PERL_CONFIGS = (
         "$Bin/../conf/rum_logging.conf",  # config file included in distribution
     );
 
-push @LOG4PERL_CONFIGS, map { "$_/RUM/rum_logging.conf" } @INC;
+push @LOG4PERL_CONFIGS, map { "$_/RUM/conf/rum_logging.conf" } @INC;
 
 __PACKAGE__->_init;
 
