@@ -76,9 +76,8 @@
 
 \bRUM-Pipeline-.*.tar.gz
 
-# Avoid directories where we put indexes and data
+# Avoid directories where we put indexes 
 \bindexes/
-\bdata/
 
 bin/blat
 bin/bowtie
