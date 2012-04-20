@@ -4,7 +4,7 @@ RUM
 Installing
 ----------
 
-Please see [INSTALL.md] for instructions on installing code and indexes.
+Please see [INSTALL.md](https://github.com/PGFI/rum/blob/2.x/INSTALL.md) for instructions on installing code and indexes.
 
 Running
 -------
