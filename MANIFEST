@@ -56,7 +56,6 @@ bin/rum_junctions_to_bed
 bin/rum_merge_junctions
 bin/rum_merge_sam_headers.pl
 bin/rum_runner
-bin/RUM_runner.pl
 bin/rum_sort.pl
 bin/sam2junctions.pl
 bin/sam2rum.pl
@@ -71,9 +70,7 @@ bin/sort_RUM_by_id.pl
 bin/sort_RUM_by_location.pl
 bin/sort_where_lines_start_seq.numa_or_seq.numb.pl
 bin/trim.pl
-bin/wait.pl
 Changes
-conf/pipeline_template.sh
 conf/rum_logging.conf
 doc/cmpChrs-changes.md
 doc/goals
