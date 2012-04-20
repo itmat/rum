@@ -158,6 +158,7 @@ sub _init {
     undef $chunk if defined($chunk) && $chunk eq 'undefined';
     $LOG_FILE       = $class->log_file($chunk);
     $ERROR_LOG_FILE = $class->error_log_file($chunk);
+    mkdir $LOGGING_DIR;
     $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
 }
 

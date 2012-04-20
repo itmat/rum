@@ -25,6 +25,6 @@ WriteMakefile
 ;
 
 sub MY::postamble {
-    "index:\n\trum_indexes"
+    "index:\n\t\$(PREFIX)/bin/rum_indexes"
 }
 
