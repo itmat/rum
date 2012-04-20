@@ -20,6 +20,11 @@ WriteMakefile
   'VERSION_FROM' => 'lib/RUM/Pipeline.pm',
   'PREREQ_PM' => {
                    'Test::More' => 0
-                 }
+                 },
 )
 ;
+
+sub MY::postamble {
+    "index:\n\trum_indexes"
+}
+
