@@ -44,7 +44,6 @@ bin/parsefasta.pl
 bin/parsefastq.pl
 bin/quantifyexons.pl
 bin/removedups.pl
-bin/rum
 bin/rum-config
 bin/rum-test-data-tool
 bin/rum2cov.pl
@@ -56,6 +55,7 @@ bin/rum_install.pl
 bin/rum_junctions_to_bed
 bin/rum_merge_junctions
 bin/rum_merge_sam_headers.pl
+bin/rum_runner
 bin/RUM_runner.pl
 bin/rum_sort.pl
 bin/sam2junctions.pl
@@ -80,11 +80,11 @@ doc/goals
 doc/how2setup_genome-indexes_forPipeline.txt
 doc/indexing.pod
 lib/RUM/Action.pm
+lib/RUM/Action/Align.pm
 lib/RUM/Action/Clean.pm
 lib/RUM/Action/Diagram.pm
 lib/RUM/Action/Help.pm
 lib/RUM/Action/Kill.pm
-lib/RUM/Action/Run.pm
 lib/RUM/Action/Status.pm
 lib/RUM/Action/Version.pm
 lib/RUM/Base.pm

@@ -18,7 +18,7 @@ our %ACTIONS = (
     diagram  => "RUM::Action::Diagram",
     clean    => "RUM::Action::Clean",
     kill     => "RUM::Action::Kill",
-    run      => "RUM::Action::Run"
+    align    => "RUM::Action::Align"
 );
 
 sub main {

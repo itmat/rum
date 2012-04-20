@@ -1,8 +1,8 @@
-package RUM::Action::Run;
+package RUM::Action::Align;
 
 =head1 NAME
 
-RUM::Action::Run - Run the RUM pipeline.
+RUM::Action::Align - Align reads using the RUM Pipeline.
 
 =head1 DESCRIPTION
 
