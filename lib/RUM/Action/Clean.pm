@@ -51,7 +51,7 @@ sub run {
 
 Remove all the reads.fa.* and quals.fa.* files. The preprocessing step
 (which produces these files) isn't yet modeled as a RUM::Workflow, so
-we can't us its clean method on these files.
+we can't use its clean method on these files.
 
 =cut
 

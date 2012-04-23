@@ -154,7 +154,7 @@ sub _check_read_file_pair {
 
     my $reads_temp = $config->in_output_dir("reads_temp.fa");
     my $quals_temp = $config->in_output_dir("quals_temp.fa");
-    my $error_log  = $config->in_output_dir("rum.error-log");
+    my $error_log = $self->_preproc_error_log_filename;
 
     $log->debug("Checking that reads and quality strings are the same length");
     shell("perl $parse2fasta     @reads | head -$len > $reads_temp 2>> $error_log");
@@ -222,6 +222,15 @@ sub _determine_read_length {
     }
 }
 
+sub _preproc_error_log_filename {
+    my ($self) = @_;
+    my $dir = File::Spec->catfile($self->config->output_dir, "tmp");
+    unless (-e $dir) {
+        mkdir $dir or croak "mkdir $dir: $!";
+    }
+    File::Spec->catfile($dir, "preproc-error-log");
+}
+
 sub _reformat_reads {
 
     my ($self) = @_;
@@ -244,7 +253,7 @@ sub _reformat_reads {
     my $name_mapping_opt = $config->preserve_names ?
         "-name_mapping $output_dir/read_names_mapping" : "";    
     
-    my $error_log = "$output_dir/rum.error-log";
+    my $error_log = $self->_preproc_error_log_filename;
 
     # Going to figure out here if these are standard fastq files
 
@@ -264,7 +273,7 @@ sub _reformat_reads {
     if($is_fastq && !$config->variable_read_lengths) {
         $self->say("Splitting fastq file into $num_chunks chunks ",
                    "with separate reads and quals");
-        shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $output_dir/rum.error-log");
+        shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $error_log");
         my @errors = `grep -A 2 "something wrong with line" $error_log`;
         die "@errors" if @errors;
         $have_quals = 1;

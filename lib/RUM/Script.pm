@@ -1004,7 +1004,7 @@ sub run_with_logging {
 
     my $cmd =  "$0 @ARGV";
     my $log = RUM::Logging->get_logger("RUM.ScriptRunner");
-    $log->debug("START $script ($cmd)");
+    $log->info("START $script ($cmd)");
 
     eval {
         require $path;
@@ -1015,7 +1015,7 @@ sub run_with_logging {
         die($@);
     }
     else {
-        $log->debug("FINISHED $script ($cmd)");
+        $log->info("FINISHED $script ($cmd)");
     }
 }
 
