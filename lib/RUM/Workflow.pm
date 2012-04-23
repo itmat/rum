@@ -493,7 +493,11 @@ sub _temp_filename {
     my ($self, $path) = @_;
     my (undef, $dir, $file) = File::Spec->splitpath($path);
     # TODO: Ensure that files will be different for different runs
-    my $fh = File::Temp->new(DIR => $dir, TEMPLATE => "_tmp_$file.XXXXXXXX", UNLINK => 1);
+    $dir = "$dir/tmp";
+    unless (-d $dir) {
+        mkdir $dir or croak "mkdir $dir: $!";
+    }
+    my $fh = File::Temp->new(DIR => $dir, TEMPLATE => "$file.XXXXXXXX", UNLINK => 1);
     close $fh;
     return $fh->filename;
 }
