@@ -33,9 +33,10 @@ sub run {
 
     my $d = $self->{directives} = RUM::Directives->new;
     GetOptions(
-        "o|output=s" => \(my $dir = "."),
+        "o|output=s" => \(my $dir),
     );
-
+    $dir or RUM::Usage->bad(
+        "The --output or -o option is required for \"rum_runner kill\"");
     $self->{config} = RUM::Config->load($dir);
     $self->say("Killing job");
     $self->platform->stop;

@@ -32,13 +32,14 @@ sub run {
     my $d = $self->{directives} = RUM::Directives->new;
 
     GetOptions(
-        "o|output=s" => \(my $dir = "."),
+        "o|output=s" => \(my $dir),
         "preprocess"   => sub { $d->set_preprocess;  $d->unset_all; },
         "process"      => sub { $d->set_process;     $d->unset_all; },
         "postprocess"  => sub { $d->set_postprocess; $d->unset_all; },
         "chunk=s"      => \(my $chunk),
     );
-
+    $dir or RUM::Usage->bad(
+        "The --output or -o option is required for \"rum_runner align\"");
     $self->{config} = RUM::Config->load($dir);
     $self->print_processing_status if $d->process || $d->all;
     $self->print_postprocessing_status if $d->postprocess || $d->all;

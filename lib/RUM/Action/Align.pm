@@ -182,12 +182,15 @@ sub get_options {
         "verbose|v" => sub { $log->more_logging(1) },
     );
 
+    $output_dir or RUM::Usage->bad(
+        "The --output or -o option is required for \"rum_runner align\"");
+
     if ($lock) {
         $log->info("Got lock argument ($lock)");
         $RUM::Lock::FILE = $lock;
     }
 
-    my $dir = $output_dir || ".";
+    my $dir = $output_dir;
     $ENV{RUM_OUTPUT_DIR} = $dir;
     my $c = RUM::Config->load($dir);
     !$c or ref($c) =~ /RUM::Config/ or confess("Not a config: $c");

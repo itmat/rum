@@ -32,14 +32,15 @@ sub run {
     my $d = $self->{directives} = RUM::Directives->new;
 
     GetOptions(
-        "o|output=s" => \(my $dir = "."),
+        "o|output=s" => \(my $dir),
         "preprocess"   => sub { $d->set_preprocess;  $d->unset_all; },
         "process"      => sub { $d->set_process;     $d->unset_all; },
         "postprocess"  => sub { $d->set_postprocess; $d->unset_all; },
         "very"         => sub { $d->set_veryclean; },
         "chunk=s"      => \(my $chunk),
     );
-
+    $dir or RUM::Usage->bad(
+        "The --output or -o option is required for \"rum_runner align\"");
     $self->{config} = RUM::Config->load($dir) or croak 
         "$dir doesn't seem to be a rum output directory";
     $self->clean;
