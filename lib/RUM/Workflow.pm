@@ -6,6 +6,7 @@ use warnings;
 use Carp;
 use Text::Wrap qw(fill wrap);
 use File::Temp;
+use File::Path qw(mkpath);
 
 use RUM::StateMachine;
 use RUM::Logging;
@@ -495,7 +496,7 @@ sub _temp_filename {
     # TODO: Ensure that files will be different for different runs
     $dir = "$dir/tmp";
     unless (-d $dir) {
-        mkdir $dir or croak "mkdir $dir: $!";
+        mkpath $dir or croak "mkpath $dir: $!";
     }
     my $fh = File::Temp->new(DIR => $dir, TEMPLATE => "$file.XXXXXXXX", UNLINK => 1);
     close $fh;

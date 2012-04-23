@@ -1,5 +1,11 @@
 package RUM::Action::Profile;
 
+=head1 NAME
+
+RUM::Action::Profile - Action for printing performance stats
+
+=head1 METHODS
+
 use strict;
 use warnings;
 
@@ -9,6 +15,13 @@ use Time::Piece;
 use base 'RUM::Action';
 use POSIX qw(mktime);
 use Carp;
+
+=item run
+
+Run the action. Parses command line args, parses all the log files for
+the specified job, builds timing counts, and prints stats.
+
+=cut
 
 sub run {
 
@@ -26,6 +39,16 @@ sub run {
     }
 }
 
+=item parse_log_file($in)
+
+Parse the data from the given filehandle and return an array ref of
+array refs, where each record is [$time, $type, $module]. $time is the
+time that an event occurred, $type is either START or FINISHED, and
+module is the RUM::Script::* module that either started or finished at
+the given time.
+
+=cut
+
 sub parse_log_file {
     my ($self, $in) = @_;
     local $_;
@@ -41,6 +64,13 @@ sub parse_log_file {
     }
     return \@events;
 }
+
+=item build_timings($events)
+
+Takes an array of events as returned by parse_log_file and returns a
+map from module name to total time.
+
+=cut
 
 sub build_timings {
     my ($self, $events) = @_;

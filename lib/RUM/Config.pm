@@ -183,7 +183,7 @@ sub in_output_dir {
     if ($self->chunk) {
         $dir = File::Spec->catfile($dir, "chunks");
         unless (-d $dir) {
-            mkdir $dir or croak "Can't make chunk dir $dir: $!";
+            mkpath $dir or croak "Can't make chunk dir $dir: $!";
         }
     }
     return $dir ? File::Spec->catfile($dir, $file) : $file;
@@ -391,6 +391,7 @@ sub sam_header { shift->in_postproc_dir("sam_header") }
 
 sub chunk_file {
     my ($self, $name, $chunk) = @_;
+    $chunk or croak "chunk file called without chunk for $name";
     my $path = File::Spec->catpath($self->output_dir, "chunks", "$name.$chunk");
 }
 

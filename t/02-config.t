@@ -1,6 +1,6 @@
 #!perl
 
-use Test::More tests => 12;
+use Test::More;
 use Test::Exception;
 use lib "lib";
 use FindBin qw($Bin);
@@ -9,7 +9,10 @@ use warnings;
 use Log::Log4perl qw(:easy);
 
 BEGIN { 
-  use_ok('RUM::ConfigFile');
+    eval "use Test::Exception";
+    plan skip_all => "Test::Exception needed" if $@;
+    plan tests => 12;
+    use_ok('RUM::ConfigFile');
 }
 
 my $valid_config_text = join("", map("$_\n", ('a' .. 'g')));

@@ -215,6 +215,10 @@ sub AUTOLOAD {
     carp "Method $AUTOLOAD does not exist in " . __PACKAGE__ unless $AUTOLOAD eq "RUM::Logger::DESTROY";
 }
 
+sub level {
+    $_[0]->{threshold};
+}
+
 =head1 AUTHOR
 
 Mike DeLaurentis (delaurentis@gmail.com)

@@ -3,14 +3,20 @@
 use strict;
 use warnings;
 
-use Test::More tests => 28;
+use Test::More;
 use Test::Exception;
 use lib "lib";
 
 BEGIN { 
-  use_ok('RUM::Script', qw(:scripts get_options));
-  use_ok('RUM::Sort', qw(cmpChrs by_chromosome));
+    eval "use Test::Exception";
+    plan skip_all => "Test::Exception needed" if $@;
+    plan tests => 28;
+
+    use_ok('RUM::Script', qw(:scripts get_options));
+    use_ok('RUM::Sort', qw(cmpChrs by_chromosome));
 }
+
+
 
 sub transform_ok {
   my ($function, $input, $expected, $desc) = @_;

@@ -226,7 +226,7 @@ sub chunk_workflow {
          "--unique-out", post($cleaned_unique),
          "--non-unique-out", post($cleaned_nu),
          "--genome", $c->genome_fa,
-         "--sam-header-out", post($c->chunk_sam_header),
+         "--sam-header-out", post($c->chunk_sam_header($c->chunk || 1)),
          $c->faok_opt,
          $c->count_mismatches_opt,
          $c->match_length_cutoff_opt]);
@@ -406,7 +406,7 @@ sub postprocessing_workflow {
     my $w = RUM::Workflow->new();
     my @rum_unique = map { $_->chunk_suffixed("RUM_Unique.sorted") } @c;
     my @rum_nu = map { $_->chunk_suffixed("RUM_NU.sorted") } @c;
-    my @sam_headers = map { $c->chunk_sam_header($_) }
+    my @sam_headers = map { $c->chunk_sam_header($_) } @chunks;
 
     my $sam_file = $c->in_output_dir("RUM.sam");
     my @sam_files = map { $c->for_chunk($_)->chunk_suffixed("RUM.sam") } @chunks;

@@ -4,14 +4,17 @@
 use strict;
 use warnings;
 
-use Test::More tests => 16;
+use Test::More;
 use Test::Exception;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::CoverageMap;
 
 BEGIN { 
-  use_ok('RUM::CoverageMap');
+    eval "use Test::Exception";
+    plan skip_all => "Test::Exception needed" if $@;
+    plan tests => 16;
+    use_ok('RUM::CoverageMap');
 }
 
 my $data = <<EOF;

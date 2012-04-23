@@ -26,6 +26,11 @@ our $alt_quant     = "$SHARED_INPUT_DIR/alt_quant.txt";
 
 our $log = RUM::Logging->get_logger;
 
+BEGIN {
+    eval "use Test::Exception";
+    plan skip_all => "Test::Exception needed" if $@;
+}
+
 if (-e $config) {
     plan tests => 77;
 }
@@ -94,6 +99,7 @@ sub rum {
     eval {
         $rum->get_options;
         $rum->check_config;
+        $rum->config->set('genome_size', 1000000000);
     };
     if ($@) {
         BAIL_OUT("Can't get RUM::Script::Main: $@");
@@ -233,7 +239,7 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
     ok($rum->config->paired_end, "$prefix is paired end");
     ok($rum->config->input_is_preformatted, "$prefix is preformatted");
     ok($rum->config->input_needs_splitting, "$prefix needs splitting");
-    ok(-e $rum->config->in_output_dir("reads.fa.1"), "$prefix: made reads");
+    ok(-e $rum->config->in_output_dir("chunks/reads.fa.1"), "$prefix: made reads");
     ok(! -e $rum->config->in_output_dir("quals.fa.1"), "$prefix: didn't make quals");
 }
 
@@ -265,8 +271,8 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
                   $forward_64_fq, $reverse_64_fq);
     $rum->setup;
     $rum->platform->preprocess;
-    my $forward_64_fq = $rum->config->output_dir . "/reads.fa";
-    my $quals = $rum->config->output_dir . "/quals.fa";
+    my $forward_64_fq = $rum->config->output_dir . "/chunks/reads.fa";
+    my $quals = $rum->config->output_dir . "/chunks/quals.fa";
 
     my $prefix = "2, paired, fq, no chunks";
     ok(-e $forward_64_fq, "$prefix: made reads file");
@@ -285,7 +291,7 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
     my $prefix = "2, paired, fq, 2 chunks";
     for my $type (qw(reads quals)) {
         for my $chunk (1, 2) {
-            ok(-e $rum->config->output_dir . "/$type.fa.$chunk",
+            ok(-e $rum->config->output_dir . "/chunks/$type.fa.$chunk",
                "$prefix: made $type $chunk");
         }
     }
@@ -300,11 +306,11 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
                   $forward_64_fa, $reverse_64_fa);
     my $prefix = "2, paired, fa, 2 chunks";
     for my $chunk (1, 2) {
-        ok(-e $rum->config->output_dir . "/reads.fa.$chunk",
+        ok(-e $rum->config->output_dir . "/chunks/reads.fa.$chunk",
            "$prefix: made reads $chunk");
     }
     for my $chunk (1, 2) {
-        ok( ! -e $rum->config->output_dir . "/quals.fa.$chunk",
+        ok( ! -e $rum->config->output_dir . "/chunks/quals.fa.$chunk",
            "$prefix: didn't make quals $chunk");
     }
 

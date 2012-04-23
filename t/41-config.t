@@ -24,7 +24,7 @@ is($c->chunk_suffixed("reads.fa"), "foo/reads.fa", "Chunk suffixed with no chunk
 
 $c = $c->for_chunk(1);
 is($c->chunk, 1, "Chunk setting");
-is($c->chunk_suffixed("reads.fa"), "foo/reads.fa.1", "Getting property for chunk");
+is($c->chunk_suffixed("reads.fa"), "foo/chunks/reads.fa.1", "Getting property for chunk");
 
 sub should_quantify {
     my (%options) = @_;

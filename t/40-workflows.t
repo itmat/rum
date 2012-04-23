@@ -49,7 +49,8 @@ my %defaults = (
     blat_step_size => 6,
     blat_rep_match => 256,
     blat_max_intron => 500000,
-    ram => 6
+    ram => 6,
+    genome_size => 1000000000
 );
 
 SKIP: {
