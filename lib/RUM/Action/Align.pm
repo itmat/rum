@@ -685,8 +685,8 @@ sub _read_footprint {
 sub _print_stats {
     my ($self) = @_;
     my $c = $self->config;
-    my $uf = $self->_read_footprint($c->in_output_dir("u_footprint.txt"));
-    my $nuf = $self->_read_footprint($c->in_output_dir("nu_footprint.txt"));
+    my $uf = $self->_read_footprint($c->u_footprint);
+    my $nuf = $self->_read_footprint($c->u_footprint);
     my $genome_size = $c->genome_size;
     my $UF = &format_large_int($uf);
     my $NUF = &format_large_int($nuf);

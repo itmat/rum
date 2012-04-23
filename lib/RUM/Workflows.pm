@@ -217,7 +217,6 @@ sub chunk_workflow {
     my $cleaned_nu = $c->chunk_suffixed("RUM_NU_temp2");
     my $rum_nu_deduped = $c->chunk_suffixed("RUM_NU_temp3");
     my $cleaned_unique = $c->chunk_suffixed("RUM_Unique_temp2");
-    my $sam_header = $c->chunk_suffixed("sam_header");
 
     $m->step(
         "Clean up RUM files",
@@ -227,7 +226,7 @@ sub chunk_workflow {
          "--unique-out", post($cleaned_unique),
          "--non-unique-out", post($cleaned_nu),
          "--genome", $c->genome_fa,
-         "--sam-header-out", post($sam_header),
+         "--sam-header-out", post($c->chunk_sam_header),
          $c->faok_opt,
          $c->count_mismatches_opt,
          $c->match_length_cutoff_opt]);
@@ -407,8 +406,7 @@ sub postprocessing_workflow {
     my $w = RUM::Workflow->new();
     my @rum_unique = map { $_->chunk_suffixed("RUM_Unique.sorted") } @c;
     my @rum_nu = map { $_->chunk_suffixed("RUM_NU.sorted") } @c;
-    my $sam_headers = $c->in_output_dir("sam_header");
-    my @sam_headers = map { $c->for_chunk($_)->chunk_suffixed("sam_header") } @chunks;
+    my @sam_headers = map { $c->chunk_sam_header($_) }
 
     my $sam_file = $c->in_output_dir("RUM.sam");
     my @sam_files = map { $c->for_chunk($_)->chunk_suffixed("RUM.sam") } @chunks;
@@ -677,16 +675,14 @@ sub postprocessing_workflow {
              pre(junctions('high-quality', 'bed'))]);
     }
 
-    my $u_footprint = $c->in_output_dir("u_footprint.txt");
-    my $nu_footprint = $c->in_output_dir("nu_footprint.txt");
-    push @goal, ($u_footprint, $nu_footprint);
+    push @goal, ($c->u_footprint, $c->nu_footprint);
 
     $w->step(
         "Make unique coverage",
         ["perl", $c->script("rum2cov.pl"),
          "-o", post($rum_unique_cov),
          "--name", "'$name Unique Mappers'",
-         "--stats", post($u_footprint),
+         "--stats", post($c->u_footprint),
          pre($rum_unique)]);
 
     $w->step(
@@ -694,7 +690,7 @@ sub postprocessing_workflow {
         ["perl", $c->script("rum2cov.pl"),
          "-o", post($rum_nu_cov),
          "--name", "'$name Non-Unique Mappers'",
-         "--stats", post($nu_footprint),
+         "--stats", post($c->nu_footprint),
          pre($rum_nu)]);
     
     if ($c->strand_specific) {
@@ -749,21 +745,21 @@ sub postprocessing_workflow {
         "Merge novel exons",
         ["perl", $c->script("merge_quants.pl"),
          "--chunks", 1,
-         "-o", post($c->in_output_dir("novel_exon_quant_temp")),
+         "-o", post($c->in_postproc_dir("novel_exon_quant_temp")),
          "--header",
          $c->output_dir . "/chunks"],
         ["grep", "-v", "transcript",
-         post($c->in_output_dir("novel_exon_quant_temp")),
+         post($c->in_postproc_dir("novel_exon_quant_temp")),
          ">", post($c->novel_inferred_internal_exons_quantifications)]);
 
     $w->step(
         "Merge SAM headers",
         ["perl", $c->script("rum_merge_sam_headers.pl"),
-         map(pre($_), @sam_headers), "> ", post($sam_headers)]);
+         map(pre($_), @sam_headers), "> ", post($c->sam_header)]);
 
     $w->step("Concatenate SAM files",
          ["cat", 
-          pre($sam_headers), 
+          pre($c->sam_header), 
           map(pre($_), @sam_files), 
           ">", post($sam_file)]);
     

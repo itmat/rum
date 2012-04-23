@@ -6,6 +6,7 @@ use warnings;
 use Carp;
 use FindBin qw($Bin);
 use File::Spec;
+use File::Path qw(mkpath);
 use Data::Dumper;
 
 use RUM::Logging;
@@ -186,6 +187,13 @@ sub in_output_dir {
         }
     }
     return $dir ? File::Spec->catfile($dir, $file) : $file;
+}
+
+sub in_postproc_dir {
+    my ($self, $file) = @_;
+    my $dir = File::Spec->catfile($self->output_dir, "postproc");
+    mkpath $dir;
+    return File::Spec->catfile($dir, $file);
 }
 
 sub chunk_suffixed { 
@@ -375,5 +383,17 @@ sub min_ram_gb {
     my $min_ram = int($gsz * 1.67)+1;
     return $min_ram;
 }
+
+sub u_footprint { shift->in_postproc_dir("u_footprint.txt") }
+sub nu_footprint { shift->in_postproc_dir("nu_footprint.txt") }
+
+sub sam_header { shift->in_postproc_dir("sam_header") }
+
+sub chunk_file {
+    my ($self, $name, $chunk) = @_;
+    my $path = File::Spec->catpath($self->output_dir, "chunks", "$name.$chunk");
+}
+
+sub chunk_sam_header { $_[0]->chunk_file("sam_header", $_[1]) }
 
 1;
