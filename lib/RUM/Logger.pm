@@ -32,7 +32,8 @@ our $DEFAULT_THRESHOLD = $INFO;
 
 our @LEVEL_NAMES = qw(TRACE DEBUG INFO WARN ERROR FATAL);
 
-our $FH;
+our $MESSAGES;
+our $ERRORS;
 
 =head1 CLASS METHODS
 
@@ -46,9 +47,10 @@ logger by opening the output filehandle.
 =cut
 
 sub init {
-    my $name = $ENV{RUM_CHUNK} ? sprintf("rum_%03d.log", $ENV{RUM_CHUNK}) 
-        : "rum.log";
-    open $FH, ">>", $name unless $FH;
+    my $log_file = RUM::Logging->log_file($ENV{RUM_CHUNK}) or return;
+    my $error_log_file = RUM::Logging->error_log_file($ENV{RUM_CHUNK}) or return;
+    open $MESSAGES, ">>", $log_file unless $MESSAGES;
+    open $ERRORS, ">>", $error_log_file unless $ERRORS;
 }
 
 =item RUM::Logger->get_logger()
@@ -89,14 +91,24 @@ consumption.
 
 sub log {
     my ($self, $level, $msg) = @_;
+    return unless $MESSAGES;
+    my @files;
     if ($level >= $self->{threshold}) {
-        chomp $msg;
-        if ($self->{name} =~ /^RUM::Script::/) {    
-            print $msg, "\n";
+        push @files, $MESSAGES;
+        if ($level >= 3) {
+            push @files, $ERRORS;
         }
-        printf $FH "%s %d %5s %s - %s\n",
+    }
+    else {
+        return;
+    }
+    chomp $msg;
+    if ($self->{name} =~ /^RUM::Script::/) {    
+        print $msg, "\n";
+    }
+    for my $fh (@files) {
+        printf $fh "%s %d %5s %s - %s\n",
             scalar(localtime()), $$, $LEVEL_NAMES[$level], $self->{name}, $msg;
-
     }
 }
 

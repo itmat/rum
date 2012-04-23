@@ -124,8 +124,6 @@ BEGIN {
             }
         }
     }
-
-    $LOGGING_DIR ||= ".";
 }
 
 FindBin->again();
@@ -152,13 +150,19 @@ $SIG{__DIE__} = sub {
 
 sub _init {
     my ($class) = @_;
+
+    unless ($LOGGING_DIR) {
+        _init_rum_logger();
+        return;
+    }
+
     # TODO: Get SGE_TASK_ID out of here.
     my $chunk = $ENV{RUM_CHUNK} || $ENV{SGE_TASK_ID};
     # Sometimes SGE_TASK_ID is set to 'undefined'
     undef $chunk if defined($chunk) && $chunk eq 'undefined';
     $LOG_FILE       = $class->log_file($chunk);
     $ERROR_LOG_FILE = $class->error_log_file($chunk);
-    mkdir $LOGGING_DIR;
+    mkdir $LOGGING_DIR if $LOGGING_DIR;
     $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
 }
 
@@ -252,6 +256,7 @@ name if chunk is not a positive number.
 
 sub log_file {
     my ($class, $chunk) = @_;
+    return unless $LOGGING_DIR;
     my $file = $chunk ? sprintf("rum_%03d.log", $chunk) : "rum.log";
     return "$LOGGING_DIR/$file";
 }
@@ -265,6 +270,7 @@ error log file name if chunk is not a positive number.
 
 sub error_log_file {
     my ($class, $chunk) = @_;
+    return unless $LOGGING_DIR;
     my $file = $chunk ? sprintf("rum_errors_%03d.log", $chunk) : "rum_errors.log";
     return "$LOGGING_DIR/$file";
 }
