@@ -111,11 +111,7 @@ Return a list of ram-related arguments to pass to qsub.
 
 sub ram_args {
     my ($self) = @_;
-    my $genome_size = $self->config->genome_size;
-    defined($genome_size) or croak "Can't submit jobs without mem estimate";
-    my $gsz = $genome_size / 1000000000;
-    my $min_ram = int($gsz * 1.67)+1;
-    my $ram = $min_ram . "G";
+    my $ram = $self->config->min_ram . "G";
     ("-l", "mem_free=$ram,h_vmem=$ram");
 }
 

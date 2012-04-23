@@ -361,4 +361,13 @@ sub lock_file {
     $self->in_output_dir(".rum/lock");
 }
 
+sub min_ram_gb {
+    my ($self) = @_;
+    my $genome_size = $self->genome_size;
+    defined($genome_size) or croak "Can't get min ram without genome size";
+    my $gsz = $genome_size / 1000000000;
+    my $min_ram = int($gsz * 1.67)+1;
+    return $min_ram;
+}
+
 1;
