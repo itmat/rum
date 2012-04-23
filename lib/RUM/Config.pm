@@ -179,6 +179,12 @@ sub script {
 sub in_output_dir {
     my ($self, $file) = @_;
     my $dir = $self->output_dir;
+    if ($self->chunk) {
+        $dir = File::Spec->catfile($dir, "chunks");
+        unless (-d $dir) {
+            mkdir $dir or croak "Can't make chunk dir $dir: $!";
+        }
+    }
     return $dir ? File::Spec->catfile($dir, $file) : $file;
 }
 

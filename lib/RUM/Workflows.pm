@@ -395,10 +395,10 @@ sub postprocessing_workflow {
 
     my ($class, $c) = @_;
     $c or croak "I need a config";
-    my $rum_nu = $c->chunk_replaced("RUM_NU");
-    my $rum_unique = $c->chunk_replaced("RUM_Unique");
-    my $rum_unique_cov = $c->chunk_replaced("RUM_Unique.cov");
-    my $rum_nu_cov = $c->chunk_replaced("RUM_NU.cov");
+    my $rum_nu         = $c->in_output_dir("RUM_NU");
+    my $rum_nu_cov     = $c->in_output_dir("RUM_NU.cov");
+    my $rum_unique     = $c->in_output_dir("RUM_Unique");
+    my $rum_unique_cov = $c->in_output_dir("RUM_Unique.cov");
 
     my @chunks = (1 .. $c->num_chunks || 1);
 
@@ -408,10 +408,10 @@ sub postprocessing_workflow {
     my @rum_unique = map { $_->chunk_suffixed("RUM_Unique.sorted") } @c;
     my @rum_nu = map { $_->chunk_suffixed("RUM_NU.sorted") } @c;
     my $sam_headers = $c->in_output_dir("sam_header");
-    my @sam_headers = map "$sam_headers.$_", @chunks;
+    my @sam_headers = map { $c->for_chunk($_)->chunk_suffixed("sam_header") } @chunks;
 
     my $sam_file = $c->in_output_dir("RUM.sam");
-    my @sam_files = map "$sam_file.$_", @chunks;
+    my @sam_files = map { $c->for_chunk($_)->chunk_suffixed("RUM.sam") } @chunks;
 
 
     my @start = (@rum_unique, @rum_nu, @sam_headers, @sam_files);
@@ -439,8 +439,8 @@ sub postprocessing_workflow {
          "-o", post($rum_nu),
          map { pre($_) } @rum_nu]);
 
-    my $reads_fa = $c->chunk_suffixed("reads.fa");
-    my $quals_fa = $c->chunk_suffixed("quals.fa");
+    my $reads_fa = $c->for_chunk(1)->chunk_suffixed("reads.fa");
+    my $quals_fa = $c->for_chunk(1)->chunk_suffixed("quals.fa");
 
     my @chr_counts_u = map { $_->chunk_suffixed("chr_counts_u") } @c;
     my @chr_counts_nu = map {$_->chunk_suffixed("chr_counts_nu") } @c;
@@ -511,7 +511,7 @@ sub postprocessing_workflow {
                             "--chunks", $c->num_chunks || 1,
                             "-o", post($c->quant($strand, $sense)),
                             "--strand", "$strand$sense",
-                            $c->output_dir]]);
+                            $c->output_dir . "/chunks"]]);
 
                     $w->add_command(
                         name => "Merge alt quants $strand $sense",
@@ -522,7 +522,7 @@ sub postprocessing_workflow {
                             "--chunks", $c->num_chunks || 1,
                             "-o", post($c->alt_quant($strand, $sense)),
                             "--strand", "$strand$sense",
-                            $c->output_dir]]) if $c->alt_quant_model;
+                            $c->output_dir . "/chunks"]]) if $c->alt_quant_model;
                 }
             }
             $w->add_command(
@@ -555,7 +555,7 @@ sub postprocessing_workflow {
                     "perl", $c->script("merge_quants.pl"),
                     "--chunks", $c->num_chunks || 1,
                     "-o", post($c->quant), 
-                    $c->output_dir]]);
+                    $c->output_dir. "/chunks"]]);
 
             $w->add_command(
                 name => "Merge alt quants",
@@ -565,7 +565,7 @@ sub postprocessing_workflow {
                     "--alt",
                     "--chunks", $c->num_chunks || 1,
                     "-o", post($c->alt_quant),
-                    $c->output_dir]]) if $c->alt_quant_model;
+                    $c->output_dir . "/chunks"]]) if $c->alt_quant_model;
         }
     }
     my $junctions_all_rum = $c->in_output_dir("junctions_all.rum");
@@ -752,7 +752,7 @@ sub postprocessing_workflow {
          "--chunks", 1,
          "-o", post($c->in_output_dir("novel_exon_quant_temp")),
          "--header",
-         $c->output_dir],
+         $c->output_dir . "/chunks"],
         ["grep", "-v", "transcript",
          post($c->in_output_dir("novel_exon_quant_temp")),
          ">", post($c->novel_inferred_internal_exons_quantifications)]);

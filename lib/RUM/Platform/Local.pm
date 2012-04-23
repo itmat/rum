@@ -205,7 +205,7 @@ sub _determine_read_length {
     
     my ($self) = @_;
 
-    my @lines = head($self->config->in_output_dir("reads.fa.1"), 2);
+    my @lines = head($self->config->for_chunk(1)->chunk_suffixed("reads.fa"), 2);
     my $read = $lines[1];
     my $len = length($read);
     my $min = $self->config->min_length;
@@ -238,8 +238,8 @@ sub _reformat_reads {
 
     my @reads = @{ $config->reads };
 
-    my $reads_fa = $config->chunk_suffixed("reads.fa");
-    my $quals_fa = $config->chunk_suffixed("quals.fa");
+    my $reads_fa = $config->for_chunk(1)->in_output_dir("reads.fa");
+    my $quals_fa = $config->for_chunk(1)->in_output_dir("quals.fa");
 
     my $name_mapping_opt = $config->preserve_names ?
         "-name_mapping $output_dir/read_names_mapping" : "";    
