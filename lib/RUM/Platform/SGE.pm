@@ -96,7 +96,7 @@ sub start_parent {
     my $dir = $self->config->output_dir;
     my $cmd =  "-b y $0 align --parent --output $dir --lock $RUM::Lock::FILE";
     $cmd .= " --preprocess"  if $d->preprocess;
-    $cmd .= " --process"     if $d->postprocess;
+    $cmd .= " --process"     if $d->process;
     $cmd .= " --postprocess" if $d->postprocess;
     my $jid = $self->_qsub($cmd);
     push @{ $self->_parent_jids }, $jid;

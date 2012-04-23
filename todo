@@ -4,6 +4,17 @@ Add back disk space check
 Print out email address if we give up?
 Make sure we print out all the same messages
 
+--preprocess, --process, --postprocess don't seem to work on SGE
+  platform.
+
+Katharina's job failed.
+
+Require -o option.
+
+Create folders for temp and intermediate files.
+
+Never log to cwd.
+
 Done
 ----
 
