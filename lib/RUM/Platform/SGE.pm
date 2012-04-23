@@ -111,7 +111,7 @@ Return a list of ram-related arguments to pass to qsub.
 
 sub ram_args {
     my ($self) = @_;
-    my $ram = $self->config->min_ram . "G";
+    my $ram = $self->config->min_ram_gb . "G";
     ("-l", "mem_free=$ram,h_vmem=$ram");
 }
 
