@@ -105,6 +105,7 @@ use warnings;
 use FindBin qw($Bin);
 use RUM::Logger;
 use File::Spec qw(splitpath);
+use File::Path qw(mkpath);
 use RUM::Lock;
 
 our $LOGGING_DIR;
@@ -112,17 +113,21 @@ our $LOGGING_DIR;
 BEGIN { 
 
     if ($ENV{RUM_OUTPUT_DIR}) {
-        $LOGGING_DIR = $ENV{RUM_OUTPUT_DIR};
+        $LOGGING_DIR = File::Spec->catfile($ENV{RUM_OUTPUT_DIR}, "log");
     }
 
     elsif ($0 =~ /rum_runner$/) {
         for (my $i = 0; $i < @ARGV; $i++) {
             local $_ = $ARGV[$i];
             if (/^(-o|--output|--out|--output-dir)/) {
-                $LOGGING_DIR = $ARGV[$i+1];
+                $LOGGING_DIR = File::Spec->catfile($ARGV[$i+1], "log");
                 last;
             }
         }
+    }
+
+    if ($LOGGING_DIR) {
+        mkpath($LOGGING_DIR);
     }
 }
 
