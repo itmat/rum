@@ -439,8 +439,7 @@ sub postprocessing_workflow {
          "-o", post($rum_nu),
          map { pre($_) } @rum_nu]);
 
-    my $reads_fa = $c->for_chunk(1)->chunk_suffixed("reads.fa");
-    my $quals_fa = $c->for_chunk(1)->chunk_suffixed("quals.fa");
+    my $reads_fa = $c->for_chunk($c->num_chunks)->chunk_suffixed("reads.fa");
 
     my @chr_counts_u = map { $_->chunk_suffixed("chr_counts_u") } @c;
     my @chr_counts_nu = map {$_->chunk_suffixed("chr_counts_nu") } @c;
