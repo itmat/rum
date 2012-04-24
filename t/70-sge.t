@@ -2,7 +2,6 @@ use strict;
 use warnings;
 
 use Test::More tests => 19;
-use Test::Exception;
 
 use FindBin qw($Bin);
 use File::Temp qw(tempdir);

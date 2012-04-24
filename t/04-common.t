@@ -2,7 +2,6 @@
 # -*- cperl -*-
 
 use Test::More tests => 30;
-use Test::Exception;
 use lib "lib";
 
 use strict;

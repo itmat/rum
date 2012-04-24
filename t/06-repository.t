@@ -1,7 +1,6 @@
 #!perl
 
 use Test::More tests => 7;
-use Test::Exception;
 use lib "lib";
 
 use strict;

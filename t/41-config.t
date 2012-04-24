@@ -1,14 +1,13 @@
+use strict;
+use warnings;
+
 use Test::More tests => 23;
-use Test::Exception;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use RUM::Repository;
 use RUM::TestUtils;
-use File::Path;
 use File::Temp qw(tempdir);
-use strict;
-use warnings;
+
 
 BEGIN { 
     use_ok('RUM::Config');

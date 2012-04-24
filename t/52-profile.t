@@ -2,7 +2,6 @@ use strict;
 use warnings;
 
 use Test::More tests => 2;
-use Test::Exception;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Data::Dumper;

@@ -1,5 +1,4 @@
 use Test::More tests => 7;
-use Test::Exception;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
