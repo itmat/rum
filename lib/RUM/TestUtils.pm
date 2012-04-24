@@ -50,6 +50,7 @@ our $PROGRAM_NAME = do {
     local $_ = $0;
     s/^.*\///;
     s/\..*$//;
+    s/^\d\d-//;
     $_;
 };
 
