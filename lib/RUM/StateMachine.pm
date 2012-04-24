@@ -142,10 +142,12 @@ are set in that state.
 
 sub flags {
     my $self = shift;
-    my %flags = %{ $self->{flags} };
-    return keys %flags unless @_;
-    my $state = shift;
-    return grep { $state & $flags{$_} } keys %flags;
+    my $flags = $self->{flags};
+    if (@_) {
+        my $state = shift;
+        return grep { $state & $flags->{$_} } keys %{ $flags };
+    }
+    return keys %{ $flags };
 }
 
 =item state(@flags)
@@ -191,8 +193,8 @@ sub transition {
         # use this transition.
         if (my $missing = $pre & ~$from) {
 
-            $log->debug("transition($from, $instruction) failed, missing ".
-                            join(", ", $self->flags($missing)));
+            $log->trace("transition($from, $instruction) failed, missing ".
+                            join(", ", $self->flags($missing))) if $log->is_trace;
             next;
         }
         
@@ -297,12 +299,10 @@ sub walk {
 
   STATE: while (!$self->is_goal($state)) {
 
-        $log->debug("Looking at state $state");
         local $_;
         for (sort($self->instructions)) {
 
             my $new_state = $self->transition($state, $_);
-            $log->debug("$_ at $state yields $new_state");
             if ($new_state != $state) {
                 $callback->($self, $state, $_, $new_state);
                 $state = $new_state;
