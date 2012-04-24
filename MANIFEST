@@ -83,6 +83,7 @@ lib/RUM/Action/Clean.pm
 lib/RUM/Action/Diagram.pm
 lib/RUM/Action/Help.pm
 lib/RUM/Action/Kill.pm
+lib/RUM/Action/Profile.pm
 lib/RUM/Action/Status.pm
 lib/RUM/Action/Version.pm
 lib/RUM/Base.pm
@@ -192,6 +193,7 @@ t/40-workflows.t
 t/41-config.t
 t/50-runner.pm
 t/51-runner-usage.t
+t/52-profile.t
 t/60-dist.it
 t/70-sge.t
 t/80-end-to-end.it
@@ -244,14 +246,12 @@ t/data/39-quantify-exons/inferred_internal_exons.txt
 t/data/shared/alt_genes.txt
 t/data/shared/alt_quant.txt
 t/data/shared/bad-reads.fq
-t/data/shared/forward.fa
 t/data/shared/forward.fq
 t/data/shared/forward64.fa
 t/data/shared/forward64.fq
 t/data/shared/forward_only.fa
 t/data/shared/good-reads-same-size-as-bad.fq
 t/data/shared/reads.fa
-t/data/shared/reverse.fa
 t/data/shared/reverse.fq
 t/data/shared/reverse64.fa
 t/data/shared/reverse64.fq
