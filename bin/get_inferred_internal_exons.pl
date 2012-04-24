@@ -2,7 +2,6 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
 use strict;
-use Devel::Size qw(total_size);
 use RUM::CoverageMap;
 $|=1;
 
