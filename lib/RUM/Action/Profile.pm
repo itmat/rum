@@ -6,6 +6,10 @@ RUM::Action::Profile - Action for printing performance stats
 
 =head1 METHODS
 
+=over 4
+
+=cut
+
 use strict;
 use warnings;
 
@@ -98,3 +102,6 @@ sub build_timings {
 }
 
 1;
+
+=back
+
