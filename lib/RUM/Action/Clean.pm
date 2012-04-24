@@ -15,6 +15,7 @@ use warnings;
 
 use Carp;
 use Getopt::Long;
+use File::Path qw(rmtree);
 use Text::Wrap qw(wrap fill);
 use base 'RUM::Base';
 
@@ -29,21 +30,15 @@ sub run {
 
     my $self = $class->new;
 
-    my $d = $self->{directives} = RUM::Directives->new;
-
     GetOptions(
         "o|output=s" => \(my $dir),
-        "preprocess"   => sub { $d->set_preprocess;  $d->unset_all; },
-        "process"      => sub { $d->set_process;     $d->unset_all; },
-        "postprocess"  => sub { $d->set_postprocess; $d->unset_all; },
-        "very"         => sub { $d->set_veryclean; },
-        "chunk=s"      => \(my $chunk),
+        "very"         => \(my $very)
     );
     $dir or RUM::Usage->bad(
         "The --output or -o option is required for \"rum_runner align\"");
     $self->{config} = RUM::Config->load($dir) or croak 
         "$dir doesn't seem to be a rum output directory";
-    $self->clean;
+    $self->clean($very);
 }
 
 
@@ -72,41 +67,17 @@ Remove intermediate files.
 =cut
 
 sub clean {
-    my ($self) = @_;
+    my ($self, $very) = @_;
     my $c = $self->config;
-    my $d = $self->directives;
-    my $dir = $c->output_dir;
 
-    # If user ran rum_runner --clean, clean up all the results from
-    # the chunks; just leave the merged files.
-    if ($d->all) {
-        $self->cleanup_reads_and_quals;
-        for my $chunk ($self->chunk_nums) {
-            my $w = RUM::Workflows->chunk_workflow($c->for_chunk($chunk));
-            $w->clean(1);
-        }
-        RUM::Workflows->postprocessing_workflow($c)->clean($d->veryclean);
-    }
+    local $_;
+    my @dirs = ($c->chunk_dir, $c->temp_dir, $c->postproc_dir);
 
-    # Otherwise just clean up whichever phases they asked
-    elsif ($d->preprocess) {
-        $self->cleanup_reads_and_quals;
+    if ($very) {
+        push @dirs, $RUM::Logging::LOGGING_DIR if $RUM::Logging::LOGGING_DIR;
+        RUM::Workflows->postprocessing_workflow($c)->clean(1);
     }
-
-    # Otherwise just clean up whichever phases they asked
-    elsif ($d->process) {
-        for my $w ($self->chunk_workflows) {
-            $w->clean($d->veryclean);
-        }
-    }
-
-    if ($d->postprocess) {
-        RUM::Workflows->postprocessing_workflow($c)->clean($d->veryclean);
-    }
-
-    if ($d->veryclean) {
-        system "rm -f $dir/_tmp_* $dir/*.log $dir/rum.error-log";
-    }
+    rmtree(\@dirs);
 }
 
 1;

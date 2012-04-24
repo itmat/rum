@@ -189,9 +189,14 @@ sub in_output_dir {
     return $dir ? File::Spec->catfile($dir, $file) : $file;
 }
 
+sub postproc_dir {
+    my ($self, $file) = @_;
+    return File::Spec->catfile($self->output_dir, "postproc");
+}
+
 sub in_postproc_dir {
     my ($self, $file) = @_;
-    my $dir = File::Spec->catfile($self->output_dir, "postproc");
+    my $dir = $self->postproc_dir;
     mkpath $dir;
     return File::Spec->catfile($dir, $file);
 }
@@ -392,9 +397,19 @@ sub sam_header { shift->in_postproc_dir("sam_header") }
 sub chunk_file {
     my ($self, $name, $chunk) = @_;
     $chunk or croak "chunk file called without chunk for $name";
-    my $path = File::Spec->catpath($self->output_dir, "chunks", "$name.$chunk");
+    my $path = File::Spec->catfile($self->output_dir, "chunks", "$name.$chunk");
 }
 
 sub chunk_sam_header { $_[0]->chunk_file("sam_header", $_[1]) }
+
+sub chunk_dir {
+    my ($self) = @_;
+    return File::Spec->catfile($self->output_dir, "chunks");
+}
+
+sub temp_dir {
+    my ($self) = @_;
+    return File::Spec->catfile($self->output_dir, "tmp");
+}
 
 1;
