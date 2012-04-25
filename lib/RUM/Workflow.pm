@@ -151,16 +151,23 @@ sub step {
 
 =item temp($file)
 
-Return the name of a temporary file, and associate that temp file with
-the given $file. Commands should use this to get the name of a file to
-write to. After I execute a command, I will copy all temporary files
-associated with it to their corresponding non-temporary file.
+Return the function which, when executed, returns name of a temporary
+file, and associates that temp file with the given $file. Commands
+should use this to get the name of a file to write to. After I execute
+a command, I will copy all temporary files associated with it to their
+corresponding non-temporary file.
+
+Note that this returns a function so that we "lazily" allocate
+temporary files. Calling File::Temp->new can be very expensive. This
+accounted for quite a lot of time when just checking the status of a
+job.
 
 =cut
 
 sub temp {
     my ($self, $path) = @_;
-    $self->{temp_files}{$path} ||= $self->_temp_filename($path);
+
+    return sub { $self->{temp_files}{$path} ||= $self->_temp_filename($path) }
 }
 
 =item start($files)
@@ -299,7 +306,12 @@ sub commands {
     ref($commands) =~ /^ARRAY/ or croak
         "Commands must be an array ref, not $commands";
 
-    return @$commands;
+    my @result;
+    for my $parts (@$commands) {
+        my @parts = map { ref($_) =~ /CODE/ ? $_->() : $_ } @$parts;
+        push @result, \@parts;
+    }
+    return @result;
 }
 
 =item shell_script($filehandle)
