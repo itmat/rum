@@ -140,7 +140,7 @@ while($flag < 2) {
 	if($span_ended == 0) {
 	    print OUTFILE "\t$end_max\t$current_cov\n";  # don't adjust the right point because half-open
 	    if($stats eq "true") {
-		$footprint = $footprint + $k - $span_start;
+		$footprint = $footprint + $end_max - $span_start;
 	    }
 	}
 	undef %position_coverage;
