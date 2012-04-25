@@ -15,7 +15,7 @@ use warnings;
 
 use Getopt::Long;
 use Text::Wrap qw(wrap fill);
-
+use Carp;
 use base 'RUM::Base';
 
 =item run
@@ -59,52 +59,38 @@ sub print_processing_status {
     local $_;
     my $c = $self->config;
 
-    my @steps;
-    my %num_completed;
-    my %comments;
-    my %progress;
-    my @chunks;
-
-    if ($c->chunk) {
-        push @chunks, $c->chunk;
-    }
-    else {
-        push @chunks, (1 .. $c->num_chunks || 1);
-    }
+    my @chunks = $c->chunk ? ($c->chunk) : $self->chunk_nums;
 
     my @errored_chunks;
+    my @progress;
+    my $workflow = RUM::Workflows->chunk_workflow($c->for_chunk(1));
+    my $plan = $workflow->state_machine->plan or croak "Can't build a plan";
+    my @plan = @{ $plan };
+
 
     for my $chunk (@chunks) {
         my $config = $c->for_chunk($chunk);
         my $w = RUM::Workflows->chunk_workflow($config);
-        my $handle_state = sub {
-            my ($name, $completed) = @_;
-            unless (exists $num_completed{$name}) {
-                $num_completed{$name} = 0;
-                $progress{$name} = "";
-                $comments{$name} = $w->comment($name);
-                push @steps, $name;
-            }
-            $progress{$name} .= $completed ? "X" : " ";
-            $num_completed{$name} += $completed;
-        };
-        $w->walk_states($handle_state);
+        my $m = $w->state_machine;
+        my $state = $w->state;
+        $m->recognize($plan, $state) 
+            or croak "Plan doesn't work for chunk $chunk";
+
+        my $skip = $m->skippable($plan, $state);
+
+        for (0 .. $#plan) {
+            $progress[$_] .= ($_ < $skip ? "X" : " ");
+        }
     }
 
     my $n = @chunks;
-    #my $digits = num_digits($n);
-    #my $h1     = "   Chunks ";
-    #my $h2     = "Done / Total";
-    #my $format =  "%4d /  %4d ";
 
     $self->say("Processing in $n chunks");
     $self->say("-----------------------");
-    #$self->say($h1);
-    #$self->say($h2);
-    for (@steps) {
-        #my $progress = sprintf $format, $num_completed{$_}, $n;
-        my $progress = $progress{$_} . " ";
-        my $comment   = $comments{$_};
+
+    for (0 .. $#plan) {
+        my $progress = $progress[$_] . " ";
+        my $comment   = $workflow->comment($plan[$_]);
         my $indent = ' ' x length($progress);
         $self->say(wrap($progress, $indent, $comment));
     }
@@ -124,17 +110,23 @@ Print the status of all the steps of the "postprocessing" phase.
 
 sub print_postprocessing_status {
     my ($self) = @_;
+    local $_;
     my $c = $self->config;
 
     $self->say();
     $self->say("Postprocessing");
     $self->say("--------------");
+
     my $postproc = RUM::Workflows->postprocessing_workflow($c);
-    my $handle_state = sub {
-        my ($name, $completed) = @_;
-        $self->say(($completed ? "X" : " ") . " " . $postproc->comment($name));
+    my $state = $postproc->state;
+    my $plan = $postproc->state_machine->plan or croak "Can't build plan";
+    my @plan = @{ $plan };
+    my $skip = $postproc->state_machine->skippable($plan, $state);
+    for (0 .. $#plan) {
+        my $progress = $_ < $skip ? "X" : " ";
+        my $comment  = $postproc->comment($plan[$_]);
+        $self->say("$progress $comment");
     };
-    $postproc->walk_states($handle_state);
 }
 
 1;
