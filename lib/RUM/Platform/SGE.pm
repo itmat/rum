@@ -62,6 +62,9 @@ sub new {
     $self->{cmd}{proc}     =  "perl $0 align --child --output $dir --chunk \$SGE_TASK_ID";
     $self->{cmd}{postproc} =  "perl $0 align --child --output $dir --postprocess";
 
+    $self->{cmd}{proc} .= " --no-clean" if $directives->no_clean;
+    $self->{cmd}{postproc} .= " --no-clean" if $directives->no_clean;
+
     $self->{jids}{$_} = [] for @JOB_TYPES;
 
     my $filename = $config->in_output_dir($JOB_ID_FILE);
@@ -98,6 +101,7 @@ sub start_parent {
     $cmd .= " --preprocess"  if $d->preprocess;
     $cmd .= " --process"     if $d->process;
     $cmd .= " --postprocess" if $d->postprocess;
+    $cmd .= " --no-clean"    if $d->no_clean;
     my $jid = $self->_qsub($cmd);
     push @{ $self->_parent_jids }, $jid;
     $self->save;

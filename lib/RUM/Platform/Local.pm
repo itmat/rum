@@ -444,6 +444,7 @@ sub _process_in_chunks {
     for my $chunk ($self->chunk_nums) {
         my @cmd = ($0, "align", "--child", "--output", $self->config->output_dir,
                    "--chunk", $chunk);
+        push @cmd, "--no-clean" if $self->directives->no_clean;
         my $config = $self->config->for_chunk($chunk);                
         my $workflow = RUM::Workflows->chunk_workflow($config);
 
