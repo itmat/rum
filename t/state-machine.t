@@ -1,11 +1,10 @@
-#!perl
-# -*- cperl -*-
-
-use Test::More tests => 23;
-use lib "lib";
-
 use strict;
 use warnings;
+
+use Test::More tests => 39;
+use lib "lib";
+use Data::Dumper;
+
 
 BEGIN { 
     use_ok('RUM::StateMachine');
@@ -84,7 +83,8 @@ is_deeply({$m->_adjacent($letters | $numbers | $combined)},
 
 my @plan = qw(cut_first_col cut_second_col cat_cols sort);
 
-is_deeply($m->generate(), \@plan, "Generate plan");
+
+is_deeply($m->plan(), \@plan, "Generate plan");
 
 my @dfs;
 
@@ -103,6 +103,68 @@ is_deeply(\@dfs,
 open my $dot, ">", "workflow.dot";
 $m->dotty($dot);
 close ($dot);
+
+
+{
+
+    my @expected = (
+        [ 0, 'cut_first_col',  $letters],
+        [ 0, 'cut_second_col', $numbers],
+        [ $letters, 'cut_second_col', $letters | $numbers],
+        [ $letters | $numbers , 'cat_cols', $letters | $numbers | $combined ],
+        [ $letters | $numbers | $combined, 'sort', $letters | $numbers | $combined | $sorted ]
+    );
+
+    my @expected_plan = qw(cut_letters cut_numbers cat_cols sort);
+
+    my @expected_minimal_states = (
+        $sorted | $combined | $numbers | $letters,
+        $sorted | $combined | $numbers | $letters,
+        $sorted | $combined,
+        $sorted
+    );
+
+    my @expected_path = (
+        0, 
+        $letters,
+        $letters | $numbers,
+        $letters | $numbers | $combined,
+        $letters | $numbers | $combined | $sorted
+    );
+
+    my @traversal;
+    ok $m->bfs(sub { push @traversal, [@_] }), "BFS finds path";
+    is_deeply \@traversal, \@expected, "Traversal of BFS";
+
+    my $min_states = $m->minimal_states;
+    is_deeply $min_states, \@expected_minimal_states, "Minimal states";
+
+    for my $state (@$min_states) {
+        my @flags = $m->flags($state);
+        warn "Flags are @flags\n";
+    }
+
+}
+
+ok $m->recognize([], $sorted), "Already at goal";
+ok $m->recognize(['sort'], $combined), "Just need to sort";
+ok $m->recognize(['cat_cols', 'sort'], $letters | $numbers), "Combine and sort";
+ok $m->recognize(['cut_second_col', 'cat_cols', 'sort'], $letters), "Cut numbers, combine and sort";
+ok $m->recognize(['cut_first_col', 'cat_cols', 'sort'], $numbers), "Cut numbers, combine and sort";
+ok $m->recognize(['cut_first_col', 'cut_second_col', 'cat_cols', 'sort'], 0), "Cut both cols, combine and sort";
+
+ok ! $m->recognize([], 0), "Bad plan";
+ok ! $m->recognize(['sort'], 0), "Bad plan";
+
+{
+    my @plan = qw(cut_first_col cut_second_col cat_cols sort);
+    
+    is $m->skippable(\@plan, 0), 0, "Can't skip any";
+    is $m->skippable(\@plan, $letters), 1, "Skip cutting letters";
+    is $m->skippable(\@plan, $letters | $numbers), 2, "Skip cutting letters and numbers";
+    is $m->skippable(\@plan, $combined), 3, "Skip cutting and combining";
+    is $m->skippable(\@plan, $sorted), 4, "Skip everything";
+}
 
 __END__
 

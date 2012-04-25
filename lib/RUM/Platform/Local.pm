@@ -415,7 +415,7 @@ sub process {
         $log->info("Running chunk $chunk");
         my $config = $self->config->for_chunk($chunk);
         my $w = RUM::Workflows->chunk_workflow($config);
-        $w->execute($self->_step_printer($w));
+        $w->execute($self->_step_printer($w), ! $self->directives->no_clean);
     }
     elsif ($config->num_chunks) {
         $self->_process_in_chunks;
@@ -528,7 +528,7 @@ sub postprocess {
     $self->say("--------------");
 
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
-    $w->execute($self->_step_printer($w));
+    $w->execute($self->_step_printer($w), ! $self->directives->no_clean);
 }
 
 sub _reads {

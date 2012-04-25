@@ -251,19 +251,15 @@ sub walk_states {
 
     my ($self, $callback) = @_;
 
-    my $state = $self->state;
-
-    my $f = sub {
-        my ($sm, $old, $name, $new) = @_;
-        my $completed = ($new & $state) == $new;
-        $log->debug("In state $old".
-                        ($completed ? " (completed)" : "").
-                            ", using $name to get to $new");
-        $callback->($name, $completed);
-    };
-        
-    $self->{sm}->walk($f) or $log->warn("Hit a dead end");
-    
+    my $u = $self->state;
+    my $sm = $self->state_machine;
+    my $plan = $sm->plan or confess "No plan";
+    for my $e (@{ $plan }) {
+        my $v = $sm->transition($u, $e);
+        my $completed = (($u & $v) == $v) ? " (completed)" : "";
+        $log->debug("In state $u$completed, using $e to get to $v");
+        $callback->($e, $completed);
+    }
 }
 
 =item all_commands($name)
@@ -280,7 +276,9 @@ sub all_commands {
         my ($name, $completed) = @_;
         push @commands, $name;
     };
+
     $self->walk_states($f);
+
     return @commands;
 }
 
@@ -347,6 +345,87 @@ sub shell_script {
     $self->{sm}->walk($f);
 }
 
+sub _run_step {
+
+    my ($self, $old, $step, $new) = @_;
+
+    local $_;
+
+    my $sm = $self->state_machine;
+    my $comment = $self->comment($step);
+    my @cmds = $self->commands($step);
+    
+    # Format the comment
+    $comment =~ s/\n//g;
+    
+    for my $cmd (@cmds) {
+        $log->debug("Running @$cmd");
+            
+        my $stdout;
+        my $stdout_mode;
+        my @from = @ { $cmd };
+        my @to;
+        while (local $_ = shift @from) {
+            if (/\s*(>>|>)\s*/){
+                $stdout = shift(@from);
+                $stdout_mode = $1;
+            }
+            else {
+                push @to, $_;
+            }
+        }
+        
+        if (my $pid = fork) {
+            
+            my $oldhandler = $SIG{TERM};
+            
+            $SIG{TERM} = sub {
+                warn("Caught SIGTERM, killing child process ($to[0])");
+                kill 15, $pid;
+                waitpid $pid, 0;
+                RUM::Lock->release;
+                $oldhandler->(@_) if $oldhandler;
+                die;
+            };
+            
+            waitpid($pid, 0);
+            $SIG{TERM} = $oldhandler;
+            
+            if ($?) {
+                die "Error running @$cmd: $!";
+            }                    
+        }
+        else {
+            if ($stdout) {
+                close STDOUT;
+                open STDOUT, $stdout_mode, $stdout or croak "Can't open output $stdout: $!";
+            }
+            exec(@to);
+        }
+    }
+        
+    for ($sm->flags($new & ~$old)) {
+        if (my $temp = $self->_get_temp($_)) {
+            -e and $log->warn(
+                "File $_ already exists; ".
+                    "I thought it would be created by $step");
+            rename($temp, $_) or croak
+                "Couldn't rename temporary file $temp to $_: $!";
+        }
+        else {
+            $log->warn("$_ was not first created as a temporary file");
+        }
+    }
+    
+    my $state = $self->state;
+    
+    if ($new != $state) {
+        my @missing = $sm->flags($new & ~$state);
+        my @extra   = $sm->flags($state & ~$new);
+        $log->warn("I am not in the state I'm supposed to be. I am missing @missing and have extra files @extra");
+    }
+}
+
 =item execute($callback)
 
 Execute the sequence of commands necessary to bring the workflow from
@@ -363,100 +442,40 @@ satisfied.
 =cut
 
 sub execute {
-    my ($self, $callback) = @_;
-
-    my $sm = $self->state_machine;
-
+    my ($self, $callback, $clean) = @_;
+    warn "Clean is $clean\n";
     local $_;
+    my $sm    = $self->state_machine;
+    my $state = $self->state;
+    my $plan = $sm->plan or croak "No plan";
+    my $skip = $sm->skippable($plan, $state);
+    my @plan = @{ $plan };
 
-    #$sm->start($self->state);
+    my $min_states = $sm->minimal_states($plan);
 
-    $log->debug("Executing workflow");
-    my $f = sub {
-        my ($sm, $old, $step, $new) = @_;
-        $log->debug("  at step $old,  $step,  $new");
-        my $comment = $self->comment($step);
-        my @cmds = $self->commands($step);
+    my $count = 0;
 
-        # Format the comment
-        $comment =~ s/\n//g;
+    for my $step (@plan) {
 
-        my $completed = ($new & $self->state) == $new;
-
-        $callback->($step, $completed) if $callback;
-
-        unless ($completed) {
-
-            for my $cmd (@cmds) {
-                $log->debug("Running @$cmd");
-
-                my $stdout;
-                my $stdout_mode;
-                my @from = @ { $cmd };
-                my @to;
-                while (local $_ = shift @from) {
-                    if (/\s*(>>|>)\s*/){
-                        $stdout = shift(@from);
-                        $stdout_mode = $1;
-                    }
-                    else {
-                        push @to, $_;
-                    }
-                }
-
-                if (my $pid = fork) {
-
-                    my $oldhandler = $SIG{TERM};
-
-                    $SIG{TERM} = sub {
-                        warn("Caught SIGTERM, killing child process ($to[0])");
-                        kill 15, $pid;
-                        waitpid $pid, 0;
-                        RUM::Lock->release;
-                        $oldhandler->(@_) if $oldhandler;
-                        die;
-                    };
-                    
-                    waitpid($pid, 0);
-                    $SIG{TERM} = $oldhandler;
-
-                    if ($?) {
-                        die "Error running @$cmd: $!";
-                    }                    
-                }
-                else {
-                    if ($stdout) {
-                        close STDOUT;
-                        open STDOUT, $stdout_mode, $stdout or croak "Can't open output $stdout: $!";
-                    }
-                    exec(@to);
-                }
-            }
-            
-            for ($sm->flags($new & ~$old)) {
-                if (my $temp = $self->_get_temp($_)) {
-                    -e and $log->warn(
-                        "File $_ already exists; ".
-                            "I thought it would be created by $step");
-                    rename($temp, $_) or croak
-                        "Couldn't rename temporary file $temp to $_: $!";
-                }
-                else {
-                    $log->warn("$_ was not first created as a temporary file");
-                }
-            }
-            
-            my $state = $self->state;
-            
-            if ($new != $state) {
-                my @missing = $sm->flags($new & ~$state);
-                my @extra   = $sm->flags($state & ~$new);
-                $log->warn("I am not in the state I'm supposed to be. I am missing @missing and have extra files @extra");
-            }
+        if ($count < $skip) {
+            $callback->($step, 1);
         }
+        else {
+            $callback->($step, 0);
+            my $state = $self->state;
+            $self->_run_step($state, $step, $sm->transition($state, $step));
+        }
+        my $need = $min_states->[$count] | $sm->start;
 
-    };
-    $self->{sm}->walk($f);
+        for ($sm->flags( ~$need )) {
+            next unless -e;
+            my $size = -s;
+            $log->info("Size of $_ is $size");
+            unlink if $clean;
+        }
+        $count++;
+    }
+
 }
 
 =item is_complete

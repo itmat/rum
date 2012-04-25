@@ -50,6 +50,14 @@ sub chunk_workflow {
 
     my $reads_fa = $c->chunk_suffixed("reads.fa");
     my $quals_fa = $c->chunk_suffixed("quals.fa");
+    my $rum_unique_sorted = $c->chunk_suffixed("RUM_Unique.sorted");
+    my $rum_nu_sorted = $c->chunk_suffixed("RUM_NU.sorted");
+
+    my $chr_counts_u = $c->chunk_suffixed("chr_counts_u");
+    my $chr_counts_nu = $c->chunk_suffixed("chr_counts_nu");
+
+
+
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -284,12 +292,6 @@ sub chunk_workflow {
           pre($sam_file),
          "> ", post($nu_stats)]);
     
-    my $rum_unique_sorted = $c->chunk_suffixed("RUM_Unique.sorted");
-    my $rum_nu_sorted = $c->chunk_suffixed("RUM_NU.sorted");
-
-    my $chr_counts_u = $c->chunk_suffixed("chr_counts_u");
-    my $chr_counts_nu = $c->chunk_suffixed("chr_counts_nu");
-
     $m->step(
         "Sort RUM_Unique by location", 
         ["perl", $c->script("sort_RUM_by_location.pl"),
@@ -306,12 +308,15 @@ sub chunk_workflow {
          pre($rum_nu),
          "--ram", $c->min_ram_gb,
          "-o", post($rum_nu_sorted),
-         ">>", $chr_counts_nu]);
+         ">>", post($chr_counts_nu)]);
     
     my @goal = ($rum_unique_sorted,
                 $rum_nu_sorted,
                 $sam_file,
                 $nu_stats,
+                $chr_counts_nu,
+                $chr_counts_u,
+                
             );
     
     if ($c->strand_specific) {

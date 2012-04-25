@@ -76,7 +76,7 @@ SKIP: {
     close ($dot);
     
     open my $script_file, ">", "$out_dir/run.sh" or die "Can't open script";
-    $chunk->shell_script($script_file);
+#    $chunk->shell_script($script_file);
 }
 
 sub would_run {

@@ -154,6 +154,7 @@ sub platform {
     my $name = $self->directives->child ? "Local" : $self->config->platform;
     my $class = "RUM::Platform::$name";
     my $file = "RUM/Platform/$name.pm";
+
     require $file;
     my $platform = $class->new($self->config, $self->directives);
 }

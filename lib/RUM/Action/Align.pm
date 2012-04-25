@@ -140,6 +140,8 @@ sub get_options {
         "postprocess"  => sub { $d->set_postprocess; $d->unset_all; },
         "chunk=s"      => \(my $chunk),
 
+        "no-clean" => sub { $d->set_no_clean },
+
         # Options typically entered by a user to define a job.
         "config=s"    => \(my $rum_config_file),
         "output|o=s"  => \(my $output_dir),
@@ -161,7 +163,6 @@ sub get_options {
         "max-insertions-per-read=s" => \(my $max_insertions),
         "min-identity"              => \(my $min_identity),
         "min-length=s"              => \(my $min_length),
-        "no-clean"                  => \(my $no_clean),
         "preserve-names"            => \(my $preserve_names),
         "quals-file|qual-file=s"    => \(my $quals_file),
         "quantify"                  => \(my $quantify),
@@ -250,7 +251,6 @@ sub get_options {
     $set->('blat_max_intron', $blat_max_intron);
     $set->('blat_only', $blat_only);
     $set->('chunk', $chunk);
-    $set->('cleanup', !$no_clean);
     $set->('count_mismatches', $count_mismatches);
     $set->('dna', $dna);
     $set->('genome_only', $genome_only);
