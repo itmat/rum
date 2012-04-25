@@ -316,7 +316,7 @@ sub chunk_workflow {
                 $nu_stats,
                 $chr_counts_nu,
                 $chr_counts_u,
-                
+                $c->chunk_sam_header($c->chunk || 1)
             );
     
     if ($c->strand_specific) {

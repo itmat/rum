@@ -403,8 +403,9 @@ sub _run_step {
             exec(@to);
         }
     }
-        
+
     for ($sm->flags($new & ~$old)) {
+
         if (my $temp = $self->_get_temp($_)) {
             -e and $log->warn(
                 "File $_ already exists; ".
@@ -443,14 +444,16 @@ satisfied.
 
 sub execute {
     my ($self, $callback, $clean) = @_;
-    warn "Clean is $clean\n";
+
     local $_;
     my $sm    = $self->state_machine;
     my $state = $self->state;
     my $plan = $sm->plan or croak "No plan";
+    my $missing = $sm->start & ~$state;
+
     my $skip = $sm->skippable($plan, $state);
     my @plan = @{ $plan };
-
+    $sm->recognize($plan, $sm->start) or croak "Error, can't build a plan";
     my $min_states = $sm->minimal_states($plan);
 
     my $count = 0;
@@ -513,11 +516,11 @@ sub _temp_filename {
     my ($self, $path) = @_;
     my (undef, $dir, $file) = File::Spec->splitpath($path);
     # TODO: Ensure that files will be different for different runs
-    $dir = "$dir/tmp";
+
     unless (-d $dir) {
         mkpath $dir or croak "mkpath $dir: $!";
     }
-    my $fh = File::Temp->new(DIR => $dir, TEMPLATE => "$file.XXXXXXXX", UNLINK => 1);
+    my $fh = File::Temp->new(DIR => $dir, TEMPLATE => "$file.tmp.XXXXXXXX", UNLINK => 1);
     close $fh;
     return $fh->filename;
 }
