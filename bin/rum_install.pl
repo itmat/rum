@@ -9,6 +9,10 @@ use File::Copy;
 use Carp;
 use File::Path qw(mkpath);
 
+# This should set to the correct version by the release script
+my $tarball = "RUM-Pipeline-v1.12_00.tar.gz";
+our $tarball_url = "http://pgfi.rum.s3.amazonaws.com/$tarball";
+
 =head1 NAME
 
 rum_install.pl - RUM Pipeline Installer
@@ -61,9 +65,6 @@ sub usage {
 GetOptions("help|h" => \&usage);
 my $dir = $ARGV[0] or usage();
 $dir =~ s!\/$!!;
-
-my $tarball = "RUM-Pipeline-v1.12_00.tar.gz";
-our $tarball_url = "http://pgfi.rum.s3.amazonaws.com/$tarball";
 
 # Make any directories that need to be created
 mkpath($dir);
