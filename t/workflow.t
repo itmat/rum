@@ -58,7 +58,9 @@ like($cmds[0][3], qr/output/, "with tags");
 my $in = "$SHARED_INPUT_DIR/forward64.fq";
 $w = RUM::Workflow->new();
 my $out = temp_filename(TEMPLATE => "workflow.XXXXXX", UNLINK => 0);
+
 unlink $out;
+$w->start([$in]);
 $w->step("copy input to output", ["cp", pre($in), post($out)]);
 $w->set_goal([$out]);
 $w->execute;

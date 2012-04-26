@@ -41,7 +41,7 @@ of times I was started.
 
 sub times_started {
     my ($self, $state) = @_;
-    return $self->{starts_by_state}{$state} || 0 if defined($state);
+    return $self->{starts_by_state}{$state->string} || 0 if defined($state);
     return $self->{starts};
 }
 
@@ -60,8 +60,8 @@ sub run {
     return if $self->times_started >= $MAX_STARTS;
     return if $self->times_started($state) >= $MAX_STARTS_PER_STATE;
 
-    $self->{starts_by_state}{$state} ||= 0;
-    $self->{starts_by_state}{$state}++;
+    $self->{starts_by_state}{$state->string} ||= 0;
+    $self->{starts_by_state}{$state->string}++;
     $self->{starts}++;
    
     $self->{code}->();

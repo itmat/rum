@@ -74,7 +74,7 @@ sub clean {
     my @dirs = ($c->chunk_dir, $c->temp_dir, $c->postproc_dir);
 
     if ($very) {
-        push @dirs, $RUM::Logging::LOGGING_DIR if $RUM::Logging::LOGGING_DIR;
+        push @dirs, $c->in_output_dir("log");
         RUM::Workflows->postprocessing_workflow($c)->clean(1);
     }
     rmtree(\@dirs);

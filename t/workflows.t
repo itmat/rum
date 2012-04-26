@@ -71,9 +71,9 @@ SKIP: {
 
     my $chunk = RUM::Workflows->chunk_workflow($config);
 
-    open my $dot, ">", "workflow.dot";
-    $chunk->state_machine->dotty($dot);
-    close ($dot);
+#    open my $dot, ">", "workflow.dot";
+#    $chunk->state_machine->dotty($dot);
+#    close ($dot);
     
     open my $script_file, ">", "$out_dir/run.sh" or die "Can't open script";
 #    $chunk->shell_script($script_file);

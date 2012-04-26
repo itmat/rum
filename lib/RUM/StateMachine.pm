@@ -7,6 +7,7 @@ use Carp;
 use List::Util qw(reduce);
 use RUM::Logging;
 use Data::Dumper;
+use RUM::State;
 
 our $log = RUM::Logging->get_logger;
 
@@ -25,20 +26,20 @@ RUM::StateMachine - DFA for modeling state of RUM jobs.
 =item $machine = RUM::StateMachine->new(start => $state)
 
 Create a new state machine, optionally with a start state (it defaults
-to 0).
+to the empty set).
 
 =cut
 
 sub new {
     my ($class, %options) = @_;
 
-    my $start = delete($options{start}) || 0;
+    my $start = delete($options{start}) || RUM::State->new;
 
     my $self = {};
     $self->{start}        = $start;
     $self->{flags}        = {};
     $self->{transitions}  = {};
-    $self->{goal_mask}    = 0;
+    $self->{goal}    = 0;
     return bless $self, $class;
 }
 
@@ -52,29 +53,30 @@ These methods are all involved in setting up the machine.
 
 =over 4
 
-=item set_goal($mask)
+=item set_goal($goal)
 
-Set the mask for the goal. The state machine is in a final state
-$state all the bits in $mask are set.
+Set the goal. The state machine is in a final state $state all the
+flags in $goal are set.
 
 =cut
 
 sub set_goal {
-    my ($self, $mask) = @_;
-    $self->{goal_mask} = $mask;
+    my ($self, $goal) = @_;
+    $self->{goal} = $goal;
 }
 
 =item flag($flag)
 
-Return the bit string for the given flag, creating the flag if it
-doesn't exist.
+Return the state that has only the given flag set, creating the flag
+if it doesn't exist.
 
 =cut
 
 sub flag {
     my ($self, $flag) = @_;
     my $n = $self->flags;
-    return $self->{flags}{$flag} ||= 1 << $n;
+    $self->{flags}{$flag} = 1;
+    return $flag;
 }
 
 =item add($pre, $post, $instruction)
@@ -129,28 +131,19 @@ sub instructions {
 
 =item flags
 
-=item flags($state)
-
-With no arguments, return a list of all the symbolic flags for this
-state machine. Note that if there are n flags, the full state set of
-this machine contains 2^n states. This is generally too many to deal
-with, and most of those states aren't interesting. When we set up a
-machine, rather than enumerate all states, we instead set up
-transitions to and from sets of states, referring to each set by the
-flags that are present in those states.
-
-With a $state argument, return a list of all the symbolic flags that
-are set in that state.
+Return a list of all the symbolic flags for this state machine. Note
+that if there are n flags, the full state set of this machine contains
+2^n states. This is generally too many to deal with, and most of those
+states aren't interesting. When we set up a machine, rather than
+enumerate all states, we instead set up transitions to and from sets
+of states, referring to each set by the flags that are present in
+those states.
 
 =cut
 
 sub flags {
     my $self = shift;
     my $flags = $self->{flags};
-    if (@_) {
-        my $state = shift;
-        return grep { $state & $flags->{$_} } keys %{ $flags };
-    }
     return keys %{ $flags };
 }
 
@@ -163,13 +156,7 @@ flags being set.
 
 sub state {
     my ($self, @flags) = @_;
-    my $state = 0;
-    for my $flag (@flags) {
-        my $bit = $self->{flags}{$flag}
-            or croak "Undefined flag $flag";
-        $state |= $bit;
-    }
-    return $state;
+    return RUM::State->new(@flags);
 }
 
 =item transition($state, $instruction)
@@ -197,18 +184,15 @@ sub transition {
 
         # If all the bits in $pre aren't set in $state, then we can't
         # use this transition.
-        if (my $missing = $pre & ~$from) {
-
-            $log->trace("transition($from, $instruction) failed, missing ".
-                            join(", ", $self->flags($missing))) if $log->is_trace;
+        unless ($from->contains($pre)) {
             next;
         }
         
-        $to = $from | $post;
+        $to = $from->union($post);
 
         # If all the bits in $post are already set in $state, this
         # transition would just keep us in the same $state.
-        next if $to == $from;
+        next if $to->equals($from);
 
         # Otherwise we have a valid transition; the new state is the
         # old $state with all the bits in $post set.
@@ -218,26 +202,13 @@ sub transition {
     return $from;
 }
 
-sub _adjacent {
-    my ($self, $state) = @_;
+=item goal
 
-    my %transitions;
-
-    for ($self->instructions) {
-        my $new_state = $self->transition($state, $_);
-        $transitions{$_} = $new_state unless $new_state == $state;
-    }
-
-    return %transitions;
-}
-
-=item goal_mask
-
-Return the bits that need to be set for a goal state
+Return the goal state.
 
 =cut
 
-sub goal_mask { $_[0]->{goal_mask} };
+sub goal { $_[0]->{goal} };
 
 =item is_goal($state)
 
@@ -247,8 +218,7 @@ Return true if the given $state is a goal state, false otherwise.
 
 sub is_goal {
     my ($self, $state) = @_;
-    my $goal = $self->goal_mask;
-    return ($state & $goal) == $goal;
+    return $state->contains($self->goal);
 }
 
 =item plan
@@ -261,6 +231,7 @@ sequence of instructions exists.
 
 sub plan {
     my ($self) = @_;
+
     my %seen;
     my @plan;
 
@@ -272,7 +243,7 @@ sub plan {
         }
         else {
             $hit_goal = $self->is_goal($v);
-            push @plan, $e unless $seen{$v}++;
+            push @plan, $e unless $seen{$v->string}++;
             return 1;
         }
     };
@@ -288,7 +259,7 @@ Walk the sequence of transitions necessary to bring this state machine
 from its start state to a goal state, calling $callback for each
 transition.  $callback is called as follows
 
-  $callback->($self, $state, $instruction, $new_state, $comment);
+  $callback->($self, $state, $instruction, $new_state);
 
 Where $self is this state machine, $state is the state before the
 given $instruction would be applied, and $new_state is the state after
@@ -330,15 +301,17 @@ sub dfs {
     $visited ||= {};
     $q ||= [];
     $state ||= $self->start;
-
-    $visited->{$state} = 1;
+    my $key = $state->string;
+    $visited->{$key} = 1;
 
     for my $t ($self->instructions) {
         my $new_state = $self->transition($state, $t);
-        if ($state != $new_state) {
+        if (! $state->equals($new_state)) {
+
             my $res = $callback->($state, $t, $new_state);
+            my $key = $new_state->string;
             last unless $res;
-            next if $visited->{$new_state};
+            next if $visited->{$key};
             push @$q, $new_state;
             $self->dfs($callback, $new_state, $visited, $q);
         }
@@ -367,7 +340,7 @@ sub bfs {
     my $start = @_ ? shift : $self->start;
 
     my @q       = ($start);
-    my %visited = ($start => undef);
+    my %visited = ($start->string => undef);
 
     while (@q) {
 
@@ -377,9 +350,9 @@ sub bfs {
         }
         for my $e ($self->instructions) {
             my $v = $self->transition($u, $e);
-            unless (exists $visited{$v}) {
+            unless (exists $visited{$v->string}) {
                 $callback->($u, $e, $v);
-                $visited{$v} = $u;
+                $visited{$v->string} = $u;
                 push @q, $v;
             }
         }
@@ -405,7 +378,7 @@ sub minimal_states {
     
     $plan ||= $self->plan or return;
     
-    my $need = $self->goal_mask;
+    my $need = $self->goal;
 
     for my $e (reverse @{ $plan }) {
         unshift @states, $need;        
@@ -413,7 +386,7 @@ sub minimal_states {
         
         for my $t (@$transitions) {
             my ($pre, $post) = @$t;
-            $need |= $pre;
+            $need = $need->union($pre);
         }
     }
     return \@states;    
@@ -518,11 +491,28 @@ sub skippable {
     return 0;
 }
 
+=back
+
+=head2 State Model
+
+=over 4
+
+=cut
+
+=item closure
+
+Return the union of all possible state sets: the state that represents
+every flag being set.
+
+=cut
+
+sub closure {
+    my ($self) = @_;
+    return $self->state($self->flags);
+}
+
 1;
 
 =back
 
 =cut
-
-
-

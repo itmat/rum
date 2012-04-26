@@ -240,10 +240,7 @@ sub state {
 
     my @existing_files = grep { -e } $m->flags;
 
-    for (@existing_files) {
-        $state |= $m->flag($_);
-    }
-    return $state;
+    return $m->state(@existing_files);
 }
 
 =item walk_states
@@ -263,7 +260,7 @@ sub walk_states {
     my $plan = $sm->plan or confess "No plan";
     for my $e (@{ $plan }) {
         my $v = $sm->transition($u, $e);
-        my $completed = (($u & $v) == $v) ? " (completed)" : "";
+        my $completed = $u->contains($v) ? " (completed)" : "";
         $log->debug("In state $u$completed, using $e to get to $v");
         $callback->($e, $completed);
     }
@@ -333,7 +330,7 @@ sub shell_script {
         $comment = fill('# ', '# ', $comment);
         print $fh  "$comment\n";
         
-        my @post = $sm->flags($new & ~$old);
+        my @post = $new->and_not($old)->flags;
 
         if (@post) {
             my @files = @post;
@@ -416,7 +413,7 @@ sub _run_step {
         }
     }
 
-    for ($sm->flags($new & ~$old)) {
+    for ($new->and_not($old)->flags) {
 
         if (my $temp = $self->_get_temp($_)) {
             -e and $log->warn(
@@ -433,8 +430,8 @@ sub _run_step {
     my $state = $self->state;
     
     if ($new != $state) {
-        my @missing = $sm->flags($new & ~$state);
-        my @extra   = $sm->flags($state & ~$new);
+        my @missing = $new->and_not($state)->flags;
+        my @extra   = $state->and_not($new)->flags;
         $log->warn("I am not in the state I'm supposed to be. I am missing @missing and have extra files @extra");
     }
 }
@@ -460,8 +457,8 @@ sub execute {
     local $_;
     my $sm    = $self->state_machine;
     my $state = $self->state;
-    my $plan = $sm->plan or croak "No plan";
-    my $missing = $sm->start & ~$state;
+    my $plan = $sm->plan or confess "No plan";
+    my $missing = $sm->start->and_not($state);
 
     my $skip = $sm->skippable($plan, $state);
     my @plan = @{ $plan };
@@ -473,16 +470,16 @@ sub execute {
     for my $step (@plan) {
 
         if ($count < $skip) {
-            $callback->($step, 1);
+            $callback->($step, 1) if $callback;
         }
         else {
-            $callback->($step, 0);
+            $callback->($step, 0) if $callback;
             my $state = $self->state;
             $self->_run_step($state, $step, $sm->transition($state, $step));
         }
-        my $need = $min_states->[$count] | $sm->start;
+        my $need = $min_states->[$count]->union($sm->start);
 
-        for ($sm->flags( ~$need )) {
+        for ($sm->closure->and_not($need)->flags) {
             next unless -e;
             my $size = -s;
             $log->info("Size of $_ is $size");
@@ -502,9 +499,8 @@ otherwise.
 
 sub is_complete {
     my ($self) = @_;
-    my $goal = $self->state_machine->goal_mask;
-    my $state = $self->state;
-    return ($goal & ~$state) == 0;
+    my $goal = $self->state_machine->goal;
+    return $self->state->contains($goal);
 }
 
 # Given an array ref of filenames, initialize flags for any that I
@@ -514,11 +510,10 @@ sub _filenames_to_bits {
     my ($self, $files) = @_;
     ref($files) =~ /^ARRAY/ or croak 
         "Filenames must be given as array ref";
-    my $bits = 0;
     for my $file (@$files) {
-        $bits |= $self->{sm}->flag($file);
+        $self->state_machine->flag($file);
     }
-    return $bits;
+    return $self->state_machine->state(@$files);
 }
 
 
@@ -529,7 +524,7 @@ sub _temp_filename {
     my (undef, $dir, $file) = File::Spec->splitpath($path);
     # TODO: Ensure that files will be different for different runs
 
-    unless (-d $dir) {
+    if ($dir && ! -d $dir) {
         mkpath $dir or croak "mkpath $dir: $!";
     }
     my $fh = File::Temp->new(DIR => $dir, TEMPLATE => "$file.tmp.XXXXXXXX", UNLINK => 1);
@@ -558,6 +553,7 @@ goal state. If $clean_goal is true, removes all goal files as well.
 sub clean {
     my ($self, $clean_goal) = @_;
     $log->debug("Cleaning up");
+    my $m = $self->state_machine;
     local $_;
 
     if ($clean_goal) {
@@ -568,9 +564,8 @@ sub clean {
     }
     else {
         my $state = $self->state;
-        my $goal = $self->state_machine->goal_mask;
-        my $extra_bits = $state & ~$goal;
-        for ($self->state_machine->flags($extra_bits)) {
+        my $extra_bits = $state->and_not($m->goal);
+        for ($extra_bits->flags) {
             $log->debug("clean: removing $_");
             unlink;
         }
