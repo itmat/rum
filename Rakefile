@@ -10,7 +10,7 @@
 require 'yaml'
 require 'aws/s3'
 
-$tarball = "RUM-Pipeline-v1.11.0.tar.gz"
+$tarball = "RUM-Pipeline-v1.12_00.tar.gz"
 $installer = "rum_install.pl"
 $bucket = 'pgfi.rum'
 
