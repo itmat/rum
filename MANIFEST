@@ -77,6 +77,7 @@ doc/how2setup_genome-indexes_forPipeline.txt
 doc/indexing.pod
 lib/RUM/Common.pm
 lib/RUM/Config.pm
+lib/RUM/CoverageMap.pm
 lib/RUM/FileIterator.pm
 lib/RUM/Heap.pm
 lib/RUM/Pipeline.pm
@@ -102,8 +103,10 @@ t/04-subproc.t
 t/05-file-iterator.t
 t/06-repository.t
 t/07-sort.t
+t/13-coverage-map.t
 t/13-heap.t
 t/14-merge-junctions.t
+t/15-junctions-to-bed.t
 t/50-download-test-data.it
 t/51-sort-by-location.it
 t/52-sort-rum-by-location.it
