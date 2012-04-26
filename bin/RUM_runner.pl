@@ -3,7 +3,7 @@
 # Written by Gregory R Grant
 # University of Pennsylvania, 2011
 
-$version = "1.11.  Released March 5, 2012";
+$version = "$RUM::Pipeline::VERSION Released $RUM::Pipeline::RELEASE_DATE";
 
 $| = 1;
 
@@ -15,6 +15,7 @@ use RUM::Common qw(Roman roman isroman arabic format_large_int);
 use RUM::Sort qw(by_chromosome);
 use RUM::Subproc qw(spawn check pids_by_command_re kill_all procs
                     child_pids can_kill kill_runaway_procs);
+use RUM::Pipeline;
 
 if($ARGV[0] eq '-version' || $ARGV[0] eq '-v' || $ARGV[0] eq '--version' || $ARGV[0] eq '--v') {
     die "RUM version: $version\n";
