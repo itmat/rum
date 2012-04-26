@@ -44,9 +44,9 @@ print "Version:      $RUM::Pipeline::VERSION\n";
 print "Release date: $RUM::Pipeline::RELEASE_DATE\n";
 print "Git Tag:      $tag\n";
 print "\n";
-#print "Release (y/n): ";
-#$_ = <>;
-#/^y/i or die "Not releasing\n";
+print "Release (y/n): ";
+$_ = <>;
+/^y/i or die "Not releasing\n";
 
 -f $tarball or die
     "$tarball doesn't exist, please create it with make dist\n";
@@ -109,3 +109,6 @@ $bucket->set_acl({acl_short => "public-read"}) or die_s3;
 $bucket->set_acl({acl_short => "public-read", key => $tarball}) or die_s3;
 $bucket->set_acl({acl_short => "public-read", key => "rum_install.pl"}) or die_s3;
 unlink "rum_install.pl.tmp";
+
+print "Tagging release\n";
+system("git tag $tag") == 0 or die "Error creating tag";
