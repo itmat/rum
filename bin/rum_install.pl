@@ -62,7 +62,7 @@ GetOptions("help|h" => \&usage);
 my $dir = $ARGV[0] or usage();
 $dir =~ s!\/$!!;
 
-my $tarball = "RUM-Pipeline-v1.11.0.tar.gz";
+my $tarball = "RUM-Pipeline-v1.12_00.tar.gz";
 our $tarball_url = "http://pgfi.rum.s3.amazonaws.com/$tarball";
 
 # Make any directories that need to be created
