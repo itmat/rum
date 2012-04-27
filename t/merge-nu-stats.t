@@ -15,7 +15,7 @@ my $out_fh;
 open $out_fh, ">", $out;
 *OLD = *STDOUT;
 *STDOUT = $out_fh;
-@ARGV = ($INPUT_DIR, "-n", 2);
+@ARGV = map { "$INPUT_DIR/nu_stats.$_" } (1, 2);
 RUM::Script::MergeNuStats->main();
 *STDOUT = *OLD;
 no_diffs($out, "$EXPECTED_DIR/merged");

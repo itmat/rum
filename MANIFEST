@@ -44,7 +44,6 @@ bin/parsefasta.pl
 bin/parsefastq.pl
 bin/quantifyexons.pl
 bin/removedups.pl
-bin/rum-config
 bin/rum-test-data-tool
 bin/rum2cov.pl
 bin/rum2quantifications.pl

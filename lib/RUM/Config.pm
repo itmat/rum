@@ -392,7 +392,7 @@ sub min_ram_gb {
 sub u_footprint { shift->in_postproc_dir("u_footprint.txt") }
 sub nu_footprint { shift->in_postproc_dir("nu_footprint.txt") }
 sub mapping_stats_final {
-    $_[0]->in_output_dir("mapping_stats_final.txt");
+    $_[0]->in_output_dir("mapping_stats.txt");
 }
 
 sub sam_header { shift->in_postproc_dir("sam_header") }

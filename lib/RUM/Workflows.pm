@@ -418,7 +418,7 @@ sub postprocessing_workflow {
 
 
     my @start = (@rum_unique, @rum_nu, @sam_headers, @sam_files);
-    my $mapping_stats = $c->chunk_suffixed("mapping_stats.txt");
+    my $mapping_stats = $c->chunk_suffixed("mapping_stats_temp.txt");
     my $inferred_internal_exons = $c->in_output_dir("inferred_internal_exons.bed");
     my $inferred_internal_exons_txt = $c->in_output_dir("inferred_internal_exons.txt");
 
@@ -444,8 +444,9 @@ sub postprocessing_workflow {
 
     my $reads_fa = $c->for_chunk($c->num_chunks)->chunk_suffixed("reads.fa");
 
-    my @chr_counts_u = map { $_->chunk_suffixed("chr_counts_u") } @c;
-    my @chr_counts_nu = map {$_->chunk_suffixed("chr_counts_nu") } @c;
+    my @chr_counts_u  = map { $_->chunk_suffixed("chr_counts_u") } @c;
+    my @chr_counts_nu = map { $_->chunk_suffixed("chr_counts_nu") } @c;
+    my @nu_stats      = map { $_->chunk_suffixed("nu_stats") } @c;
     push @start, @chr_counts_u, @chr_counts_nu;
     $w->add_command(
         name => "Compute mapping statistics",
@@ -476,8 +477,7 @@ sub postprocessing_workflow {
                 ["perl", $c->script("merge_chr_counts.pl"),
                  "-o", $out, @chr_counts_nu],
 
-                ["perl", $c->script("merge_nu_stats.pl"), "-n", $c->num_chunks, 
-                 $c->output_dir, ">>", $out]
+                ["perl", $c->script("merge_nu_stats.pl"), @nu_stats, ">>", $out]
             ];
         }
     );

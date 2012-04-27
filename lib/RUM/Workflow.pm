@@ -388,9 +388,10 @@ sub _run_step {
         # it to a file right next to our log file, but named *.out
         # instead of *.log
         unless ($stdout) {
-            $stdout = $RUM::Logging::LOG_FILE;
-            $stdout =~ s/log$/out/;
-            $stdout_mode = ">>";
+            if ($stdout = $RUM::Logging::LOG_FILE) {
+                $stdout =~ s/log$/out/;
+                $stdout_mode = ">>";
+            }
         }
         
         if (my $pid = fork) {

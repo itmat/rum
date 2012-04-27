@@ -160,7 +160,7 @@ sub _init {
         _init_rum_logger();
         return;
     }
-
+    
     # TODO: Get SGE_TASK_ID out of here.
     my $chunk = $ENV{RUM_CHUNK} || $ENV{SGE_TASK_ID};
     # Sometimes SGE_TASK_ID is set to 'undefined'

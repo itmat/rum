@@ -25,6 +25,7 @@ use Text::Wrap qw(wrap fill);
 use RUM::WorkflowRunner;
 use RUM::Logging;
 use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
+use RUM::Workflow;
 
 use base 'RUM::Platform';
 

@@ -175,15 +175,18 @@ sub _chunk_error_logs_are_empty {
         $self->logsay("All the chunk error log files were empty, that's good");
     }
 
-    my $log_file = RUM::Logging->error_log_file;
-    if (-s $log_file) {
-        $log->warn("!!! Main log file had errors, please check $log_file");
-        $result = 0;
+    if (my $log_file = RUM::Logging->error_log_file) {
+        if (-s $log_file) {
+            $log->warn("!!! Main log file had errors, please check $log_file");
+            $result = 0;
+        }
+        else {
+            $self->logsay("Main error log file is empty, that's good");
+        }
     }
     else {
-        $self->logsay("Main error log file is empty, that's good");
+        warn "I don't seem to have a main log file, that's strange";
     }
-
     return $result;
 }
 
