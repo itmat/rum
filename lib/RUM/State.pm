@@ -8,6 +8,8 @@ RUM::State - Represents a state of the workflow.
 
 TODO: Describe me.
 
+=over 4
+
 =cut
 
 use strict;
@@ -161,3 +163,5 @@ sub string {
 }
 
 1;
+
+=back

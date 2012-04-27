@@ -18,6 +18,13 @@ RUM::Usage - Utilities for printing usage info
   $some_required_option or RUM::Usage->bad(
       "Please supply a value for --some-required option");
 
+
+  # Accumulate multiple errors
+  my $usage = RUM::Usage->new;
+  $foo or $usage->bad("Please give --foo");
+  $bar or $usage->bad("Please give --bar");
+  $usage->check;
+
 =head1 CLASS METHODS
 
 =over 4
@@ -34,6 +41,28 @@ Print the full man page.
 
 Correct the user on their usage of the program. Prints the given
 message followed by the contents of the SYNOPSIS section.
+
+=back
+
+=head1 OBJECT INTERFACE
+
+If you want to accumulate multiple usage errors and print them all at
+one time, use these methods.
+
+=over 4
+
+=item RUM::Usage->new
+
+Create an accumulator for usage issues.
+
+=item $usage->bad($msg)
+
+Add a usage message to the list of problems.
+
+=item $usage->check
+
+If I<bad> was called, exit with all of the messages that were
+given. Otherwise return normally.
 
 =back
 
