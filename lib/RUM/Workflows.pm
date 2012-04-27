@@ -47,17 +47,26 @@ sub chunk_workflow {
     my $bowtie_blat_nu = $c->chunk_suffixed("RUM_NU_temp");
     my $rum_unique = $c->chunk_suffixed("RUM_Unique");
     my $rum_nu = $c->chunk_suffixed("RUM_NU");
-
     my $reads_fa = $c->chunk_suffixed("reads.fa");
     my $quals_fa = $c->chunk_suffixed("quals.fa");
     my $rum_unique_sorted = $c->chunk_suffixed("RUM_Unique.sorted");
     my $rum_nu_sorted = $c->chunk_suffixed("RUM_NU.sorted");
-
     my $chr_counts_u = $c->chunk_suffixed("chr_counts_u");
     my $chr_counts_nu = $c->chunk_suffixed("chr_counts_nu");
+    my $gu  = $c->chunk_suffixed("GU");
+    my $gnu = $c->chunk_suffixed("GNU");
+    my $tu  = $c->chunk_suffixed("TU");
+    my $tnu = $c->chunk_suffixed("TNU");
+    my $cnu = $c->chunk_suffixed("CNU");
+    my $cleaned_nu = $c->chunk_suffixed("RUM_NU_temp2");
+    my $rum_nu_deduped = $c->chunk_suffixed("RUM_NU_temp3");
+    my $cleaned_unique = $c->chunk_suffixed("RUM_Unique_temp2");
+    my $rum_nu_id_sorted = $c->chunk_suffixed("RUM_NU_idsorted");
+    my $nu_stats = $c->chunk_suffixed("nu_stats");
+    my $sam_file = $c->chunk_suffixed("RUM.sam");
 
-
-
+    my $bowtie_bin = $c->bowtie_bin;
+    my $bowtie_cutoff_opt = $c->bowtie_cutoff_opt;
 
     # From the start state we can run bowtie on either the genome or
     # the transcriptome
@@ -93,13 +102,6 @@ sub chunk_workflow {
              "> ", post($trans_bowtie_out)]);
     }
     
-    my $gu = $c->chunk_suffixed("GU");
-    my $gnu = $c->chunk_suffixed("GNU");
-
-    my $tu = $c->chunk_suffixed("TU");
-    my $tnu = $c->chunk_suffixed("TNU");
-    my $cnu = $c->chunk_suffixed("CNU");
-
     # IF we're running in DNA mode, we don't run bowtie against the
     # transcriptome, so just send the output from make_GU_and_GNU.pl
     # straight to BowtieUnique and BowtieNU.
@@ -108,8 +110,6 @@ sub chunk_workflow {
         $gnu = $c->chunk_suffixed("BowtieNU");
     }
  
-#    my $quals_file = $c->chunk_suffixed("quals");
-
     # If we have the genome bowtie output, we can make the unique and
     # non-unique files for it.
     unless ($c->blat_only) {
@@ -222,10 +222,6 @@ sub chunk_workflow {
          $c->read_length_opt,
          $c->min_overlap_opt]);
 
-    my $cleaned_nu = $c->chunk_suffixed("RUM_NU_temp2");
-    my $rum_nu_deduped = $c->chunk_suffixed("RUM_NU_temp3");
-    my $cleaned_unique = $c->chunk_suffixed("RUM_Unique_temp2");
-
     $m->step(
         "Clean up RUM files",
         ["perl", $c->script("RUM_finalcleanup.pl"),
@@ -239,8 +235,6 @@ sub chunk_workflow {
          $c->count_mismatches_opt,
          $c->match_length_cutoff_opt]);
 
-    my $rum_nu_id_sorted = $c->chunk_suffixed("RUM_NU_idsorted");
-    
     $m->step(
         "Sort cleaned non-unique mappers by ID",
         ["perl", $c->script("sort_RUM_by_id.pl"),
@@ -272,8 +266,6 @@ sub chunk_workflow {
          pre($cleaned_unique),
          "-o", post($rum_unique)]);
     
-    my $sam_file = $c->chunk_suffixed("RUM.sam");
-
     $m->step(
         "Create SAM file",
         ["perl", $c->script("rum2sam.pl"),
@@ -284,8 +276,6 @@ sub chunk_workflow {
          "--sam-out", post($sam_file),
          $c->name_mapping_opt]);
     
-    my $nu_stats = $c->chunk_suffixed("nu_stats");
-
     $m->step(
         "Create non-unique stats",
         ["perl", $c->script("get_nu_stats.pl"),
@@ -399,6 +389,7 @@ sub postprocessing_workflow {
 
     my ($class, $c) = @_;
     $c or croak "I need a config";
+
     my $rum_nu         = $c->in_output_dir("RUM_NU");
     my $rum_nu_cov     = $c->in_output_dir("RUM_NU.cov");
     my $rum_unique     = $c->in_output_dir("RUM_Unique");
