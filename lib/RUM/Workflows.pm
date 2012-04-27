@@ -422,7 +422,7 @@ sub postprocessing_workflow {
     my $inferred_internal_exons = $c->in_output_dir("inferred_internal_exons.bed");
     my $inferred_internal_exons_txt = $c->in_output_dir("inferred_internal_exons.txt");
 
-    my @goal = ($mapping_stats,
+    my @goal = ($c->mapping_stats_final,
                 $rum_unique,
                 $rum_nu,
                 $rum_unique_cov,
@@ -494,7 +494,7 @@ sub postprocessing_workflow {
                 for my $strand (qw(p m)) {
                     
                     my @quants = map { $_->quant($strand, $sense) } @c; 
-                    my @alt_quants;
+                    my @alt_quants = map { $_->alt_quant($strand, $sense) } @c; 
 
                     push @start, @quants;
                     push @strand_specific, $c->quant($strand, $sense);
@@ -549,10 +549,12 @@ sub postprocessing_workflow {
         else {
             
             my @quants = map { $_->quant } @c; 
+            my @alt_quants = map { $_->alt_quant } @c; 
             push @start, @quants;
+            push @start, @alt_quants if $c->alt_quant_model;
             $w->add_command(
                 name => "Merge quants",
-                pre => [$rum_unique],
+                pre => [$rum_unique, @quants],
                 commands => [[
                     "perl", $c->script("merge_quants.pl"),
                     "--chunks", $c->num_chunks || 1,
@@ -561,7 +563,7 @@ sub postprocessing_workflow {
 
             $w->add_command(
                 name => "Merge alt quants",
-                pre => [$rum_unique],
+                pre => [$rum_unique, @alt_quants],
                 commands => [[
                     "perl", $c->script("merge_quants.pl"),
                     "--alt",
@@ -680,8 +682,6 @@ sub postprocessing_workflow {
              pre(junctions('high-quality', 'bed'))]);
     }
 
-    push @goal, ($c->u_footprint, $c->nu_footprint);
-
     $w->step(
         "Make unique coverage",
         ["perl", $c->script("rum2cov.pl"),
@@ -767,6 +767,15 @@ sub postprocessing_workflow {
           pre($c->sam_header), 
           map(pre($_), @sam_files), 
           ">", post($sam_file)]);
+
+    $w->step(
+        "Finish mapping stats",
+        ["perl", $c->script("rum_compute_stats.pl"),
+         "--u-footprint", pre($c->u_footprint),
+         "--nu-footprint", pre($c->nu_footprint),
+         "--genome-size", $c->genome_size,
+         pre($mapping_stats),
+         ">", post($c->mapping_stats_final)]);
     
     push @goal, $sam_file;
 
@@ -774,6 +783,7 @@ sub postprocessing_workflow {
     $w->set_goal([@goal]);
     return $w;
 }
+
 
 1;
 

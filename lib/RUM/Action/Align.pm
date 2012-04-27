@@ -18,6 +18,7 @@ use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
 use Carp;
 use Data::Dumper;
+use RUM::Action::Clean;
 
 use RUM::Directives;
 use RUM::Logging;
@@ -97,7 +98,6 @@ sub run {
         "files in the output directory. If all goes well they should be empty.",
         "You can also run \"$0 status -o $dir\" to check the status of the job.");
 
-
     if ($d->preprocess || $d->all) {
         $platform->preprocess;
     }
@@ -106,7 +106,6 @@ sub run {
     }
     if ($d->postprocess || $d->all) {
         $platform->postprocess;
-        $self->_print_stats;
         $self->_final_check;
     }
     RUM::Lock->release;
@@ -673,52 +672,6 @@ EOF
 
 1;
 
-sub _read_footprint {
-    my ($self, $filename) = @_;
-    open my $in, "<", $filename or croak
-        "Can't open footprint file $filename: $!";
-    local $_ = <$in>;
-    chomp;
-    /(\d+)$/ and return $1;
-}
-
-sub _print_stats {
-    my ($self) = @_;
-    my $c = $self->config;
-    my $uf = $self->_read_footprint($c->u_footprint);
-    my $nuf = $self->_read_footprint($c->u_footprint);
-    my $genome_size = $c->genome_size;
-    my $UF = &format_large_int($uf);
-    my $NUF = &format_large_int($nuf);
-
-    my $UFp = int($uf / $genome_size * 10000) / 100;
-    my $NUFp = int($nuf / $genome_size * 10000) / 100;
-    
-    my $gs4 = &format_large_int($genome_size);
-
-    my @lines = (
-        "genome size: $gs4",
-        "number of bases covered by unique mappers: $UF ($UFp%)",
-        "number of bases covered by non-unique mappers: $NUF ($NUFp%)");
-    
-    $log->info("$_\n") for @lines;
-    my $mapping_stats = $c->in_output_dir("mapping_stats.txt");
-    open my $in, "<", $mapping_stats or croak "Can't read from $mapping_stats: $!";
-    my $newfile = "";
-    while (local $_ = <$in>) {
-        chomp;;
-        next if /chr_name/;
-        if(/RUM_Unique reads per chromosome/) {
-            for my $line (@lines) {
-                $newfile = $newfile . "$line\n";
-            }
-        }
-        $newfile = $newfile . "$_\n";
-    }
-    open my $out, ">", $mapping_stats or croak "Can't write to $mapping_stats: $!";
-    print $out $newfile;
-}
-
 sub _all_files_end_with_newlines {
     my ($self, $file) = @_;
     my $c = $self->config;
@@ -771,6 +724,10 @@ sub _final_check {
 
     if ($ok) {
         $self->logsay("No errors. Very good!");
+        unless ($self->directives->no_clean) {
+            $self->logsay("Cleaning up.");
+            RUM::Action::Clean->new($self->config)->clean;
+        }
     }
 }
 

@@ -51,6 +51,11 @@ use strict;
 use warnings;
 use Pod::Usage;
 
+sub new {
+    my ($class) = @_;
+    bless [], $class;
+}
+
 sub help {
     pod2usage({-verbose => 1,
                -message => "\nPlease see perldoc $0 for more information.\n"});
@@ -61,7 +66,13 @@ sub man {
 }
 
 sub bad {
-    my ($class, $msg) = @_;
+    my ($self, $msg) = @_;
+
+    if (ref($self)) {
+        push @{ $self }, $msg;
+        return;
+    }
+
     my ($package) = caller(0);
     my $log = RUM::Logging->get_logger();
     $log->fatal("Improper usage of $package->main(): $msg");
@@ -77,6 +88,14 @@ sub bad {
     }
 
     exit(1);
+}
+
+sub check {
+    my ($self) = @_;
+    if (@$self) {
+        my $msg = "Usage errors:\n\n" . join("\n", @$self);
+        __PACKAGE__->bad($msg);
+    }
 }
 
 1;

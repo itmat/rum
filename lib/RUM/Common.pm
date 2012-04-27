@@ -196,6 +196,7 @@ Return X formatted with commas between every triplet of digits.
 =cut
 
 sub format_large_int {
+    shift if $_[0] eq __PACKAGE__;
     my ($int) = @_;
     my @a = split(//,"$int");
     my $j = 0;

@@ -33,16 +33,12 @@ sub run {
 
     GetOptions(
         "o|output=s" => \(my $dir),
-        "preprocess"   => sub { $d->set_preprocess;  $d->unset_all; },
-        "process"      => sub { $d->set_process;     $d->unset_all; },
-        "postprocess"  => sub { $d->set_postprocess; $d->unset_all; },
-        "chunk=s"      => \(my $chunk),
     );
     $dir or RUM::Usage->bad(
         "The --output or -o option is required for \"rum_runner align\"");
     $self->{config} = RUM::Config->load($dir);
-    $self->print_processing_status if $d->process || $d->all;
-    $self->print_postprocessing_status if $d->postprocess || $d->all;
+    $self->print_processing_status;
+    $self->print_postprocessing_status;
     $self->say();
     $self->_chunk_error_logs_are_empty;
 }
@@ -67,6 +63,8 @@ sub print_processing_status {
     my $plan = $workflow->state_machine->plan or croak "Can't build a plan";
     my @plan = @{ $plan };
 
+    my $postproc = RUM::Workflows->postprocessing_workflow($c);
+    my $postproc_started = $postproc->steps_done;
 
     for my $chunk (@chunks) {
         my $config = $c->for_chunk($chunk);
@@ -77,6 +75,8 @@ sub print_processing_status {
             or croak "Plan doesn't work for chunk $chunk";
 
         my $skip = $m->skippable($plan, $state);
+
+        $skip = @plan if $postproc_started;
 
         for (0 .. $#plan) {
             $progress[$_] .= ($_ < $skip ? "X" : " ");
@@ -118,6 +118,11 @@ sub print_postprocessing_status {
     $self->say("--------------");
 
     my $postproc = RUM::Workflows->postprocessing_workflow($c);
+    my @missing = $postproc->missing;
+    for my $file (@missing) {
+        $self->say("Missing $file");
+    }
+
     my $state = $postproc->state;
     my $plan = $postproc->state_machine->plan or croak "Can't build plan";
     my @plan = @{ $plan };

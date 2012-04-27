@@ -19,10 +19,10 @@ rum_runner - RNA-Seq Unified Mapper
 =head1 SYNOPSIS
 
   rum_runner align  -o dir [OPTIONS] [FORWARD [REVERSE]]
-  rum_runner clean  -o dir [OPTIONS]
+  rum_runner clean  -o dir [--very]
   rum_runner help
-  rum_runner kill   -o dir [OPTIONS]
-  rum_runner status -o dir [OPTIONS] 
+  rum_runner kill   -o dir
+  rum_runner status -o dir
   rum_runner version
 
 =head1 DESCRIPTION

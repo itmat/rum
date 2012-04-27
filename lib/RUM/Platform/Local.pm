@@ -32,7 +32,6 @@ our $log = RUM::Logging->get_logger;
 
 our $READ_CHECK_LINES = 50000;
 
-
 ################################################################################
 ###
 ### Preprocessing
@@ -52,6 +51,28 @@ sub preprocess {
     $self->say();
     $self->say("Preprocessing");
     $self->say("-------------");
+
+    my $config = $self->config;
+    if (RUM::Workflows->postprocessing_workflow($config)->steps_done) {
+        $self->say("(skipping: we're in the postprocessing phase)");
+        return;
+    }
+
+    my $all_chunks_started = 1;
+
+    for my $chunk ($self->chunk_nums) {
+        my $config = $self->config->for_chunk($chunk);                
+        my $workflow = RUM::Workflows->chunk_workflow($config);
+        if ( ! $workflow->steps_done) {
+            $all_chunks_started = 0;
+        }
+    }
+
+    if ($all_chunks_started) {
+        $self->say("(skipping: we're in the processing phase)");
+        return;
+    }
+
     $self->_check_input();
     $self->_reformat_reads();
     $self->_determine_read_length();
@@ -136,7 +157,7 @@ sub _check_read_files_same_size {
 sub _check_read_file_pair {
 
     my ($self) = @_;
-
+    
     my @reads = @{ $self->config->reads };
 
     $self->_check_read_files_same_size();
@@ -403,12 +424,19 @@ sub process {
 
     my $config = $self->config;
 
+    my $postproc_started = RUM::Workflows->postprocessing_workflow($config)->steps_done;
+
     $log->debug("Chunk is ". ($config->chunk ? "yes" : "no"));
 
     my $n = $config->num_chunks || 1;
     $self->say();
     $self->say("Processing in $n chunks");
     $self->say("-----------------------");
+
+    if ($postproc_started) {
+        $self->say("(skipping: we're in the postprocessing phase)");
+        return;
+    }
 
     if ($n == 1 || $config->chunk) {
         my $chunk = $config->chunk || 1;

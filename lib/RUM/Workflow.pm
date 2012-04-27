@@ -401,7 +401,7 @@ sub _run_step {
             $SIG{TERM} = $oldhandler;
             
             if ($?) {
-                die "Error running @$cmd: $!";
+                die "Error running @$cmd";
             }                    
         }
         else {
@@ -429,7 +429,7 @@ sub _run_step {
     
     my $state = $self->state;
     
-    if ($new != $state) {
+    unless ($new->equals($state)) {
         my @missing = $new->and_not($state)->flags;
         my @extra   = $state->and_not($new)->flags;
         $log->warn("I am not in the state I'm supposed to be. I am missing @missing and have extra files @extra");
@@ -477,7 +477,7 @@ sub execute {
             my $state = $self->state;
             $self->_run_step($state, $step, $sm->transition($state, $step));
         }
-        my $need = $min_states->[$count]->union($sm->start);
+        my $need = $min_states->[$count]; # ->union($sm->start);
 
         for ($sm->closure->and_not($need)->flags) {
             next unless -e;
@@ -488,6 +488,12 @@ sub execute {
         $count++;
     }
 
+}
+
+sub steps_done {
+    my ($self) = @_;
+    my $m = $self->state_machine;
+    return $m->skippable($m->plan, $self->state);
 }
 
 =item is_complete
@@ -501,6 +507,18 @@ sub is_complete {
     my ($self) = @_;
     my $goal = $self->state_machine->goal;
     return $self->state->contains($goal);
+}
+
+=item missing
+
+Return a list of goal files that are currently missing.
+
+=cut
+
+sub missing {
+    my ($self) = @_;
+    my $goal = $self->state_machine->goal;
+    return $goal->and_not($self->state)->flags;
 }
 
 # Given an array ref of filenames, initialize flags for any that I
