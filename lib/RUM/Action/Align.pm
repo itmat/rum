@@ -88,7 +88,7 @@ sub run {
 
     $self->config->save unless $d->child;
     $self->dump_config;
-    
+
     if ( !$local && ! ( $d->parent || $d->child ) ) {
         $self->logsay("Submitting tasks and exiting");
         $platform->start_parent;
@@ -103,6 +103,10 @@ sub run {
     if ($d->preprocess || $d->all) {
         $platform->preprocess;
     }
+
+    $self->_show_match_length;
+    $self->_check_read_lengths;
+
     if ($d->process || $d->all) {
         $platform->process;
     }
@@ -112,6 +116,51 @@ sub run {
     }
     RUM::Lock->release;
 }
+
+sub _check_read_lengths {
+    my ($self) = @_;
+    my $c = $self->config;
+    my $rl = $c->read_length;
+    my $fixed = ! $c->variable_read_lengths;
+
+    if ( $fixed && $rl < 55 && !$c->nu_limit) {
+        $self->say;
+        $self->logsay(
+            "WARNING: You have pretty short reads ($rl bases). If ",
+            "you have a large genome such as mouse or human then the files of ",
+            "ambiguous mappers could grow very large. In this case it's",
+            "recommended to run with the --limit-bowtie-nu option. You can ",
+            "watch the files that start with 'X' and 'Y' and see if they are ",
+            "growing larger than 10 gigabytes per million reads at which ",
+            "point you might want to use --limit-nu");
+    }
+
+}
+
+sub _show_match_length {
+    my ($self) = @_;
+    my $c = $self->config;
+    my $match_length_cutoff;
+    my $rl = $c->read_length;
+    if ( ! $c->min_length ) {
+        if ($rl < 80) {
+            $match_length_cutoff ||= 35;
+        } else {
+            $match_length_cutoff ||= 50;
+        }
+        if($match_length_cutoff >= .8 * $rl) {
+            $match_length_cutoff = int(.6 * $rl);
+        }
+    } else {
+	$match_length_cutoff = $c->min_length;
+    }
+    
+    $self->logsay(
+        "*** Note: I am going to report alignments of length ",
+        "$match_length_cutoff. If you want to change the minimum size of ",
+        "alignments reported, use the --min-length option");
+}
+
 
 =item get_options
 
