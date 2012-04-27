@@ -31,7 +31,7 @@ BEGIN {
 }
 
 if (-e $config) {
-    plan tests => 77;
+    plan tests => 85;
 }
 else {
     plan skip_all => "Don't have index installed";

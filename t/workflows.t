@@ -60,7 +60,6 @@ SKIP: {
         %defaults,
         chunk         => 1,
         paired_end    => 1,
-        match_length_cutoff => 35,
         max_insertions => 1,
         alt_genes => undef
     );
