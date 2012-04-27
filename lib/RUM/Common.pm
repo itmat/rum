@@ -415,6 +415,7 @@ sub is_on_cluster {
 Return true if the given filename is in the path and is executable.
 
 =cut
+
 sub is_executable_in_path {
     my ($bin_name) = @_;
     local $_ = `which $bin_name`;

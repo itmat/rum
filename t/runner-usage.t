@@ -503,3 +503,43 @@ chunk_cmd_like([@standard_args, "--ram", 8],
                qr/--ram 8/,
                "--ram is passed sort_rum_by_location.pl");
 
+chunk_cmd_unlike([@standard_args],
+                 "Parse blat output",
+                 qr/--match-length-cutoff/,
+                 "--match-length-cutoff is left out of parse blat out");
+
+chunk_cmd_like([@standard_args, "--min-length", 40],
+                 "Parse blat output",
+                 qr/--match-length-cutoff 40/,
+                 "--match-length-cutoff is passed to parse blat out");
+
+
+chunk_cmd_unlike([@standard_args],
+                 "Clean up RUM files",
+                 qr/--match-length-cutoff/,
+                 "--match-length-cutoff is left out of RUM_finalcleanup");
+
+chunk_cmd_like([@standard_args, "--min-length", 40],
+                 "Clean up RUM files",
+                 qr/--match-length-cutoff 40/,
+                 "--match-length-cutoff is passed to RUM_finalcleanup");
+
+chunk_cmd_unlike([@standard_args],
+                 "Merge unique mappers together",
+                 qr/--min-overlap/,
+                 "--min-overlap is left out of merge_gu_and_tu");
+
+chunk_cmd_like([@standard_args, "--min-length", 40],
+                 "Merge unique mappers together",
+                 qr/--min-overlap 40/,
+                 "--min-overlap is passed to merge_gu_and_tu");
+
+chunk_cmd_unlike([@standard_args],
+                 "Merge bowtie and blat results",
+                 qr/--min-overlap/,
+                 "--min-overlap is left out of merge_bowtie_and_blat");
+
+chunk_cmd_like([@standard_args, "--min-length", 40],
+                 "Merge bowtie and blat results",
+                 qr/--min-overlap 40/,
+                 "--min-overlap is passed to merge_bowtie_and_blat");

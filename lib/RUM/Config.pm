@@ -25,7 +25,7 @@ RUM::Config - Configuration for a RUM job
 =cut
 
 our %DEFAULTS = (
-    platform => "Local",
+
     num_chunks => 1,
     ram => undef,
     genome_size => undef,
@@ -39,8 +39,10 @@ our %DEFAULTS = (
     blat_rep_match => 256,
     blat_max_intron => 500000,
 
-    output_dir => ".",
     name => undef,
+    platform => "Local",
+
+    output_dir => ".",
     rum_config_file => undef,
     reads => undef,
     user_quals => undef,
@@ -78,9 +80,7 @@ our %DEFAULTS = (
     preserve_names        => 0,
     variable_length_reads => 0,
     min_length            => undef,
-    min_overlap           => undef,
     max_insertions        => 1,
-    match_length_cutoff   => undef,
     limit_nu_cutoff       => undef,
     nu_limit              => undef,
     chunk                 => undef,
@@ -220,9 +220,9 @@ sub opt {
 }
 
 sub read_length_opt         { $_[0]->opt("--read-length", $_[0]->read_length) }
-sub min_overlap_opt         { $_[0]->opt("--min-overlap", $_[0]->min_overlap) }
+sub min_overlap_opt         { $_[0]->opt("--min-overlap", $_[0]->min_length) }
 sub max_insertions_opt      { $_[0]->opt("--max-insertions", $_[0]->max_insertions) }
-sub match_length_cutoff_opt { $_[0]->opt("--match-length-cutoff", $_[0]->match_length_cutoff) }
+sub match_length_cutoff_opt { $_[0]->opt("--match-length-cutoff", $_[0]->min_length) }
 sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff", $_[0]->nu_limit) }
 sub bowtie_cutoff_opt       { my $x = $_[0]->bowtie_nu_limit; $x ? "-k $x" : "-a" }
 sub faok_opt                { $_[0]->{faok} ? "--faok" : ":" }
@@ -414,5 +414,6 @@ sub temp_dir {
     my ($self) = @_;
     return File::Spec->catfile($self->output_dir, "tmp");
 }
+
 
 1;

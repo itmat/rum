@@ -146,8 +146,6 @@ sub chunk_workflow {
         
         # If we have the unique files for both the genome and the
         # transcriptome, we can merge them.
-        my $min_overlap_opt = defined($c->min_overlap)
-            ? "--min-overlap".$c->min_overlap : "";
         $m->step(
             "Merge unique mappers together",
             [
@@ -160,7 +158,7 @@ sub chunk_workflow {
                 "--cnu",  post($cnu),
                 $c->paired_end_opt,
                 "--read-length", $c->read_length,
-                $min_overlap_opt]);
+                $c->min_overlap_opt]);
     }
 
     if ($c->blat_only) {
