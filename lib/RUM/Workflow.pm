@@ -383,6 +383,15 @@ sub _run_step {
                 push @to, $_;
             }
         }
+
+        # If the command didn't explicitly redirect its output, append
+        # it to a file right next to our log file, but named *.out
+        # instead of *.log
+        unless ($stdout) {
+            $stdout = $RUM::Logging::LOG_FILE;
+            $stdout =~ s/log$/out/;
+            $stdout_mode = ">>";
+        }
         
         if (my $pid = fork) {
             
