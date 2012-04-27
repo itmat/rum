@@ -1,23 +1,20 @@
-
 Add back disk space check
-
 Print out email address if we give up?
 Make sure we print out all the same messages
-
---preprocess, --process, --postprocess don't seem to work on SGE
-  platform.
-
 Katharina's job failed.
-
-Require -o option.
-
-Create folders for temp and intermediate files.
-
 Never log to cwd.
+Postprocessing shouldn't start if processing failed.
+Fix tests if Test::Exception isn't installed.
+Fix defaults for RUM::Logger
 
 Done
 ----
 
+Get rid of rum.error-log
+Require -o option.
+Create folders for temp and intermediate files.
+--preprocess, --process, --postprocess don't seem to work on SGE
+  platform.
 Add quality checks
 Print final stats to log file
 Check log files for errors?

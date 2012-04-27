@@ -268,8 +268,9 @@ sub _parse_qsub_out {
 
 sub _qsub {
     my ($self, @args) = @_;
-    my $dir = $self->config->output_dir;
-    my $cmd = "qsub -V -cwd -j y -o $dir -e $dir @args";
+    my $dir = $RUM::Logging::LOGGING_DIR;
+    my $dir_opt = $dir ? "-o $dir -e $dir" : "";
+    my $cmd = "qsub -V -cwd -j y $dir_opt @args";
     $log->debug("Running '$cmd'");
     my $out = `$cmd`;
     $log->debug("'$cmd' produced output $out");
