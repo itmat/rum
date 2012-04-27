@@ -34,9 +34,11 @@ our $log = RUM::Logging->get_logger;
 our $LOGO;
 
 $SIG{INT} = $SIG{TERM} = sub {
-    warn("Caught SIG@_, removing lock");
+    my $msg = "Caught SIGTERM, removing lock.";
+    warn $msg;
+    $log->info($msg);
     RUM::Lock->release;
-    die;
+    exit 1;
 };
 
 =head1 METHODS

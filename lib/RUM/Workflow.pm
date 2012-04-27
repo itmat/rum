@@ -398,7 +398,9 @@ sub _run_step {
             my $oldhandler = $SIG{TERM};
             
             $SIG{TERM} = sub {
-                warn("Caught SIGTERM, killing child process ($to[0])");
+                my $msg = "Caught SIGTERM, killing current task, waiting for it, and removing lock.";
+                warn $msg;
+                $log->info($msg);
                 kill 15, $pid;
                 waitpid $pid, 0;
                 RUM::Lock->release;

@@ -49,8 +49,15 @@ logger by opening the output filehandle.
 sub init {
     my $log_file = RUM::Logging->log_file($ENV{RUM_CHUNK}) or return;
     my $error_log_file = RUM::Logging->error_log_file($ENV{RUM_CHUNK}) or return;
-    open $MESSAGES, ">>", $log_file unless $MESSAGES;
-    open $ERRORS, ">>", $error_log_file unless $ERRORS;
+
+    unless ($MESSAGES) {
+        open $MESSAGES, ">>", $log_file or warn
+            "Can't open log file $MESSAGES: $!";
+    }
+    unless ($ERRORS) {
+        open $ERRORS, ">>", $error_log_file or warn
+            "Can't open log file $ERRORS: $!";
+    }
 }
 
 =item RUM::Logger->get_logger()
