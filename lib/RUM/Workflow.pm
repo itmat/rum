@@ -499,6 +499,12 @@ sub execute {
 
 }
 
+=item steps_done
+
+Return the number of steps of this workflow that are completed.
+
+=cut
+
 sub steps_done {
     my ($self) = @_;
     my $m = $self->state_machine;
