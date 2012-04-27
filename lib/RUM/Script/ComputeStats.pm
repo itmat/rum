@@ -25,6 +25,9 @@ sub _read_footprint {
 sub main {
 
     GetOptions(
+        "help|h"    => sub { RUM::Usage->help },
+        "verbose|v" => sub { $log->more_logging(1) },
+        "quiet|q"   => sub { $log->less_logging(1) },
         "u-footprint=s" => \(my $uf_filename),
         "nu-footprint=s" => \(my $nuf_filename),
         "genome-size=s" => \(my $genome_size));
