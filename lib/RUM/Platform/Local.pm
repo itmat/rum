@@ -92,6 +92,8 @@ sub _check_input {
     }
     else {
         $self->_check_read_file_pair;
+        $self->config->set("paired_end", 1);
+        $self->config->save;
     }
 
 }
