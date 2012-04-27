@@ -118,10 +118,6 @@ sub print_postprocessing_status {
     $self->say("--------------");
 
     my $postproc = RUM::Workflows->postprocessing_workflow($c);
-    my @missing = $postproc->missing;
-    for my $file (@missing) {
-        $self->say("Missing $file");
-    }
 
     my $state = $postproc->state;
     my $plan = $postproc->state_machine->plan or croak "Can't build plan";
