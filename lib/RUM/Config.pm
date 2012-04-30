@@ -333,9 +333,17 @@ sub save {
 }
 
 sub load {
-    my ($class, $dir) = @_;
+    my ($class, $dir, $force) = @_;
     my $filename = "$dir/$FILENAME";
-    return unless -e $filename;
+
+    unless (-e $filename) {
+        if ($force) {
+            die "$dir doesn't seem to be a RUM output directory\n";
+        }
+        else {
+            return;
+        }
+    }
     my $conf = do $filename;
     ref($conf) =~ /$class/ or croak "$filename did not return a $class";
     return $conf;

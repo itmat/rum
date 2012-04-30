@@ -177,6 +177,8 @@ sub get_options {
 
     my $d = $self->{directives} = RUM::Directives->new;
 
+    my $usage = RUM::Usage->new('action' => 'align');
+
     GetOptions(
 
         # Advanced (user shouldn't run these)
@@ -231,9 +233,10 @@ sub get_options {
         "force|f"   => \(my $force),
         "quiet|q"   => sub { $log->less_logging(1); $quiet = 1; },
         "verbose|v" => sub { $log->more_logging(1) },
+        "help|h" => sub { $usage->help }
     );
 
-    $output_dir or RUM::Usage->bad(
+    $output_dir or $usage->bad(
         "The --output or -o option is required for \"rum_runner align\"");
 
     if ($lock) {
@@ -261,9 +264,9 @@ sub get_options {
     # If a chunk is specified, that implies that the user wants to do
     # the 'processing' phase, so unset preprocess and postprocess
     if ($chunk) {
-        RUM::Usage->bad("Can't use --preprocess with --chunk")
+        $usage->bad("Can't use --preprocess with --chunk")
               if $d->preprocess;
-        RUM::Usage->bad("Can't use --postprocess with --chunk")
+        $usage->bad("Can't use --postprocess with --chunk")
               if $d->postprocess;
         $d->unset_all;
         $d->set_process;
@@ -326,6 +329,7 @@ sub get_options {
     }
 
     $self->{config} = $c;
+    $usage->check;
 }
 
 
@@ -339,71 +343,68 @@ if there are any errors.
 sub check_config {
     my ($self) = @_;
 
-    my @errors;
+    my $usage = RUM::Usage->new(action => 'align');
 
     my $c = $self->config;
-    $c->output_dir or push @errors,
-        "Please specify an output directory with --output or -o";
+    $c->output_dir or $usage->bad(
+        "Please specify an output directory with --output or -o");
     
     # Job name
     if ($c->name) {
-        length($c->name) <= 250 or push @errors,
-            "The name must be less than 250 characters";
+        length($c->name) <= 250 or $usage->bad(
+            "The name must be less than 250 characters");
         $c->set('name', fix_name($c->name));
     }
     else {
-        push @errors, "Please specify a name with --name";
+        $usage->bad("Please specify a name with --name");
     }
 
-    $c->rum_config_file or push @errors,
-        "Please specify a rum config file with --config";
+    $c->rum_config_file or $usage->bad(
+        "Please specify a rum config file with --config");
     $c->load_rum_config_file if $c->rum_config_file;
 
     my $reads = $c->reads;
 
-    $reads && (@$reads == 1 || @$reads == 2) or push @errors,
-        "Please provide one or two read files";
+    $reads && (@$reads == 1 || @$reads == 2) or $usage->bad(
+        "Please provide one or two read files");
     if ($reads && @$reads == 2) {
-        $reads->[0] ne $reads->[1] or push @errors,
+        $reads->[0] ne $reads->[1] or $usage->bad(
         "You specified the same file for the forward and reverse reads, ".
-            "must be an error";
+            "must be an error");
     }
     
     if (defined($c->user_quals)) {
-        $c->quals_file =~ /\// or push @errors,
+        $c->quals_file =~ /\// or $usage->bad(
             "do not specify -quals file with a full path, ".
-                "put it in the '". $c->output_dir."' directory.";
+                "put it in the '". $c->output_dir."' directory.");
     }
 
-    $c->min_identity =~ /^\d+$/ && $c->min_identity <= 100 or push @errors,
+    $c->min_identity =~ /^\d+$/ && $c->min_identity <= 100 or $usage->bad(
         "--min-identity must be an integer between zero and 100. You
-        have given '".$c->min_identity."'.";
+        have given '".$c->min_identity."'.");
 
     if (defined($c->min_length)) {
-        $c->min_length =~ /^\d+$/ && $c->min_length >= 10 or push @errors,
+        $c->min_length =~ /^\d+$/ && $c->min_length >= 10 or $usage->bad(
             "--min-length must be an integer >= 10. You have given '".
-                $c->min_length."'.";
+                $c->min_length."'.");
     }
     
     if (defined($c->nu_limit)) {
-        $c->nu_limit =~ /^\d+$/ && $c->nu_limit > 0 or push @errors,
+        $c->nu_limit =~ /^\d+$/ && $c->nu_limit > 0 or $usage->bad(
             "--limit-nu must be an integer greater than zero. You have given '".
-                $c->nu_limit."'.";
+                $c->nu_limit."'.");
     }
 
-    $c->preserve_names && $c->variable_read_lengths and push @errors,
+    $c->preserve_names && $c->variable_read_lengths and $usage->bad(
         "Cannot use both --preserve-names and --variable-read-lengths at ".
-            "the same time. Sorry, we will fix this eventually.";
+            "the same time. Sorry, we will fix this eventually.");
 
     local $_ = $c->blat_min_identity;
-    /^\d+$/ && $_ <= 100 or push @errors,
+    /^\d+$/ && $_ <= 100 or $usage->bad(
         "--blat-min-identity or --minIdentity must be an integer between ".
-            "0 and 100.";
+            "0 and 100.");
 
-    @errors = map { wrap('* ', '  ', $_) } @errors;
-
-    my $msg = "Usage errors:\n\n" . join("\n", @errors);
-    RUM::Usage->bad($msg) if @errors;    
+    $usage->check;
     
     if ($c->alt_genes) {
         -r $c->alt_genes or die

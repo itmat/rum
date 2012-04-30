@@ -27,15 +27,16 @@ use base 'RUM::Base';
 sub run {
     my ($class) = @_;
 
-    my $action = shift(@ARGV);
+    my %actions = map { ( $_ => 1 ) } qw(align clean kill status version help);
 
-    if ($action) {
-        pod2usage({-input => "rum_runner/$action.pod",
-                  -verbose => 5,
-                  -pathlist => \@INC});
+    my $action = shift(@ARGV) || "";
+    if ($actions{$action}) {
+        RUM::Usage->new(action => $action)->help;
     }
-    pod2usage(-verbose => 1);
-    
+    else {
+        RUM::Usage->help;
+    }
+
 }
 
 1;

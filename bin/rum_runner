@@ -85,3 +85,19 @@ L<rum_runner/align>, L<rum_runner/clean>, L<rum_runner/kill>,
 L<rum_runner/status>, L<rum_runner/version>
 
 =cut
+
+=head1 SEE ALSO
+
+L<rum_runner>
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+=cut

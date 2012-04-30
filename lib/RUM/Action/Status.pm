@@ -16,6 +16,7 @@ use warnings;
 use Getopt::Long;
 use Text::Wrap qw(wrap fill);
 use Carp;
+use RUM::Action::Help;
 use base 'RUM::Base';
 
 =item run
@@ -31,12 +32,17 @@ sub run {
 
     my $d = $self->{directives} = RUM::Directives->new;
 
+    my $usage = RUM::Usage->new(action => 'status');
+
     GetOptions(
         "o|output=s" => \(my $dir),
+        "h|help" => sub { $usage->help }
     );
-    $dir or RUM::Usage->bad(
-        "The --output or -o option is required for \"rum_runner align\"");
-    $self->{config} = RUM::Config->load($dir);
+
+    $dir or $usage->bad(
+        "The --output or -o option is required for \"rum_runner status\"");
+    $usage->check;
+    $self->{config} = RUM::Config->load($dir, 1);
     $self->print_processing_status;
     $self->print_postprocessing_status;
     $self->say();

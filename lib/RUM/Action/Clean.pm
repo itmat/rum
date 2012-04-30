@@ -30,15 +30,17 @@ sub run {
     my ($class) = @_;
 
     my $self = $class->new;
+    my $usage = RUM::Usage->new(action => 'clean');
 
     GetOptions(
         "o|output=s" => \(my $dir),
-        "very"         => \(my $very)
+        "very"         => \(my $very),
+        "help|h" => sub { $usage->help }
     );
-    $dir or RUM::Usage->bad(
+    $dir or $usage->bad(
         "The --output or -o option is required for \"rum_runner align\"");
-    $self->{config} = RUM::Config->load($dir) or croak 
-        "$dir doesn't seem to be a rum output directory";
+    $usage->check;
+    $self->{config} = RUM::Config->load($dir, 1);
     $self->clean($very);
 }
 

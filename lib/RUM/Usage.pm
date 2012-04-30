@@ -81,13 +81,26 @@ use warnings;
 use Pod::Usage;
 
 sub new {
-    my ($class) = @_;
-    bless [], $class;
+    my ($class, %opts) = @_;
+    my ($self) = {};
+    $self->{action} = $opts{action};
+    $self->{errors} = [];
+    bless $self, $class;
 }
 
 sub help {
-    pod2usage({-verbose => 1,
-               -message => "\nPlease see perldoc $0 for more information.\n"});
+
+    my ($self) = @_;
+    my $action = ref($self) ? $self->{action} : undef;
+
+    if ($action) {
+        pod2usage({-input => "rum_runner/$action.pod",
+                   -verbose => 2,
+                   -pathlist => \@INC});
+    }
+    else {
+        pod2usage({-verbose => 2});
+    }
 }
 
 sub man {
@@ -98,7 +111,7 @@ sub bad {
     my ($self, $msg) = @_;
 
     if (ref($self)) {
-        push @{ $self }, $msg;
+        push @{ $self->{errors} }, $msg;
         return;
     }
 
@@ -109,11 +122,11 @@ sub bad {
         -message => "\n$msg\n",
         -verbose => 0,
         -exitval => "NOEXIT"});
-    if ($0 =~ /rum$/) {
-        print("Please see $0 help for more information.\n");
+    if ($0 =~ /rum_runner$/) {
+        print STDERR "Please see $0 help for more information.\n";
     }
     else {
-        print("Please see $0 --help for more information.\n");
+        print STDERR "Please see $0 --help for more information.\n";
     }
 
     exit(1);
@@ -121,9 +134,31 @@ sub bad {
 
 sub check {
     my ($self) = @_;
-    if (@$self) {
-        my $msg = "Usage errors:\n\n" . join("\n", @$self);
-        __PACKAGE__->bad($msg);
+    my @errors = @{ $self->{errors} };
+    if (@errors) {
+        my $msg = "Usage errors:\n\n" . join("\n", @errors);
+        my $log = RUM::Logging->get_logger();
+        my ($package) = caller(0);        
+        my $action;
+        if ($package =~ /RUM::Action::(.*)/) {
+            $action = lc $1;
+        }
+
+        if ($action) {
+
+            $log->fatal("Improper usage of $package->main(): $msg");
+            pod2usage({
+                -message => "\n$msg\n",
+                -input => "rum_runner/$action.pod",
+                -pathlist => \@INC,
+                -verbose => 0,
+                -exitval => "NOEXIT"});
+            print STDERR "Please see $0 help $action for more information";
+        }
+        else {
+            __PACKAGE__->bad($msg);
+        }
+        exit (1);
     }
 }
 

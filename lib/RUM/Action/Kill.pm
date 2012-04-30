@@ -30,14 +30,16 @@ sub run {
     my ($class) = @_;
 
     my $self = $class->new;
+    my $usage = RUM::Usage->new(action => 'kill');
 
-    my $d = $self->{directives} = RUM::Directives->new;
     GetOptions(
         "o|output=s" => \(my $dir),
+        "help|h" => sub { $usage->help }
     );
-    $dir or RUM::Usage->bad(
+    $dir or $usage->bad(
         "The --output or -o option is required for \"rum_runner kill\"");
-    $self->{config} = RUM::Config->load($dir);
+    $usage->check;
+    $self->{config} = RUM::Config->load($dir, 1);
     $self->say("Killing job");
     $self->platform->stop;
     $RUM::Lock::FILE = $self->config->in_output_dir(".rum/lock");

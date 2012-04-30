@@ -65,12 +65,12 @@ the same options.
 
 =item B<--chunks> I<num_chunks>
 
-The number of pieces to break the job into.  Use one chunk unless you
-are on a cluster, or have multiple cores with lots of RAM.  Have at
-least one processing core per chunk.  A genome like human will also
-need about 5 to 6 Gb of RAM per chunk.  Even with a small genome, if
-you have tens of millions of reads, you will still need a few Gb of
-RAM to get through the post-processing.
+The number of pieces to break the job into (defaults to 1).  Use 1
+chunk unless you are on a cluster, or have multiple cores with lots of
+RAM.  Have at least one processing core per chunk.  A genome like
+human will also need about 5 to 6 Gb of RAM per chunk.  Even with a
+small genome, if you have tens of millions of reads, you will still
+need a few Gb of RAM to get through the post-processing.
 
 =item B<--name> I<name>
 
@@ -289,6 +289,10 @@ option.
 
 Print less output than usual.
 
+=item B<-v>, B<--verbose>
+
+Print more output than usual.
+
 =back
 
 =head1 LOGO
@@ -340,3 +344,4 @@ Mike DeLaurentis (delaurentis@gmail.com)
 =head1 COPYRIGHT
 
 Copyright 2012, University of Pennsylvania
+
