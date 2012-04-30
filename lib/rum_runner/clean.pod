@@ -1,0 +1,48 @@
+=head1 NAME
+
+rum_runner clean - Clean up files for a job
+
+=head1 SYNOPSIS
+
+rum_runner clean -o dir
+
+=head1 DESCRIPTION
+
+Clean up the intermediate and temporary files produced for a
+job. Optionally clean up the final result files as well.
+
+If you run C<rum_runner align> without the --no-clean option, it
+should automatically delete the intermediate and temporary files as it
+goes, but if it crashes or is killed it may leave some junk around.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-o>, B<--output> I<dir>
+
+Specify the output directory of the job. 
+
+=item B<--very> 
+
+In addition to removing the temporary and intermediate files, also
+remove the final output files. You may want to do this if the job is
+in a very bad state and you want to completely rerun it.
+
+=back
+
+=head1 SEE ALSO
+
+L<rum_runner>
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+=cut

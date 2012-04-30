@@ -16,6 +16,8 @@ if 'config' is supplied as the first argument.
 use strict;
 use warnings;
 
+use Pod::Usage;
+
 use base 'RUM::Base';
 
 =item run
@@ -25,14 +27,15 @@ use base 'RUM::Base';
 sub run {
     my ($class) = @_;
 
-    if (@ARGV) {
-        if ($ARGV[0] eq 'config') {
-            print($RUM::ConfigFile::DOC);
-        }
+    my $action = shift(@ARGV);
+
+    if ($action) {
+        pod2usage({-input => "rum_runner/$action.pod",
+                  -verbose => 5,
+                  -pathlist => \@INC});
     }
-    else {
-        RUM::Usage->help;
-    }
+    pod2usage(-verbose => 1);
+    
 }
 
 1;
