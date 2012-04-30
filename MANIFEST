@@ -144,6 +144,10 @@ lib/RUM/Usage.pm
 lib/RUM/Workflow.pm
 lib/RUM/WorkflowRunner.pm
 lib/RUM/Workflows.pm
+lib/rum_runner/align.pod
+lib/rum_runner/clean.pod
+lib/rum_runner/kill.pod
+lib/rum_runner/status.pod
 LICENSE
 Makefile.PL
 MANIFEST			This list of files
@@ -218,6 +222,7 @@ t/data/sort-rum-by-location/.running
 t/data/sort-rum-by-location/RUM_NU.1
 t/data/sort-rum-by-location/RUM_Unique.1
 t/directives.t
+t/end-to-end.t
 t/expected/count-reads-mapped/reads-mapped
 t/expected/get-inferred-internal-exons/inferred_internal_exons.bed
 t/expected/get-inferred-internal-exons/inferred_internal_exons.txt
