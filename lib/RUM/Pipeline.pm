@@ -16,4 +16,4 @@ Version 2.00_01
 =cut
 
 our $VERSION = '2.00_04';
-our $RELEASE_DATE = "April 24, 2012";
+our $RELEASE_DATE = "April 30, 2012";
