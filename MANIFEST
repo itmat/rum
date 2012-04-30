@@ -76,7 +76,6 @@ doc/cmpChrs-changes.md
 doc/goals
 doc/how2setup_genome-indexes_forPipeline.txt
 doc/indexing.pod
-err
 INSTALL.md
 lib/RUM/Action.pm
 lib/RUM/Action/Align.pm
