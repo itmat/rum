@@ -14,10 +14,9 @@ my @names;
 my @fhs;
 
 for (1 .. 4) {
-    my $name = temp_filename("split.XXXXXX");
-    open my $out, ">", $name or die "Can't open $name for writing: $!";
+    my $out = temp_filename();
     push @fhs, $out;
-    push @names, $name;
+    push @names, $out->filename;
 }
 
 open my $in, "<", "$SHARED_INPUT_DIR/RUM_NU.sorted.1";
@@ -27,10 +26,14 @@ while (<$in>) {
     print $out $_;
 }
 
-my $out = temp_filename("merged.XXXXXX");
+for my $fh (@fhs) {
+    close $fh;
+}
+
+my $out = temp_filename();
 
 {
-    @ARGV = ("-o", $out, @names, "-q");
+    @ARGV = ("-o", $out->filename, @names, "-q");
     RUM::Script::MergeSortedRumFiles->main();
     is_sorted_by_location($out);
 }

@@ -11,16 +11,16 @@ use RUM::Script::MergeBowtieAndBlat;
 use RUM::TestUtils;
 
 my $blat_non_unique_tmp = temp_filename(
-    TEMPLATE => "blat-non-unique-in.XXXXXX");
+    TEMPLATE => "blat-non-unique-in.XXXXXX")->filename;
 
 my $bowtie_unique     = "$INPUT_DIR/BowtieUnique.1";
 my $blat_unique       = "$INPUT_DIR/BlatUnique.1";
 my $bowtie_non_unique = "$INPUT_DIR/BowtieNU.1";
 my $blat_non_unique   = "$INPUT_DIR/BlatNU.1";
 
-my $merged_unique     = temp_filename(TEMPLATE => "unique.XXXXXX");
+my $merged_unique     = temp_filename(TEMPLATE => "unique.XXXXXX")->filename;
 
-my $merged_non_unique = temp_filename(TEMPLATE => "non-unique.XXXXXX");
+my $merged_non_unique = temp_filename(TEMPLATE => "non-unique.XXXXXX")->filename;
 
 copy $blat_non_unique, $blat_non_unique_tmp;
 

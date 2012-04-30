@@ -1,11 +1,12 @@
 #!perl
 
+use strict;
+use warnings;
+
 use Test::More;
 use lib "lib";
 use FindBin qw($Bin);
-use strict;
-use warnings;
-use Log::Log4perl qw(:easy);
+
 
 BEGIN { 
     eval "use Test::Exception";

@@ -6,7 +6,6 @@ use lib "lib";
 
 use strict;
 use warnings;
-use Log::Log4perl qw(:easy);
 
 BEGIN { 
   use_ok('RUM::Common', qw(getave format_large_int reversesignal 

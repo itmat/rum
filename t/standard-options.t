@@ -10,7 +10,7 @@ use RUM::TestUtils;
 use RUM::Usage;
 use RUM::Logging;
 use File::Find;
-use Log::Log4perl qw (:easy);
+
 our $LAST_HELPED = "";
 
 {

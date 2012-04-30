@@ -5,7 +5,6 @@ use lib "lib";
 
 use strict;
 use warnings;
-use Log::Log4perl qw(:easy);
 
 BEGIN { 
   use_ok('RUM::Subproc', qw(spawn check await can_kill procs pids_by_command_re 

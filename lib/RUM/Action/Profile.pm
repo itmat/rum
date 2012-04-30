@@ -15,7 +15,6 @@ use warnings;
 
 use Getopt::Long;
 use Text::Wrap qw(wrap fill);
-use Time::Piece;
 use base 'RUM::Action';
 use POSIX qw(mktime);
 use Carp;
