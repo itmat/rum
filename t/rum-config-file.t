@@ -1,7 +1,6 @@
 #!perl
 
 use Test::More;
-use Test::Exception;
 use lib "lib";
 use FindBin qw($Bin);
 use strict;

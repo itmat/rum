@@ -7,7 +7,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
 use File::Path qw(rmtree mkpath);
-use Test::More tests => 1;
+use Test::More;
 use File::Temp qw(tempdir);
 use RUM::Action::Align;
 
@@ -24,8 +24,18 @@ sub run_end_to_end {
     RUM::Action::Align->run;
 }
 
-run_end_to_end;
+if (-e $config) {
+    plan tests => 1;
+}
+else {
+    plan skip_all => "Arabidopsis index needed";
+}
 
-open my $stats, "$dir/mapping_stats.txt";
-my $data = join("", (<$stats>));
-like $data, qr/num_locs\tnum_reads\n1\t577/, "Mapping stats has count by loc";
+SKIP: {
+
+    run_end_to_end;
+    open my $stats, "$dir/mapping_stats.txt";
+    my $data = join("", (<$stats>));
+    like $data, qr/num_locs\tnum_reads\n1\t577/, "Mapping stats has count by loc";
+}
+

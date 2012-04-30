@@ -19,8 +19,8 @@ my $w = RUM::Workflow->new();
 my $step1 = temp_filename(TEMPLATE => "workflow-runner.XXXXXX");
 my $step2 = temp_filename(TEMPLATE => "workflow-runner.XXXXXX");
 
-unlink($step1) if -e $step1;
-unlink($step2) if -e $step2;
+system "rm -f $step1";
+system "rm -f $step2";
 
 $w->add_command(
     name => "step1",
