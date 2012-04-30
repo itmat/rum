@@ -16,7 +16,7 @@ if 'config' is supplied as the first argument.
 use strict;
 use warnings;
 
-use Pod::Usage;
+use RUM::Usage;
 
 use base 'RUM::Base';
 

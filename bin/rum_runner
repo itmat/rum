@@ -33,11 +33,10 @@ check the status of a job, kill a job, and clean up after a job.
 Every time you run rum_runner you must give it an action that tells it
 what to do. When you run the pipeline using C<rum_runner align>,
 rum_runner puts all of its output files in one directory, specified by
-the B<-o> or B<--output> option, or the current directory of one of
-those options isn't supplied. While the job is running you can check
-the status by running C<rum_runner status -o I<dir>>, where I<dir> is the
-output directory. You can kill it by running C<rum_runner I<kill>> or
-C<rum_runner kill -o I<dir>>.
+the B<-o> or B<--output> option. While the job is running you can
+check the status by running C<rum_runner status -o I<dir>>, where
+I<dir> is the output directory. You can kill it by running
+C<rum_runner I<kill>> or C<rum_runner kill -o I<dir>>.
 
 
 =head1 OPTIONS
@@ -85,10 +84,6 @@ L<rum_runner/align>, L<rum_runner/clean>, L<rum_runner/kill>,
 L<rum_runner/status>, L<rum_runner/version>
 
 =cut
-
-=head1 SEE ALSO
-
-L<rum_runner>
 
 =head1 AUTHORS
 

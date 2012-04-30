@@ -8,7 +8,6 @@ use RUM::Directives;
 use RUM::Usage;
 use RUM::Workflows;
 
-
 our %ACTIONS = (
     help     => "RUM::Action::Help",
     '-h'     => "RUM::Action::Help",
