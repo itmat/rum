@@ -33,6 +33,9 @@ sub run {
     if ($actions{$action}) {
         RUM::Usage->new(action => $action)->help;
     }
+    elsif ($action eq 'config') {
+        print $RUM::ConfigFile::DOC;
+    }
     else {
         RUM::Usage->help;
     }
