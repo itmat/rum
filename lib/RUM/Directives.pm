@@ -34,23 +34,6 @@ use Carp;
 
 our $AUTOLOAD;
 
-# At most one of these directives may be specified, and the presence
-# of one of them will prevent us from running any part of the
-# pipeline.
-our @ACTIONS = qw(
-    version
-    help
-    help_config
-    save
-    diagram
-    status
-    clean
-    veryclean
-    shell_script
-    kill
-    run
-);
-
 # This are just boolean flags that modify the behavior of the
 # actions.
 our @MODIFIERS = qw(
@@ -76,7 +59,7 @@ our @MODIFIERS = qw(
 
 sub new {
     my ($class) = @_;
-    my %self = map { ($_ => undef) } (@ACTIONS, @MODIFIERS);
+    my %self = map { ($_ => undef) } @MODIFIERS;
     $self{all} = 1;
     bless \%self, $class;
 }

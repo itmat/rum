@@ -80,7 +80,6 @@ INSTALL.md
 lib/RUM/Action.pm
 lib/RUM/Action/Align.pm
 lib/RUM/Action/Clean.pm
-lib/RUM/Action/Diagram.pm
 lib/RUM/Action/Help.pm
 lib/RUM/Action/Kill.pm
 lib/RUM/Action/Profile.pm

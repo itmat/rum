@@ -15,7 +15,6 @@ our %ACTIONS = (
     '--help' => "RUM::Action::Help",
     version  => "RUM::Action::Version",
     status   => "RUM::Action::Status",
-    diagram  => "RUM::Action::Diagram",
     clean    => "RUM::Action::Clean",
     kill     => "RUM::Action::Kill",
     align    => "RUM::Action::Align",

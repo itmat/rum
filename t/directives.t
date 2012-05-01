@@ -12,8 +12,8 @@ BEGIN { use_ok('RUM::Directives') }
 
 my $d = RUM::Directives->new;
 
-is($d->save, undef, "Directive is initially undef");
-$d->set_save;
-ok($d->save, "Directive was set");
-$d->unset_save;
-ok( ! $d->save, "Directive was unset");
+is($d->quiet, undef, "Directive is initially undef");
+$d->set_quiet;
+ok($d->quiet, "Directive was set");
+$d->unset_quiet;
+ok( ! $d->quiet, "Directive was unset");
