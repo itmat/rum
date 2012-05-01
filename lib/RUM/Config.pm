@@ -309,11 +309,6 @@ sub should_do_junctions {
     return !$self->dna || $self->genome_only || $self->junctions;
 }
 
-sub junctions_file {
-    my ($self, $type, $strand) = @_;
-    return $self->in_output_dir("junctions") ;
-}
-
 sub novel_inferred_internal_exons_quantifications {
     my ($self) = @_;
     return $self->in_output_dir("novel_inferred_internal_exons_quantifications_"
@@ -365,22 +360,6 @@ sub properties {
 sub settings_filename {
     my ($self) = @_;
     return ($self->in_output_dir($FILENAME));
-}
-
-sub log_file {
-    my ($self) = @_;
-    if ($self->chunk) {
-        return $self->chunk_replaced("rum_%03d.log");
-    }
-    return $self->in_output_dir("rum.log");
-}
-
-sub error_log_file {
-    my ($self) = @_;
-    if ($self->chunk) {
-        $self->chunk_replaced("rum_errors_%03d.log");
-    }
-    $self->chunk_replaced("rum_errors.log");
 }
 
 sub lock_file {
