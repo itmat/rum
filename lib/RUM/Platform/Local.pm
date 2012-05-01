@@ -97,6 +97,9 @@ sub _check_input {
         $self->config->save;
     }
 
+    $self->logsay(sprintf("Processing as %s-end data",
+                          $self->config->paired_end ?
+                              "paired" : "single"));
 }
 
 sub _check_single_reads_file {

@@ -371,6 +371,10 @@ sub check_config {
         $reads->[0] ne $reads->[1] or $usage->bad(
         "You specified the same file for the forward and reverse reads, ".
             "must be an error");
+
+        $c->max_insertions <= 1 or $usage->bad(
+            "For paired-end data, you cannot set --max-insertions-per-read".
+                " to be greater than 1.");
     }
     
     if (defined($c->user_quals)) {
@@ -382,6 +386,7 @@ sub check_config {
     $c->min_identity =~ /^\d+$/ && $c->min_identity <= 100 or $usage->bad(
         "--min-identity must be an integer between zero and 100. You
         have given '".$c->min_identity."'.");
+
 
     if (defined($c->min_length)) {
         $c->min_length =~ /^\d+$/ && $c->min_length >= 10 or $usage->bad(
@@ -403,6 +408,7 @@ sub check_config {
     /^\d+$/ && $_ <= 100 or $usage->bad(
         "--blat-min-identity or --minIdentity must be an integer between ".
             "0 and 100.");
+
 
     $usage->check;
     
@@ -782,5 +788,6 @@ sub _final_check {
         }
     }
 }
+
 
 =back
