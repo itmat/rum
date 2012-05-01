@@ -401,7 +401,7 @@ rum_fails_ok(["align", @standard_args, "--limit-nu", "asdf"],
                qr/nu must be an integer greater than/i, 
                "Bad --limit-nu");    
 
-chunk_cmd_like([@standard_args, "--max-insertions-per-read", 2],
+chunk_cmd_like([@standard_args[0..$#standard_args - 1], "--max-insertions-per-read", 2],
                "Parse blat output",
                qr/--max-insertions 2/i, 
                "--max-insertions-per-read");
