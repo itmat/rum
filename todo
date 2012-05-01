@@ -1,15 +1,20 @@
+parse2fasta
+parsefasta
+parsefastq
+fastq2qualities
+
 Add back disk space check
 Print out email address if we give up?
+
+
+Done
+----
 Make sure we print out all the same messages
 Katharina's job failed.
 Never log to cwd.
 Postprocessing shouldn't start if processing failed.
 Fix tests if Test::Exception isn't installed.
 Fix defaults for RUM::Logger
-
-Done
-----
-
 Get rid of rum.error-log
 Require -o option.
 Create folders for temp and intermediate files.
