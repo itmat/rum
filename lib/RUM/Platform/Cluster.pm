@@ -24,6 +24,7 @@ use warnings;
 use Carp;
 
 use RUM::WorkflowRunner;
+use RUM::Workflows;
 use RUM::Logging;
 
 use base 'RUM::Platform';
@@ -42,6 +43,30 @@ sub preprocess {
     my ($self) = @_;
     $self->say("Submitting preprocessing task");
     $self->submit_preproc;
+}
+
+=item chunk_workflow($chunk)
+
+Return the RUM::Workflow for the given chunk.
+
+=cut
+
+sub chunk_workflow {
+    my ($self, $chunk) = @_;
+    my $config = $self->config->for_chunk($chunk);
+    return RUM::Workflows->chunk_workflow($config);
+}
+
+=item postprocessing_workflow($chunk)
+
+Return the postprocessing RUM::Workflow.
+
+=cut
+
+sub postprocessing_workflow {
+    my ($self, $chunk) = @_;
+    my $config = $self->config;
+    my $workflow = RUM::Workflows->postprocessing_workflow($config);
 }
 
 =item process
@@ -65,17 +90,17 @@ sub process {
     # the chunk number, configuration, workflow, and workflow runner.
     my @tasks;
     for my $chunk ($self->chunk_nums) {
-        my $config = $self->config->for_chunk($chunk);
-        my $workflow = RUM::Workflows->chunk_workflow($config);
+        my $workflow = $self->chunk_workflow($chunk);
         my $run = sub { $self->submit_proc($chunk) };
         my $runner = RUM::WorkflowRunner->new($workflow, $run);
         push @tasks, {
             chunk => $chunk,
-            config => $config,
             workflow => $workflow,
             runner => $runner
         };
     }
+
+    my @results;
 
     # First submit all the chunks as one array job
     $self->submit_proc;
@@ -98,6 +123,7 @@ sub process {
             # consider it done.
             if ($workflow->is_complete) {
                 $log->debug("Chunk $chunk is done");
+                $results[$chunk] = 1;
             }
 
             # If the job appears to be running or waiting on the
@@ -116,12 +142,14 @@ sub process {
             }
             else {
                 $log->error("Restarted $chunk too many times; giving up");
+                $results[$chunk] = 0;
             }
         }
         $log->debug("$still_running chunks are still running");
         last unless $still_running;
         sleep $CLUSTER_CHECK_INTERVAL;
     }
+    return \@results;
     
 }
 
@@ -135,42 +163,39 @@ its status, restarting it if it seems to have failed.
 sub postprocess {
     my ($self) = @_;
 
-    my $config = $self->config;
-    my $workflow = RUM::Workflows->postprocessing_workflow($config);
-
+    my $workflow = $self->postprocessing_workflow;
     my $run = sub { $self->submit_postproc };
     my $runner = RUM::WorkflowRunner->new($workflow, $run);
 
     $runner->run;
-    my $still_running;
 
-    do {
-        $still_running = 0;
+    while (1) {
 
         sleep $CLUSTER_CHECK_INTERVAL;
         $self->update_status;
 
         if ($workflow->is_complete) {
             $log->debug("Postprocessing is done");
+            return 1;
         }
 
         elsif ($self->postproc_ok) {
             $log->debug("Looks like postprocessing is running or waiting");
-            $still_running = 1;
         }
 
         elsif ($runner->run) {
             $log->error("Postprocessing is not queued; starting it");
-            $still_running = 1;
         }
         else {
             $log->error("Restarted postprocessing too many times; giving up");
+            $log->debug("Postprocessing has failed");
+            return 0;
         }
 
-        $log->debug("Postprocessing is " . 
-                        ($still_running ? "still running" : "finished"));
+        $log->debug("Postprocessing is still running");
+
         sleep $CLUSTER_CHECK_INTERVAL;
-    } while ($still_running);
+    }
 
 }
 
@@ -211,12 +236,12 @@ an 'ok' state, where it is either running or waiting to be run.
 
 =cut
 
-sub submit_preproc { croak "Not implemented" }
-sub submit_proc { croak "Not implemented" }
-sub submit_postproc { croak "Not implemented" }
-sub update_status { croak "Not implemented" }
-sub proc_ok { croak "Not implemented" }
-sub postproc_ok { croak "Not implemented" }
+sub submit_preproc { croak "submit_preproc not implemented" }
+sub submit_proc { croak "submit_proc not implemented" }
+sub submit_postproc { croak "submit_postproc not implemented" }
+sub update_status { croak "update_status not implemented" }
+sub proc_ok { croak "proc_ok not implemented" }
+sub postproc_ok { croak "postproc_ok not implemented" }
 
 
 1;

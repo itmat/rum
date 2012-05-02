@@ -55,16 +55,6 @@ use Carp;
 
 use base 'RUM::Base';
 
-sub get {
-    my ($self, $config, $directives) = @_;
-
-    my $name = ($config->qsub && ! $directives->child) ? "SGE" : "Local";
-    my $platform_class = "RUM::Platform::$name";
-    my $platform_file = "RUM/Platform/$name.pm";
-    require $platform_file;
-    $platform_class->new($self->config, $self->directives);
-}
-
 sub preprocess { croak "Not implemented" }
 sub process { croak "Not implemented" }
 sub postprocess { croak "Not implemented" }
