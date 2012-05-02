@@ -424,13 +424,13 @@ all the chunks to finish.
 =cut
 
 sub process {
-    my ($self) = @_;
+    my ($self, $chunk) = @_;
 
     my $config = $self->config;
 
     my $postproc_started = RUM::Workflows->postprocessing_workflow($config)->steps_done;
 
-    $log->debug("Chunk is ". ($config->chunk ? "yes" : "no"));
+    $log->debug("Chunk is $chunk");
 
     my $n = $config->num_chunks || 1;
     $self->say();
@@ -442,8 +442,8 @@ sub process {
         return;
     }
 
-    if ($n == 1 || $config->chunk) {
-        my $chunk = $config->chunk || 1;
+    if ($n == 1 || $chunk) {
+        my $chunk = $chunk || 1;
         $log->info("Running chunk $chunk");
         my $w = RUM::Workflows->chunk_workflow($config, $chunk);
         $w->execute($self->_step_printer($w), ! $self->directives->no_clean);

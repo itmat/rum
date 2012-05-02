@@ -108,7 +108,7 @@ sub run {
     $self->_check_read_lengths;
 
     if ($d->process || $d->all) {
-        $platform->process;
+        $platform->process($self->{chunk});
     }
     if ($d->postprocess || $d->all) {
         $platform->postprocess;
@@ -259,7 +259,6 @@ sub get_options {
     }
 
     ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
-    $c->set(argv => [@ARGV]);
 
     # If a chunk is specified, that implies that the user wants to do
     # the 'processing' phase, so unset preprocess and postprocess
@@ -294,6 +293,8 @@ sub get_options {
 
     my @reads = map { File::Spec->rel2abs($_) } @ARGV;
 
+    $self->{chunk} = $chunk;
+
     $set->('alt_genes', $alt_genes);
     $set->('alt_quant_model', $alt_quant);
     $set->('bowtie_nu_limit', 100) if $limit_bowtie_nu;
@@ -303,7 +304,6 @@ sub get_options {
     $set->('blat_rep_match', $blat_rep_match);
     $set->('blat_max_intron', $blat_max_intron);
     $set->('blat_only', $blat_only);
-    $set->('chunk', $chunk);
     $set->('count_mismatches', $count_mismatches);
     $set->('dna', $dna);
     $set->('genome_only', $genome_only);

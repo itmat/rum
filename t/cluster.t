@@ -130,7 +130,7 @@ sub cluster {
     $cluster->clear;
     my $results = $cluster->process;
 
-    my $pos = 0;
+    $pos = 0;
     while ($cluster->call_pos($pos + 1) eq 'chunk_workflow') {
         $pos++;
     }

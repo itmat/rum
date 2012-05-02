@@ -231,7 +231,7 @@ sub chunk_workflow {
          "--unique-out", post($cleaned_unique),
          "--non-unique-out", post($cleaned_nu),
          "--genome", $c->genome_fa,
-         "--sam-header-out", post($c->chunk_sam_header($c->chunk || 1)),
+         "--sam-header-out", post($c->sam_header($chunk || 1)),
          $c->faok_opt,
          $c->count_mismatches_opt,
          $c->match_length_cutoff_opt]);
@@ -307,7 +307,7 @@ sub chunk_workflow {
                 $nu_stats,
                 $chr_counts_nu,
                 $chr_counts_u,
-                $c->chunk_sam_header($c->chunk || 1)
+                $c->sam_header($chunk || 1)
             );
     
     if ($c->strand_specific) {
@@ -407,7 +407,7 @@ sub postprocessing_workflow {
 
     my @rum_unique    = map { $c->chunk_file("RUM_Unique.sorted", $_) } @chunks;
     my @rum_nu        = map { $c->chunk_file("RUM_NU.sorted", $_) } @chunks;
-    my @sam_headers   = map { $c->chunk_sam_header($_) } @chunks;
+    my @sam_headers   = map { $c->sam_header($_) } @chunks;
     my @chr_counts_u  = map { $c->chunk_file("chr_counts_u", $_) } @chunks;
     my @chr_counts_nu = map { $c->chunk_file("chr_counts_nu", $_) } @chunks;
     my @nu_stats      = map { $c->chunk_file("nu_stats", $_) } @chunks;

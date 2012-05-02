@@ -135,11 +135,7 @@ from 1 to $n otherwise.
 
 sub chunk_nums {
     my ($self) = @_;
-    my $c = $self->config;
-    if ($c->chunk) {
-        return ($c->chunk);
-    }
-    return (1 .. $c->num_chunks || 1)
+    return (1 .. $self->config->num_chunks || 1)
 }
 
 =item platform

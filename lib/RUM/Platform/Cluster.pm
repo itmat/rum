@@ -68,18 +68,18 @@ sub postprocessing_workflow {
     my $workflow = RUM::Workflows->postprocessing_workflow($config);
 }
 
-=item process
+=item process($chunk)
 
 Submits the processing tasks, and periodically polls them to check
 their status, attempting to restart any tasks that don't seem to be
-running.
+running. If chunk is provided, I'll just do that chunk.
 
 =cut
 
 sub process {
-    my ($self) = @_;
+    my ($self, $chunk) = @_;
 
-    if (my $chunk = $self->config->chunk) {
+    if ($chunk) {
         $self->say("Submitting chunk $chunk");
         $self->submit_proc($chunk);
         return;

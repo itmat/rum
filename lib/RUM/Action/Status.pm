@@ -61,7 +61,7 @@ sub print_processing_status {
     local $_;
     my $c = $self->config;
 
-    my @chunks = $c->chunk ? ($c->chunk) : $self->chunk_nums;
+    my @chunks = $self->chunk_nums;
 
     my @errored_chunks;
     my @progress;
