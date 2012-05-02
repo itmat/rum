@@ -190,7 +190,7 @@ rum_fails_ok(
     is($c->max_insertions, 1, "max insertions");
     ok(!$c->dna, "no DNA");
     ok(!$c->genome_only, "no genome only");
-    ok(!$c->variable_read_lengths, "no variable read lengths");
+    ok(!$c->variable_length_reads, "no variable read lengths");
     ok(!$c->count_mismatches, "no count mismatches");
     ok(!$c->junctions, "no junctions");
     ok(!$c->strand_specific, "no strand-specific");
@@ -328,7 +328,7 @@ sub chunk_cmd_like {
     eval {
         my $config = $rum->config;
         $config->set('read_length', 75);
-        my $workflow = RUM::Workflows->chunk_workflow($config);
+        my $workflow = RUM::Workflows->chunk_workflow($config, 3);
         my @commands = $workflow->commands($step);
         my @cmd = @{ $commands[0] };
         if ($negate) {

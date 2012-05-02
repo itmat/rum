@@ -55,9 +55,8 @@ we can't use its clean method on these files.
 sub cleanup_reads_and_quals {
     my ($self) = @_;
     for my $chunk ($self->chunk_nums) {
-        my $c = $self->config->for_chunk($chunk);
-        unlink($c->chunk_suffixed("quals.fa"),
-               $c->chunk_suffixed("reads.fa"));
+        unlink($self->config->chunk_file("quals.fa", $chunk),
+               $self->config->chunk_file("reads.fa", $chunk));
     }
 
 }

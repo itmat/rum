@@ -87,18 +87,15 @@ our %DEFAULTS = (
     bowtie_nu_limit       => undef
 );
 
-sub default {
-    my ($class) = @_;
-    return $class->new(%DEFAULTS);
-}
-
 =head1 CONSTRUCTOR
 
 =over 4
 
 =item new(%options)
 
-Create a new RUM::Config with the given options.
+Create a new RUM::Config with the given options. %options can contain
+mappings from the keys in %DEFAULTS to the values to use for those
+keys.
 
 =back
 
@@ -121,9 +118,18 @@ sub new {
     return bless \%data, $class;
 }
 
-sub variable_read_lengths {
-    $_[0]->variable_length_reads
-}
+=head1 CLASS METHODS
+
+=over 4
+
+=item load_rum_config_file
+
+Load the settings from the rum index configuration file I am
+configured with. This allows you to call annotations, bowtie_bin,
+blat_bin, mdust_bin, genome_bowtie, trans_bowtie, and genome_fa on me
+rather than loading the config object yourself.
+
+=cut
 
 sub load_rum_config_file {
     my ($self) = @_;
@@ -163,29 +169,21 @@ sub load_rum_config_file {
     
 }
 
-sub for_chunk {
-    my ($self, $chunk) = @_;
-    my %options = %{ $self };
-    $options{chunk} = $chunk;
+=item script($name)
 
-    return __PACKAGE__->new(%options);
-}
+Return the path to the rum script of the given name.
 
-# Utilities for modifying a filename
+=cut
 
 sub script {
     return File::Spec->catfile("$Bin/../bin", $_[1]);
 }
 
+# Utilities for modifying a filename
+
 sub in_output_dir {
     my ($self, $file) = @_;
     my $dir = $self->output_dir;
-    if ($self->chunk) {
-        $dir = File::Spec->catfile($dir, "chunks");
-        unless (-d $dir) {
-            mkpath $dir or croak "Can't make chunk dir $dir: $!";
-        }
-    }
     return $dir ? File::Spec->catfile($dir, $file) : $file;
 }
 
@@ -199,17 +197,6 @@ sub in_postproc_dir {
     my $dir = $self->postproc_dir;
     mkpath $dir;
     return File::Spec->catfile($dir, $file);
-}
-
-sub chunk_suffixed { 
-    my ($self, $file) = @_;
-    my $chunk = $self->chunk;
-    return $self->in_output_dir(defined($chunk) ? "$file.$chunk" : $file);
-}
-
-sub chunk_replaced {
-    my ($self, $format) = @_;
-    return $self->in_output_dir(sprintf($format, $self->chunk || 0));
 }
 
 # These functions return options that the user can control.
@@ -250,29 +237,38 @@ sub blat_opts {
 # So quantify if 
 
 sub quant {
-    my $self = shift;
-    my ($strand, $sense) = @_;
+    my ($self, %opts) = @_;
+
+    my $chunk = $opts{chunk};
+    my $strand = $opts{strand};
+    my $sense  = $opts{sense};
     if ($strand && $sense) {
-        return $self->chunk_suffixed("quant.$strand$sense");
+        my $name = "quant.$strand$sense";
+        return $chunk ? $self->chunk_file($name, $chunk) : $self->in_output_dir($name);
     }
 
-    if ($self->chunk) {
-        return $self->chunk_suffixed("quant");
+    if ($chunk) {
+        return $self->chunk_file("quant", $chunk);
     }
-    return $self->chunk_suffixed("feature_quantifications_" . $self->name);
+    return $self->in_output_dir("feature_quantifications_" . $self->name);
 }
 
 sub alt_quant {
-    my $self = shift;
-    my ($strand, $sense) = @_;
-    if ($strand && $sense) {
-        return $self->chunk_suffixed("feature_quantifications.altquant.$strand$sense");
-    }
-    return $self->chunk_suffixed("feature_quantifications_" . $self->name . ".altquant");
-    
-}
+    my ($self, %opts) = @_;
+    my $chunk  = $opts{chunk};
+    my $strand = $opts{strand};
+    my $sense  = $opts{sense};
+    my $name;
 
-sub pipeline_sh { $_[0]->chunk_suffixed("pipeline.sh") }
+    if ($strand && $sense) {
+        $name = "feature_quantifications.altquant.$strand$sense";
+    }
+    else {
+        $name = "feature_quantifications_" . $self->name . ".altquant";
+    }
+
+    return $chunk ? $self->chunk_file($name, $chunk) : $self->in_output_dir($name);
+}
 
 # TODO: Maybe support name mapping?
 sub name_mapping_opt   { "" } 
@@ -286,17 +282,6 @@ sub set {
     my ($self, $key, $value) = @_;
     confess "No such property $key" unless is_property($key);
     $self->{$key} = $value;
-}
-
-sub AUTOLOAD {
-    my ($self) = @_;
-    
-    my @parts = split /::/, $AUTOLOAD;
-    my $name = $parts[-1];
-    
-    return if $name eq "DESTROY";
-    
-    return $self->get($name);
 }
 
 sub should_quantify {
@@ -384,10 +369,15 @@ sub mapping_stats_final {
 
 sub sam_header { shift->in_postproc_dir("sam_header") }
 
+sub in_chunk_dir {
+    my ($self, $name) = @_;
+    my $path = File::Spec->catfile($self->output_dir, "chunks", $name);
+}
+
 sub chunk_file {
     my ($self, $name, $chunk) = @_;
     $chunk or croak "chunk file called without chunk for $name";
-    my $path = File::Spec->catfile($self->output_dir, "chunks", "$name.$chunk");
+    return $self->in_chunk_dir("$name.$chunk");
 }
 
 sub chunk_sam_header { $_[0]->chunk_file("sam_header", $_[1]) }
@@ -402,5 +392,15 @@ sub temp_dir {
     return File::Spec->catfile($self->output_dir, "tmp");
 }
 
+sub AUTOLOAD {
+    my ($self) = @_;
+    
+    my @parts = split /::/, $AUTOLOAD;
+    my $name = $parts[-1];
+    
+    return if $name eq "DESTROY";
+    
+    return $self->get($name);
+}
 
 1;

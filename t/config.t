@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 23;
+use Test::More tests => 20;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
@@ -19,11 +19,6 @@ $c = RUM::Config->new();
 
 $c = RUM::Config->new(output_dir => "foo");
 is($c->output_dir, "foo");
-is($c->chunk_suffixed("reads.fa"), "foo/reads.fa", "Chunk suffixed with no chunk");
-
-$c = $c->for_chunk(1);
-is($c->chunk, 1, "Chunk setting");
-is($c->chunk_suffixed("reads.fa"), "foo/chunks/reads.fa.1", "Getting property for chunk");
 
 sub should_quantify {
     my (%options) = @_;
@@ -67,7 +62,7 @@ should_do_junctions(    dna => 1, genome_only => 0, junctions => 1);
 should_do_junctions(    dna => 1, genome_only => 1, junctions => 0);
 should_do_junctions(    dna => 1, genome_only => 1, junctions => 1);
 
-$c = RUM::Config->default;
+$c = RUM::Config->new;
 my $dir = tempdir(TEMPLATE => "config.XXXXXX", CLEANUP => 1);
 $c->set(output_dir => $dir);
 mkdir "$dir/.rum";
@@ -79,6 +74,6 @@ is($c->read_length, 45, "Read config from file");
 ok(! RUM::Config->load("/foo/bar/baz"));
 
 
-my %default = %{ RUM::Config->default };
+
 
 

@@ -53,8 +53,7 @@ Return the RUM::Workflow for the given chunk.
 
 sub chunk_workflow {
     my ($self, $chunk) = @_;
-    my $config = $self->config->for_chunk($chunk);
-    return RUM::Workflows->chunk_workflow($config);
+    return RUM::Workflows->chunk_workflow($self->config, $chunk);
 }
 
 =item postprocessing_workflow($chunk)

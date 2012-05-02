@@ -121,7 +121,7 @@ sub _check_read_lengths {
     my ($self) = @_;
     my $c = $self->config;
     my $rl = $c->read_length;
-    my $fixed = ! $c->variable_read_lengths;
+    my $fixed = ! $c->variable_length_reads;
 
     if ( $fixed && $rl < 55 && !$c->nu_limit) {
         $self->say;
@@ -221,7 +221,7 @@ sub get_options {
         "ram=s"    => \(my $ram),
         "read-lengths=s" => \(my $read_lengths),
         "strand-specific" => \(my $strand_specific),
-        "variable-read-lengths|variable-length-reads" => \(my $variable_read_lengths),
+        "variable-length-reads" => \(my $variable_length_reads),
 
         # Options for blat
         "minIdentity|blat-min-identity=s" => \(my $blat_min_identity),
@@ -254,7 +254,7 @@ sub get_options {
         $did_load = 1;
     }
     else {
-        $c = RUM::Config->default unless $c;
+        $c = RUM::Config->new unless $c;
         $c->set('output_dir', File::Spec->rel2abs($dir));
     }
 
@@ -322,7 +322,7 @@ sub get_options {
     $set->('rum_config_file', $rum_config_file);
     $set->('strand_specific', $strand_specific);
     $set->('user_quals', $quals_file);
-    $set->('variable_length_reads', $variable_read_lengths);
+    $set->('variable_length_reads', $variable_length_reads);
 
     if ($did_set && $did_load && !$force && !$d->child) {
         die("I found job settings in " . $c->settings_filename . ", but you specified different settings on the command line. I won't run without the --force flag. If you want to use the saved settings, please don't provide any extra options on the command line. If you need to change the settings, please either delete " . $c->settings_filename . " or run again with --force.");
@@ -400,7 +400,7 @@ sub check_config {
                 $c->nu_limit."'.");
     }
 
-    $c->preserve_names && $c->variable_read_lengths and $usage->bad(
+    $c->preserve_names && $c->variable_length_reads and $usage->bad(
         "Cannot use both --preserve-names and --variable-read-lengths at ".
             "the same time. Sorry, we will fix this eventually.");
 
@@ -452,11 +452,16 @@ Creates the output directory and .rum subdirectory.
 sub setup {
     my ($self) = @_;
     my $output_dir = $self->config->output_dir;
-    unless (-d $output_dir) {
-        mkpath($output_dir) or die "mkdir $output_dir: $!";
-    }
-    unless (-d "$output_dir/.rum") {
-        mkpath("$output_dir/.rum") or die "mkdir $output_dir/.rum: $!";
+    my $c = $self->config;
+    my @dirs = (
+        $c->output_dir,
+        $c->output_dir . "/.rum",
+        $c->chunk_dir
+    );
+    for my $dir (@dirs) {
+        unless (-d $dir) {
+            mkpath($dir) or die "mkdir $dir: $!";
+        }
     }
 }
 

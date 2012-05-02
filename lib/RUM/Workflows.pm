@@ -28,42 +28,45 @@ Return the workflow for the chunk with the given RUM::Config.
 =cut
 
 sub chunk_workflow {
-    my ($class, $config) = @_;
+    my ($class, $config, $chunk) = @_;
     $config or croak "I need a config";
+    $chunk or croak "I need a chunk";
     my $c = $config;
 
     my $m = RUM::Workflow->new;
 
-    my $genome_bowtie_out = $c->chunk_suffixed("X");
-    my $trans_bowtie_out = $c->chunk_suffixed("Y");
-    my $bowtie_unmapped = $c->chunk_suffixed("R");
-    my $blat_output = $c->chunk_replaced("R.%d.blat");
-    my $mdust_output = $c->chunk_replaced("R.%d.mdust");
-    my $blat_unique = $c->chunk_suffixed("BlatUnique");
-    my $blat_nu = $c->chunk_suffixed("BlatNU");
-    my $bowtie_unique = $c->chunk_suffixed("BowtieUnique");
-    my $bowtie_nu = $c->chunk_suffixed("BowtieNU");
-    my $bowtie_blat_unique = $c->chunk_suffixed("RUM_Unique_temp");
-    my $bowtie_blat_nu = $c->chunk_suffixed("RUM_NU_temp");
-    my $rum_unique = $c->chunk_suffixed("RUM_Unique");
-    my $rum_nu = $c->chunk_suffixed("RUM_NU");
-    my $reads_fa = $c->chunk_suffixed("reads.fa");
-    my $quals_fa = $c->chunk_suffixed("quals.fa");
-    my $rum_unique_sorted = $c->chunk_suffixed("RUM_Unique.sorted");
-    my $rum_nu_sorted = $c->chunk_suffixed("RUM_NU.sorted");
-    my $chr_counts_u = $c->chunk_suffixed("chr_counts_u");
-    my $chr_counts_nu = $c->chunk_suffixed("chr_counts_nu");
-    my $gu  = $c->chunk_suffixed("GU");
-    my $gnu = $c->chunk_suffixed("GNU");
-    my $tu  = $c->chunk_suffixed("TU");
-    my $tnu = $c->chunk_suffixed("TNU");
-    my $cnu = $c->chunk_suffixed("CNU");
-    my $cleaned_nu = $c->chunk_suffixed("RUM_NU_temp2");
-    my $rum_nu_deduped = $c->chunk_suffixed("RUM_NU_temp3");
-    my $cleaned_unique = $c->chunk_suffixed("RUM_Unique_temp2");
-    my $rum_nu_id_sorted = $c->chunk_suffixed("RUM_NU_idsorted");
-    my $nu_stats = $c->chunk_suffixed("nu_stats");
-    my $sam_file = $c->chunk_suffixed("RUM.sam");
+    local *chunk_file = sub { $c->chunk_file($_[0], $chunk) };
+
+    my $genome_bowtie_out = chunk_file("X");
+    my $trans_bowtie_out = chunk_file("Y");
+    my $bowtie_unmapped = chunk_file("R");
+    my $blat_output = chunk_file("R.blat");
+    my $mdust_output = chunk_file("R.mdust");
+    my $blat_unique = chunk_file("BlatUnique");
+    my $blat_nu = chunk_file("BlatNU");
+    my $bowtie_unique = chunk_file("BowtieUnique");
+    my $bowtie_nu = chunk_file("BowtieNU");
+    my $bowtie_blat_unique = chunk_file("RUM_Unique_temp");
+    my $bowtie_blat_nu = chunk_file("RUM_NU_temp");
+    my $rum_unique = chunk_file("RUM_Unique");
+    my $rum_nu = chunk_file("RUM_NU");
+    my $reads_fa = chunk_file("reads.fa");
+    my $quals_fa = chunk_file("quals.fa");
+    my $rum_unique_sorted = chunk_file("RUM_Unique.sorted");
+    my $rum_nu_sorted = chunk_file("RUM_NU.sorted");
+    my $chr_counts_u = chunk_file("chr_counts_u");
+    my $chr_counts_nu = chunk_file("chr_counts_nu");
+    my $gu  = chunk_file("GU");
+    my $gnu = chunk_file("GNU");
+    my $tu  = chunk_file("TU");
+    my $tnu = chunk_file("TNU");
+    my $cnu = chunk_file("CNU");
+    my $cleaned_nu = chunk_file("RUM_NU_temp2");
+    my $rum_nu_deduped = chunk_file("RUM_NU_temp3");
+    my $cleaned_unique = chunk_file("RUM_Unique_temp2");
+    my $rum_nu_id_sorted = chunk_file("RUM_NU_idsorted");
+    my $nu_stats = chunk_file("nu_stats");
+    my $sam_file = chunk_file("RUM.sam");
 
     my $bowtie_bin = $c->bowtie_bin;
     my $bowtie_cutoff_opt = $c->bowtie_cutoff_opt;
@@ -106,8 +109,8 @@ sub chunk_workflow {
     # transcriptome, so just send the output from make_GU_and_GNU.pl
     # straight to BowtieUnique and BowtieNU.
     if ($c->dna || $c->genome_only) {
-        $gu = $c->chunk_suffixed("BowtieUnique");
-        $gnu = $c->chunk_suffixed("BowtieNU");
+        $gu = chunk_file("BowtieUnique");
+        $gnu = chunk_file("BowtieNU");
     }
  
     # If we have the genome bowtie output, we can make the unique and
@@ -311,7 +314,9 @@ sub chunk_workflow {
 
         for my $strand (qw(p m)) {
             for my $sense (qw(s a)) {
-                my $file = $c->quant($strand, $sense);
+                my $file = $c->quant(strand => $strand, 
+                                     sense => $sense,
+                                     chunk => $chunk);
                 push @goal, $file;
                 $m->add_command(
                     name => "Generate quants for strand $strand, sense $sense",
@@ -326,7 +331,9 @@ sub chunk_workflow {
                           $sense eq 'a' ? "--anti" : ""]]
                     );
                 if ($c->alt_quant_model) {
-                    my $file = $c->alt_quant($strand, $sense);
+                    my $file = $c->alt_quant(strand => $strand, 
+                                             sense => $sense,
+                                             chunk => $chunk);
                     push @goal, $file;
                     $m->add_command(
                         name => "Generate alt quants for strand $strand, sense $sense",
@@ -345,7 +352,7 @@ sub chunk_workflow {
         }
     }
     else {
-        push @goal, $c->quant;
+        push @goal, $c->quant(chunk => $chunk);
         $m->add_command(
             name => "Generate quants",
             commands => 
@@ -353,11 +360,11 @@ sub chunk_workflow {
                   "--genes-in", $c->annotations,
                   "--unique-in", pre($rum_unique_sorted),
                   "--non-unique-in", pre($rum_nu_sorted),
-                  "-o", post($c->quant),
+                  "-o", post($c->quant(chunk => $chunk)),
                   "-countsonly"]]
             );            
         if ($c->alt_quant_model) {
-            push @goal, $c->alt_quant;
+            push @goal, $c->alt_quant(chunk => $chunk);
             $m->add_command(
                 name => "Generate alt quants",
                 commands => 
@@ -365,7 +372,7 @@ sub chunk_workflow {
                       "--genes-in", $c->alt_quant_model,
                       "--unique-in", pre($rum_unique_sorted),
                       "--non-unique-in", pre($rum_nu_sorted),
-                      "-o", post($c->alt_quant),
+                      "-o", post($c->alt_quant(chunk => $chunk)),
                       "-countsonly"]]
                 );
         }
@@ -396,19 +403,22 @@ sub postprocessing_workflow {
     my @chunks = (1 .. $c->num_chunks || 1);
 
     my $name = $c->name;
-    my @c = map { $c->for_chunk($_) } @chunks;
     my $w = RUM::Workflow->new();
-    my @rum_unique = map { $_->chunk_suffixed("RUM_Unique.sorted") } @c;
-    my @rum_nu = map { $_->chunk_suffixed("RUM_NU.sorted") } @c;
-    my @sam_headers = map { $c->chunk_sam_header($_) } @chunks;
+
+    my @rum_unique    = map { $c->chunk_file("RUM_Unique.sorted", $_) } @chunks;
+    my @rum_nu        = map { $c->chunk_file("RUM_NU.sorted", $_) } @chunks;
+    my @sam_headers   = map { $c->chunk_sam_header($_) } @chunks;
+    my @chr_counts_u  = map { $c->chunk_file("chr_counts_u", $_) } @chunks;
+    my @chr_counts_nu = map { $c->chunk_file("chr_counts_nu", $_) } @chunks;
+    my @nu_stats      = map { $c->chunk_file("nu_stats", $_) } @chunks;
 
     my $sam_file = $c->in_output_dir("RUM.sam");
-    my @sam_files = map { $c->for_chunk($_)->chunk_suffixed("RUM.sam") } @chunks;
+    my @sam_files = map { $c->chunk_file("RUM.sam", $_) } @chunks;
 
 
     my @start = (@rum_unique, @rum_nu, @sam_headers, @sam_files);
-    my $mapping_stats = $c->chunk_suffixed("mapping_stats_temp.txt");
-    my $inferred_internal_exons = $c->in_output_dir("inferred_internal_exons.bed");
+    my $mapping_stats               = $c->in_output_dir("mapping_stats_temp.txt");
+    my $inferred_internal_exons     = $c->in_output_dir("inferred_internal_exons.bed");
     my $inferred_internal_exons_txt = $c->in_output_dir("inferred_internal_exons.txt");
 
     my @goal = ($c->mapping_stats_final,
@@ -431,11 +441,8 @@ sub postprocessing_workflow {
          "-o", post($rum_nu),
          map { pre($_) } @rum_nu]);
 
-    my $reads_fa = $c->for_chunk($c->num_chunks)->chunk_suffixed("reads.fa");
+    my $reads_fa = $c->chunk_file("reads.fa", $c->num_chunks);
 
-    my @chr_counts_u  = map { $_->chunk_suffixed("chr_counts_u") } @c;
-    my @chr_counts_nu = map { $_->chunk_suffixed("chr_counts_nu") } @c;
-    my @nu_stats      = map { $_->chunk_suffixed("nu_stats") } @c;
     push @start, @chr_counts_u, @chr_counts_nu;
     $w->add_command(
         name => "Compute mapping statistics",
@@ -471,7 +478,6 @@ sub postprocessing_workflow {
         }
     );
 
-
     if ($c->should_quantify) {
         push @goal, $c->quant;
         push @goal, $c->alt_quant if $c->alt_quant_model;
@@ -482,16 +488,25 @@ sub postprocessing_workflow {
             for my $sense (qw(s a)) {
                 for my $strand (qw(p m)) {
                     
-                    my @quants = map { $_->quant($strand, $sense) } @c; 
-                    my @alt_quants = map { $_->alt_quant($strand, $sense) } @c; 
+                    my %opts = (
+                        strand => $strand,
+                        sense => $sense
+                    );
+
+                    my (@quants, @alt_quants);
+
+                    for my $chunk (@chunks) {
+                        push @quants, $c->quant(%opts, chunk => $chunk);
+                        push @alt_quants, $c->alt_quant(%opts, chunk => $chunk);
+                    }
 
                     push @start, @quants;
-                    push @strand_specific, $c->quant($strand, $sense);
+                    push @strand_specific, $c->quant(%opts);
 
                     if ($c->alt_quant) {
-                        @alt_quants = map { $_->alt_quant($strand, $sense) } @c;
+                        @alt_quants = map { $c->alt_quant(%opts, chunk => $_) } @chunks;
                         push @start, @alt_quants;
-                        push @alt_strand_specific, $c->alt_quant($strand, $sense);
+                        push @alt_strand_specific, $c->alt_quant(%opts);
                     }
 
                     $w->add_command(
@@ -500,7 +515,7 @@ sub postprocessing_workflow {
                         commands => [[
                             "perl", $c->script("merge_quants.pl"),
                             "--chunks", $c->num_chunks || 1,
-                            "-o", post($c->quant($strand, $sense)),
+                            "-o", post($c->quant(%opts)),
                             "--strand", "$strand$sense",
                             $c->output_dir . "/chunks"]]);
 
@@ -511,11 +526,12 @@ sub postprocessing_workflow {
                             "perl", $c->script("merge_quants.pl"),
                             "--alt",
                             "--chunks", $c->num_chunks || 1,
-                            "-o", post($c->alt_quant($strand, $sense)),
+                            "-o", post($c->alt_quant(%opts)),
                             "--strand", "$strand$sense",
                             $c->output_dir . "/chunks"]]) if $c->alt_quant_model;
                 }
             }
+
             $w->add_command(
                 name => "Merge strand-specific quants",
                 pre => [@strand_specific],
@@ -536,9 +552,8 @@ sub postprocessing_workflow {
         }
         
         else {
-            
-            my @quants = map { $_->quant } @c; 
-            my @alt_quants = map { $_->alt_quant } @c; 
+            my @quants = map { $c->quant(chunk => $_) } @chunks; 
+            my @alt_quants = map { $c->alt_quant(chunk => $_) } @chunks; 
             push @start, @quants;
             push @start, @alt_quants if $c->alt_quant_model;
             $w->add_command(
@@ -549,7 +564,7 @@ sub postprocessing_workflow {
                     "--chunks", $c->num_chunks || 1,
                     "-o", post($c->quant), 
                     $c->output_dir. "/chunks"]]);
-
+            
             $w->add_command(
                 name => "Merge alt quants",
                 pre => [$rum_unique, @alt_quants],

@@ -65,7 +65,7 @@ sub print_processing_status {
 
     my @errored_chunks;
     my @progress;
-    my $workflow = RUM::Workflows->chunk_workflow($c->for_chunk(1));
+    my $workflow = RUM::Workflows->chunk_workflow($c, 1);
     my $plan = $workflow->state_machine->plan or croak "Can't build a plan";
     my @plan = @{ $plan };
 
@@ -73,8 +73,7 @@ sub print_processing_status {
     my $postproc_started = $postproc->steps_done;
 
     for my $chunk (@chunks) {
-        my $config = $c->for_chunk($chunk);
-        my $w = RUM::Workflows->chunk_workflow($config);
+        my $w = RUM::Workflows->chunk_workflow($c, $chunk);
         my $m = $w->state_machine;
         my $state = $w->state;
         $m->recognize($plan, $state) 

@@ -68,7 +68,7 @@ SKIP: {
     rmtree($out_dir);
     mkpath $out_dir;
 
-    my $chunk = RUM::Workflows->chunk_workflow($config);
+    my $chunk = RUM::Workflows->chunk_workflow($config,1);
 
 #    open my $dot, ">", "workflow.dot";
 #    $chunk->state_machine->dotty($dot);
@@ -123,6 +123,7 @@ $c = RUM::Config->new(%defaults);
 $c->set('strand_specific', 1);
 $c->set('alt_quant_model', "foo");
 $c->load_rum_config_file;
+
 $w = RUM::Workflows->postprocessing_workflow($c);
 
 would_run($w, qr/merge.quants.*p.*s/i);

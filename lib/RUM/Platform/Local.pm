@@ -62,8 +62,7 @@ sub preprocess {
     my $all_chunks_started = 1;
 
     for my $chunk ($self->chunk_nums) {
-        my $config = $self->config->for_chunk($chunk);                
-        my $workflow = RUM::Workflows->chunk_workflow($config);
+        my $workflow = RUM::Workflows->chunk_workflow($config, $chunk);
         if ( ! $workflow->steps_done) {
             $all_chunks_started = 0;
         }
@@ -214,9 +213,9 @@ sub _check_read_file_pair {
                 $length_hold = length($line1);
                 $length_flag = 1;
             }
-            if(length($line1) != $length_hold && !$config->variable_read_lengths) {
+            if(length($line1) != $length_hold && !$config->variable_length_reads) {
                 warn("It seems your read lengths vary, but you didn't set -variable_length_reads. I'm going to set it for you, but it's generally safer to set it on the command-line since I only spot check the file.");
-                $config->set('variable_read_lengths', 1);
+                $config->set('variable_length_reads', 1);
             }
             $length_hold = length($line1);
         }
@@ -232,12 +231,12 @@ sub _determine_read_length {
     
     my ($self) = @_;
 
-    my @lines = head($self->config->for_chunk(1)->chunk_suffixed("reads.fa"), 2);
+    my @lines = head($self->config->chunk_file("reads.fa", 1), 2);
     my $read = $lines[1];
     my $len = length($read);
     my $min = $self->config->min_length;
     $log->debug("Read length is $len, min is " . ($min ||"")) if $log->is_debug;
-    if ($self->config->variable_read_lengths) {
+    if ($self->config->variable_length_reads) {
         $log->info("Using variable read length");
         $self->config->set("read_length", "v");
     }
@@ -274,8 +273,8 @@ sub _reformat_reads {
 
     my @reads = @{ $config->reads };
 
-    my $reads_fa = $config->for_chunk(1)->in_output_dir("reads.fa");
-    my $quals_fa = $config->for_chunk(1)->in_output_dir("quals.fa");
+    my $reads_fa = $config->in_chunk_dir("reads.fa");
+    my $quals_fa = $config->in_chunk_dir("quals.fa");
 
     my $name_mapping_opt = $config->preserve_names ?
         "-name_mapping $output_dir/read_names_mapping" : "";    
@@ -297,7 +296,7 @@ sub _reformat_reads {
 
     my $have_quals = 0;
 
-    if($is_fastq && !$config->variable_read_lengths) {
+    if($is_fastq && !$config->variable_length_reads) {
         $self->say("Splitting fastq file into $num_chunks chunks ",
                    "with separate reads and quals");
         shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $error_log");
@@ -307,7 +306,7 @@ sub _reformat_reads {
         $self->{input_needs_splitting} = 0;
     }
  
-    elsif ($is_fasta && !$config->variable_read_lengths && !$preformatted) {
+    elsif ($is_fasta && !$config->variable_length_reads && !$preformatted) {
         $self->say("Splitting fasta file into $num_chunks chunks");
         shell("perl $parse_fasta $reads_in $num_chunks $reads_fa $name_mapping_opt 2>> $error_log");
         $have_quals = 0;
@@ -320,7 +319,7 @@ sub _reformat_reads {
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
         $self->{input_needs_splitting} = 1;
-        my $X = join("\n", head($config->chunk_suffixed("quals.fa"), 20));
+        my $X = join("\n", head($config->chunk_file("quals.fa", 1), 20));
         if($X =~ /\S/s && !($X =~ /Sorry, can\'t figure these files out/s)) {
             $have_quals = "true";
         }
@@ -333,7 +332,7 @@ sub _reformat_reads {
 
         if ($have_quals) {
             $self->say( "Half done splitting; starting qualities...");
-            _breakup_file($config->chunk_suffixed("quals.fa"), 1);
+            _breakup_file($config->chunk_file("quals.fa", 1), 1);
         }
         elsif ($config->user_quals) {
             $self->say( "Half done splitting; starting qualities...");
@@ -381,8 +380,7 @@ sub _breakup_file  {
     my $PS = $c->paired_end ? $piecesize * 2 : $piecesize;
 
     for(my $i=1; $i < $c->num_chunks; $i++) {
-        my $chunk_config = $c->for_chunk($i);
-	my $outfilename = $chunk_config->chunk_suffixed("reads.fa");
+	my $outfilename = $c->chunk_file("reads.fa", $i);
 
         $log->debug("Building $outfilename");
 	open(OUTFILE, ">$outfilename");
@@ -402,8 +400,8 @@ sub _breakup_file  {
 	}
 	close(OUTFILE);
     }
-    my $chunk_config = $c->num_chunks ? $c->for_chunk($c->num_chunks) : $c;
-    my $outfilename = $chunk_config->chunk_suffixed("reads.fa");
+
+    my $outfilename = $c->chunk_file("reads.fa", $c->num_chunks);
     open(OUTFILE, ">$outfilename");
     while(my $line = <INFILE>) {
 	print OUTFILE $line;
@@ -447,8 +445,7 @@ sub process {
     if ($n == 1 || $config->chunk) {
         my $chunk = $config->chunk || 1;
         $log->info("Running chunk $chunk");
-        my $config = $self->config->for_chunk($chunk);
-        my $w = RUM::Workflows->chunk_workflow($config);
+        my $w = RUM::Workflows->chunk_workflow($config, $chunk);
         $w->execute($self->_step_printer($w), ! $self->directives->no_clean);
     }
     elsif ($config->num_chunks) {
@@ -460,6 +457,7 @@ sub process {
 sub _process_in_chunks {
     my ($self) = @_;
     my $n = $self->config->num_chunks;
+    my $c = $self->config;
     $log->info("Creating $n chunks");
 
     my %pid_to_chunk; # Maps a process ID to the chunk it is running
@@ -476,11 +474,10 @@ sub _process_in_chunks {
     };
 
     for my $chunk ($self->chunk_nums) {
-        my @cmd = ($0, "align", "--child", "--output", $self->config->output_dir,
+        my @cmd = ($0, "align", "--child", "--output", $c->output_dir,
                    "--chunk", $chunk);
         push @cmd, "--no-clean" if $self->directives->no_clean;
-        my $config = $self->config->for_chunk($chunk);                
-        my $workflow = RUM::Workflows->chunk_workflow($config);
+        my $workflow = RUM::Workflows->chunk_workflow($c, $chunk);
 
         my $run = sub {
             if (my $pid = fork) {
@@ -488,8 +485,8 @@ sub _process_in_chunks {
             }
             else {
                 $ENV{RUM_CHUNK} = $chunk;
-                $ENV{RUM_OUTPUT_DIR} = $config->output_dir;
-                open STDOUT, ">", $config->chunk_replaced("chunk_%d.out");
+                $ENV{RUM_OUTPUT_DIR} = $c->output_dir;
+                open STDOUT, ">", $c->chunk_file("chunk.out", $chunk);
                 exec @cmd;
             }
         };

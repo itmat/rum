@@ -19,7 +19,8 @@ WriteMakefile
   'EXE_FILES' => \@exe_files,
   'VERSION_FROM' => 'lib/RUM/Pipeline.pm',
   'PREREQ_PM' => {
-                   'Test::More' => 0
+                   'Test::More' => 0,
+                   'autodie' => 0
                  },
 )
 ;
