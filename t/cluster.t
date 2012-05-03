@@ -60,7 +60,6 @@ sub cluster {
     $cluster->process;
     
     my $pos = 1;
-    diag "Right here";
 
     $cluster->called_pos_ok(++$pos, 'submit_proc',  "submit the process");
     $cluster->called_args_pos_is($pos, 2, undef, "with no chunks,");
@@ -99,7 +98,7 @@ sub cluster {
     my $results = $cluster->process;
 
     my $pos = 1;
-    diag "With a workflow that takes longer than one cycle, the platform should";
+
     $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit the process');
     $cluster->called_args_pos_is($pos, 2, undef, "with no chunks,");
     $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
@@ -125,8 +124,6 @@ sub cluster {
                    });
     my $pos = 2;
     
-    diag "With a workflow that takes longer than one cycle";
-    diag "and fails once, the platform should";
     $cluster->clear;
     my $results = $cluster->process;
 
@@ -158,8 +155,6 @@ sub cluster {
                    });
     $cluster->set_false('proc_ok');
     my $pos = 1;
-    diag "With a workflow that takes longer than one cycle";
-    diag "and fails once, the platform should";
     my $results = $cluster->process;
     $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit the process');
     $cluster->called_args_pos_is($pos, 2, undef, "with no chunks");

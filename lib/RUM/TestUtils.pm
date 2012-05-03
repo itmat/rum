@@ -38,7 +38,8 @@ use RUM::Common qw(shell is_on_cluster);
 use RUM::Repository qw(download);
 
 our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR
-                 $SHARED_INPUT_DIR is_sorted_by_location same_line_count);
+                 $INDEX_CONFIG $SHARED_INPUT_DIR is_sorted_by_location same_line_count
+                 $RUM_HOME);
 our @EXPORT_OK = qw(download_file download_test_data no_diffs
                     is_sorted_by_location);
 our %EXPORT_TAGS = (
@@ -55,12 +56,18 @@ our $PROGRAM_NAME = do {
 };
 
 
-our $GENOME_FA = "$Bin/../indexes/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs.fa";
-our $GENE_INFO = "$Bin/../indexes/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
-our $SHARED_INPUT_DIR = "$Bin/data/shared";
-our $INPUT_DIR = "$Bin/data/$PROGRAM_NAME";
-our $EXPECTED_DIR = "$Bin/expected/$PROGRAM_NAME";
-
+# Build some paths that tests might need
+our $RUM_HOME = $Bin;
+$RUM_HOME =~ s/\/t(\/integration)?(\/)?$//;
+our $RUM_BIN      = "$RUM_HOME/bin";
+our $RUM_CONF     = "$RUM_HOME/conf";
+our $RUM_INDEXES  = "$RUM_HOME/conf";
+our $INDEX_CONFIG = "$RUM_CONF/rum.config_Arabidopsis";
+our $GENOME_FA    = "$RUM_INDEXES/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs.fa";
+our $GENE_INFO    = "$RUM_INDEXES/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
+our $SHARED_INPUT_DIR = "$RUM_HOME/t/data/shared";
+our $INPUT_DIR = "$RUM_HOME/t/data/$PROGRAM_NAME";
+our $EXPECTED_DIR = "$RUM_HOME/t/expected/$PROGRAM_NAME";
 our $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tar.gz";
 
 =item download_file URL, LOCAL

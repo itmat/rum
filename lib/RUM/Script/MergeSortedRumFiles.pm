@@ -20,7 +20,7 @@ use RUM::Usage;
 our $log = RUM::Logging->get_logger();
 
 sub main {
-    warn "Getting options\n";
+
     GetOptions(
 
         # This will accept either --output or -o and save the argument

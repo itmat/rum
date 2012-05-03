@@ -5,7 +5,7 @@ use warnings;
 
 use Test::More tests => 3;
 use FindBin qw($Bin);
-use lib "$Bin/../lib";
+use lib "$Bin/../../lib";
 
 use RUM::TestUtils;
 

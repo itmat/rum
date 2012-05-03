@@ -6,7 +6,7 @@ use warnings;
 use Test::More tests => 7;
 use FindBin qw($Bin);
 use File::Copy;
-use lib "$Bin/../lib";
+use lib "$Bin/../../lib";
 use_ok "RUM::Script::FinalCleanup";
 use RUM::TestUtils;
 

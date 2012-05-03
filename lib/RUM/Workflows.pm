@@ -427,6 +427,7 @@ sub postprocessing_workflow {
                 $rum_unique_cov,
                 $rum_nu_cov,
                 $inferred_internal_exons,
+                $inferred_internal_exons_txt,
                 $c->novel_inferred_internal_exons_quantifications);
 
     $w->step(
