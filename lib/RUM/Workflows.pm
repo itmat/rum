@@ -428,8 +428,9 @@ sub postprocessing_workflow {
                 $rum_nu_cov);
     if ($c->should_do_junctions) {
         push @goal, ($inferred_internal_exons,
-                     $inferred_internal_exons_txt,
-                     $c->novel_inferred_internal_exons_quantifications);
+                     $inferred_internal_exons_txt);
+        push @goal, $c->novel_inferred_internal_exons_quantifications 
+            if $c->should_quantify;
     }
 
     $w->step(
@@ -748,25 +749,27 @@ sub postprocessing_workflow {
              "--bed", post($inferred_internal_exons),
              "> ", post($inferred_internal_exons_txt)]);
         
-        $w->step(
-            "Quantify novel exons",
-            ["perl", $c->script("quantifyexons.pl"),
-             "--exons-in", pre($inferred_internal_exons),
-             "--unique-in", pre($rum_unique),
-             "--non-unique-in", pre($rum_nu),
-             "-o", post($c->in_output_dir("quant_novel.1")),
-             "--novel", "--countsonly"]);
-        
-        $w->step(
-            "Merge novel exons",
-            ["perl", $c->script("merge_quants.pl"),
-             "--chunks", 1,
-             "-o", post($c->in_postproc_dir("novel_exon_quant_temp")),
-             "--header",
-             $c->output_dir . "/chunks"],
-            ["grep", "-v", "transcript",
-             post($c->in_postproc_dir("novel_exon_quant_temp")),
-             ">", post($c->novel_inferred_internal_exons_quantifications)]);
+        if ($c->should_quantify) {
+            $w->step(
+                "Quantify novel exons",
+                ["perl", $c->script("quantifyexons.pl"),
+                 "--exons-in", pre($inferred_internal_exons),
+                 "--unique-in", pre($rum_unique),
+                 "--non-unique-in", pre($rum_nu),
+                 "-o", post($c->in_output_dir("quant_novel.1")),
+                 "--novel", "--countsonly"]);
+            
+            $w->step(
+                "Merge novel exons",
+                ["perl", $c->script("merge_quants.pl"),
+                 "--chunks", 1,
+                 "-o", post($c->in_postproc_dir("novel_exon_quant_temp")),
+                 "--header",
+                 $c->output_dir . "/chunks"],
+                ["grep", "-v", "transcript",
+                 post($c->in_postproc_dir("novel_exon_quant_temp")),
+                 ">", post($c->novel_inferred_internal_exons_quantifications)]);
+        }
     }
     
     $w->step(

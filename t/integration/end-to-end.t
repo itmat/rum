@@ -179,6 +179,29 @@ sub check_dna_quant {
     no_files_exist($name, @removed);
 }
 
+sub check_dna_junctions {
+    my $name = "dna-junctions";
+    run_end_to_end($name, "--dna", "--junctions", @READS);
+
+    my $rule = qr/quant/;
+
+    my @files = default_files($name);
+    my @kept    = grep { !/$rule/ } @files;
+    my @removed = grep {  /$rule/ } @files;
+
+    all_files_exist($name, @kept);
+    no_files_exist($name, @removed);
+}
+
+sub check_dna_junctions_quant {
+    my $name = "dna-junctions-quant";
+    run_end_to_end($name, "--dna", "--junctions", "--quant", @READS);
+    all_files_exist($name, default_files($name));
+}
+
+
+
+
 SKIP: {
 
 #    check_defaults;
@@ -187,6 +210,8 @@ SKIP: {
 #    check_alt_quants;
 #    check_strand_specific_alt_quants;
 #    check_dna;
-    check_dna_quant;
+#    check_dna_quant;
+#    check_dna_junctions;
+    check_dna_junctions_quant;
 }
 
