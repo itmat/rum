@@ -93,10 +93,29 @@ sub check_chunks {
     all_files_exist("chunks", default_files("chunks"));
 }
 
+sub check_strand_specific {
+    my $name = "strand-specific";
+    run_end_to_end($name, "--strand-specific", @READS);
+
+    my @files = default_files($name);
+    push @files, ("RUM_NU.plus.cov",
+                  "RUM_NU.plus",
+                  "RUM_Unique.plus.cov",
+                  "RUM_Unique.plus",
+                  "RUM_NU.minus.cov",
+                  "RUM_NU.minus",
+                  "RUM_Unique.minus.cov",
+                  "RUM_Unique.minus",
+              );
+
+    all_files_exist($name, @files);
+}
+
+
 SKIP: {
 
-    check_defaults;
-    check_chunks;
-
+#    check_defaults;
+#    check_chunks;
+    check_strand_specific;
 }
 

@@ -130,6 +130,7 @@ Returns true if $self and $other represent the same state set.
 
 sub equals {
     my ($x, $y) = @_;
+
     my @x_keys = sort keys %$x;
     my @y_keys = sort keys %$y;
     return 0 unless $#x_keys == $#y_keys;

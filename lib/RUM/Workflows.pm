@@ -351,32 +351,29 @@ sub chunk_workflow {
             }
         }
     }
-    else {
-        push @goal, $c->quant(chunk => $chunk);
+    push @goal, $c->quant(chunk => $chunk);
+    $m->add_command(
+        name => "Generate quants",
+        commands => 
+            [["perl", $c->script("rum2quantifications.pl"),
+              "--genes-in", $c->annotations,
+              "--unique-in", pre($rum_unique_sorted),
+              "--non-unique-in", pre($rum_nu_sorted),
+              "-o", post($c->quant(chunk => $chunk)),
+              "-countsonly"]]
+        );            
+    if ($c->alt_quant_model) {
+        push @goal, $c->alt_quant(chunk => $chunk);
         $m->add_command(
-            name => "Generate quants",
+            name => "Generate alt quants",
             commands => 
                 [["perl", $c->script("rum2quantifications.pl"),
-                  "--genes-in", $c->annotations,
+                  "--genes-in", $c->alt_quant_model,
                   "--unique-in", pre($rum_unique_sorted),
                   "--non-unique-in", pre($rum_nu_sorted),
-                  "-o", post($c->quant(chunk => $chunk)),
+                  "-o", post($c->alt_quant(chunk => $chunk)),
                   "-countsonly"]]
-            );            
-        if ($c->alt_quant_model) {
-            push @goal, $c->alt_quant(chunk => $chunk);
-            $m->add_command(
-                name => "Generate alt quants",
-                commands => 
-                    [["perl", $c->script("rum2quantifications.pl"),
-                      "--genes-in", $c->alt_quant_model,
-                      "--unique-in", pre($rum_unique_sorted),
-                      "--non-unique-in", pre($rum_nu_sorted),
-                      "-o", post($c->alt_quant(chunk => $chunk)),
-                      "-countsonly"]]
-                );
-        }
-        
+            );
     }
 
     $m->set_goal(\@goal);
@@ -615,7 +612,7 @@ sub postprocessing_workflow {
 
             my $name = "make_junctions";
             $name .= " for strand $strand" if $strand;
-            my $strand_opt = $strand ? "--strand $strand" : "";
+            my @strand_opt = $strand ? ("--strand", $strand) : "";
 
             $w->step(
                 $name,
@@ -628,7 +625,7 @@ sub postprocessing_workflow {
                  "--all-bed-out", post($all_bed),
                  "--high-bed-out", post($high_bed),
                  "--faok",
-                 $strand_opt]);
+                 @strand_opt]);
         };
         if ($c->strand_specific) {
           
@@ -651,7 +648,7 @@ sub postprocessing_workflow {
                     $w->step(
                         "Merge junctions ($type, $format)",
                         ["cp", pre($p), post($out)],
-                        ["grep -v $remove",
+                        ["grep", "-v", $remove,
                          pre($m), ">>", post($out)]);
                 }
             
@@ -712,23 +709,26 @@ sub postprocessing_workflow {
 
         for my $u (qw(Unique NU)) {
 
+            push @goal, $c->in_output_dir("RUM_${u}.plus");
+            push @goal, $c->in_output_dir("RUM_${u}.minus");
+
             $w->step(
                 "Break up $u file by strand",
                 ["perl", $c->script("breakup_RUM_files_by_strand.pl"),
                  pre($c->in_output_dir("RUM_$u")),
-                 post($c->in_output_dir("RUM_${u}.sorted.plus")),
-                 post($c->in_output_dir("RUM_${u}.sorted.minus"))]);
+                 post($c->in_output_dir("RUM_${u}.plus")),
+                 post($c->in_output_dir("RUM_${u}.minus"))]);
 
             for my $strand (qw(plus minus)) {
-                my $out = $c->in_output_dir("RUM_${u}.sorted.$strand.cov");
+                my $out = $c->in_output_dir("RUM_${u}.$strand.cov");
                 push @goal, $out;
                 my $name = "$name $labels{$u} Mappers $labels{$strand} Strand";
                 $w->step(
                     "Make coverage for $u mappers $strand strand",
                     ["perl", $c->script("rum2cov.pl"),
-                     pre($c->in_output_dir("RUM_${u}.sorted.$strand")),
+                     pre($c->in_output_dir("RUM_${u}.$strand")),
                      "-o", post($out),
-                     "-name '$name'"]);
+                     "--name", $name]);
             }
         }
     }

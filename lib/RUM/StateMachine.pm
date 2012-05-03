@@ -170,7 +170,7 @@ state $state.
 
 sub transition {
     my ($self, $from, $instruction) = @_;
-
+    
     $instruction or confess "I was called with an empty instruction";
 
     my $transitions = $self->{transitions}{$instruction}
