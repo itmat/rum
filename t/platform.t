@@ -7,12 +7,17 @@ use warnings;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
-use Test::More tests => 3;
+use Test::More;
 
 use RUM::Config;
 use RUM::Directives;
 use RUM::Platform;
-use Test::Exception;
+
+BEGIN { 
+    eval "use Test::Exception";
+    plan skip_all => "Test::Exception needed" if $@;
+    plan tests => 3;
+}
 
 throws_ok { RUM::Platform->new->preprocess } qr/not implemented/i, "preprocess not implemented";
 throws_ok { RUM::Platform->new->process } qr/not implemented/i, "process not implemented";
