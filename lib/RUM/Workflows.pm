@@ -796,7 +796,7 @@ sub postprocessing_workflow {
 
     $w->start([@start]);
     $w->set_goal([@goal]);
-    warn"My goals are @goal\n";
+
     return $w;
 }
 

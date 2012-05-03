@@ -22,7 +22,7 @@ GetOptions(
     "test=s" => \(my $TEST));
 
 if (-e $INDEX_CONFIG) {
-    plan tests => 4;
+    plan tests => 173;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -90,8 +90,9 @@ sub no_files_exist {
 
 
 sub check_defaults {
-    run_end_to_end("defaults", @READS);
-
+    my $name = "defaults";
+    run_end_to_end($name, @READS);
+    all_files_exist($name, default_files($name));
     my $dir = output_dir("defaults");
     open my $stats, "$dir/mapping_stats.txt";
     my $data = join("", (<$stats>));
@@ -214,19 +215,25 @@ sub check_genome_only {
     no_files_exist($name, @removed);
 }
 
+sub check_blat_only {
+    my $name = "blat-only";
+    run_end_to_end($name, @READS);
+    all_files_exist($name, default_files($name));
+}
+
 
 
 SKIP: {
-
-#    check_defaults;
-#    check_chunks;
-#    check_strand_specific;
-#    check_alt_quants;
-#    check_strand_specific_alt_quants;
-#    check_dna;
-#    check_dna_quant;
-#    check_dna_junctions;
-#    check_dna_junctions_quant;
+    check_defaults;
+    check_chunks;
+    check_strand_specific;
+    check_alt_quants;
+    check_strand_specific_alt_quants;
+    check_dna;
+    check_dna_quant;
+    check_dna_junctions;
+    check_dna_junctions_quant;
     check_genome_only;
+    check_blat_only;
 }
 
