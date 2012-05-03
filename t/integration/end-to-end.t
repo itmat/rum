@@ -16,6 +16,7 @@ use RUM::TestUtils;
 use RUM::Action::Align;
 
 our @READS = map "$SHARED_INPUT_DIR/$_.fq", qw(forward reverse);
+our @FASTA = map "$SHARED_INPUT_DIR/$_.fa", qw(forward reverse);
 
 GetOptions(
     "no-run" => \(my $NO_RUN),
@@ -88,6 +89,10 @@ sub no_files_exist {
     }
 }
 
+################################################################################
+###
+### Defaults: two fastq files, no extra options
+###
 
 sub check_defaults {
     my $name = "defaults";
@@ -98,6 +103,11 @@ sub check_defaults {
     my $data = join("", (<$stats>));
     like $data, qr/num_locs\tnum_reads\n1\t577/, "Mapping stats has count by loc";
 }
+
+################################################################################
+###
+### Varying command-line options
+###
 
 sub check_chunks {
     run_end_to_end("chunks", "--chunks", 3, @READS);
@@ -221,19 +231,42 @@ sub check_blat_only {
     all_files_exist($name, default_files($name));
 }
 
+################################################################################
+###
+### Varying input types
+###
 
-
-SKIP: {
-    check_defaults;
-    check_chunks;
-    check_strand_specific;
-    check_alt_quants;
-    check_strand_specific_alt_quants;
-    check_dna;
-    check_dna_quant;
-    check_dna_junctions;
-    check_dna_junctions_quant;
-    check_genome_only;
-    check_blat_only;
+sub check_one_fastq {
+    my $name = "one-fastq";
+    run_end_to_end($name, $READS[0]);
+    all_files_exist($name, default_files($name));
 }
 
+sub check_two_fasta {
+    my $name = "two-fasta";
+    run_end_to_end($name, @FASTA);
+    all_files_exist($name, default_files($name));
+}
+
+sub check_one_fasta {
+    my $name = "one-fasta";
+    run_end_to_end($name, $FASTA[0]);
+    all_files_exist($name, default_files($name));
+}
+
+SKIP: {
+    #check_defaults;
+    #check_chunks;
+    #check_strand_specific;
+    #check_alt_quants;
+    #check_strand_specific_alt_quants;
+    #check_dna;
+    #check_dna_quant;
+    #check_dna_junctions;
+    #check_dna_junctions_quant;
+    #check_genome_only;
+    #check_blat_only;
+    #check_one_fastq;
+    #check_two_fasta;
+    check_one_fasta;
+}
