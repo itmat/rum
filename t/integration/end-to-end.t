@@ -111,11 +111,19 @@ sub check_strand_specific {
     all_files_exist($name, @files);
 }
 
+sub check_alt_quants {
+    my $name = "alt-quants";
+    run_end_to_end($name, "--alt-quant", $GENE_INFO, @READS);
+    all_files_exist($name,
+                    default_files($name),
+                    "feature_quantifications_$name.altquant");
+}
 
 SKIP: {
 
 #    check_defaults;
 #    check_chunks;
-    check_strand_specific;
+#    check_strand_specific;
+    check_alt_quants;
 }
 

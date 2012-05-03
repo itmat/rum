@@ -73,7 +73,13 @@ $c = RUM::Config->load($dir);
 is($c->read_length, 45, "Read config from file");
 ok(! RUM::Config->load("/foo/bar/baz"));
 
-
+$dir = ".";
+$c = RUM::Config->new(output_dir => $dir);
+is $c->quant(chunk => 1), "chunks/quant.1";
+is $c->quant(chunk => 1,
+             strand => "p",
+             sense => "a"), 
+    "chunks/quant.pa.1";
 
 
 

@@ -430,7 +430,7 @@ sub process {
 
     my $postproc_started = RUM::Workflows->postprocessing_workflow($config)->steps_done;
 
-    $log->debug("Chunk is $chunk");
+    $log->debug("Chunk is ".($chunk || ""));
 
     my $n = $config->num_chunks || 1;
     $self->say();

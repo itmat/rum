@@ -571,18 +571,21 @@ sub quant {
 sub alt_quant {
     my ($self, %opts) = @_;
     my $chunk  = $opts{chunk};
-    my $strand = $opts{strand};
-    my $sense  = $opts{sense};
-    my $name;
+    my $strand = $opts{strand} || "";
+    my $sense  = $opts{sense}  || "";
+    my $name = $self->name;
 
-    if ($strand && $sense) {
-        $name = "feature_quantifications.altquant.$strand$sense";
+    if ($chunk) {
+        my @parts = ("quant", "$strand$sense", "altquant");
+        my $filename = join ".", grep { $_ } @parts;
+        return $self->chunk_file($filename, $chunk);
+    }
+    elsif ($strand && $sense) {
+        return $self->in_output_dir("feature_quantifications.altquant.$strand$sense");
     }
     else {
-        $name = "feature_quantifications_" . $self->name . ".altquant";
+        return $self->in_output_dir("feature_quantifications_$name.altquant");
     }
-
-    return $chunk ? $self->chunk_file($name, $chunk) : $self->in_output_dir($name);
 }
 
 =item novel_inferred_internal_exons_quantifications

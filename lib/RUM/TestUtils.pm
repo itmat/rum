@@ -11,9 +11,6 @@ RUM::TestUtils - Functions used by tests
 
   use RUM::TestUtils qw(:all);
 
-  # Download a file, unless the file already exists locally
-  download_file("http://foo.com/bar.tab", "/some/path/bar.tab");
-
   # Make sure there are no diffs between two files
   no_diffs("got.tab", "expected.tab", "I got what I expected");
 
@@ -39,9 +36,8 @@ use RUM::Repository qw(download);
 
 our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR
                  $INDEX_CONFIG $SHARED_INPUT_DIR is_sorted_by_location same_line_count
-                 $RUM_HOME);
-our @EXPORT_OK = qw(download_file download_test_data no_diffs
-                    is_sorted_by_location);
+                 $RUM_HOME $GENE_INFO);
+our @EXPORT_OK = qw(no_diffs is_sorted_by_location);
 our %EXPORT_TAGS = (
     all => [@EXPORT_OK]);
 
@@ -61,68 +57,14 @@ our $RUM_HOME = $Bin;
 $RUM_HOME =~ s/\/t(\/integration)?(\/)?$//;
 our $RUM_BIN      = "$RUM_HOME/bin";
 our $RUM_CONF     = "$RUM_HOME/conf";
-our $RUM_INDEXES  = "$RUM_HOME/conf";
+our $RUM_INDEXES  = "$RUM_HOME/indexes";
+
 our $INDEX_CONFIG = "$RUM_CONF/rum.config_Arabidopsis";
 our $GENOME_FA    = "$RUM_INDEXES/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs.fa";
 our $GENE_INFO    = "$RUM_INDEXES/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
 our $SHARED_INPUT_DIR = "$RUM_HOME/t/data/shared";
-our $INPUT_DIR = "$RUM_HOME/t/data/$PROGRAM_NAME";
-our $EXPECTED_DIR = "$RUM_HOME/t/expected/$PROGRAM_NAME";
-our $TEST_DATA_URL = "http://pgfi.rum.s3.amazonaws.com/rum-test-data.tar.gz";
-
-=item download_file URL, LOCAL
-
-Download URL and save it with the given LOCAL filename, unless LOCAL
-already exists or $DRY_RUN is set.
-
-=cut
-
-sub download_file {
-    my ($url, $local) = @_;
-    if (-e $local) {
-        diag "$local exists, skipping";
-        return;
-    }
-
-    diag "Download $url to $local";
-    my (undef, $dir, undef) = File::Spec->splitpath($local);
-    make_paths($dir);
-    download($url, $local);
-}
-
-=item download_test_data
-
-Download the test data tarball and unpack it, unless it already
-exists or $DRY_RUN is set.
-
-=cut
-
-sub download_test_data {
-    my ($local_file) = @_;
-    diag "Making sure test data is downloaded to $local_file";
-
-    download_file($TEST_DATA_URL, $local_file);
-
-    # Get a list of the files in the tarball
-    my $tar_out = `tar ztf $local_file`;
-    croak "Error running tar: $!" if $?;
-    my @files = split /\n/, $tar_out;
-
-    # Get the absolute paths that the files should have when we unzip
-    # the tarball.
-    my (undef, $dir, undef) = File::Spec->splitpath($local_file);
-    @files = map { "$dir/$_" } @files;
-
-    # If all of the files already exist, don't do anything
-    my @missing = grep { not -e } @files;
-    if (@missing) {   
-        diag "Unpack test tarball";
-        shell("tar", "-zxvf", $local_file, "-C", $dir);
-    }
-    else {
-        diag "All files exist; not unzipping";
-    }
-}
+our $INPUT_DIR        = "$RUM_HOME/t/data/$PROGRAM_NAME";
+our $EXPECTED_DIR      = "$RUM_HOME/t/expected/$PROGRAM_NAME";
 
 =item no_diffs(FILE1, FILE2, NAME)
 
@@ -247,9 +189,6 @@ sub make_paths {
 
     }
 }
-
-
-
 
 =back
 
