@@ -119,11 +119,35 @@ sub check_alt_quants {
                     "feature_quantifications_$name.altquant");
 }
 
+sub check_strand_specific_alt_quants {
+    my $name = "strand-specific-alt-quants";
+
+    run_end_to_end(
+        $name, "--strand-specific", "--alt-quant", $GENE_INFO, @READS);
+
+    my @files = default_files($name);
+    push @files, ("RUM_NU.plus.cov",
+                  "RUM_NU.plus",
+                  "RUM_Unique.plus.cov",
+                  "RUM_Unique.plus",
+                  "RUM_NU.minus.cov",
+                  "RUM_NU.minus",
+                  "RUM_Unique.minus.cov",
+                  "RUM_Unique.minus",
+              );
+
+    push @files, "feature_quantifications_$name.altquant";
+    all_files_exist($name, @files);
+}
+
+
+
 SKIP: {
 
 #    check_defaults;
 #    check_chunks;
 #    check_strand_specific;
-    check_alt_quants;
+#    check_alt_quants;
+    check_strand_specific_alt_quants;
 }
 

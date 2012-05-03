@@ -335,7 +335,7 @@ sub chunk_workflow {
                     my $file = $c->alt_quant(strand => $strand, 
                                              sense => $sense,
                                              chunk => $chunk);
-                    warn "Found alt quants, goal is $file";
+
                     push @goal, $file;
                     $m->add_command(
                         name => "Generate alt quants for strand $strand, sense $sense",
@@ -366,7 +366,7 @@ sub chunk_workflow {
         );            
     if ($c->alt_quant_model) {
         push @goal, $c->alt_quant(chunk => $chunk);
-        warn "Found alt quants, goal is $goal[$#goal]";
+
         $m->add_command(
             name => "Generate alt quants",
             commands => 
