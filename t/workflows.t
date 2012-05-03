@@ -58,7 +58,6 @@ SKIP: {
     my $index = $indexes[0];
     my $config = RUM::Config->new(
         %defaults,
-        chunk         => 1,
         paired_end    => 1,
         max_insertions => 1,
         alt_genes => undef
@@ -68,7 +67,7 @@ SKIP: {
     rmtree($out_dir);
     mkpath $out_dir;
 
-    my $chunk = RUM::Workflows->chunk_workflow($config,1);
+    my $chunk = RUM::Workflows->chunk_workflow($config, 1);
 
 #    open my $dot, ">", "workflow.dot";
 #    $chunk->state_machine->dotty($dot);

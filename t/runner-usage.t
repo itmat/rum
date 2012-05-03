@@ -31,7 +31,7 @@ BEGIN {
 }
 
 if (-e $config) {
-    plan tests => 85;
+    plan tests => 84;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -185,7 +185,6 @@ rum_fails_ok(
     is($c->name, "asdf", "Name");
     like($c->output_dir, qr/foo$/, "Output dir");
     like($c->rum_config_file, qr/$config/, "Config");
-    ok($c->cleanup, "cleanup");
     is($c->min_length, undef, "min length");
     is($c->max_insertions, 1, "max insertions");
     ok(!$c->dna, "no DNA");

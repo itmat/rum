@@ -71,12 +71,12 @@ sub cluster {
 
 # Make sure we can process a specified chunk
 {
-    my $config = RUM::Config->new(%DEFAULTS, chunk => 3);
+    my $config = RUM::Config->new(%DEFAULTS);
     my $cluster = Test::MockObject::Extends->new(
         RUM::Platform::Cluster->new($config, $directives));
     $cluster->set_true('submit_proc');
 
-    $cluster->process;
+    $cluster->process(3);
     
     my $pos = 0;
     $cluster->called_pos_ok(++$pos, 'submit_proc',  "submit the process");
