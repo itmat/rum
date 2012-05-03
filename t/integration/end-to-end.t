@@ -200,6 +200,20 @@ sub check_dna_junctions_quant {
 }
 
 
+sub check_genome_only {
+    my $name = "genome-only";
+    run_end_to_end($name, "--genome-only", @READS);
+
+    my $rule = qr/quant/;
+
+    my @files = default_files($name);
+    my @kept    = grep { !/$rule/ } @files;
+    my @removed = grep {  /$rule/ } @files;
+
+    all_files_exist($name, @kept);
+    no_files_exist($name, @removed);
+}
+
 
 
 SKIP: {
@@ -212,6 +226,7 @@ SKIP: {
 #    check_dna;
 #    check_dna_quant;
 #    check_dna_junctions;
-    check_dna_junctions_quant;
+#    check_dna_junctions_quant;
+    check_genome_only;
 }
 
