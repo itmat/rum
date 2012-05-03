@@ -81,5 +81,3 @@ is $c->quant(chunk => 1,
              sense => "a"), 
     "chunks/quant.pa.1";
 
-
-
