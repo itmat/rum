@@ -79,6 +79,16 @@ sub all_files_exist {
     }
 }
 
+sub no_files_exist {
+    my ($name, @files) = @_;
+    local $_;
+    my $dir = output_dir($name);
+    for my $file (@files) {
+        ok ! -e "$dir/$file", "$name: $file does not exist";
+    }
+}
+
+
 sub check_defaults {
     run_end_to_end("defaults", @READS);
 
@@ -140,7 +150,19 @@ sub check_strand_specific_alt_quants {
     all_files_exist($name, @files);
 }
 
+sub check_dna {
+    my $name = "dna";
+    run_end_to_end($name, "--dna", @READS);
 
+    my $rule = qr/quant|exons|junctions/;
+
+    my @files = default_files($name);
+    my @kept    = grep { !/$rule/ } @files;
+    my @removed = grep {  /$rule/ } @files;
+
+    all_files_exist($name, @kept);
+    no_files_exist($name, @removed);
+}
 
 SKIP: {
 
@@ -148,6 +170,7 @@ SKIP: {
 #    check_chunks;
 #    check_strand_specific;
 #    check_alt_quants;
-    check_strand_specific_alt_quants;
+#    check_strand_specific_alt_quants;
+    check_dna;
 }
 

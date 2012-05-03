@@ -425,10 +425,12 @@ sub postprocessing_workflow {
                 $rum_unique,
                 $rum_nu,
                 $rum_unique_cov,
-                $rum_nu_cov,
-                $inferred_internal_exons,
-                $inferred_internal_exons_txt,
-                $c->novel_inferred_internal_exons_quantifications);
+                $rum_nu_cov);
+    if ($c->should_do_junctions) {
+        push @goal, ($inferred_internal_exons,
+                     $inferred_internal_exons_txt,
+                     $c->novel_inferred_internal_exons_quantifications);
+    }
 
     $w->step(
         "Merge RUM_Unique files",
@@ -736,35 +738,37 @@ sub postprocessing_workflow {
         }
     }
 
-    $w->step(
-        "Get inferred internal exons",
-        ["perl", $c->script("get_inferred_internal_exons.pl"),
-         "--junctions", pre($junctions_high_quality_bed),
-         "--coverage", pre($rum_unique_cov),
-         "--genes", $c->annotations,
-         "--bed", post($inferred_internal_exons),
-         "> ", post($inferred_internal_exons_txt)]);
-
-    $w->step(
-        "Quantify novel exons",
-        ["perl", $c->script("quantifyexons.pl"),
-         "--exons-in", pre($inferred_internal_exons),
-         "--unique-in", pre($rum_unique),
-         "--non-unique-in", pre($rum_nu),
-         "-o", post($c->in_output_dir("quant_novel.1")),
-         "--novel", "--countsonly"]);
-
-    $w->step(
-        "Merge novel exons",
-        ["perl", $c->script("merge_quants.pl"),
-         "--chunks", 1,
-         "-o", post($c->in_postproc_dir("novel_exon_quant_temp")),
-         "--header",
-         $c->output_dir . "/chunks"],
-        ["grep", "-v", "transcript",
-         post($c->in_postproc_dir("novel_exon_quant_temp")),
-         ">", post($c->novel_inferred_internal_exons_quantifications)]);
-
+    if ($c->should_do_junctions) {
+        $w->step(
+            "Get inferred internal exons",
+            ["perl", $c->script("get_inferred_internal_exons.pl"),
+             "--junctions", pre($junctions_high_quality_bed),
+             "--coverage", pre($rum_unique_cov),
+             "--genes", $c->annotations,
+             "--bed", post($inferred_internal_exons),
+             "> ", post($inferred_internal_exons_txt)]);
+        
+        $w->step(
+            "Quantify novel exons",
+            ["perl", $c->script("quantifyexons.pl"),
+             "--exons-in", pre($inferred_internal_exons),
+             "--unique-in", pre($rum_unique),
+             "--non-unique-in", pre($rum_nu),
+             "-o", post($c->in_output_dir("quant_novel.1")),
+             "--novel", "--countsonly"]);
+        
+        $w->step(
+            "Merge novel exons",
+            ["perl", $c->script("merge_quants.pl"),
+             "--chunks", 1,
+             "-o", post($c->in_postproc_dir("novel_exon_quant_temp")),
+             "--header",
+             $c->output_dir . "/chunks"],
+            ["grep", "-v", "transcript",
+             post($c->in_postproc_dir("novel_exon_quant_temp")),
+             ">", post($c->novel_inferred_internal_exons_quantifications)]);
+    }
+    
     $w->step(
         "Merge SAM headers",
         ["perl", $c->script("rum_merge_sam_headers.pl"),
@@ -789,6 +793,7 @@ sub postprocessing_workflow {
 
     $w->start([@start]);
     $w->set_goal([@goal]);
+    warn"My goals are @goal\n";
     return $w;
 }
 
