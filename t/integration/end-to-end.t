@@ -164,6 +164,21 @@ sub check_dna {
     no_files_exist($name, @removed);
 }
 
+
+sub check_dna_quant {
+    my $name = "dna-quant";
+    run_end_to_end($name, "--dna", "--quant", @READS);
+
+    my $rule = qr/exons|junctions/;
+
+    my @files = default_files($name);
+    my @kept    = grep { !/$rule/ } @files;
+    my @removed = grep {  /$rule/ } @files;
+
+    all_files_exist($name, @kept);
+    no_files_exist($name, @removed);
+}
+
 SKIP: {
 
 #    check_defaults;
@@ -171,6 +186,7 @@ SKIP: {
 #    check_strand_specific;
 #    check_alt_quants;
 #    check_strand_specific_alt_quants;
-    check_dna;
+#    check_dna;
+    check_dna_quant;
 }
 
