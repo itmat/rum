@@ -30,6 +30,7 @@ sub run {
     my ($class) = @_;
 
     my $self = $class->new;
+    my $d = $self->{directives} = RUM::Directives->new;
     my $usage = RUM::Usage->new(action => 'kill');
 
     GetOptions(

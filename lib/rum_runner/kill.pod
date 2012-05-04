@@ -9,9 +9,7 @@ rum_runner kill -o dir
 =head1 DESCRIPTION
 
 Kill a RUM job running on a cluster. Note that to kill a job running
-locally, you can simply run C<kill pid> where pid is the process id of
-the parent rum_runner process. You can also kill it with CTRL-C if you
-have it running in a terminal.
+in a terminal, you can simply use CTRL-C.
 
 =head1 OPTIONS
 

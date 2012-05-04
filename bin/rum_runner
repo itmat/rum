@@ -58,9 +58,8 @@ Delete intermediate files in the specified output directory.
 =item B<kill>
 
 Attempt to kill the job running in the specified output
-directory. Note that this only kills jobs running on a cluster. For
-jobs running locally, you can just kill the parent process and it
-should terminate all child processes.
+directory. Note that if you're running a job in a terminal you also
+kill it using CTRL-C.
 
 =item B<status>
 

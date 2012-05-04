@@ -567,4 +567,20 @@ sub _reads {
     return @{ $_[0]->config->reads };
 }
 
+sub stop {
+    my ($self) = @_;
+    my $lock_file = $self->config->lock_file;
+    -e $lock_file or die
+        join(" ", 
+             "There doesn't seem to be a RUM pipeline running in",
+             $self->config->output_dir(), 
+             "(I can't open the lock file)");
+    open my $in, "<", $lock_file or die 
+        "I can't read a pid from the lock file $lock_file";
+    my $pid = int(<$in>) or die 
+        "The lock file $lock_file exists but does not contain a pid";
+    $self->say("Killing process $pid");
+    kill 15, $pid or die "I can't kill $pid: $!";
+}
+
 1;
