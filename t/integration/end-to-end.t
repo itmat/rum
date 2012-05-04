@@ -23,7 +23,7 @@ GetOptions(
     "test=s" => \(my $TEST));
 
 if (-e $INDEX_CONFIG) {
-    plan tests => 173;
+    plan tests => 215;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
