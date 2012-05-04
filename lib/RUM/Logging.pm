@@ -163,10 +163,7 @@ sub _init {
     
     # TODO: Get SGE_TASK_ID out of here.
     my $chunk = $ENV{RUM_CHUNK} || $ENV{SGE_TASK_ID};
-    print "The chunk is $chunk\nEnvironment is:\n";
-    for my $k (keys %ENV) {
-        print "$k: $ENV{$k}\n";
-    }
+
     # Sometimes SGE_TASK_ID is set to 'undefined'
     undef $chunk if defined($chunk) && $chunk eq 'undefined';
     $LOG_FILE       = $class->log_file($chunk);
