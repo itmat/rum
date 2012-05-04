@@ -207,6 +207,7 @@ t/data/shared/forward64.fa
 t/data/shared/forward64.fq
 t/data/shared/forward_only.fa
 t/data/shared/good-reads-same-size-as-bad.fq
+t/data/shared/quals.fa
 t/data/shared/reads.fa
 t/data/shared/reverse.fa
 t/data/shared/reverse.fq
