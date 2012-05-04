@@ -413,7 +413,7 @@ sub _run_step {
             $SIG{TERM} = $oldhandler;
             
             if ($?) {
-                die "Error running @$cmd";
+                die "Error running @$cmd. Please see error log file $RUM::Logging::ERROR_LOG_FILE for details.";
             }                    
         }
         else {
