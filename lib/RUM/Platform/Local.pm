@@ -567,6 +567,13 @@ sub _reads {
     return @{ $_[0]->config->reads };
 }
 
+=item stop
+
+Attempt to stop a running pipeline by getting the pid from the
+.rum/lock file and killing that process.
+
+=cut
+
 sub stop {
     my ($self) = @_;
     my $lock_file = $self->config->lock_file;
