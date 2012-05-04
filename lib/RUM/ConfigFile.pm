@@ -38,6 +38,7 @@ no warnings;
 
 use Getopt::Long;
 use Carp;
+use Cwd qw(realpath);
 
 our @FIELDS = qw(gene_annotation_file
                  bowtie_bin
@@ -124,7 +125,11 @@ converted to absolute paths by prepending $prefix.
 sub make_absolute {
     my ($self, $prefix) = @_;
     for my $key (@FIELDS) {
-        $self->{$key} = File::Spec->rel2abs($self->{$key}, $prefix);
+        # Convert relative paths to absolute paths
+        my $abs = File::Spec->rel2abs($self->{$key}, realpath($prefix));
+
+        warn "Changed $self->{$key} to $abs to $abs";
+        $self->{$key} = $abs;
     }
 }
 
