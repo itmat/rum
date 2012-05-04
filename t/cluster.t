@@ -8,13 +8,25 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
 use Data::Dumper;
-use Test::More tests => 99;
-use Test::MockObject;
-use Test::MockObject::Extends;
+use Test::More;
 use RUM::Config;
 use RUM::Directives;
 use RUM::Platform::Cluster;
-use Test::Exception;
+
+
+BEGIN { 
+    my @libs = qw(Test::Exception
+                  Test::MockObject
+                  Test::MockObject::Extends);
+    my @missing;
+    for my $lib (@libs) {
+        eval "use $lib";
+        push @missing, $lib if $@;
+    }
+    plan skip_all => "@missing needed" if @missing;
+    plan tests => 99;
+}
+
 
 $RUM::Platform::Cluster::CLUSTER_CHECK_INTERVAL=0;
 my $directives = RUM::Directives->new;
