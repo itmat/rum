@@ -1,11 +1,18 @@
+RUM User Guide
+==============
+
  <img style="float:right" src="http://www.cbil.upenn.edu/RUM/RUMPC2_small2.gif" class="float: right"></img>
 
 System Requirements
 -------------------
 
-RUM should work anywhere you have most of the standard Unix command-line tools, Perl, and can get the blat, bowtie and mdust binaries to execute; however we haven't tested it on every platform. There is a self-install script, described below, for the systems we have tested.
-
-Unless you have a relatively small genome, then you'll probably need a 64 bit machine. For the human or mouse genome this will definitely be necessary. For a lane of 20 million 100 bp reads, paired-end, expect to use about 100-200 GB disk space.
+RUM should work anywhere you have most of the standard Unix
+command-line tools, Perl, and can get the blat, bowtie and mdust
+binaries to execute; however we haven't tested it on every
+platform. Unless you have a relatively small genome, then you'll
+probably need a 64 bit machine. For the human or mouse genome this
+will definitely be necessary. For a lane of 20 million 100 bp reads,
+paired-end, expect to use about 100-200 GB disk space.
 
 ### Third-Party Perl Modules
 
