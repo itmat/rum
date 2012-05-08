@@ -1,7 +1,7 @@
 Setting Up and Running RUM
 ==========================
 
- <img style="float:right" src="http://www.cbil.upenn.edu/RUM/RUMPC2_small2.gif" class="float: right"></img>
+![RUM Logo](http://www.cbil.upenn.edu/RUM/RUMPC2_small2.gif)
 
 **RUM is an alignment, junction calling, and feature quantification pipeline specifically designed for Illumina RNA-Seq data.**
 
@@ -102,23 +102,23 @@ install indexes.
 
 At the moment the following indexes are available:
 
-* Homo sapiens (build hg19) (human)
-* Homo sapiens (build hg18) (human)
-* Mus musculus (build mm9) (mouse)
-* Danio rerio (build danRer7) (zebrafish)
-* Drosophila melanogaster (build dm3) (fruit fly)
-* Anopheles gambiae (build anoGam1) (mosquito)
-* Caenorhabditis elegans (build c36) (nematode worm)
-* Saccharomyces cerevisiae (build sacCer3) (yeast)
-* Rattus norvegicus (build m4) (rat)
-* Sus scrofa (build susScr2) (pig)
-* Canis lupus familiaris (build canFam2) (dog)
-* Pan troglodytes (build panTro2) (chimpanzee)
-* Pongo pygmaeus abelii (build ponAbe2) (orangutan)
-* Macaca mulatta (build rheMac2) (rhesus monkey)
-* Gallus gallus (build galGal3) (chicken)
-* Plasmodium falciparum (build 06-2010) (malaria parasite)
-* Arabidopsis thaliana (build TAIR10) (arabadopsis)
+* _Homo sapiens_ (build hg19) (**human**)
+* _Homo sapiens_ (build hg18) (**human**)
+* _Mus musculus_ (build mm9) (**mouse**)
+* _Danio rerio_ (build danRer7) (**zebrafish**)
+* _Drosophila melanogaster_ (build dm3) (**fruit fly**)
+* _Anopheles gambiae_ (build anoGam1) (**mosquito**)
+* _Caenorhabditis elegans_ (build c36) (**nematode worm**)
+* _Saccharomyces cerevisiae_ (build sacCer3) (**yeast**)
+* _Rattus norvegicus_ (build m4) (**rat**)
+* _Sus scrofa_ (build susScr2) (**pig**)
+* _Canis lupus familiaris_ (build canFam2) (**dog**)
+* _Pan troglodytes_ (build panTro2) (**chimpanzee**)
+* _Pongo pygmaeus abelii_ (build ponAbe2) (**orangutan**)
+* _Macaca mulatta_ (build rheMac2) (**rhesus monkey**)
+* _Gallus gallus_ (build galGal3) (**chicken**)
+* _Plasmodium falciparum_ (build 06-2010) (**malaria parasite**)
+* _Arabidopsis thaliana_ (build TAIR10) (**arabadopsis**)
 
 We will be expanding this list regularly. If you require a different organism, instructions are given [here](https://github.com/PGFI/rum/blob/master/doc/indexing.pod) to build your own custom indexes. Or write us, we may be able to provide it.
 
