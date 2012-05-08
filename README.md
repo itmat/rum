@@ -1,8 +1,20 @@
-RUM User Guide
-==============
+Setting Up and Running RUM
+==========================
 
  <img style="float:right" src="http://www.cbil.upenn.edu/RUM/RUMPC2_small2.gif" class="float: right"></img>
 
+*RUM is an alignment, junction calling, and feature quantification pipeline specifically designed for Illumina RNA-Seq data.*
+
+_RUM can also be used effectively for DNA sequencing (e.g. ChIP-Seq) and microarray probe mapping._
+
+_RUM also has a strand specific mode._
+
+_RUM is highly configurable, however it does not require fussing over options, the defaults generally give good results._
+
+Publication
+-----------
+
+Comparative Analysis of RNA-Seq Alignment Algorithms and the RNA-Seq Unified Mapper (RUM) Gregory R. Grant, Michael H. Farkas, Angel Pizarro, Nicholas Lahens, Jonathan Schug, Brian Brunk, Christian J. Stoeckert Jr, John B. Hogenesch and Eric A. Pierce. 
 System Requirements
 -------------------
 
