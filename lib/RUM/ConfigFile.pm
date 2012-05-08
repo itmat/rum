@@ -127,8 +127,6 @@ sub make_absolute {
     for my $key (@FIELDS) {
         # Convert relative paths to absolute paths
         my $abs = File::Spec->rel2abs($self->{$key}, realpath($prefix));
-
-        warn "Changed $self->{$key} to $abs to $abs";
         $self->{$key} = $abs;
     }
 }
