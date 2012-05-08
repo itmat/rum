@@ -100,6 +100,28 @@ rum_indexes --prefix ~/rum-indexes
 Note that you will need a lot of available disk space in order to
 install indexes.
 
+At the moment the following indexes are available:
+
+* Homo sapiens (build hg19) (human)
+* Homo sapiens (build hg18) (human)
+* Mus musculus (build mm9) (mouse)
+* Danio rerio (build danRer7) (zebrafish)
+* Drosophila melanogaster (build dm3) (fruit fly)
+* Anopheles gambiae (build anoGam1) (mosquito)
+* Caenorhabditis elegans (build c36) (nematode worm)
+* Saccharomyces cerevisiae (build sacCer3) (yeast)
+* Rattus norvegicus (build m4) (rat)
+* Sus scrofa (build susScr2) (pig)
+* Canis lupus familiaris (build canFam2) (dog)
+* Pan troglodytes (build panTro2) (chimpanzee)
+* Pongo pygmaeus abelii (build ponAbe2) (orangutan)
+* Macaca mulatta (build rheMac2) (rhesus monkey)
+* Gallus gallus (build galGal3) (chicken)
+* Plasmodium falciparum (build 06-2010) (malaria parasite)
+* Arabidopsis thaliana (build TAIR10) (arabadopsis)
+
+We will be expanding this list regularly. If you require a different organism, instructions are given [here](https://github.com/PGFI/rum/blob/master/doc/indexing.pod) to build your own custom indexes. Or write us, we may be able to provide it.
+
 Running RUM
 -----------
 
