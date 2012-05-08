@@ -1,3 +1,39 @@
+Acquiring RUM
+-------------
+
+We recommend that you download the latest release from
+https://github.com/PGFI/rum/downloads.
+
+If you need the latest development version, you can fork the
+repository from https://github.com/PGFI/rum.
+
+Third-Party Libraries
+---------------------
+
+### Autodie
+
+You will now need the `autodie` Perl module. If you are using perl >=
+5.10, this should already be installed. If not, you may neet to
+install it. You should be able to install it very quickly by running:
+
+```
+cpan -i autodie
+```
+
+### Log::Log4perl
+
+Log::Log4perl is recommended, but not required. You should be able to
+install it by running:
+
+```
+cpan -i Log::Log4perl
+```
+
+If you have Log::Log4perl, you will be able to control logging output
+by modifying the `conf/rum_logging.conf` file in the RUM
+distribution. See http://mschilli.github.com/log4perl/ for more
+information.
+
 Installing RUM
 --------------
 
@@ -12,10 +48,9 @@ make install # (may need sudo)
 ```
 
 You should also be able to install RUM in a non-standard location by
-passing a `PREFIX=/some/path` option to the `perl Makefile.PL step`,
-but if you do that you'll need to modify your PERL5LIB so that perl
-can find the RUM libraries. Installing it in a system location is
-easiest.
+passing a `INSTALL_BASE=/some/path` option to the `perl Makefile.PL
+step`. RUM should automatically find all of its perl modules if you
+install it in this manner.
 
 Installing Indexes
 ------------------
