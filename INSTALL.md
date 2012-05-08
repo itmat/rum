@@ -70,3 +70,8 @@ rum_indexes --prefix ~/rum-indexes
 
 Note that you will need a lot of available disk space in order to
 install indexes.
+
+Running RUM
+-----------
+
+After you've installed RUM and one or more indexes, please run `rum_runner help` to see usage information.
