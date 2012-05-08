@@ -4,6 +4,8 @@ package RUM::Script::Pipeline;
 
 use strict;
 use warnings;
+use autodie;
+
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 use RUM::Script;

@@ -12,6 +12,7 @@ This action is the one that actually runs the RUM Pipeline.
 
 use strict;
 use warnings;
+use autodie;
 
 use Getopt::Long;
 use File::Path qw(mkpath);
@@ -554,7 +555,7 @@ sub genome_size {
     my $gs2 = 0;
     my $gs3 = 0;
 
-    open my $in, "<", $genome_blat or croak "$genome_blat: $!";
+    open my $in, "<", $genome_blat;
 
     local $_;
     while (defined($_ = <$in>)) {
