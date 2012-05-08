@@ -1,16 +1,15 @@
-Acquiring RUM
--------------
+ <img style="float:right" src="http://www.cbil.upenn.edu/RUM/RUMPC2_small2.gif" class="float: right"></img>
 
-We recommend that you download the latest release from
-https://github.com/PGFI/rum/downloads.
+System Requirements
+-------------------
 
-If you need the latest development version, you can fork the
-repository from https://github.com/PGFI/rum.
+RUM should work anywhere you have most of the standard Unix command-line tools, Perl, and can get the blat, bowtie and mdust binaries to execute; however we haven't tested it on every platform. There is a self-install script, described below, for the systems we have tested.
 
-Third-Party Libraries
----------------------
+Unless you have a relatively small genome, then you'll probably need a 64 bit machine. For the human or mouse genome this will definitely be necessary. For a lane of 20 million 100 bp reads, paired-end, expect to use about 100-200 GB disk space.
 
-### Autodie
+### Third-Party Perl Modules
+
+#### Autodie
 
 You will now need the `autodie` Perl module. If you are using perl >=
 5.10, this should already be installed. If not, you may neet to
@@ -20,7 +19,7 @@ install it. You should be able to install it very quickly by running:
 cpan -i autodie
 ```
 
-### Log::Log4perl
+#### Log::Log4perl
 
 Log::Log4perl is recommended, but not required. You should be able to
 install it by running:
@@ -36,6 +35,11 @@ information.
 
 Installing RUM
 --------------
+
+We recommend that you download the latest release from
+https://github.com/PGFI/rum/downloads. If you need the latest
+development version, you can fork the repository from
+https://github.com/PGFI/rum.
 
 The new recommended way to install RUM is to use the standard Perl
 module installation process:
