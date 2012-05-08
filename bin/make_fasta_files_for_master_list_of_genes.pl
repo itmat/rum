@@ -37,7 +37,7 @@ use strict;
 no warnings;
 
 use FindBin qw($Bin);
-use lib "$Bin/../lib";
+use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 use RUM::Script qw(:scripts get_options show_usage);
 
 get_options();

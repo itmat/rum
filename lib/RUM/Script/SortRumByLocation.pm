@@ -3,7 +3,7 @@ package RUM::Script::SortRumByLocation;
 no warnings;
 
 use FindBin qw($Bin);
-use lib "$Bin/../lib";
+
 use Carp;
 use Getopt::Long;
 use RUM::Sort qw(by_chromosome);

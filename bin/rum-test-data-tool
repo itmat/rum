@@ -5,7 +5,7 @@ use warnings;
 use Carp;
 use Amazon::S3;
 use FindBin qw($Bin);
-use lib "$Bin/../lib";
+use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 use RUM::Script qw(get_options);
 
 our $BUCKET_NAME = "pgfi.rum";

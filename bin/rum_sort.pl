@@ -62,7 +62,7 @@ package RUM::Script::Sort;
 use strict;
 use warnings;
 use FindBin qw($Bin);
-use lib "$Bin/../lib";
+use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 use Getopt::Long;
 use Carp;
 use File::Temp;

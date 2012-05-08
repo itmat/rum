@@ -50,7 +50,7 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 =cut
 
 use FindBin qw($Bin);
-use lib "$Bin/../lib";
+use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 use RUM::Script qw(:scripts get_options);
 
 get_options();

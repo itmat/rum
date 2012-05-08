@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 use FindBin qw($Bin);
-use lib "$Bin/../lib";
+use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 
 use RUM::Common qw(reversesignal);
 
