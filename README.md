@@ -1,6 +1,8 @@
 Setting Up and Running RUM
 ==========================
 
+ <img style="float:right" src="http://www.cbil.upenn.edu/RUM/RUMPC2_small2.gif" class="float: right"></img>
+
 **RUM is an alignment, junction calling, and feature quantification
   pipeline specifically designed for Illumina RNA-Seq data.**
 
