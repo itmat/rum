@@ -3,7 +3,7 @@ Setting Up and Running RUM
 
  <img style="float:right" src="http://www.cbil.upenn.edu/RUM/RUMPC2_small2.gif" class="float: right"></img>
 
-*RUM is an alignment, junction calling, and feature quantification pipeline specifically designed for Illumina RNA-Seq data.*
+**RUM is an alignment, junction calling, and feature quantification pipeline specifically designed for Illumina RNA-Seq data.**
 
 _RUM can also be used effectively for DNA sequencing (e.g. ChIP-Seq) and microarray probe mapping._
 
@@ -14,7 +14,13 @@ _RUM is highly configurable, however it does not require fussing over options, t
 Publication
 -----------
 
-Comparative Analysis of RNA-Seq Alignment Algorithms and the RNA-Seq Unified Mapper (RUM) Gregory R. Grant, Michael H. Farkas, Angel Pizarro, Nicholas Lahens, Jonathan Schug, Brian Brunk, Christian J. Stoeckert Jr, John B. Hogenesch and Eric A. Pierce. 
+[Comparative Analysis of RNA-Seq Alignment Algorithms and the RNA-Seq Unified Mapper (RUM)](http://www.ncbi.nlm.nih.gov/pubmed/21775302?dopt=Abstract) Gregory R. Grant, Michael H. Farkas, Angel Pizarro, Nicholas Lahens, Jonathan Schug, Brian Brunk, Christian J. Stoeckert Jr, John B. Hogenesch and Eric A. Pierce. 
+
+Restrictions
+------------
+
+RUM is freely available to academics and non-profit organizations. However since RUM uses BLAT, users from industry must first obtain a licence for BLAT from the Kent Informatics Website. 
+
 System Requirements
 -------------------
 
