@@ -120,9 +120,16 @@ At the moment the following indexes are available:
 * _Plasmodium falciparum_ (build 06-2010) (**malaria parasite**)
 * _Arabidopsis thaliana_ (build TAIR10) (**arabadopsis**)
 
-We will be expanding this list regularly. If you require a different organism, instructions are given [here](https://github.com/PGFI/rum/blob/master/doc/indexing.pod) to build your own custom indexes. Or write us, we may be able to provide it.
+We will be expanding this list regularly. If you require a different
+organism, instructions are given
+[here](https://github.com/PGFI/rum/blob/master/doc/indexing.pod) to
+build your own custom indexes. Or write us, we may be able to provide
+it.
 
 Running RUM
 -----------
 
-After you've installed RUM and one or more indexes, please run `rum_runner help` to see usage information.
+After you've installed RUM and one or more indexes, please run
+`rum_runner help` to see usage information. Please also see the [main
+user guide](http://www.cbil.upenn.edu/RUM/userguide.php) for an
+explanation of the pipeline and the output files.
