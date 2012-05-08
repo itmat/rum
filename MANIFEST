@@ -56,6 +56,7 @@ bin/rum_merge_junctions
 bin/rum_merge_sam_headers.pl
 bin/rum_runner
 bin/rum_sort.pl
+bin/rum_split_reads.pl
 bin/sam2junctions.pl
 bin/sam2rum.pl
 bin/sambitflag2meaning.pl
@@ -320,10 +321,10 @@ t/merge-junctions.t
 t/merge-nu-stats.t
 t/merge-quants.t
 t/merge-sorted-rum-files.t
+t/new/profile.t
 t/platform.t
 t/pod-coverage.t
 t/pod.t
-t/profile.t
 t/quantify-exons.t
 t/remove-dups.t
 t/repository.t
