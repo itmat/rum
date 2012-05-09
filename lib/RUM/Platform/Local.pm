@@ -343,10 +343,10 @@ sub _reformat_reads {
     $self->say("Splitting read file, please be patient...");        
     
     $self->_breakup_file($reads_fa, 0);
-    warn "Have quals is $have_quals";
+
     if ($have_quals) {
         $self->say( "Half done splitting; starting qualities...");
-        $self->_breakup_file($config->chunk_file("quals.fa", 1), 1);
+        $self->_breakup_file($quals_fa, 1);
     }
     elsif ($config->user_quals) {
         $self->say( "Half done splitting; starting qualities...");
@@ -401,9 +401,9 @@ sub _breakup_file  {
     $F2 =~ s!.*/!!;
     
     my $PS = $c->paired_end ? $piecesize * 2 : $piecesize;
-
+    my $base_name = $qualflag ? "quals.fa" : "reads.fa";
     for(my $i=1; $i < $c->num_chunks; $i++) {
-	my $outfilename = $c->chunk_file("reads.fa", $i);
+	my $outfilename = $c->chunk_file($base_name, $i);
 
         $log->debug("Building $outfilename");
 	open(OUTFILE, ">$outfilename");
@@ -424,7 +424,7 @@ sub _breakup_file  {
 	close(OUTFILE);
     }
 
-    my $outfilename = $c->chunk_file("reads.fa", $c->num_chunks);
+    my $outfilename = $c->chunk_file($base_name, $c->num_chunks);
     open(OUTFILE, ">$outfilename");
     while(my $line = <INFILE>) {
 	print OUTFILE $line;
