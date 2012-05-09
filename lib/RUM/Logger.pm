@@ -47,9 +47,10 @@ logger by opening the output filehandle.
 =cut
 
 sub init {
-    my $log_file       = $RUM::Logging::LOG_FILE or return;
-    my $error_log_file = $RUM::Logging::ERROR_LOG_FILE or return;
+    my ($class, $log_file, $error_log_file);
 
+    return unless $log_file && $error_log_file;
+    
     unless ($MESSAGES) {
         open $MESSAGES, ">>", $log_file or warn
             "Can't open log file $MESSAGES: $!";

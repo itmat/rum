@@ -158,9 +158,11 @@ sub platform {
 sub _chunk_error_logs_are_empty {
     my ($self) = @_;
     my $c = $self->config;
+    my $dir = File::Spec->catfile($c->output_dir, "log");
     my $result = 1;
     for my $chunk ($self->chunk_nums) {
-        my $log_file = RUM::Logging->error_log_file($chunk);
+        my $log_file = File::Spec->catfile(
+            $dir, sprintf("rum_errors_%03d.log", $chunk));
         if (-s $log_file) {
             $self->alert("!!! Chunk $chunk had errors, please check $log_file");
             $result = 0;
@@ -171,17 +173,13 @@ sub _chunk_error_logs_are_empty {
         $self->logsay("All the chunk error log files were empty, that's good");
     }
 
-    if (my $log_file = RUM::Logging->error_log_file) {
-        if (-s $log_file) {
-            $log->warn("!!! Main log file had errors, please check $log_file");
-            $result = 0;
-        }
-        else {
-            $self->logsay("Main error log file is empty, that's good");
-        }
+    my $log_file = File::Spec->catfile($dir, "rum_errors.log");
+    if (-s $log_file) {
+        $log->warn("!!! Main log file had errors, please check $log_file");
+        $result = 0;
     }
     else {
-        warn "I don't seem to have a main log file, that's strange";
+        $self->logsay("Main error log file is empty, that's good");
     }
     return $result;
 }
