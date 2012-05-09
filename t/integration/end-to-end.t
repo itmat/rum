@@ -271,13 +271,13 @@ sub check_two_fasta_var_length {
 
 sub check_one_fastq_var_length {
     my $name = "one-fastq-var-length";
-    run_end_to_end($name, $FASTQ_VAR[0]);
+    run_end_to_end($name, $FASTQ_VAR[0], "--limit-bowtie-nu");
     all_files_exist($name, default_files($name));
 }
 
 sub check_two_fastq_var_length {
     my $name = "one-fastq-var-length";
-    run_end_to_end($name, @FASTQ_VAR);
+    run_end_to_end($name, @FASTQ_VAR, "--limit-bowtie-nu");
     all_files_exist($name, default_files($name));
 }
 

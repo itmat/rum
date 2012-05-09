@@ -231,6 +231,7 @@ sub _check_variable_length {
         }
         if(length($line1) != $length_hold && !$c->variable_length_reads) {
             $self->logsay("It seems your read lengths vary, but you didn't set -variable_length_reads. I'm going to set it for you, but it's generally safer to set it on the command-line since I only spot check the file.");
+            $self->say();
             $c->set('variable_length_reads', 1);
             $c->save;
         }
