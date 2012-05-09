@@ -143,7 +143,7 @@ sub _show_match_length {
     my $c = $self->config;
     my $match_length_cutoff;
     my $rl = $c->read_length;
-    if ( ! $c->min_length ) {
+    if ( ! $c->min_length && !$c->variable_length_reads) {
         if ($rl < 80) {
             $match_length_cutoff ||= 35;
         } else {
@@ -156,10 +156,12 @@ sub _show_match_length {
 	$match_length_cutoff = $c->min_length;
     }
     
-    $self->logsay(
-        "*** Note: I am going to report alignments of length ",
-        "$match_length_cutoff. If you want to change the minimum size of ",
-        "alignments reported, use the --min-length option");
+    if ($match_length_cutoff) {
+        $self->logsay(
+            "*** Note: I am going to report alignments of length ",
+            "$match_length_cutoff. If you want to change the minimum size of ",
+            "alignments reported, use the --min-length option");
+    }
 }
 
 

@@ -17,13 +17,14 @@ use RUM::Action::Align;
 
 our @READS = map "$SHARED_INPUT_DIR/$_.fq", qw(forward reverse);
 our @FASTA = map "$SHARED_INPUT_DIR/$_.fa", qw(forward reverse);
+our @FASTA_VAR = map "$SHARED_INPUT_DIR/$_.var.fa", qw(forward reverse);
 
 GetOptions(
     "no-run" => \(my $NO_RUN),
     "test=s" => \(my $TEST));
 
 if (-e $INDEX_CONFIG) {
-    plan tests => 215;
+    plan tests => 243;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -254,6 +255,21 @@ sub check_one_fasta {
     all_files_exist($name, default_files($name));
 }
 
+
+sub check_one_fasta_var_length {
+    my $name = "one-fasta-var-length";
+    run_end_to_end($name, $FASTA_VAR[0]);
+    all_files_exist($name, default_files($name));
+}
+
+sub check_two_fasta_var_length {
+    my $name = "one-fasta-var-length";
+    run_end_to_end($name, @FASTA_VAR);
+    all_files_exist($name, default_files($name));
+}
+
+
+
 SKIP: {
     check_defaults;
     check_chunks;
@@ -269,4 +285,7 @@ SKIP: {
     check_one_fastq;
     check_two_fasta;
     check_one_fasta;
+    check_one_fasta_var_length;
+    check_two_fasta_var_length;
 }
+
