@@ -332,8 +332,6 @@ sub _reformat_reads {
      } 
 
     elsif (!$preformatted) {
-        warn "In this block, not preformatted\n";
-
         $self->say("Splitting fasta file into reads and quals");
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
@@ -341,7 +339,6 @@ sub _reformat_reads {
         $have_quals = _got_quals($quals_fa);
     }
     else {
-        warn "In this block, just using the input file $reads_in for $reads_fa";
         link $reads_in, $reads_fa;
     }
 
