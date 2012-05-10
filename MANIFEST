@@ -56,7 +56,6 @@ bin/rum_merge_junctions
 bin/rum_merge_sam_headers.pl
 bin/rum_runner
 bin/rum_sort.pl
-bin/rum_split_reads.pl
 bin/sam2junctions.pl
 bin/sam2rum.pl
 bin/sambitflag2meaning.pl
