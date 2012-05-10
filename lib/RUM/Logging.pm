@@ -133,6 +133,22 @@ our @LOG4PERL_CONFIGS = (
 push @LOG4PERL_CONFIGS, map { "$_/RUM/conf/rum_logging.conf" } @INC;
 
 
+=head1 CLASS METHODS
+
+=over 4
+
+=item RUM::Logging->init
+
+Initialize the logging system. If $dir is supplied, it will be used as
+the root directory, so log files will go in $dir/log. Otherwise if the
+I<RUM_OUTPUT_DIR> environment variabe is set, that will be used as the
+root. Otherwise, no logging will be performed.
+
+Only the first call to this method counts; all subsequent calls will
+return immediately.
+
+=cut
+
 sub init {
     my ($class, $dir) = @_;
     return if $INITIALIZED;
@@ -207,13 +223,9 @@ sub _init_rum_logger {
     $LOGGER_CLASS->init($LOG_FILE, $ERROR_LOG_FILE);
 }
 
-=head1 CLASS METHODS
+=item RUM::Logging->get_logger
 
-=over 4
-
-=item get_logger
-
-=item get_logger($name)
+=item RUM::Logging->get_logger($name)
 
 With a $name argument, returns a logger with the given $name. Without
 $name, uses the package name of the caller as the name. For example:
@@ -240,7 +252,7 @@ sub get_logger {
     return $LOGGER_CLASS->get_logger($name);
 }
 
-=item log_file($chunk)
+=item RUM::Logging->log_file($chunk)
 
 Return the log file name for the given chunk, or the master log file
 name if chunk is not a positive number.
@@ -254,7 +266,7 @@ sub log_file {
     return "$LOGGING_DIR/$file";
 }
 
-=item error_log_file($chunk)
+=item RUM::Logging->error_log_file($chunk)
 
 Return the error log file name for the given chunk, or the master
 error log file name if chunk is not a positive number.

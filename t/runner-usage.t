@@ -229,9 +229,11 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
 # Check that we preprocess a single paired-end fasta file correctly
 {
     $log->warn("About to preprocess");
+    warn "Here";
     my $rum = preprocess("--config", $config,
                          "-o", tempdir(CLEANUP => 1),
                          "--name", "asdf", "$SHARED_INPUT_DIR/reads.fa");
+    warn "Done";
     my $prefix = "1, paired, fa, no chunks";
     
     ok($rum->config->paired_end, "$prefix is paired end");

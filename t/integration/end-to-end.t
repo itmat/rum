@@ -17,7 +17,7 @@ use RUM::Action::Align;
 
 our @READS = map "$SHARED_INPUT_DIR/$_.fq", qw(forward reverse);
 our @FASTA = map "$SHARED_INPUT_DIR/$_.fa", qw(forward reverse);
-our @FASTQ_VAR = map "$SHARED_INPUT_DIR/$_.var.fq", qw(forward reverse);
+our @FASTA_VAR = map "$SHARED_INPUT_DIR/$_.var.fa", qw(forward reverse);
 our @FASTQ_VAR = map "$SHARED_INPUT_DIR/$_.var.fq", qw(forward reverse);
 
 GetOptions(

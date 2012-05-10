@@ -190,7 +190,7 @@ sub _check_read_file_pair {
     shell("perl $parse2fasta     @reads | head -$len > $reads_temp 2>> $error_log");
     shell("perl $fastq2qualities @reads | head -$len > $quals_temp 2>> $error_log");
 
-    if (got_quals($quals_temp)) {
+    if (_got_quals($quals_temp)) {
         open(RFILE, $reads_temp);
         open(QFILE, $quals_temp);
         while(my $linea = <RFILE>) {
@@ -332,12 +332,17 @@ sub _reformat_reads {
      } 
 
     elsif (!$preformatted) {
+        warn "In this block, not preformatted\n";
 
         $self->say("Splitting fasta file into reads and quals");
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
         
-        $have_quals = got_quals($quals_fa);
+        $have_quals = _got_quals($quals_fa);
+    }
+    else {
+        warn "In this block, just using the input file $reads_in for $reads_fa";
+        link $reads_in, $reads_fa;
     }
 
     # This should only be entered when we have one read file
@@ -356,7 +361,7 @@ sub _reformat_reads {
     $self->say("Done splitting");
 }
 
-sub got_quals {
+sub _got_quals {
     my ($filename) = @_;
     open my $in, "<", $filename;
     for my $i (1 .. 20) {
