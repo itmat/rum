@@ -8,7 +8,7 @@ use strict;
 use warnings;
 use autodie;
 
-use RUM::AlignIO;
+use RUM::RUMIO;
 
 my $data = <<EOF;
 seq.209b\t1\t15043461-15043535\t+\tGATCCCATCTACCTAGAGTATAACAATGAAGTTCTAATTGCAATCCCAACTCCTGTCCCAACTTAACTCTACCCT
@@ -17,7 +17,7 @@ EOF
 
 open my $in, "<", \$data;
 
-my $alns = RUM::AlignIO->new(-fh => $in);
+my $alns = RUM::RUMIO->new(-fh => $in);
 my $first = $alns->next_aln;
 ok $first, "Got first alignment";
 my $second = $alns->next_aln;
@@ -39,7 +39,7 @@ is $second->seq, 'AGTGTT:TCCTTGTTAGAAGACACAAAGCCAAAGACTCATATGGACTTTGGCTACACCATGA
 
 open my $out, ">", \(my $written);
 
-$alns = RUM::AlignIO->new(-fh => $out);
+$alns = RUM::RUMIO->new(-fh => $out);
 
 $alns->write_aln($first);
 $alns->write_aln($second);

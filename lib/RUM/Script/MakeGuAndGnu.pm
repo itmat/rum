@@ -1,6 +1,7 @@
 package RUM::Script::MakeGuAndGnu;
 
 no warnings;
+use autodie;
 
 use RUM::Usage;
 use RUM::Logging;
@@ -9,6 +10,13 @@ use Getopt::Long;
 our $log = RUM::Logging->get_logger();
 
 $|=1;
+
+sub same_or_mate {
+    my ($x, $y) = @_;
+    return $x->is_same_read($y) || $x->is_mate($y);
+}
+
+
 
 sub main {
 
@@ -35,99 +43,82 @@ sub main {
     ($single xor $paired) or RUM::Usage->bad(
         "Please specify exactly one type with either --single or --paired");
 
-    my ($infile) = @ARGV;
-    pod2usage("Please specify an input file") unless $infile;
-
     $paired_end = $paired ? "true" : "false";
 
-    open(INFILE, $infile) or die("Can't open $infile for reading: $!");
-    $t = `tail -1 $infile`;
-    $t =~ /seq.(\d+)/;
-    $num_seqs = $1;
-    $line = <INFILE>;
-    chomp($line);
-    open(OUTFILE1, ">$outfile1") 
-        or die("Can't open $outfile1 for writing: $!");
-    open(OUTFILE2, ">$outfile2") 
-        or die("Can't open $outfile2 for writing: $!");
+    my $bowtie_in = RUM::BowtieIO->new(-file => $ARGV[0]);
     
-    for($seqnum=1; $seqnum<=$num_seqs; $seqnum++) {
-        $numa=0;
-        $numb=0;
-        undef %a_reads;
-        undef %b_reads;
-        while($line =~ /seq.($seqnum)a/) {
-            $seqs_a[$numa] = $line;
-            $numa++;
-            $line = <INFILE>;
-            chomp($line);
-        }
-        while($line =~ /seq.($seqnum)b/) {
-            $seqs_b[$numb] = $line;
-            $numb++;
-            $line = <INFILE>;
-            chomp($line);
-        }
-        if($numa > 0 || $numb > 0) {
-            $num_different_a = 0;
-            for($i=0; $i<$numa; $i++) {
-                $line2 = $seqs_a[$i];
-                if(!($line2 =~ /^N+$/)) {
-                    @a = split(/\t/,$line2);
-                    $id = $a[0];
-                    $strand = $a[1];
-                    $chr = $a[2];
-                    $chr =~ s/:.*//;
-                    $start = $a[3]+1;
-                    $seq = $a[4];
-                    if($seq =~ /^(N+)/) {
-                        $seq =~ s/^(N+)//;
-                        $Nprefix = $1;
-                        @x = split(//,$Nprefix);
-                        $start = $start + @x;
-                    }
-                    $seq =~ s/N+$//;
-                    @x = split(//,$seq);
-                    $seqlength = @x;
-                    $end = $start + $seqlength - 1; 
-                }
-                $a_reads{"$id\t$strand\t$chr\t$start\t$end\t$seq"}++;
-                if($a_reads{"$id\t$strand\t$chr\t$start\t$end\t$seq"} == 1) {
-                    $num_different_a++;
-                }
+    my $it = $bowtie_in->aln_iterator->group_by(\&same_or_mate);
+
+    open OUTFILE1, ">", $outfile1;
+    open OUTFILE2, ">", $outfile2;
+
+    while (my $group = $it->()) {
+
+        my %a_reads;
+        my %b_reads;
+
+        $num_different_a = 0;
+
+        my $n = @{ $group };
+
+        my $i;
+        for ($i = 0; $i<$n && $group->[$i]->is_forward; $i++) {
+            $line2 = $group->[$i];
+
+            # If it's not all N's
+            local $_ = $line2->seq;
+            unless (/^N+$/) {
+                my $id     = $line2->readid;
+                my $strand = $line2->strand;
+                my $chr    = $line2->chromosome;
+                my $start = $line2->loc + 1;
+                $chr =~ s/:.*//;
+
+                s/^(N+)// and $start += + length($1);
+                $seq =~ s/N+$//;
+                $end = $start + length - 1; 
             }
-            $num_different_b = 0;
-            for($i=0; $i<$numb; $i++) {
-                $line2 = $seqs_b[$i];
-                if(!($line2 =~ /^N+$/)) {
-                    @a = split(/\t/,$line2);
-                    $id = $a[0];
-                    $strand = $a[1];
-                    $chr = $a[2];
-                    $chr =~ s/:.*//;
-                    $start = $a[3]+1;
-                    $seq = $a[4];
-                    if($seq =~ /^(N+)/) {
-                        $seq =~ s/^(N+)//;
-                        $Nprefix = $1;
-                        @x = split(//,$Nprefix);
-                        $start = $start + @x;
-                    }
-                    $seq =~ s/N+$//;
-                    @x = split(//,$seq);
-                    $seqlength = @x;
-                    $end = $start + $seqlength - 1; 
-                }
-                $b_reads{"$id\t$strand\t$chr\t$start\t$end\t$seq"}++;
-                if($b_reads{"$id\t$strand\t$chr\t$start\t$end\t$seq"} == 1) {
-                    $num_different_b++;
-                }
-            }
+
+            my $key = join("\t", $id, $strand, $chr, $start, $end, $seq);
+
+            $a_reads{$key} ||=
+                RUM::Alignment->new(
+                    -readid => $id,
+                    -strand => $strand,
+                    -chr => $chr,
+                    -locs => [[$start, $end]],
+                    -seq => $seq);
+
         }
+
+        $num_different_b = 0;
+        for (; $i < $n; $i++) {
+            my $line2 = $group->[$i];
+            local $_ = $line2->seq;
+            unless (/^N+$/) {
+                my $id     = $line2->readid;
+                my $strand = $line2->strand;
+                my $chr    = $line2->chromosome;
+                my $start = $line2->loc + 1;
+                $chr =~ s/:.*//;
+
+                s/^(N+)// and $start += + length($1);
+                $seq =~ s/N+$//;
+                $end = $start + length - 1; 
+            }
+            $b_reads{$key} ||=
+                RUM::Alignment->new(
+                    -readid => $id,
+                    -strand => $strand,
+                    -chr => $chr,
+                    -locs => [[$start, $end]],
+                    -seq => $seq);
+        }
+
         # NOTE: the following three if's cover all cases we care about, because if numa > 1 and numb = 0, then that's
         # not really ambiguous, blat might resolve it
         
-        if($num_different_a == 1 && $num_different_b == 0) { # unique forward match, no reverse
+        if(keys(%a_reads) == 1 && !keys(%b_reads)) { # unique forward match, no reverse
             foreach $key (keys %a_reads) {
                 $key =~ /^[^\t]+\t(.)\t/;
                 $strand = $1;
@@ -141,7 +132,7 @@ sub main {
                 print OUTFILE1 "$key\t$strand\n";
             }
         }
-        if($num_different_a == 0 && $num_different_b == 1) { # unique reverse match, no forward
+        if(!keys(%a_reads) && keys(%b_reads) == 1) { # unique reverse match, no forward
             foreach $key (keys %b_reads) {
                 $key =~ /^[^\t]+\t(.)\t/;
                 $strand = $1;
@@ -162,7 +153,7 @@ sub main {
             }
         }
         if($paired_end eq "false") {
-            if($num_different_a > 1) { 
+            if(keys(%a_reads) > 1) { 
                 foreach $key (keys %a_reads) {
                     $key =~ /^[^\t]+\t(.)\t/;
                     $strand = $1;
@@ -177,10 +168,10 @@ sub main {
                 }
             }
         }
-        if(($num_different_a > 0 && $num_different_b > 0) && ($num_different_a * $num_different_b < 1000000)) { 
+        if (keys(%a_reads) && keys(%b_reads) && ($num_different_a * $num_different_b < 1000000)) { 
             # forward and reverse matches, must check for consistency, but not if more than 1,000,000 possibilities,
             # in that case skip...
-            undef %consistent_mappers;
+            my %consistent_mappers;
             foreach $akey (keys %a_reads) {
                 foreach $bkey (keys %b_reads) {
                     @a = split(/\t/,$akey);
