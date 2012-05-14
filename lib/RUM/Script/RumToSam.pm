@@ -45,6 +45,16 @@ sub main {
         close(NAMEMAPPING);
     }
 
+    open(INFILE, $genome_infile);
+    while($line = <INFILE>) {
+        chomp($line);
+        $line =~ s/^>//;
+        $line2 = <INFILE>;
+        chomp($line2);
+        $GENOMESEQ{$line} = $line2;
+    }
+    close(INFILE);
+
     open(INFILE, $reads_file);
     $line = <INFILE>;
     chomp($line);
@@ -694,8 +704,11 @@ sub main {
                             $CIGAR_f = $CIGAR_f . $right_clip_size_f . "S";
                         }
                     }
+                    $ruf[2] =~ /^(\d+)/;
+                    $sf = $1;
+                    $MDf = &cigar2mismatches($ruf[1], $sf, $CIGAR_f, $ruf[4]);
                 }
-	    
+                
 	    
                 if ($rum_u_reverse =~ /\S/) {
 		
@@ -805,6 +818,9 @@ sub main {
                             $CIGAR_r = $CIGAR_r . $right_clip_size_r . "S";
                         }
                     }
+                    $rur[2] =~ /^(\d+)/;
+                    $sf = $1;
+                    $MDr = &cigar2mismatches($rur[1], $sf, $CIGAR_r, $rur[4]);
                 }
 	    
 	    
@@ -884,6 +900,7 @@ sub main {
                 } else {
                     $forward_record = $forward_record . "\tXO:A:F";
                 }
+                $forward_record = $forward_record . "\tMN:$MDf";
 
                 $MM = $mapper+1;
                 $forward_record = $forward_record . "\tIH:i:$num_mappers\tHI:i:$MM";
@@ -924,6 +941,7 @@ sub main {
                     } else {
                         $reverse_record = $reverse_record . "\tXO:A:F";
                     }
+                    $forward_record = $forward_record . "\tMN:$MDr";
                     $MM = $mapper+1;
                     $reverse_record = $reverse_record . "\tIH:i:$num_mappers\tHI:i:$MM";
 
@@ -1034,15 +1052,22 @@ sub cigar2mismatches () {
     ($chr_c, $start_c, $cigar_c, $seq_c) = @_;
 
     $seq2_c = $seq_c;
+    $seq2_c =~ s/://g;
+    $seq2_c =~ s/\+//g;
     $MD = "";
+    $spans = "";
     $current_loc_c = $start_c;
-    $offset_c = 0;
+    $type_prev = "";
     while($cigar_c =~ /^(\d+)([^\d])/) {
 	$num_c = $1;
 	$type_c = $2;
 	if($type_c eq 'M') {
 	    $E_c = $current_loc_c + $num_c - 1;
-	    $offset_c = $offset_c + $num_c;
+	    if($spans =~ /\S/) {
+		$spans = $spans . ", " .  $current_loc_c . "-" . $E_c;
+	    } else {
+		$spans = $current_loc_c . "-" . $E_c;
+	    }
 	    $genomeseq_c = substr($GENOMESEQ{$chr_c}, $current_loc_c - 1, $num_c);
 	    $current_loc_c = $E_c;
 	    $readseq_c = substr($seq2_c, 0, $num_c);
@@ -1083,32 +1108,14 @@ sub cigar2mismatches () {
 	    }
 	    $current_loc_c = $current_loc_c + $num_c + 1;
 	}
-	if($type_c eq 'S') {
-	    if($cigar_c =~ /^\d+S\d/) {
-		for($i_c=0; $i_c<$num_c; $i_c++) {
-		    $seq_c =~ s/^.//;
-		    $seq2_c =~ s/^.//;
-		}
-	    } elsif($cigar_c =~ /\d+S$/) {
-		for($i_c=0; $i_c<$num_c; $i_c++) {
-		    $seq_c =~ s/.$//;
-		    $seq2_c =~ s/.$//;
-		}
-	    }
-	}
 	if($type_c eq 'I') {
 	    $current_loc_c++;
-	    substr($seq_c, $offset_c, 0, "+");
-	    $offset_c = $offset_c  + $num_c + 1;
-	    substr($seq_c, $offset_c, 0, "+");
-	    $offset_c = $offset_c + 1;
 	    for($i_c=0; $i_c<$num_c; $i_c++) {
 		$seq2_c =~ s/^.//;
 	    }
 	}
 	$cigar_c =~ s/^\d+[^\d]//;
 	$type_prev = $type_c;
-	
     }
     return $MD;
 }
