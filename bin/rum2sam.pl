@@ -22,6 +22,10 @@ rum2sam.pl [OPTIONS] --reads-in --sam-out <sam_outfile>
 
 =over 4
 
+=item B<--genome-in> I<genome_in_file>
+
+Genome sequence input file.
+
 =item B<--unique-in> I<rum_unique_file>
 
 The file of unique mappers.

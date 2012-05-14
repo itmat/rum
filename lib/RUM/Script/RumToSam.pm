@@ -19,6 +19,7 @@ sub main {
         "suppress2" => \(my $suppress2),
         "suppress3" => \(my $suppress3),
         "sam-out=s" => \(my $sam_outfile),
+        "genome-in=s" => \(my $genome_infile),
         "quals-in=s" => \(my $qual_file),
         "reads-in=s" => \(my $reads_file),
         "non-unique-in=s" => \(my $rum_nu_file),
