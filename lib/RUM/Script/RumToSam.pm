@@ -1029,5 +1029,85 @@ sub getprefix () {
     }
 }
 
+sub cigar2mismatches () {
+    ($chr_c, $start_c, $cigar_c, $seq_c) = @_;
 
-
+    $seq2_c = $seq_c;
+    $MD = "";
+    $current_loc_c = $start_c;
+    $offset_c = 0;
+    while($cigar_c =~ /^(\d+)([^\d])/) {
+	$num_c = $1;
+	$type_c = $2;
+	if($type_c eq 'M') {
+	    $E_c = $current_loc_c + $num_c - 1;
+	    $offset_c = $offset_c + $num_c;
+	    $genomeseq_c = substr($GENOMESEQ{$chr_c}, $current_loc_c - 1, $num_c);
+	    $current_loc_c = $E_c;
+	    $readseq_c = substr($seq2_c, 0, $num_c);
+	    $seq2_c =~ s/^$readseq_c//;
+	    @A_c = split(//,$readseq_c);
+	    @B_c = split(//,$genomeseq_c);
+	    $cnt_c = 0;
+	    for($i_c=0; $i_c<@A_c; $i_c++) {
+		if($A_c[$i_c] ne $B_c[$i_c]) {
+		    if($i_c==0 && $type_prev eq "D") {
+			$MD = $MD . "0" . $B_c[$i_c];
+		    } else {
+			if($cnt_c > 0) {
+			    $MD =~ s/(\d*)$//;
+			    $x_c = $1 + 0;
+			    $cnt_c = $cnt_c + $x_c;
+			    $MD = $MD . $cnt_c . $B_c[$i_c];
+			} else {
+			    $MD = $MD . $B_c[$i_c];
+			}
+		    }
+		    $cnt_c = 0;
+		} else {
+		    $cnt_c++;
+		    if($i_c == @A_c - 1) {
+			$MD =~ s/(\d*)$//;
+			$x_c = $1 + 0;
+			$cnt_c = $cnt_c + $x_c;
+			$MD = $MD . $cnt_c;
+		    }
+		}
+	    }
+	}
+	if($type_c eq 'D' || $type_c eq 'N') {
+	    if($type_c eq 'D') {
+		$genomeseq_c = substr($GENOMESEQ{$chr_c}, $current_loc_c - 1, $num_c);
+		$MD = $MD . "^" . $genomeseq_c;
+	    }
+	    $current_loc_c = $current_loc_c + $num_c + 1;
+	}
+	if($type_c eq 'S') {
+	    if($cigar_c =~ /^\d+S\d/) {
+		for($i_c=0; $i_c<$num_c; $i_c++) {
+		    $seq_c =~ s/^.//;
+		    $seq2_c =~ s/^.//;
+		}
+	    } elsif($cigar_c =~ /\d+S$/) {
+		for($i_c=0; $i_c<$num_c; $i_c++) {
+		    $seq_c =~ s/.$//;
+		    $seq2_c =~ s/.$//;
+		}
+	    }
+	}
+	if($type_c eq 'I') {
+	    $current_loc_c++;
+	    substr($seq_c, $offset_c, 0, "+");
+	    $offset_c = $offset_c  + $num_c + 1;
+	    substr($seq_c, $offset_c, 0, "+");
+	    $offset_c = $offset_c + 1;
+	    for($i_c=0; $i_c<$num_c; $i_c++) {
+		$seq2_c =~ s/^.//;
+	    }
+	}
+	$cigar_c =~ s/^\d+[^\d]//;
+	$type_prev = $type_c;
+	
+    }
+    return $MD;
+}
