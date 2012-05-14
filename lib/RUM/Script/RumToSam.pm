@@ -854,40 +854,49 @@ sub main {
 	    
                 # FORWARD:
 	    
-                $forward_record = "";
+
+                my @forward_record;
+                my $forward_record;
+
                 if ($map_names eq "true") {
                     $tmp = "seq.$seqnum" . "a";
-                    $forward_record = $forward_record . $namemapping{$tmp};
+                    push @forward_record, $namemapping{$tmp};
                 } else {
-                    $forward_record = $forward_record . "seq.$seqnum";
+                    push @forward_record, "seq.$seqnum";
                 }
-                $forward_record = $forward_record . "\t$bitscore_f";
+                push @forward_record, $bitscore_f;
 	    
                 if (!($rum_u_forward =~ /\S/) && $rum_u_reverse =~ /\S/) { # forward unmapped, reverse mapped
-                    $forward_record = $forward_record . "\t$rur[1]\t$start_reverse\t255\t*\t=\t$start_reverse\t0\t$forward_read\t$forward_qual";
+                    push(@forward_record, 
+                         $rur[1], $start_reverse, 255, "*", "=", $start_reverse,
+                         0, $forward_read, $forward_qual);
                 }
                 if ($rum_u_forward =~ /\S/ || $rum_u_joined =~ /\S/) { # forward mapped
-                    $forward_record = $forward_record . "\t$ruf[1]\t$start_forward\t255\t$CIGAR_f\t";
+                    push @forward_record, $ruf[1], $start_forward, 255, $CIGAR_f;
                     if ($paired eq "true") {
                         if ($rum_u_reverse =~ /\S/) { # paired and reverse mapped
-                            $forward_record = $forward_record . "=\t$start_reverse\t$idist_f\t$forward_read\t$forward_qual";
+                            push @forward_record, "=", $start_reverse, $idist_f,
+                                $forward_read, $forward_qual;
                         } else { # reverse didn't map
-                            $forward_record = $forward_record . "=\t$start_forward\t0\t$forward_read\t$forward_qual";
+                            push @forward_record, "=", $start_forward, 0,
+                                $forward_read, $forward_qual;
                         }
                     } else {    # not paired end
-                        $forward_record = $forward_record . "*\t0\t0\t$forward_read\t$forward_qual";
+                        push @forward_record,
+                            "*", 0, 0, $forward_read, $forward_qual;
                     }
                 }
                 if ($joined eq "true") {
-                    $forward_record = $forward_record . "\tXO:A:T";
+                    push @forward_record, "XO:A:T";
                 } else {
-                    $forward_record = $forward_record . "\tXO:A:F";
+                    push @forward_record, "XO:A:F";
                 }
 
                 $MM = $mapper+1;
-                $forward_record = $forward_record . "\tIH:i:$num_mappers\tHI:i:$MM";
+                push @forward_record, "IH:i:$num_mappers", "HI:i:$MM";
 
-                $forward_record = $forward_record . "\n";
+                $forward_record = join("\t", @forward_record) . "\n";
+
                 if ($suppress2 && $forward_record =~ /\*\t=/) {
                     # do nothing
                 } elsif ($suppress3 && ($forward_record =~ /\*\t=/ || $reverse_record =~ /\*\t=/)) {
@@ -899,34 +908,38 @@ sub main {
                 # REVERSE
 	    
                 if ($paired eq "true") {
-                    $reverse_record = "";
+                    my @reverse_record;
                     if ($map_names eq "true") {
                         $tmp = "seq.$seqnum" . "b";
-                        $reverse_record = $reverse_record . $namemapping{$tmp};
+                        push @reverse_record, $namemapping{$tmp};
                     } else {
-                        $reverse_record = $reverse_record . "seq.$seqnum";
+                        push @reverse_record, "seq.$seqnum";
                     }
-                    $reverse_record = $reverse_record . "\t$bitscore_r";
+                    push @reverse_record, $bitscore_r;
                     if (!($rum_u_reverse =~ /\S/) && $rum_u_forward =~ /\S/) { # reverse unmapped, forward mapped
-                        $reverse_record = $reverse_record . "\t$ruf[1]\t$start_forward\t255\t*\t=\t$start_forward\t0\t$reverse_read\t$reverse_qual";
+                        push(@reverse_record,
+                             $ruf[1], $start_forward, 255, "*", "=", 
+                             $start_forward, 0, $reverse_read, $reverse_qual);
                     }
                     if ($rum_u_reverse =~ /\S/ || $rum_u_joined =~ /\S/) { # reverse mapped
-                        $reverse_record = $reverse_record . "\t$rur[1]\t$start_reverse\t255\t$CIGAR_r\t=";
+                        push @reverse_record, $rur[1], $start_reverse, 255, 
+                            $CIGAR_r, "=";
                         if ($rum_u_forward =~ /\S/) { # forward mapped
-                            $reverse_record = $reverse_record . "\t$start_forward\t$idist_r\t$reverse_read\t$reverse_qual";
+                            push @reverse_record, $start_forward, $idist_r, $reverse_read, $reverse_qual;
                         } else { # forward didn't map
-                            $reverse_record = $reverse_record . "\t$start_reverse\t0\t$reverse_read\t$reverse_qual";		
+                            push @reverse_record, $start_reverse, 0, 
+                                $reverse_read, $reverse_qual;		
                         }
                     }
                     if ($joined eq "true") {
-                        $reverse_record = $reverse_record . "\tXO:A:T";
+                        push @reverse_record, "XO:A:T";
                     } else {
-                        $reverse_record = $reverse_record . "\tXO:A:F";
+                        push @reverse_record, "XO:A:F";
                     }
                     $MM = $mapper+1;
-                    $reverse_record = $reverse_record . "\tIH:i:$num_mappers\tHI:i:$MM";
+                    push @reverse_record, "IH:i:$num_mappers", "HI:i:$MM";
 
-                    $reverse_record = $reverse_record . "\n";
+                    my $reverse_record = join("\t", @reverse_record) . "\n";
                     if ($suppress2 && $reverse_record =~ /\*\t=/) {
                         # do nothing
                     } elsif ($suppress3 && ($forward_record =~ /\*\t=/ || $reverse_record =~ /\*\t=/)) {
@@ -941,38 +954,49 @@ sub main {
         if ($unique_mapper_found eq "false" && $non_unique_mappers_found eq "false") {
             # neither forward nor reverse map
             if ($paired eq "false") {
+                my @rec;
+
                 if ($map_names eq "true") {
                     $tmp = "seq.$seqnum" . "a";
-                    $record = $namemapping{$tmp};
+                    push @rec, $namemapping{$tmp};
                 } else {
-                    $record = "seq.$seqnum";
+                    push @rec, "seq.$seqnum";
                 }
-                $record = $record . "\t4\t*\t0\t255\t*\t*\t0\t0\t$forward_read\t$forward_qual\n";
+                push @rec, 4, "*", 0, 255, "*", "*", 0, 0, 
+                    $forward_read, $forward_qual;
                 unless ($suppress1 || $suppress2 || $suppress3) {
-                    print SAM $record;
+                    print SAM join("\t", @rec), "\n";
                 }
             } else {
+                my (@fwd, @rev);
                 if ($map_names eq "true") {
                     $tmp = "seq.$seqnum" . "a";
-                    $record = $namemapping{$tmp};
+                    push @fwd,  $namemapping{$tmp};
                 } else {
-                    $record = "seq.$seqnum";
+                    push @fwd, "seq.$seqnum";
                 }
-                $record = $record . "\t77\t*\t0\t255\t*\t*\t0\t0\t$forward_read\t$forward_qual\n";
+                push @fwd, 77, "*", 0, 255, "*", "*", 0, 0, 
+                    $forward_read, $forward_qual;
+
                 if ($map_names eq "true") {
                     $tmp = "seq.$seqnum" . "b";
-                    $record = $record . $namemapping{$tmp};
+                    push @rev,  $namemapping{$tmp};
                 } else {
-                    $record = $record . "seq.$seqnum";
+                    push @rev, "seq.$seqnum";
                 }
-                $record = $record . "\t141\t*\t0\t255\t*\t*\t0\t0\t$reverse_read\t$reverse_qual\n";
+                push @rev, 141, "*", 0, 255, "*", "*", 
+                    0, 0, $reverse_read, $reverse_qual;
                 unless ($suppress1 || $suppress2 || $suppress3) {
-                    print SAM $record;
+                    print SAM join("\t", @fwd), "\n";
+                    print SAM join("\t", @rev), "\n";
                 }
             }
         }
     }
 }
+
+
+
 
 sub getsuffix () {
     ($spans, $suffixlength) = @_;

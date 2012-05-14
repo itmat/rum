@@ -41,13 +41,14 @@ while (my ($name, $args) = each %configs) {
 for my $suppress (1, 2, 3) {
     
     my $name = "suppress$suppress";
-    my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
+    my $out = temp_filename(TEMPLATE => "$name-XXXXXX", UNLINK => 0);
     @ARGV = ("--unique", $unique_in, 
              "--non-unique", $non_unique_in,
              "--reads-in", $reads_in,
              "--sam-out", $out, 
              "--quals-in", $quals_in,
              "--suppress$suppress");
+
     RUM::Script::RumToSam->main();
     no_diffs($out, "$EXPECTED_DIR/$name.sam", $name);
 }
