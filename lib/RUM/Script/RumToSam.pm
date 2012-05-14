@@ -53,7 +53,7 @@ sub main {
     chomp($line);
     $readlength = length($line);
     unless ($qual_file) {
-        $QUAL{$readlength} = ".";
+        $QUAL{$readlength} = "*";
     }
     $line = <INFILE>;
     chomp($line);
