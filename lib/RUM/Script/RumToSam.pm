@@ -868,7 +868,7 @@ sub main {
 	    
                 if (!($rum_u_forward =~ /\S/) && $rum_u_reverse =~ /\S/) { # forward unmapped, reverse mapped
                     push(@forward_record, 
-                         $rur[1], $start_reverse, 255, "*", "=", $start_reverse,
+                         $rur[1], $start_reverse, 0, "*", "=", $start_reverse,
                          0, $forward_read, $forward_qual);
                 }
                 if ($rum_u_forward =~ /\S/ || $rum_u_joined =~ /\S/) { # forward mapped
@@ -918,7 +918,7 @@ sub main {
                     push @reverse_record, $bitscore_r;
                     if (!($rum_u_reverse =~ /\S/) && $rum_u_forward =~ /\S/) { # reverse unmapped, forward mapped
                         push(@reverse_record,
-                             $ruf[1], $start_forward, 255, "*", "=", 
+                             $ruf[1], $start_forward, 0, "*", "=", 
                              $start_forward, 0, $reverse_read, $reverse_qual);
                     }
                     if ($rum_u_reverse =~ /\S/ || $rum_u_joined =~ /\S/) { # reverse mapped
@@ -975,7 +975,7 @@ sub main {
                 } else {
                     push @fwd, "seq.$seqnum";
                 }
-                push @fwd, 77, "*", 0, 255, "*", "*", 0, 0, 
+                push @fwd, 77, "*", 0, 0, "*", "*", 0, 0, 
                     $forward_read, $forward_qual;
 
                 if ($map_names eq "true") {
@@ -984,7 +984,7 @@ sub main {
                 } else {
                     push @rev, "seq.$seqnum";
                 }
-                push @rev, 141, "*", 0, 255, "*", "*", 
+                push @rev, 141, "*", 0, 0, "*", "*", 
                     0, 0, $reverse_read, $reverse_qual;
                 unless ($suppress1 || $suppress2 || $suppress3) {
                     print SAM join("\t", @fwd), "\n";
