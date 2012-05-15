@@ -24,7 +24,6 @@ sub main {
         "genome=s" => \(my $genome),
         "match-length-cutoff=s" => \(my $match_length_cutoff = 0),
         "faok"  => \(my $faok),
-        "count-mismatches" => \(my $countmismatches),
         "help|h"    => sub { RUM::Usage->help },
         "verbose|v" => sub { $log->more_logging(1) },
         "quiet|q"   => sub { $log->less_logging(1) },
@@ -187,12 +186,7 @@ sub clean () {
 		$seq_temp =~ s/://g;
 		$seq_temp =~ s/\+//g;
 		if (length($seq_temp) >= $match_length_cutoff) {
-		    if ($countmismatches) {
-			$num_mismatches = &countmismatches($SEQ, $seq);
-			print OUTFILE "$a[0]\t$chr\t$spans\t$strand\t$seq\t$num_mismatches\n";
-		    } else {
-			print OUTFILE "$a[0]\t$chr\t$spans\t$strand\t$seq\n";
-		    }
+		    print OUTFILE "$a[0]\t$chr\t$spans\t$strand\t$seq\n";
 		}
 	    }
 	}
