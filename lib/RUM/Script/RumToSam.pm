@@ -160,6 +160,8 @@ sub main {
         $num_mappers = 0;
 	$MDf = "";
 	$MDr = "";
+	$MMf = 0;
+	$MMr = 0;
 
         $forward_read = <READS>;
         $forward_read = <READS>;
@@ -306,6 +308,8 @@ sub main {
             for ($mapper=0; $mapper<$num_mappers; $mapper++) {
 		$MDf = "";
 		$MDr = "";
+         	$MMf = 0;
+	        $MMr = 0;
                 $rum_u_forward = $FORWARD[$mapper];
                 $rum_u_reverse = $REVERSE[$mapper];
                 $rum_u_joined = $JOINED[$mapper];
@@ -710,7 +714,10 @@ sub main {
                     }
                     $ruf[2] =~ /^(\d+)/;
                     $sf = $1;
-                    $MDf = &cigar2mismatches($ruf[1], $sf, $CIGAR_f, $ruf[4]);
+                    $ref = &cigar2mismatches($ruf[1], $sf, $CIGAR_f, $ruf[4]);
+                    @return_values = @{$ref};
+                    $MDf = $return_values[0];
+                    $NMf = $return_values[1];
                 }
                 
 	    
@@ -824,7 +831,10 @@ sub main {
                     }
                     $rur[2] =~ /^(\d+)/;
                     $sf = $1;
-                    $MDr = &cigar2mismatches($rur[1], $sf, $CIGAR_r, $rur[4]);
+                    $ref = &cigar2mismatches($rur[1], $sf, $CIGAR_r, $rur[4]);
+                    @return_values = @{$ref};
+                    $MDr = $return_values[0];
+                    $NMr = $return_values[1];
                 }
 	    
 	    
@@ -905,7 +915,7 @@ sub main {
                     $forward_record = $forward_record . "\tXO:A:F";
                 }
                 if($MDf =~ /\S/) {
-                     $forward_record = $forward_record . "\tMD:Z:$MDf";
+                     $forward_record = $forward_record . "\tMD:Z:$MDf\tNM:i:$NMf";
                 }
                 $MM = $mapper+1;
                 $forward_record = $forward_record . "\tIH:i:$num_mappers\tHI:i:$MM";
@@ -947,7 +957,7 @@ sub main {
                         $reverse_record = $reverse_record . "\tXO:A:F";
                     }
 		    if($MDr =~ /\S/) {
-			$reverse_record = $reverse_record . "\tMD:Z:$MDr";
+			$reverse_record = $reverse_record . "\tMD:Z:$MDr\tNM:i:$NMr";
 		    }
                     $MM = $mapper+1;
                     $reverse_record = $reverse_record . "\tIH:i:$num_mappers\tHI:i:$MM";
@@ -1062,6 +1072,7 @@ sub cigar2mismatches () {
     $seq2_c =~ s/://g;
     $seq2_c =~ s/\+//g;
     $MD = "";
+    $NM = 0;
     $spans = "";
     $current_loc_c = $start_c;
     $type_prev = "";
@@ -1084,6 +1095,7 @@ sub cigar2mismatches () {
 	    $cnt_c = 0;
 	    for($i_c=0; $i_c<@A_c; $i_c++) {
 		if($A_c[$i_c] ne $B_c[$i_c]) {
+		    $NM++;
 		    if($i_c==0 && $type_prev eq "D") {
 			$MD = $MD . "0" . $B_c[$i_c];
 		    } else {
@@ -1110,12 +1122,14 @@ sub cigar2mismatches () {
 	}
 	if($type_c eq 'D' || $type_c eq 'N') {
 	    if($type_c eq 'D') {
+		$NM=$NM+$num_c;
 		$genomeseq_c = substr($GENOMESEQ{$chr_c}, $current_loc_c - 1, $num_c);
 		$MD = $MD . "^" . $genomeseq_c;
 	    }
 	    $current_loc_c = $current_loc_c + $num_c + 1;
 	}
 	if($type_c eq 'I') {
+	    $NM=$NM+$num_c;
 	    $current_loc_c++;
 	    for($i_c=0; $i_c<$num_c; $i_c++) {
 		$seq2_c =~ s/^.//;
@@ -1124,5 +1138,7 @@ sub cigar2mismatches () {
 	$cigar_c =~ s/^\d+[^\d]//;
 	$type_prev = $type_c;
     }
-    return $MD;
+    $return_array[0] = $MD;
+    $return_array[1] = $NM;
+    return \@return_array;
 }
