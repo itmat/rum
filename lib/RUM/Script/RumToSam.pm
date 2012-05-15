@@ -19,6 +19,7 @@ sub main {
         "suppress2" => \(my $suppress2),
         "suppress3" => \(my $suppress3),
         "sam-out=s" => \(my $sam_outfile),
+        "genome-in=s" => \(my $genome_infile),
         "quals-in=s" => \(my $qual_file),
         "reads-in=s" => \(my $reads_file),
         "non-unique-in=s" => \(my $rum_nu_file),
@@ -43,6 +44,16 @@ sub main {
         }
         close(NAMEMAPPING);
     }
+
+    open(INFILE, $genome_infile);
+    while($line = <INFILE>) {
+        chomp($line);
+        $line =~ s/^>//;
+        $line2 = <INFILE>;
+        chomp($line2);
+        $GENOMESEQ{$line} = $line2;
+    }
+    close(INFILE);
 
     open(INFILE, $reads_file);
     $line = <INFILE>;
@@ -147,6 +158,10 @@ sub main {
         undef @REVERSE;
         undef @JOINED;
         $num_mappers = 0;
+	$MDf = "";
+	$MDr = "";
+	$MMf = 0;
+	$MMr = 0;
 
         $forward_read = <READS>;
         $forward_read = <READS>;
@@ -291,6 +306,10 @@ sub main {
 
         if ($unique_mapper_found eq "true" || $non_unique_mappers_found eq "true") {
             for ($mapper=0; $mapper<$num_mappers; $mapper++) {
+		$MDf = "";
+		$MDr = "";
+         	$MMf = 0;
+	        $MMr = 0;
                 $rum_u_forward = $FORWARD[$mapper];
                 $rum_u_reverse = $REVERSE[$mapper];
                 $rum_u_joined = $JOINED[$mapper];
@@ -318,7 +337,7 @@ sub main {
                         }
                     }
                 } else {
-                    $bitscore = 0;
+                    $bitscore_f = 0;
                 }
                 if (($rum_u_forward =~ /\S/ && $rum_u_reverse =~ /\S/) || $rum_u_joined =~ /\S/) {
                     $bitscore_f = $bitscore_f + 2;
@@ -603,10 +622,7 @@ sub main {
                         $forward_read = reversecomplement($forward_read_hold);
                         if (!($rum_u_joined =~ /\S/)) {
                             $bitscore_f = $bitscore_f + 16;
-                            $bitscore_r = $bitscore_r + 32;
-                            if (!($rum_u_reverse =~ /\S/)) {
-                                $bitscore_r = $bitscore_r + 16;
-                            }
+			    $bitscore_r = $bitscore_r + 32;
                         }
                     } else {
                         $forward_read = $forward_read_hold;
@@ -693,8 +709,14 @@ sub main {
                             $CIGAR_f = $CIGAR_f . $right_clip_size_f . "S";
                         }
                     }
+                    $ruf[2] =~ /^(\d+)/;
+                    $sf = $1;
+                    $ref = &cigar2mismatches($ruf[1], $sf, $CIGAR_f, $ruf[4]);
+                    @return_values = @{$ref};
+                    $MDf = $return_values[0];
+                    $NMf = $return_values[1];
                 }
-	    
+                
 	    
                 if ($rum_u_reverse =~ /\S/) {
 		
@@ -712,9 +734,6 @@ sub main {
                         if (!($rum_u_joined =~ /\S/)) {
                             $bitscore_r = $bitscore_r + 16;
                             $bitscore_f = $bitscore_f + 32;
-                            if (!($rum_u_forward =~ /\S/)) {
-                                $bitscore_f = $bitscore_f + 16;
-                            }
                         }
                     } else {
                         $reverse_read = $reverse_read_hold;
@@ -804,6 +823,12 @@ sub main {
                             $CIGAR_r = $CIGAR_r . $right_clip_size_r . "S";
                         }
                     }
+                    $rur[2] =~ /^(\d+)/;
+                    $sf = $1;
+                    $ref = &cigar2mismatches($rur[1], $sf, $CIGAR_r, $rur[4]);
+                    @return_values = @{$ref};
+                    $MDr = $return_values[0];
+                    $NMr = $return_values[1];
                 }
 	    
 	    
@@ -868,7 +893,7 @@ sub main {
 	    
                 if (!($rum_u_forward =~ /\S/) && $rum_u_reverse =~ /\S/) { # forward unmapped, reverse mapped
                     push(@forward_record, 
-                         $rur[1], $start_reverse, 0, "*", "=", $start_reverse,
+                         '*', '*', 0, "*", "=", $start_reverse,
                          0, $forward_read, $forward_qual);
                 }
                 if ($rum_u_forward =~ /\S/ || $rum_u_joined =~ /\S/) { # forward mapped
@@ -891,7 +916,9 @@ sub main {
                 } else {
                     push @forward_record, "XO:A:F";
                 }
-
+                if($MDf =~ /\S/) {
+                     $forward_record = $forward_record . "\tMD:Z:$MDf\tNM:i:$NMf";
+                }
                 $MM = $mapper+1;
                 push @forward_record, "IH:i:$num_mappers", "HI:i:$MM";
 
@@ -918,7 +945,7 @@ sub main {
                     push @reverse_record, $bitscore_r;
                     if (!($rum_u_reverse =~ /\S/) && $rum_u_forward =~ /\S/) { # reverse unmapped, forward mapped
                         push(@reverse_record,
-                             $ruf[1], $start_forward, 0, "*", "=", 
+                             '*', '*', 0, "*", "=", 
                              $start_forward, 0, $reverse_read, $reverse_qual);
                     }
                     if ($rum_u_reverse =~ /\S/ || $rum_u_joined =~ /\S/) { # reverse mapped
@@ -936,6 +963,9 @@ sub main {
                     } else {
                         push @reverse_record, "XO:A:F";
                     }
+		    if($MDr =~ /\S/) {
+			$reverse_record = $reverse_record . "\tMD:Z:$MDr\tNM:i:$NMr";
+		    }
                     $MM = $mapper+1;
                     push @reverse_record, "IH:i:$num_mappers", "HI:i:$MM";
 
@@ -1053,5 +1083,80 @@ sub getprefix () {
     }
 }
 
+sub cigar2mismatches () {
+    ($chr_c, $start_c, $cigar_c, $seq_c) = @_;
 
-
+    $seq2_c = $seq_c;
+    $seq2_c =~ s/://g;
+    $seq2_c =~ s/\+//g;
+    $MD = "";
+    $NM = 0;
+    $spans = "";
+    $current_loc_c = $start_c;
+    $type_prev = "";
+    while($cigar_c =~ /^(\d+)([^\d])/) {
+	$num_c = $1;
+	$type_c = $2;
+	if($type_c eq 'M') {
+	    $E_c = $current_loc_c + $num_c - 1;
+	    if($spans =~ /\S/) {
+		$spans = $spans . ", " .  $current_loc_c . "-" . $E_c;
+	    } else {
+		$spans = $current_loc_c . "-" . $E_c;
+	    }
+	    $genomeseq_c = substr($GENOMESEQ{$chr_c}, $current_loc_c - 1, $num_c);
+	    $current_loc_c = $E_c;
+	    $readseq_c = substr($seq2_c, 0, $num_c);
+	    $seq2_c =~ s/^$readseq_c//;
+	    @A_c = split(//,$readseq_c);
+	    @B_c = split(//,$genomeseq_c);
+	    $cnt_c = 0;
+	    for($i_c=0; $i_c<@A_c; $i_c++) {
+		if($A_c[$i_c] ne $B_c[$i_c]) {
+		    $NM++;
+		    if($i_c==0 && $type_prev eq "D") {
+			$MD = $MD . "0" . $B_c[$i_c];
+		    } else {
+			if($cnt_c > 0) {
+			    $MD =~ s/(\d*)$//;
+			    $x_c = $1 + 0;
+			    $cnt_c = $cnt_c + $x_c;
+			    $MD = $MD . $cnt_c . $B_c[$i_c];
+			} else {
+			    $MD = $MD . $B_c[$i_c];
+			}
+		    }
+		    $cnt_c = 0;
+		} else {
+		    $cnt_c++;
+		    if($i_c == @A_c - 1) {
+			$MD =~ s/(\d*)$//;
+			$x_c = $1 + 0;
+			$cnt_c = $cnt_c + $x_c;
+			$MD = $MD . $cnt_c;
+		    }
+		}
+	    }
+	}
+	if($type_c eq 'D' || $type_c eq 'N') {
+	    if($type_c eq 'D') {
+		$NM=$NM+$num_c;
+		$genomeseq_c = substr($GENOMESEQ{$chr_c}, $current_loc_c - 1, $num_c);
+		$MD = $MD . "^" . $genomeseq_c;
+	    }
+	    $current_loc_c = $current_loc_c + $num_c + 1;
+	}
+	if($type_c eq 'I') {
+	    $NM=$NM+$num_c;
+	    $current_loc_c++;
+	    for($i_c=0; $i_c<$num_c; $i_c++) {
+		$seq2_c =~ s/^.//;
+	    }
+	}
+	$cigar_c =~ s/^\d+[^\d]//;
+	$type_prev = $type_c;
+    }
+    $return_array[0] = $MD;
+    $return_array[1] = $NM;
+    return \@return_array;
+}
