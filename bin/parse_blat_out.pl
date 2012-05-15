@@ -72,10 +72,17 @@ open(BLATHITS, $blatfile) or die "\nERROR: in script parse_blat_out.pl: cannot o
 # print "Checking that the blat file is in correctly sorted order.\n";
 $line = <BLATHITS>;
 chomp($line);
+
+# Skip over header lines
 while(($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
-    $line = <BLATHITS>;
+
+    # If the blat file is empty, then the line of dashes will be the
+    # last one in the file. So we need to watch for EOF while
+    # searching for the end of the header lines.
+    defined($line = <BLATHITS>) or last;
     chomp($line);
 }
+
 $line1 = $line;
 $blatsorted = "true";
 while($line2 = <BLATHITS>) {
