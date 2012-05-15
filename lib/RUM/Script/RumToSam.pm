@@ -158,6 +158,8 @@ sub main {
         undef @REVERSE;
         undef @JOINED;
         $num_mappers = 0;
+	$MDf = "";
+	$MDr = "";
 
         $forward_read = <READS>;
         $forward_read = <READS>;
@@ -302,6 +304,8 @@ sub main {
 
         if ($unique_mapper_found eq "true" || $non_unique_mappers_found eq "true") {
             for ($mapper=0; $mapper<$num_mappers; $mapper++) {
+		$MDf = "";
+		$MDr = "";
                 $rum_u_forward = $FORWARD[$mapper];
                 $rum_u_reverse = $REVERSE[$mapper];
                 $rum_u_joined = $JOINED[$mapper];
@@ -900,8 +904,9 @@ sub main {
                 } else {
                     $forward_record = $forward_record . "\tXO:A:F";
                 }
-                $forward_record = $forward_record . "\tMN:$MDf";
-
+                if($MDf =~ /\S/) {
+                     $forward_record = $forward_record . "\tMD:Z:$MDf";
+                }
                 $MM = $mapper+1;
                 $forward_record = $forward_record . "\tIH:i:$num_mappers\tHI:i:$MM";
 
@@ -941,7 +946,9 @@ sub main {
                     } else {
                         $reverse_record = $reverse_record . "\tXO:A:F";
                     }
-                    $forward_record = $forward_record . "\tMN:$MDr";
+		    if($MDr =~ /\S/) {
+			$reverse_record = $reverse_record . "\tMD:Z:$MDr";
+		    }
                     $MM = $mapper+1;
                     $reverse_record = $reverse_record . "\tIH:i:$num_mappers\tHI:i:$MM";
 
