@@ -337,7 +337,7 @@ sub main {
                         }
                     }
                 } else {
-                    $bitscore = 0;
+                    $bitscore_f = 0;
                 }
                 if (($rum_u_forward =~ /\S/ && $rum_u_reverse =~ /\S/) || $rum_u_joined =~ /\S/) {
                     $bitscore_f = $bitscore_f + 2;
@@ -622,10 +622,7 @@ sub main {
                         $forward_read = reversecomplement($forward_read_hold);
                         if (!($rum_u_joined =~ /\S/)) {
                             $bitscore_f = $bitscore_f + 16;
-                            $bitscore_r = $bitscore_r + 32;
-                            if (!($rum_u_reverse =~ /\S/)) {
-                                $bitscore_r = $bitscore_r + 16;
-                            }
+			    $bitscore_r = $bitscore_r + 32;
                         }
                     } else {
                         $forward_read = $forward_read_hold;
@@ -737,9 +734,6 @@ sub main {
                         if (!($rum_u_joined =~ /\S/)) {
                             $bitscore_r = $bitscore_r + 16;
                             $bitscore_f = $bitscore_f + 32;
-                            if (!($rum_u_forward =~ /\S/)) {
-                                $bitscore_f = $bitscore_f + 16;
-                            }
                         }
                     } else {
                         $reverse_read = $reverse_read_hold;
@@ -895,7 +889,7 @@ sub main {
                 $forward_record = $forward_record . "\t$bitscore_f";
 	    
                 if (!($rum_u_forward =~ /\S/) && $rum_u_reverse =~ /\S/) { # forward unmapped, reverse mapped
-                    $forward_record = $forward_record . "\t$rur[1]\t$start_reverse\t255\t*\t=\t$start_reverse\t0\t$forward_read\t$forward_qual";
+                    $forward_record = $forward_record . "\t*\t*\t255\t*\t=\t$start_reverse\t0\t$forward_read\t$forward_qual";
                 }
                 if ($rum_u_forward =~ /\S/ || $rum_u_joined =~ /\S/) { # forward mapped
                     $forward_record = $forward_record . "\t$ruf[1]\t$start_forward\t255\t$CIGAR_f\t";
@@ -941,7 +935,7 @@ sub main {
                     }
                     $reverse_record = $reverse_record . "\t$bitscore_r";
                     if (!($rum_u_reverse =~ /\S/) && $rum_u_forward =~ /\S/) { # reverse unmapped, forward mapped
-                        $reverse_record = $reverse_record . "\t$ruf[1]\t$start_forward\t255\t*\t=\t$start_forward\t0\t$reverse_read\t$reverse_qual";
+                        $reverse_record = $reverse_record . "\t*\t*\t255\t*\t=\t$start_forward\t0\t$reverse_read\t$reverse_qual";
                     }
                     if ($rum_u_reverse =~ /\S/ || $rum_u_joined =~ /\S/) { # reverse mapped
                         $reverse_record = $reverse_record . "\t$rur[1]\t$start_reverse\t255\t$CIGAR_r\t=";
