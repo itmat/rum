@@ -917,7 +917,7 @@ sub main {
                     push @forward_record, "XO:A:F";
                 }
                 if($MDf =~ /\S/) {
-                     $forward_record = $forward_record . "\tMD:Z:$MDf\tNM:i:$NMf";
+                     push @forward_record, "MD:Z:$MDf", "NM:i:$NMf";
                 }
                 $MM = $mapper+1;
                 push @forward_record, "IH:i:$num_mappers", "HI:i:$MM";
@@ -964,7 +964,7 @@ sub main {
                         push @reverse_record, "XO:A:F";
                     }
 		    if($MDr =~ /\S/) {
-			$reverse_record = $reverse_record . "\tMD:Z:$MDr\tNM:i:$NMr";
+			push @reverse_record, "MD:Z:$MDr", "NM:i:$NMr";
 		    }
                     $MM = $mapper+1;
                     push @reverse_record, "IH:i:$num_mappers", "HI:i:$MM";
