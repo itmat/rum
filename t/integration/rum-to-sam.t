@@ -10,6 +10,7 @@ use lib "$Bin/../../lib";
 use RUM::Script::RumToSam;
 use RUM::TestUtils;
 
+my $genome_fa     = $RUM::TestUtils::GENOME_FA;
 my $unique_in     = "$SHARED_INPUT_DIR/RUM_Unique.1";
 my $non_unique_in = "$SHARED_INPUT_DIR/RUM_NU.1";
 my $reads_in      = "$INPUT_DIR/reads.fa.1";
@@ -34,14 +35,16 @@ while (my ($name, $args) = each %configs) {
     push @ARGV, "--reads-in", $reads if $reads;
     push @ARGV, "--non-unique", $non_unique if $non_unique;
     push @ARGV, "--unique", $unique if $unique;
+    push @ARGV, "--genome", $genome_fa;
     RUM::Script::RumToSam->main();
-    no_diffs($out, "$EXPECTED_DIR/$name.sam", $name);
+    no_diffs($out, "$EXPECTED_DIR/$name.sam", $name, "-I '^\@'");
 }
 
 for my $suppress (1, 2, 3) {
     
     my $name = "suppress$suppress";
-    my $out = temp_filename(TEMPLATE => "$name-XXXXXX", UNLINK => 0);
+    my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
+
     @ARGV = ("--unique", $unique_in, 
              "--non-unique", $non_unique_in,
              "--reads-in", $reads_in,
@@ -50,8 +53,9 @@ for my $suppress (1, 2, 3) {
              "--suppress$suppress");
 
     RUM::Script::RumToSam->main();
-    no_diffs($out, "$EXPECTED_DIR/$name.sam", $name);
+    no_diffs($out, "$EXPECTED_DIR/$name.sam", $name, "-I '^\@'");
 }
+
 {
     my $name = "name-mapping";
     my $out = temp_filename(TEMPLATE => "$name-XXXXXX");

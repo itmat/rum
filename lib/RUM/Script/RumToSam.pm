@@ -7,12 +7,57 @@ use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
 use RUM::Common qw(addJunctionsToSeq reversecomplement spansTotalLength);
+use RUM::SamIO qw(:flags);
+
 our $log = RUM::Logging->get_logger();
 $|=1;
 
+our $QNAME =  0;
+our $FLAG  =  1;
+our $RNAME =  2;
+our $POS   =  3;
+our $MAPQ  =  4;
+our $CIGAR =  5;
+our $RNEXT =  6;
+our $PNEXT =  7;
+our $TLEN  =  8;
+our $SEQ   =  9;
+our $QUAL  = 10;
+
+our $DEFAULT_RNAME = '*';
+our $DEFAULT_POS   = 0;
+our $DEFAULT_CIGAR = '*';
+our $DEFAULT_PNEXT = 0;
+our $RNEXT_UNAVAILABLE = '*';
+our $RNEXT_SAME        = '=';
+our $DEFAULT_MAPQ = 0;
+our $MAPQ_UNAVAILABLE = 255;
+our $DEFAULT_TLEN = 0;
+our $DEFAULT_QUAL = '*';
+
+our $N_REQUIRED_FIELDS = 11;
+
+
+sub some_segment_mapped {
+    my ($rec) = @_;
+    my $mask = $FLAG_SEGMENT_UNMAPPED | $FLAG_NEXT_SEGMENT_UNMAPPED;
+    return ($rec->[$FLAG] & $mask) != $mask;
+}
+
+sub this_segment_mapped {
+    my ($rec) = @_;
+    return ! ( $rec->[$FLAG] & $FLAG_SEGMENT_UNMAPPED );
+}
+
+sub both_segments_mapped {
+    my ($rec) = @_;
+    my $mask = $FLAG_SEGMENT_UNMAPPED | $FLAG_NEXT_SEGMENT_UNMAPPED;
+    return ! ( $rec->[$FLAG] & $mask );
+}
+
 sub main {
 
-    $map_names = "false";
+    my $map_names = "false";
 
     GetOptions(
         "suppress1" => \(my $suppress1),
@@ -34,10 +79,23 @@ sub main {
     $reads_file or RUM::Usage->bad(
         "Please specify a reads file with --reads-in");
 
+    my $allow = sub { 1 };
+    if ($suppress1) {
+        $allow = \&some_segment_mapped;
+    }
+    elsif ($suppress2) {
+        $allow = \&this_segment_mapped;
+    }
+    elsif ($suppress3) {
+        $allow = \&both_segments_mapped;
+    }
+
+    
+    my %namemapping;
     if ($name_mapping_file) {
         $map_names = "true";
         open(NAMEMAPPING, $name_mapping_file) or die "ERROR: in script parsefastq.pl, cannot open \"$name_mapping_file\" for reading.\n\n";
-        while ($line = <NAMEMAPPING>) {
+        while (my $line = <NAMEMAPPING>) {
             chomp($line);
             @a = split(/\t/,$line);
             $namemapping{$a[0]} = $a[1];
@@ -46,7 +104,7 @@ sub main {
     }
 
     open(INFILE, $genome_infile);
-    while($line = <INFILE>) {
+    while(my $line = <INFILE>) {
         chomp($line);
         $line =~ s/^>//;
         $line2 = <INFILE>;
@@ -64,12 +122,13 @@ sub main {
     chomp($line);
     $readlength = length($line);
     unless ($qual_file) {
-        $QUAL{$readlength} = "*";
+        $QUAL{$readlength} = $DEFAULT_QUAL || ("I" x $readlength);
     }
     $line = <INFILE>;
     chomp($line);
     $line =~ /seq.\d+(.)/;
     $type = $1;
+    my $paired;
     if ($type eq 'b') {
         $paired = "true";
     } else {
@@ -150,9 +209,11 @@ sub main {
     if ($qual_file) {
         open(QUALS, $qual_file);
     }
-    open(SAM, ">$sam_outfile");
 
-    for ($seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
+    open(my $sam_out, ">", $sam_outfile);
+    my $sam = RUM::SamIO->new(-fh => $sam_out);
+
+    for (my $seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
 
         undef @FORWARD;
         undef @REVERSE;
@@ -169,7 +230,7 @@ sub main {
         $forward_read_hold = $forward_read;
         $readlength_forward = length($forward_read);
         if ((!$qual_file) && !($QUAL{$readlength_forward} =~ /\S/)) {
-            $QUAL{$readlength_forward} = ".";
+            $QUAL{$readlength_forward} = $DEFAULT_QUAL || ("I" x $readlength);
         }
         if ($paired eq "true") {
             $reverse_read = <READS>;
@@ -178,7 +239,7 @@ sub main {
             $reverse_read_hold = $reverse_read;
             $readlength_reverse = length($reverse_read);
             if ((!$qual_file) && !($QUAL{$readlength_reverse} =~ /\S/)) {
-                $QUAL{$readlength_reverse} = ".";
+                $QUAL{$readlength_reverse} = $DEFAULT_QUAL || ("I" x $readlength);
             }
         }
 
@@ -840,22 +901,22 @@ sub main {
                 if ($ruf[2] =~ /^(\d+)-/) {
                     $start_forward = $1;
                 } else {
-                    $start_forward = "*";
+                    $start_forward = 0;
                 }
                 if ($ruf[2] =~ /-(\d+)$/) {
                     $end_forward = $1;
                 } else {
-                    $end_forward = "*";
+                    $end_forward = 0;
                 }
                 if ($rur[2] =~ /^(\d+)-/) {
                     $start_reverse = $1;
                 } else {
-                    $start_reverse = "*";
+                    $start_reverse = 0;
                 }
                 if ($rur[2] =~ /-(\d+)$/) {
                     $end_reverse = $1;
                 } else {
-                    $end_reverse = "*";
+                    $end_reverse = 0;
                 }
                 if ($rum_u_forward =~ /\S/ && !($rum_u_reverse =~ /\S/)) {
                     $start_reverse = $start_forward;
@@ -879,36 +940,54 @@ sub main {
 	    
                 # FORWARD:
 	    
-
-                my @forward_record;
+                my @forward_record = map "", (1 .. $N_REQUIRED_FIELDS);
                 my $forward_record;
 
                 if ($map_names eq "true") {
-                    $tmp = "seq.$seqnum" . "a";
-                    push @forward_record, $namemapping{$tmp};
+                    my $tmp = "seq.${seqnum}a";
+                    $forward_record[$QNAME] = $namemapping{$tmp};
                 } else {
-                    push @forward_record, "seq.$seqnum";
+                    $forward_record[$QNAME] = "seq.$seqnum";
                 }
-                push @forward_record, $bitscore_f;
+                $forward_record[$FLAG] = $bitscore_f;
 	    
                 if (!($rum_u_forward =~ /\S/) && $rum_u_reverse =~ /\S/) { # forward unmapped, reverse mapped
-                    push(@forward_record, 
-                         '*', '*', 0, "*", "=", $start_reverse,
-                         0, $forward_read, $forward_qual);
+                    $forward_record[$RNAME] = $rur[1];
+                    $forward_record[$POS]   = $start_reverse;
+                    $forward_record[$MAPQ]  = $DEFAULT_MAPQ;
+                    $forward_record[$CIGAR]  = $DEFAULT_CIGAR;
+                    $forward_record[$RNEXT] = $RNEXT_SAME;
+                    $forward_record[$PNEXT] = $start_reverse;
+                    $forward_record[$TLEN]  = $DEFAULT_TLEN;
+                    $forward_record[$SEQ]   = $forward_read;
+                    $forward_record[$QUAL]  = $forward_qual;
                 }
-                if ($rum_u_forward =~ /\S/ || $rum_u_joined =~ /\S/) { # forward mapped
-                    push @forward_record, $ruf[1], $start_forward, 255, $CIGAR_f;
+                else { # forward mapped
+                    $forward_record[$RNAME] = $ruf[1];
+                    $forward_record[$POS]   = $start_forward;
+                    $forward_record[$MAPQ]  = 255;
+                    $forward_record[$CIGAR] = $CIGAR_f;
+
                     if ($paired eq "true") {
                         if ($rum_u_reverse =~ /\S/) { # paired and reverse mapped
-                            push @forward_record, "=", $start_reverse, $idist_f,
-                                $forward_read, $forward_qual;
+                            $forward_record[$RNEXT] = $RNEXT_SAME;
+                            $forward_record[$PNEXT] = $start_reverse;
+                            $forward_record[$TLEN]  = $idist_f;
+                            $forward_record[$SEQ]   = $forward_read;
+                            $forward_record[$QUAL]  = $forward_qual;
                         } else { # reverse didn't map
-                            push @forward_record, "=", $start_forward, 0,
-                                $forward_read, $forward_qual;
+                            $forward_record[$RNEXT] = $RNEXT_SAME;
+                            $forward_record[$PNEXT] = $start_forward;
+                            $forward_record[$TLEN]  = 0;
+                            $forward_record[$SEQ]   = $forward_read;
+                            $forward_record[$QUAL]  = $forward_qual;
                         }
                     } else {    # not paired end
-                        push @forward_record,
-                            "*", 0, 0, $forward_read, $forward_qual;
+                        $forward_record[$RNEXT] = $RNEXT_UNAVAILABLE;
+                        $forward_record[$PNEXT] = $DEFAULT_PNEXT;
+                        $forward_record[$TLEN]  = $DEFAULT_TLEN;
+                        $forward_record[$SEQ]   = $forward_read;
+                        $forward_record[$QUAL]  = $forward_qual;
                     }
                 }
                 if ($joined eq "true") {
@@ -922,40 +1001,48 @@ sub main {
                 $MM = $mapper+1;
                 push @forward_record, "IH:i:$num_mappers", "HI:i:$MM";
 
-                $forward_record = join("\t", @forward_record) . "\n";
-
-                if ($suppress2 && $forward_record =~ /\*\t=/) {
-                    # do nothing
-                } elsif ($suppress3 && ($forward_record =~ /\*\t=/ || $reverse_record =~ /\*\t=/)) {
-                    # do nothing
-                } else {
-                    print SAM $forward_record;
-                }
+                $sam->write_rec(\@forward_record) if $allow->(\@forward_record);
 	    
                 # REVERSE
 	    
                 if ($paired eq "true") {
-                    my @reverse_record;
+                    my @reverse_record = map "", (1 .. $N_REQUIRED_FIELDS);
                     if ($map_names eq "true") {
-                        $tmp = "seq.$seqnum" . "b";
-                        push @reverse_record, $namemapping{$tmp};
+                        $$tmp = "seq.$seqnum" . "b";
+                        $reverse_record[$QNAME] = $namemapping{$tmp};
                     } else {
-                        push @reverse_record, "seq.$seqnum";
+                        $reverse_record[$QNAME] = "seq.$seqnum";
                     }
-                    push @reverse_record, $bitscore_r;
+                    $reverse_record[$FLAG] = $bitscore_r;
+
                     if (!($rum_u_reverse =~ /\S/) && $rum_u_forward =~ /\S/) { # reverse unmapped, forward mapped
-                        push(@reverse_record,
-                             '*', '*', 0, "*", "=", 
-                             $start_forward, 0, $reverse_read, $reverse_qual);
+                        $reverse_record[$RNAME] = $ruf[1];
+                        $reverse_record[$POS]   = $start_reverse;
+                        $reverse_record[$MAPQ]  = $DEFAULT_MAPQ;
+                        $reverse_record[$CIGAR] = $DEFAULT_CIGAR;
+                        $reverse_record[$RNEXT] = $RNEXT_SAME;
+                        $reverse_record[$PNEXT] = $start_forward;
+                        $reverse_record[$TLEN]  = $DEFAULT_TLEN;
+                        $reverse_record[$SEQ]   = $reverse_read;
+                        $reverse_record[$QUAL]  = $reverse_qual;
                     }
-                    if ($rum_u_reverse =~ /\S/ || $rum_u_joined =~ /\S/) { # reverse mapped
-                        push @reverse_record, $rur[1], $start_reverse, 255, 
-                            $CIGAR_r, "=";
+                    else {
+                        $reverse_record[$RNAME] = $rur[1];
+                        $reverse_record[$POS]   = $start_reverse;
+                        $reverse_record[$MAPQ]  = $MAPQ_UNAVAILABLE;
+                        $reverse_record[$CIGAR] = $CIGAR_r;
+                        $reverse_record[$RNEXT] = $RNEXT_SAME;
+
                         if ($rum_u_forward =~ /\S/) { # forward mapped
-                            push @reverse_record, $start_forward, $idist_r, $reverse_read, $reverse_qual;
+                            $reverse_record[$PNEXT] = $start_forward;
+                            $reverse_record[$TLEN]  = $idist_r;
+                            $reverse_record[$SEQ]   = $reverse_read;
+                            $reverse_record[$QUAL]  = $reverse_qual;                        
                         } else { # forward didn't map
-                            push @reverse_record, $start_reverse, 0, 
-                                $reverse_read, $reverse_qual;		
+                            $reverse_record[$PNEXT] = $start_reverse;
+                            $reverse_record[$TLEN]  = $DEFAULT_TLEN;
+                            $reverse_record[$SEQ]   = $reverse_read;
+                            $reverse_record[$QUAL]  = $reverse_qual;                        
                         }
                     }
                     if ($joined eq "true") {
@@ -969,63 +1056,89 @@ sub main {
                     $MM = $mapper+1;
                     push @reverse_record, "IH:i:$num_mappers", "HI:i:$MM";
 
-                    my $reverse_record = join("\t", @reverse_record) . "\n";
-                    if ($suppress2 && $reverse_record =~ /\*\t=/) {
-                        # do nothing
-                    } elsif ($suppress3 && ($forward_record =~ /\*\t=/ || $reverse_record =~ /\*\t=/)) {
-                        # do nothing
-                    } else {
-                        print SAM $reverse_record;
-                    }
+                    $sam->write_rec(\@reverse_record) if $allow->(\@reverse_record);
                 }
             }
         }
 
         if ($unique_mapper_found eq "false" && $non_unique_mappers_found eq "false") {
             # neither forward nor reverse map
+            
             if ($paired eq "false") {
-                my @rec;
+                my @rec = map "", (1 .. $N_REQUIRED_FIELDS);
 
                 if ($map_names eq "true") {
-                    $tmp = "seq.$seqnum" . "a";
-                    push @rec, $namemapping{$tmp};
+                    my $tmp = "seq.$seqnum" . "a";
+                    $rec[$QNAME] = $namemapping{$tmp};
                 } else {
-                    push @rec, "seq.$seqnum";
+                    $rec[$QNAME] = "seq.$seqnum";
                 }
-                push @rec, 4, "*", 0, 255, "*", "*", 0, 0, 
-                    $forward_read, $forward_qual;
-                unless ($suppress1 || $suppress2 || $suppress3) {
-                    print SAM join("\t", @rec), "\n";
-                }
+                $rec[$FLAG] = $FLAG_SEGMENT_UNMAPPED;
+                $rec[$RNAME] = $DEFAULT_RNAME;
+                $rec[$POS]   = $DEFAULT_POS;
+                $rec[$MAPQ]  = $DEFAULT_MAPQ;
+                $rec[$CIGAR] = $DEFAULT_CIGAR;
+                $rec[$RNEXT] = $RNEXT_UNAVAILABLE;
+                $rec[$PNEXT] = $DEFAULT_PNEXT;
+                $rec[$TLEN]  = $DEFAULT_TLEN;
+                $rec[$SEQ]   = $forward_read;
+                $rec[$QUAL]  = $forward_qual;
+
+                $sam->write_rec(\@rec)
             } else {
-                my (@fwd, @rev);
+                my @fwd = map "", (1 .. $N_REQUIRED_FIELDS);
                 if ($map_names eq "true") {
-                    $tmp = "seq.$seqnum" . "a";
-                    push @fwd,  $namemapping{$tmp};
+                    my $tmp = "seq.$seqnum" . "a";
+                    $fwd[$QNAME] = $namemapping{$tmp};
                 } else {
-                    push @fwd, "seq.$seqnum";
+                    $fwd[$QNAME] = "seq.$seqnum";
                 }
-                push @fwd, 77, "*", 0, 0, "*", "*", 0, 0, 
-                    $forward_read, $forward_qual;
 
+                
+                $fwd[$FLAG]  = $FLAG_MULTIPLE_SEGMENTS;
+                $fwd[$FLAG] |= $FLAG_SEGMENT_UNMAPPED;
+                $fwd[$FLAG] |= $FLAG_NEXT_SEGMENT_UNMAPPED;
+                $fwd[$FLAG] |= $FLAG_FIRST_SEGMENT;
+                
+                $fwd[$RNAME] = $DEFAULT_RNAME;
+                $fwd[$POS]   = $DEFAULT_POS;
+                $fwd[$MAPQ]  = $DEFAULT_MAPQ;
+                $fwd[$CIGAR] = $DEFAULT_CIGAR;
+                $fwd[$RNEXT] = $RNEXT_SAME;
+                $fwd[$PNEXT] = $DEFAULT_PNEXT;
+                $fwd[$TLEN]  = $DEFAULT_TLEN;
+                $fwd[$SEQ]   = $forward_read;
+                $fwd[$QUAL]  = $forward_qual;
+
+                my @rev = map "", (1 .. $N_REQUIRED_FIELDS);
                 if ($map_names eq "true") {
-                    $tmp = "seq.$seqnum" . "b";
-                    push @rev,  $namemapping{$tmp};
+                    my $tmp = "seq.$seqnum" . "b";
+                    $rev[$QNAME] = $namemapping{$tmp};
                 } else {
-                    push @rev, "seq.$seqnum";
+                    $rev[$QNAME] = "seq.$seqnum";
                 }
-                push @rev, 141, "*", 0, 0, "*", "*", 
-                    0, 0, $reverse_read, $reverse_qual;
-                unless ($suppress1 || $suppress2 || $suppress3) {
-                    print SAM join("\t", @fwd), "\n";
-                    print SAM join("\t", @rev), "\n";
-                }
+
+                $rev[$FLAG] |= $FLAG_MULTIPLE_SEGMENTS;
+                $rev[$FLAG] |= $FLAG_SEGMENT_UNMAPPED;
+                $rev[$FLAG] |= $FLAG_NEXT_SEGMENT_UNMAPPED;
+                $rev[$FLAG] |= $FLAG_LAST_SEGMENT;
+
+                $rev[$RNAME] = $DEFAULT_RNAME;
+                $rev[$POS]   = $DEFAULT_POS;
+                $rev[$MAPQ]  = $DEFAULT_MAPQ;
+                $rev[$CIGAR] = $DEFAULT_CIGAR;
+                $rev[$RNEXT] = $RNEXT_SAME;
+                $rev[$PNEXT] = $DEFAULT_PNEXT;
+                $rev[$TLEN]  = $DEFAULT_TLEN;
+                $rev[$SEQ]   = $reverse_read;
+                $rev[$QUAL]  = $reverse_qual;
+
+                $sam->write_rec(\@fwd) if $allow->(\@fwd);
+                $sam->write_rec(\@rev) if $allow->(\@rev);
             }
         }
     }
 }
-
-
 
 
 sub getsuffix () {

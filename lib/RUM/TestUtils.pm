@@ -74,8 +74,9 @@ two files.
 =cut
 
 sub no_diffs {
-    my ($file1, $file2, $name) = @_;
-    my $diffs = `diff $file2 $file1 > /dev/null`;
+    my ($file1, $file2, $name, $options) = @_;
+    $options ||= "";
+    my $diffs = `diff $options $file2 $file1 > /dev/null`;
     my $status = $? >> 8;
     ok($status == 0, $name);
 }
