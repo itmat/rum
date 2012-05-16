@@ -1,5 +1,15 @@
 package RUM::SamIO;
 
+=head1 NAME
+
+RUM::SamIO - Interface for writing SAM files
+
+=head1 METHODS
+
+=over 4
+
+=cut
+
 use strict;
 use warnings;
 
@@ -48,7 +58,12 @@ our @DESCRIPTIONS = (
     "PCR or optical duplicate"
 );
 
+=item RUM::SamIO->flag_descriptions($flag)
 
+Return an array ref of the string descriptions of the bits that are
+set in the given flag.
+
+=cut
 
 sub flag_descriptions {
     my ($class, $flag) = @_;
@@ -62,6 +77,13 @@ sub flag_descriptions {
     }
     return \@result;
 }
+
+=item RUM::SamIO->fix_flag($flag)
+
+If the flag is internally inconsistent according to the SAM format
+specification, return a fixed version of it.
+
+=cut
 
 sub fix_flag {
     my ($class, $flag, $callback) = @_;
@@ -92,6 +114,38 @@ sub fix_flag {
     }
 }
 
+=back
+
+=head1 CONSTRUCTORS
+
+=over 4
+
+=item RUM::SamIO->new(-fh => $filehandle)
+
+Return a new RUM::SamIO that writes to the given filehandle.
+
+=cut
+
+sub new {
+    my ($class, %options) = @_;
+    my $self = {};
+    $self->{-fh} = delete $options{-fh} or croak
+        "$class->new needs a -fh option";
+    return bless $self, $class;
+}
+
+=back
+
+=head1 OBJECT METHODS
+
+=over 4
+
+=item $sam->write_rec($record)
+
+Write the given record to the output file.
+
+=cut
+
 sub write_rec {
     my $self = shift;
     my $rec = shift or croak '$sam->write_rec needs a record';
@@ -103,13 +157,5 @@ sub write_rec {
     my $line = join("\t", @$rec) . "\n";
 
     print $fh $line;
-}
-
-sub new {
-    my ($class, %options) = @_;
-    my $self = {};
-    $self->{-fh} = delete $options{-fh} or croak
-        "$class->new needs a -fh option";
-    return bless $self, $class;
 }
 

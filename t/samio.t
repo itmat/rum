@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use autodie;
 
-use Test::More tests => 14;
+use Test::More tests => 3;
 use lib "lib";
 
 use RUM::SamIO;
