@@ -960,7 +960,7 @@ sub main {
                     $forward_record[$PNEXT] = $start_reverse;
                     $forward_record[$TLEN]  = $DEFAULT_TLEN;
                     $forward_record[$SEQ]   = $forward_read;
-                    $forward_record[$QUAL]  = $forward_qual;
+                    $forward_record[$QUAL]  = $forward_qual || $DEFAULT_QUAL;
                 }
                 else { # forward mapped
                     $forward_record[$RNAME] = $ruf[1];
@@ -974,20 +974,20 @@ sub main {
                             $forward_record[$PNEXT] = $start_reverse;
                             $forward_record[$TLEN]  = $idist_f;
                             $forward_record[$SEQ]   = $forward_read;
-                            $forward_record[$QUAL]  = $forward_qual;
+                            $forward_record[$QUAL]  = $forward_qual || $DEFAULT_QUAL;
                         } else { # reverse didn't map
                             $forward_record[$RNEXT] = $RNEXT_SAME;
                             $forward_record[$PNEXT] = $start_forward;
                             $forward_record[$TLEN]  = 0;
                             $forward_record[$SEQ]   = $forward_read;
-                            $forward_record[$QUAL]  = $forward_qual;
+                            $forward_record[$QUAL]  = $forward_qual || $DEFAULT_QUAL;
                         }
                     } else {    # not paired end
                         $forward_record[$RNEXT] = $RNEXT_UNAVAILABLE;
                         $forward_record[$PNEXT] = $DEFAULT_PNEXT;
                         $forward_record[$TLEN]  = $DEFAULT_TLEN;
                         $forward_record[$SEQ]   = $forward_read;
-                        $forward_record[$QUAL]  = $forward_qual;
+                        $forward_record[$QUAL]  = $forward_qual || $DEFAULT_QUAL;
                     }
                 }
                 if ($joined eq "true") {
@@ -1024,7 +1024,7 @@ sub main {
                         $reverse_record[$PNEXT] = $start_forward;
                         $reverse_record[$TLEN]  = $DEFAULT_TLEN;
                         $reverse_record[$SEQ]   = $reverse_read;
-                        $reverse_record[$QUAL]  = $reverse_qual;
+                        $reverse_record[$QUAL]  = $reverse_qual || $DEFAULT_QUAL;
                     }
                     else {
                         $reverse_record[$RNAME] = $rur[1];
@@ -1037,12 +1037,12 @@ sub main {
                             $reverse_record[$PNEXT] = $start_forward;
                             $reverse_record[$TLEN]  = $idist_r;
                             $reverse_record[$SEQ]   = $reverse_read;
-                            $reverse_record[$QUAL]  = $reverse_qual;                        
+                            $reverse_record[$QUAL]  = $reverse_qual || $DEFAULT_QUAL;
                         } else { # forward didn't map
                             $reverse_record[$PNEXT] = $start_reverse;
                             $reverse_record[$TLEN]  = $DEFAULT_TLEN;
                             $reverse_record[$SEQ]   = $reverse_read;
-                            $reverse_record[$QUAL]  = $reverse_qual;                        
+                            $reverse_record[$QUAL]  = $reverse_qual || $DEFAULT_QUAL;       
                         }
                     }
                     if ($joined eq "true") {
@@ -1082,7 +1082,7 @@ sub main {
                 $rec[$PNEXT] = $DEFAULT_PNEXT;
                 $rec[$TLEN]  = $DEFAULT_TLEN;
                 $rec[$SEQ]   = $forward_read;
-                $rec[$QUAL]  = $forward_qual;
+                $rec[$QUAL]  = $forward_qual || $DEFAULT_QUAL;
 
                 $sam->write_rec(\@rec)
             } else {
@@ -1108,7 +1108,7 @@ sub main {
                 $fwd[$PNEXT] = $DEFAULT_PNEXT;
                 $fwd[$TLEN]  = $DEFAULT_TLEN;
                 $fwd[$SEQ]   = $forward_read;
-                $fwd[$QUAL]  = $forward_qual;
+                $fwd[$QUAL]  = $forward_qual || $DEFAULT_QUAL;
 
                 my @rev = map "", (1 .. $N_REQUIRED_FIELDS);
                 if ($map_names eq "true") {
@@ -1131,7 +1131,7 @@ sub main {
                 $rev[$PNEXT] = $DEFAULT_PNEXT;
                 $rev[$TLEN]  = $DEFAULT_TLEN;
                 $rev[$SEQ]   = $reverse_read;
-                $rev[$QUAL]  = $reverse_qual;
+                $rev[$QUAL]  = $reverse_qual || $DEFAULT_QUAL;
 
                 $sam->write_rec(\@fwd) if $allow->(\@fwd);
                 $sam->write_rec(\@rev) if $allow->(\@rev);

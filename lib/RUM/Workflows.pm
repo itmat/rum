@@ -270,6 +270,7 @@ sub chunk_workflow {
     $m->step(
         "Create SAM file",
         ["perl", $c->script("rum2sam.pl"),
+         "--genome-in", $c->genome_fa,
          "--unique-in", pre($rum_unique),
          "--non-unique-in", pre($rum_nu),
          "--reads-in", $reads_fa,
@@ -775,6 +776,7 @@ sub postprocessing_workflow {
     $w->step(
         "Merge SAM headers",
         ["perl", $c->script("rum_merge_sam_headers.pl"),
+         "--name", $c->name,
          map(pre($_), @sam_headers), "> ", post($c->sam_header)]);
 
     $w->step("Concatenate SAM files",
