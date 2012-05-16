@@ -104,7 +104,7 @@ my @total_times = map $_->{ru_wallclock}, @preproc, @proc, @postproc;
 my $total_time = reduce { $a + $b } @total_times;
 
 printf "\nSummary:\n";
-printf "-------:\n";
+printf "--------\n";
 printf "Total job time: %s\n", format_time($total_time);
 printf " Preprocessing: %s\n", format_time($preproc[0]->{ru_wallclock});
 printf "    Avg. chunk: %s\n", format_time($chunk_time / @proc);
