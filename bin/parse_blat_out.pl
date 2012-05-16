@@ -61,6 +61,32 @@ so make sure they conform.
 
 ";}
 
+# Given a filehandle, skip over all rows that appear to be header
+# rows. After I return, the filehandle will be positioned at the first
+# data row.
+sub skip_headers {
+    my ($fh) = @_;
+
+    my $off;
+    local $_;
+    # Skip over header lines
+    while (1) {
+        
+        $off = tell $fh;
+
+        defined ($_ = <$fh>) or last;
+
+        unless (/--------------------------------/ ||
+                /psLayout/ || 
+                /blockSizes/ || 
+                /match\s+match/ || 
+                !/\S/) {
+            last;
+        }
+    }
+    seek $fh, $off, 0;
+}
+
 $seqfile = $ARGV[0];
 $blatfile = $ARGV[1];
 $mdustfile = $ARGV[2];
@@ -70,19 +96,11 @@ $outfile2 = $ARGV[4];
 open(BLATHITS, $blatfile) or die "\nERROR: in script parse_blat_out.pl: cannot open the file '$blatfile' for reading\n\n";
 # check the blat file is in sorted order
 # print "Checking that the blat file is in correctly sorted order.\n";
+
+skip_headers(\*BLATHITS);
+
 $line = <BLATHITS>;
 chomp($line);
-
-# Skip over header lines
-while(($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
-
-    # If the blat file is empty, then the line of dashes will be the
-    # last one in the file. So we need to watch for EOF while
-    # searching for the end of the header lines.
-    defined($line = <BLATHITS>) or last;
-    chomp($line);
-}
-
 $line1 = $line;
 $blatsorted = "true";
 while($line2 = <BLATHITS>) {
@@ -219,13 +237,13 @@ if($num_insertions_allowed > 1 && $paired_end eq "true") {
 
 # NOTE: insertions instead are indicated in the final output file with the "+" notation
 for($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
+
     if($seq_count == $first_seq_num) {
-	$line = <BLATHITS>;
-	chomp($line);
-	while(($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
-	    $line = <BLATHITS>;
-	    chomp($line);
-	}
+
+        skip_headers(\*BLATHITS);
+        $line = <BLATHITS>;
+        chomp($line);
+
 	@a = split(/\t/,$line);
 	$readlength = $a[10];
 	if($readlength < 80) {
@@ -330,7 +348,11 @@ for($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
     }
     @a = split(/\t/,$line);
     @a_x = split(/\t/,$line);
-    while($seqnum == $seq_count) {
+
+    # We need to check if the $seqnum is defined, in case we got an
+    # empty input file.
+    while(defined($seqnum) && $seqnum == $seq_count) {
+
 	$LENGTH = getTotalSizeFromBlockSizes($a[18]);
 	$SCORE = $LENGTH - $a[1]; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
 	if($SCORE > $cutoff{$seqname}) {   # so match is at least cutoff long (and this cutoff was set to be longer if there are a lot of N's (bad reads or low complexity masked by dust)
@@ -470,15 +492,10 @@ for($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
 		}
 	    }
 	}
+        skip_headers(\*BLATHITS);
 	$line = <BLATHITS>;
 	chomp($line);
-	while(($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
-	    $line = <BLATHITS>;
-	    if($line eq '') {
-		last;
-	    }
-	    chomp($line);
-	}	    
+
 	@a = split(/\t/,$line);
 	@a_x = split(/\t/,$line);
 	$seqname = $a[9];
