@@ -101,6 +101,7 @@ lib/RUM/Platform/Local.pm
 lib/RUM/Platform/SGE.pm
 lib/RUM/Repository.pm
 lib/RUM/Repository/IndexSpec.pm
+lib/RUM/SamIO.pm
 lib/RUM/Script.pm
 lib/RUM/Script/ComputeStats.pm
 lib/RUM/Script/CountReadsMapped.pm
@@ -201,6 +202,8 @@ t/data/shared/alt_quant.txt
 t/data/shared/bad-reads.fq
 t/data/shared/forward.fa
 t/data/shared/forward.fq
+t/data/shared/forward.var.fa
+t/data/shared/forward.var.fq
 t/data/shared/forward64.fa
 t/data/shared/forward64.fq
 t/data/shared/forward_only.fa
@@ -209,12 +212,15 @@ t/data/shared/quals.fa
 t/data/shared/reads.fa
 t/data/shared/reverse.fa
 t/data/shared/reverse.fq
+t/data/shared/reverse.var.fa
+t/data/shared/reverse.var.fq
 t/data/shared/reverse64.fa
 t/data/shared/reverse64.fq
 t/data/shared/RUM_NU.1
 t/data/shared/RUM_NU.sorted.1
 t/data/shared/RUM_Unique.1
 t/data/shared/RUM_Unique.sorted.1
+t/data/shared/sam_header
 t/data/sort-by-location/junctions_all_temp.bed
 t/data/sort-by-location/junctions_all_temp.rum
 t/data/sort-by-location/junctions_high-quality_temp.bed
@@ -329,6 +335,7 @@ t/remove-dups.t
 t/repository.t
 t/rum-config-file.t
 t/runner-usage.t
+t/samio.t
 t/sge.t
 t/sort-by-location.t
 t/sort-rum-by-id.t
