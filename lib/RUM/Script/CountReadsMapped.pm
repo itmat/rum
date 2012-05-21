@@ -1,6 +1,9 @@
 package RUM::Script::CountReadsMapped;
 
+
 no warnings;
+use autodie;
+
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
@@ -15,15 +18,28 @@ sub log_stray_multi_mapper {
     $log->warn($msg);
 }
 
+sub line_iterator {
 
+    my @filenames = @_;
+
+    open my $in, shift(@filenames);
+
+    return sub {
+        my $line = <$in>;
+        return $line if defined $line;
+        return undef unless @filenames;
+        open $in, "<", shift(@filenames);
+        return <$in>;
+    };
+}
 
 sub main {
 
     use RUM::Common qw(format_large_int);
-
+    my (@unique_in, @non_unique_in);
     GetOptions(
-        "unique-in=s"     => \(my $unique_in),
-        "non-unique-in=s" => \(my $non_unique_in),
+        "unique-in=s"     => \@unique_in,
+        "non-unique-in=s" => \@non_unique_in,
         "min-seq=s"       => \(my $min_seq_num),
         "max-seq=s"       => \(my $max_seq_num = 0),
         "help|h"    => sub { RUM::Usage->help },
@@ -33,11 +49,15 @@ sub main {
     $max_num_seqs_specified = "false";
     $min_num_seqs_specified = "false";
 
-    $unique_in or RUM::Usage->bad(
-        "Please specify a file of unique mappers with --unique-in");
-    $non_unique_in or RUM::Usage->bad(
-        "Please specify a file of non-unique mappers ".
-            "with --non-unique-in");
+    @unique_in or RUM::Usage->bad(join(
+        " ",  "Please specify a file of unique mappers with --unique-in.",
+        "You can specify this option multiple times."));
+    @non_unique_in or RUM::Usage->bad(join(
+        " ",  "Please specify a file of non-unique mappers ",
+        "with --non-unique-in. You can specify this option multiple times."));
+
+    my $unique_it = line_iterator(@unique_in);
+    my $nu_it = line_iterator(@non_unique_in);
 
     if (defined($max_seq_num)) {
         $max_num_seqs_specified = "true";
@@ -50,15 +70,15 @@ sub main {
             "--min-seq must be a number, not $min_seq_num");
     }
 
-    open(INFILE, $unique_in) 
-        or die "Can't open $unique_in for reading: $!";
-
     $flag = 0;
     $num_areads = 0;
     $num_breads = 0;
     $current_seqnum = 0;
     $previous_seqnum = 0;
-    while ($line = <INFILE>) {
+
+
+    while (defined(my $line = $unique_it->())) {
+
         chomp($line);
         $line =~ /seq.(\d+)([^\d])/;
         $seqnum = $1;
@@ -126,7 +146,6 @@ sub main {
 
     my $is_paired = keys %typeb;
 
-    close(INFILE);
     foreach $key (keys %typea) {
         $num_a_only++ unless $typeb{$key};
     }
@@ -191,10 +210,9 @@ sub main {
     $num_ambig_consistent=0;
     $num_ambig_a_only=0;
     $num_ambig_b_only=0;
-    open(INFILE, $non_unique_in) 
-        or die "Can't open $non_unique_in for reading: $!";
+
     #print "------\n";
-    while ($line = <INFILE>) {
+    while (defined($line = $nu_it->())) {
         chomp($line);
         $line =~ /seq.(\d+)(.)/;
         $seqnum = $1;
@@ -205,7 +223,7 @@ sub main {
                 if ( $ambiga{$seqnum} && $ambigb{$seqnum} ) {
                     $num_ambig_consistent++;	
                 }
-                elsif ( $ambiga{$seqnum && ! $ambigb{$seqnum} ) {
+                elsif ( $ambiga{$seqnum} && ! $ambigb{$seqnum} ) {
                     $num_ambig_a++;
                 }
                 elsif (! $ambiga{$seqnum} && $ambigb{$seqnum} ) {
@@ -229,7 +247,7 @@ sub main {
         }
         $allids{$seqnum}++;
     }
-    close(INFILE);
+
     foreach $seqnum (keys %allids) {
         if ($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 > 0) {
             $num_ambig_consistent++;	
