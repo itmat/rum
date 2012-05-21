@@ -422,7 +422,7 @@ sub postprocessing_workflow {
     my @sam_files = map { $c->chunk_file("RUM.sam", $_) } @chunks;
 
 
-    my @start = (@rum_unique, @rum_nu, @sam_headers, @sam_files);
+    my @start = (@rum_unique, @rum_nu, @sam_headers, @sam_files, @rum_nu_by_id, @rum_unique_by_id);
     my $mapping_stats               = $c->in_output_dir("mapping_stats_temp.txt");
     my $inferred_internal_exons     = $c->in_output_dir("inferred_internal_exons.bed");
     my $inferred_internal_exons_txt = $c->in_output_dir("inferred_internal_exons.txt");
@@ -456,7 +456,7 @@ sub postprocessing_workflow {
     push @start, @chr_counts_u, @chr_counts_nu;
     $w->add_command(
         name => "Compute mapping statistics",
-        pre => [$rum_unique, $rum_nu, @chr_counts_u, @chr_counts_nu],
+        pre => [$rum_unique, $rum_nu, @chr_counts_u, @chr_counts_nu, @rum_unique_by_id, @rum_nu_by_id],
         post => [$mapping_stats],
         commands => sub {
             my $reads = $reads_fa;
