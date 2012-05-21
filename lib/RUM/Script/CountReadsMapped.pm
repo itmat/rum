@@ -7,6 +7,16 @@ use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
 
+sub log_stray_multi_mapper {
+    my ($seqnum, $count, $line) = @_;
+    my $msg = join(
+        " ", "Looks like there's\na multi-mapper in the RUM_Unique file.",
+        "$seqnum ($joined{$seqnum}) $line");
+    $log->warn($msg);
+}
+
+
+
 sub main {
 
     use RUM::Common qw(format_large_int);
@@ -81,11 +91,12 @@ sub main {
         if ($seqnum < $min_seq_num && $min_num_seqs_specified eq "false") {
             $min_seq_num = $seqnum;
         }
+
         if ($type eq "\t") {
             $joined{$seqnum}++;
             $numjoined++;
             if ($joined{$seqnum} > 1) {
-                print STDERR "in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($joined{$seqnum}) $line\n";
+                log_stray_multi_mapper($seqnum, $joined{$seqnum}, $line);
             }
         }
         if ($type eq "a" || $type eq "b") {
@@ -94,35 +105,35 @@ sub main {
                 $num_unjoined_consistent++;
             }
             if ($unjoined{$seqnum} > 2) {
-                $log->error("SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($unjoined{$seqnum}) $line");
+                log_stray_multi_mapper($seqnum, $joined{$seqnum}, $line);
             }
         }
         if ($type eq "a") {
             $typea{$seqnum}++;
             $num_areads++;
             if ($typea{$seqnum} > 1) {
-                $log->error("SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($typea{$seqnum}) $line");
+                log_stray_multi_mapper($seqnum, $joined{$seqnum}, $line);
             }
         }
         if ($type eq "b") {
             $typeb{$seqnum}++;
             $num_breads++;
             if ($typeb{$seqnum} > 1) {
-                $log->error("in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($typeb{$seqnum}) $line");
+                log_stray_multi_mapper($seqnum, $joined{$seqnum}, $line);
             }
         }
     }
+
+    my $is_paired = keys %typeb;
+
     close(INFILE);
     foreach $key (keys %typea) {
-        if ($typeb{$key} == 0) {
-            $num_a_only++;
-        }
+        $num_a_only++ unless $typeb{$key};
     }
     foreach $key (keys %typeb) {
-        if ($typea{$key} == 0) {
-            $num_b_only++;
-        }
+        $num_b_only++ unless $typea{$key};
     }
+
     undef %typea;
     undef %typeb;
     undef %joined;
@@ -191,13 +202,13 @@ sub main {
         $current_seqnum = $seqnum;
         if ($current_seqnum > $previous_seqnum) {
             foreach $seqnum (keys %allids) {
-                if ($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 > 0) {
+                if ( $ambiga{$seqnum} && $ambigb{$seqnum} ) {
                     $num_ambig_consistent++;	
                 }
-                if ($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 == 0) {
+                elsif ( $ambiga{$seqnum && ! $ambigb{$seqnum} ) {
                     $num_ambig_a++;
                 }
-                if ($ambiga{$seqnum}+0 == 0 && $ambigb{$seqnum}+0 > 0) {
+                elsif (! $ambiga{$seqnum} && $ambigb{$seqnum} ) {
                     $num_ambig_b++;
                 }
             }
