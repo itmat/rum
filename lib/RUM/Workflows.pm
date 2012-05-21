@@ -304,6 +304,8 @@ sub chunk_workflow {
     
     my @goal = ($rum_unique_sorted,
                 $rum_nu_sorted,
+                $rum_unique,
+                $rum_nu,
                 $sam_file,
                 $nu_stats,
                 $chr_counts_nu,
@@ -406,6 +408,9 @@ sub postprocessing_workflow {
     my $name = $c->name;
     my $w = RUM::Workflow->new();
 
+    my @rum_unique_by_id = map { $c->chunk_file("RUM_Unique", $_) } @chunks;
+    my @rum_nu_by_id     = map { $c->chunk_file("RUM_NU", $_) } @chunks;
+
     my @rum_unique    = map { $c->chunk_file("RUM_Unique.sorted", $_) } @chunks;
     my @rum_nu        = map { $c->chunk_file("RUM_NU.sorted", $_) } @chunks;
     my @sam_headers   = map { $c->sam_header($_) } @chunks;
@@ -460,8 +465,8 @@ sub postprocessing_workflow {
             my $out = $w->temp($mapping_stats);
             return [
                 ["perl", $c->script("count_reads_mapped.pl"),
-                 "--unique-in", $rum_unique,
-                 "--non-unique-in", $rum_nu,
+                 map(("--unique-in", $_), @rum_unique_by_id),
+                 map(("--non-unique-in", $_), @rum_nu_by_id),
                  "--min-seq", 1,
                  @max_seq_opt,
                  ">", $w->temp($mapping_stats)],
