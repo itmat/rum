@@ -48,10 +48,6 @@ File to write sam header.
 
 The fasta file already has sequence all on one line.
 
-=item B<--count-mismatches>
-
-Report in the final column the number of mismatches, ignoring insertions.
-
 =item B<--match-length-cutoff> I<n>
 
 Set this min length alignment to be reported.

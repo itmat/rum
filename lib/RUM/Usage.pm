@@ -117,7 +117,7 @@ sub bad {
 
     my ($package) = caller(0);
     my $log = RUM::Logging->get_logger();
-    $log->fatal("Improper usage of $package->main(): $msg");
+    $log->info("Improper usage of $package->main(): $msg");
     pod2usage({
         -message => "\n$msg\n",
         -verbose => 0,
@@ -146,7 +146,7 @@ sub check {
 
         if ($action) {
 
-            $log->fatal("Improper usage of $package->main(): $msg");
+            $log->info("Improper usage of $package->main(): $msg");
             pod2usage({
                 -message => "\n$msg\n",
                 -input => "rum_runner/$action.pod",

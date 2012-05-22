@@ -107,32 +107,12 @@ use RUM::Logger;
 use File::Spec qw(splitpath);
 use File::Path qw(mkpath);
 use RUM::Lock;
-
-our $LOGGING_DIR;
-
-BEGIN { 
-
-    if ($ENV{RUM_OUTPUT_DIR}) {
-        $LOGGING_DIR = File::Spec->catfile($ENV{RUM_OUTPUT_DIR}, "log");
-    }
-
-    elsif ($0 =~ /rum_runner$/) {
-        for (my $i = 0; $i < @ARGV; $i++) {
-            local $_ = $ARGV[$i];
-            if (/^(-o|--output|--out|--output-dir)/) {
-                $LOGGING_DIR = File::Spec->catfile($ARGV[$i+1], "log");
-                last;
-            }
-        }
-    }
-
-    if ($LOGGING_DIR) {
-        mkpath($LOGGING_DIR);
-    }
-}
+use Carp qw(cluck);
 
 FindBin->again();
 
+our $LOGGING_DIR;
+our $INITIALIZED;
 our $LOG4PERL = "Log::Log4perl";
 our $LOGGER_CLASS;
 our $LOG_FILE;
@@ -143,35 +123,6 @@ You don't seem to have $LOG4PERL installed. You may want to install it
 via "cpan -i $LOG4PERL" so you can use advanced logging features.
 EOF
 
-$SIG{__DIE__} = sub {
-    if($^S) {
-        # We're in an eval {} and don't want log
-        # this message but catch it later
-        return;
-    }
-    RUM::Lock->release;
-    RUM::Logging->get_logger("RUM::Death")->logdie(@_);
-};
-
-sub _init {
-    my ($class) = @_;
-
-    unless ($LOGGING_DIR) {
-        _init_rum_logger();
-        return;
-    }
-    
-    # TODO: Get SGE_TASK_ID out of here.
-    my $chunk = $ENV{RUM_CHUNK} || $ENV{SGE_TASK_ID};
-
-    # Sometimes SGE_TASK_ID is set to 'undefined'
-    undef $chunk if defined($chunk) && $chunk eq 'undefined';
-    $LOG_FILE       = $class->log_file($chunk);
-    $ERROR_LOG_FILE = $class->error_log_file($chunk);
-    mkdir $LOGGING_DIR if $LOGGING_DIR;
-    $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
-}
-
 our @LOG4PERL_CONFIGS = (
         $ENV{RUM_LOG_CONFIG} || "",      # RUM_LOG_CONFIG environment variable
         "rum_logging.conf",              # rum_logging.conf in current dir
@@ -181,7 +132,61 @@ our @LOG4PERL_CONFIGS = (
 
 push @LOG4PERL_CONFIGS, map { "$_/RUM/conf/rum_logging.conf" } @INC;
 
-__PACKAGE__->_init;
+
+=head1 CLASS METHODS
+
+=over 4
+
+=item RUM::Logging->init
+
+Initialize the logging system. If $dir is supplied, it will be used as
+the root directory, so log files will go in $dir/log. Otherwise if the
+I<RUM_OUTPUT_DIR> environment variabe is set, that will be used as the
+root. Otherwise, no logging will be performed.
+
+Only the first call to this method counts; all subsequent calls will
+return immediately.
+
+=cut
+
+sub init {
+    my ($class, $dir) = @_;
+    return if $INITIALIZED;
+    $INITIALIZED = 1;
+
+    if ($dir) {
+        $ENV{RUM_OUTPUT_DIR} = $dir;
+    }
+    if ($ENV{RUM_OUTPUT_DIR}) {
+        $LOGGING_DIR = File::Spec->catfile($ENV{RUM_OUTPUT_DIR}, "log");
+    }
+    else {
+        _init_rum_logger();
+        return;
+    }
+
+    mkpath($LOGGING_DIR);
+
+    $SIG{__DIE__} = sub {
+        if($^S) {
+            # We're in an eval {} and don't want log
+            # this message but catch it later
+            return;
+        }
+        RUM::Lock->release;
+        RUM::Logging->get_logger("RUM::Death")->logdie(@_);
+    };
+    
+    # TODO: Get SGE_TASK_ID out of here.
+    my $chunk = $ENV{RUM_CHUNK} || $ENV{SGE_TASK_ID};
+
+    # Sometimes SGE_TASK_ID is set to 'undefined'
+    undef $chunk if defined($chunk) && $chunk eq 'undefined';
+    $LOG_FILE       = $class->log_file($chunk);
+    $ERROR_LOG_FILE = $class->error_log_file($chunk);
+
+    $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
+}
 
 sub _init_log4perl {
     # Try to load Log::Log4perl, and if we can't just return so we
@@ -215,16 +220,12 @@ sub _init_log4perl {
 
 sub _init_rum_logger {
     $LOGGER_CLASS = "RUM::Logger";
-    $LOGGER_CLASS->init();
+    $LOGGER_CLASS->init($LOG_FILE, $ERROR_LOG_FILE);
 }
 
-=head1 CLASS METHODS
+=item RUM::Logging->get_logger
 
-=over 4
-
-=item get_logger
-
-=item get_logger($name)
+=item RUM::Logging->get_logger($name)
 
 With a $name argument, returns a logger with the given $name. Without
 $name, uses the package name of the caller as the name. For example:
@@ -242,9 +243,7 @@ $name, uses the package name of the caller as the name. For example:
 sub get_logger {
     my ($self, $name) = @_;
 
-    unless ($LOGGER_CLASS) {
-        _init_rum_logger;
-    }
+    $self->init;
 
     unless (defined($name)) {
         my ($package) = caller(0);
@@ -253,7 +252,7 @@ sub get_logger {
     return $LOGGER_CLASS->get_logger($name);
 }
 
-=item log_file($chunk)
+=item RUM::Logging->log_file($chunk)
 
 Return the log file name for the given chunk, or the master log file
 name if chunk is not a positive number.
@@ -267,7 +266,7 @@ sub log_file {
     return "$LOGGING_DIR/$file";
 }
 
-=item error_log_file($chunk)
+=item RUM::Logging->error_log_file($chunk)
 
 Return the error log file name for the given chunk, or the master
 error log file name if chunk is not a positive number.

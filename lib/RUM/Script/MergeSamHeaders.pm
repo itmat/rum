@@ -14,6 +14,7 @@ our $log = RUM::Logging->get_logger();
 sub main {
 
     GetOptions(
+        "name=s"    => \(my $name = "unknown"),
         "help|h"    => sub { RUM::Usage->help },
         "quiet|q"   => sub { $log->less_logging(1) },
         "verbose|v" => sub { $log->more_logging(1) });
@@ -31,6 +32,8 @@ sub main {
     for (sort by_chromosome keys %header) {
         print "$header{$_}\n";
     }
+
+    print join("\t", '@RG', "ID:$name", "SM:$name"), "\n";
 }
 
 

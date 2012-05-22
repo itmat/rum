@@ -25,13 +25,13 @@ $vals[9] = "the read fails platform/vendor quality checks";
 $vals[10] = "the read is either a PCR duplicate or an optical duplicate";
 
 print "\n";
-for($j=0; $j<10; $j++) {
+for($j=0; $j<11; $j++) {
     print "\t$j";    
 }
 print "\n";
 if($ARGV[0] =~ /^\d+$/) {
     print "$ARGV[0]:";
-    for($j=0; $j<10; $j++) {
+    for($j=0; $j<11; $j++) {
 	if($ARGV[0] & 2**$j) {
 	    print "\tyes";
 	} else {
@@ -39,7 +39,7 @@ if($ARGV[0] =~ /^\d+$/) {
 	}
     }
     print "\n\n";
-    for($j=0; $j<10; $j++) {
+    for($j=0; $j<11; $j++) {
 	if($j == 4 && ($ARGV[0] & 4) == 0) {
 	    if($ARGV[0] & 2**$j) {
 		print "strand of the query: -\n";
@@ -66,7 +66,7 @@ if($ARGV[0] =~ /^\d+$/) {
 
 for($i=0; $i<300; $i++) {
     print "$i:";
-    for($j=0; $j<10; $j++) {
+    for($j=0; $j<11; $j++) {
 	if($i & 2**$j) {
 	    print "\tyes";
 	} else {

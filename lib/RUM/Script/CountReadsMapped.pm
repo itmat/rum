@@ -1,19 +1,45 @@
 package RUM::Script::CountReadsMapped;
 
+
 no warnings;
+use autodie;
+
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
 
+sub log_stray_multi_mapper {
+    my ($seqnum, $count, $line) = @_;
+    my $msg = join(
+        " ", "Looks like there's\na multi-mapper in the RUM_Unique file.",
+        "$seqnum ($joined{$seqnum}) $line");
+    $log->warn($msg);
+}
+
+sub line_iterator {
+
+    my @filenames = @_;
+
+    open my $in, shift(@filenames);
+
+    return sub {
+        my $line = <$in>;
+        return $line if defined $line;
+        return undef unless @filenames;
+        open $in, "<", shift(@filenames);
+        return <$in>;
+    };
+}
+
 sub main {
 
     use RUM::Common qw(format_large_int);
-
+    my (@unique_in, @non_unique_in);
     GetOptions(
-        "unique-in=s"     => \(my $unique_in),
-        "non-unique-in=s" => \(my $non_unique_in),
+        "unique-in=s"     => \@unique_in,
+        "non-unique-in=s" => \@non_unique_in,
         "min-seq=s"       => \(my $min_seq_num),
         "max-seq=s"       => \(my $max_seq_num = 0),
         "help|h"    => sub { RUM::Usage->help },
@@ -23,11 +49,15 @@ sub main {
     $max_num_seqs_specified = "false";
     $min_num_seqs_specified = "false";
 
-    $unique_in or RUM::Usage->bad(
-        "Please specify a file of unique mappers with --unique-in");
-    $non_unique_in or RUM::Usage->bad(
-        "Please specify a file of non-unique mappers ".
-            "with --non-unique-in");
+    @unique_in or RUM::Usage->bad(join(
+        " ",  "Please specify a file of unique mappers with --unique-in.",
+        "You can specify this option multiple times."));
+    @non_unique_in or RUM::Usage->bad(join(
+        " ",  "Please specify a file of non-unique mappers ",
+        "with --non-unique-in. You can specify this option multiple times."));
+
+    my $unique_it = line_iterator(@unique_in);
+    my $nu_it = line_iterator(@non_unique_in);
 
     if (defined($max_seq_num)) {
         $max_num_seqs_specified = "true";
@@ -40,15 +70,15 @@ sub main {
             "--min-seq must be a number, not $min_seq_num");
     }
 
-    open(INFILE, $unique_in) 
-        or die "Can't open $unique_in for reading: $!";
-
     $flag = 0;
     $num_areads = 0;
     $num_breads = 0;
     $current_seqnum = 0;
     $previous_seqnum = 0;
-    while ($line = <INFILE>) {
+
+
+    while (defined(my $line = $unique_it->())) {
+
         chomp($line);
         $line =~ /seq.(\d+)([^\d])/;
         $seqnum = $1;
@@ -81,11 +111,12 @@ sub main {
         if ($seqnum < $min_seq_num && $min_num_seqs_specified eq "false") {
             $min_seq_num = $seqnum;
         }
+
         if ($type eq "\t") {
             $joined{$seqnum}++;
             $numjoined++;
             if ($joined{$seqnum} > 1) {
-                print STDERR "in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($joined{$seqnum}) $line\n";
+                log_stray_multi_mapper($seqnum, $joined{$seqnum}, $line);
             }
         }
         if ($type eq "a" || $type eq "b") {
@@ -94,35 +125,34 @@ sub main {
                 $num_unjoined_consistent++;
             }
             if ($unjoined{$seqnum} > 2) {
-                $log->error("SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($unjoined{$seqnum}) $line");
+                log_stray_multi_mapper($seqnum, $joined{$seqnum}, $line);
             }
         }
         if ($type eq "a") {
             $typea{$seqnum}++;
             $num_areads++;
             if ($typea{$seqnum} > 1) {
-                $log->error("SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($typea{$seqnum}) $line");
+                log_stray_multi_mapper($seqnum, $joined{$seqnum}, $line);
             }
         }
         if ($type eq "b") {
             $typeb{$seqnum}++;
             $num_breads++;
             if ($typeb{$seqnum} > 1) {
-                $log->error("in script count_reads_mapped.pl: SOMETHING IS WRONG, looks like there's\na multi-mapper in the RUM_Unique file.  $seqnum ($typeb{$seqnum}) $line");
+                log_stray_multi_mapper($seqnum, $joined{$seqnum}, $line);
             }
         }
     }
-    close(INFILE);
+
+    my $is_paired = keys %typeb;
+
     foreach $key (keys %typea) {
-        if ($typeb{$key} == 0) {
-            $num_a_only++;
-        }
+        $num_a_only++ unless $typeb{$key};
     }
     foreach $key (keys %typeb) {
-        if ($typea{$key} == 0) {
-            $num_b_only++;
-        }
+        $num_b_only++ unless $typea{$key};
     }
+
     undef %typea;
     undef %typeb;
     undef %joined;
@@ -180,10 +210,9 @@ sub main {
     $num_ambig_consistent=0;
     $num_ambig_a_only=0;
     $num_ambig_b_only=0;
-    open(INFILE, $non_unique_in) 
-        or die "Can't open $non_unique_in for reading: $!";
+
     #print "------\n";
-    while ($line = <INFILE>) {
+    while (defined($line = $nu_it->())) {
         chomp($line);
         $line =~ /seq.(\d+)(.)/;
         $seqnum = $1;
@@ -191,13 +220,13 @@ sub main {
         $current_seqnum = $seqnum;
         if ($current_seqnum > $previous_seqnum) {
             foreach $seqnum (keys %allids) {
-                if ($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 > 0) {
+                if ( $ambiga{$seqnum} && $ambigb{$seqnum} ) {
                     $num_ambig_consistent++;	
                 }
-                if ($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 == 0) {
+                elsif ( $ambiga{$seqnum} && ! $ambigb{$seqnum} ) {
                     $num_ambig_a++;
                 }
-                if ($ambiga{$seqnum}+0 == 0 && $ambigb{$seqnum}+0 > 0) {
+                elsif (! $ambiga{$seqnum} && $ambigb{$seqnum} ) {
                     $num_ambig_b++;
                 }
             }
@@ -218,7 +247,7 @@ sub main {
         }
         $allids{$seqnum}++;
     }
-    close(INFILE);
+
     foreach $seqnum (keys %allids) {
         if ($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 > 0) {
             $num_ambig_consistent++;	

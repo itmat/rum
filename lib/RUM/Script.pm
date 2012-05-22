@@ -1004,6 +1004,7 @@ sub run_with_logging {
 
     my $cmd =  "$0 @ARGV";
     my $log = RUM::Logging->get_logger("RUM.ScriptRunner");
+
     $log->info("START $script ($cmd)");
 
     eval {

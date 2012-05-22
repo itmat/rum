@@ -91,10 +91,10 @@ sub _check_input {
         $self->_check_single_reads_file;
     }
     else {
-        $self->_check_read_file_pair;
         $self->config->set("paired_end", 1);
         $self->config->save;
     }
+    $self->_check_read_file_pair;
 
     $self->logsay(sprintf("Processing as %s-end data",
                           $self->config->paired_end ?
@@ -128,9 +128,11 @@ sub _check_single_reads_file {
         $log->info("Input does not appear to be paired-end");
         ($paired, $needs_splitting, $preformatted) = (0, 1, 1);
     }
+
     $config->set("paired_end", $paired);
     $config->set("input_needs_splitting", $needs_splitting);
     $config->set("input_is_preformatted", $preformatted);
+    $config->save;
 }
 
 
@@ -165,7 +167,9 @@ sub _check_read_file_pair {
     
     my @reads = @{ $self->config->reads };
 
-    $self->_check_read_files_same_size();
+    if (@reads == 2) {
+        $self->_check_read_files_same_size();
+    }
 
     my $config = $self->config;
 
@@ -185,8 +189,8 @@ sub _check_read_file_pair {
     $log->debug("Checking that reads and quality strings are the same length");
     shell("perl $parse2fasta     @reads | head -$len > $reads_temp 2>> $error_log");
     shell("perl $fastq2qualities @reads | head -$len > $quals_temp 2>> $error_log");
-    my $X = `head -20 $quals_temp`;
-    if($X =~ /\S/s && !($X =~ /Sorry, can't figure these files out/s)) {
+
+    if (_got_quals($quals_temp)) {
         open(RFILE, $reads_temp);
         open(QFILE, $quals_temp);
         while(my $linea = <RFILE>) {
@@ -202,36 +206,46 @@ sub _check_read_file_pair {
     }
 
     # Check that reads are not variable length
-    if($X =~ /\S/s) {
-        open(RFILE, $reads_temp);
-        my $length_flag = 0;
-        my $length_hold;
-        while(my $linea = <RFILE>) {
-            my $line1 = <RFILE>;
-            chomp($line1);
-            if($length_flag == 0) {
-                $length_hold = length($line1);
-                $length_flag = 1;
-            }
-            if(length($line1) != $length_hold && !$config->variable_length_reads) {
-                warn("It seems your read lengths vary, but you didn't set -variable_length_reads. I'm going to set it for you, but it's generally safer to set it on the command-line since I only spot check the file.");
-                $config->set('variable_length_reads', 1);
-            }
-            $length_hold = length($line1);
-        }
-    }
+    $self->_check_variable_length($reads_temp);
 
     # Clean up:
-
     unlink($reads_temp);
     unlink($quals_temp);
 }
+
+
+sub _check_variable_length {
+
+    my ($self, $filename) = @_;
+    open my $in, "<", $filename;
+
+    my $length_flag = 0;
+    my $length_hold;
+    my $c = $self->config;
+    while(my $linea = <$in>) {
+        my $line1 = <$in>;
+        chomp($line1);
+        if($length_flag == 0) {
+            $length_hold = length($line1);
+            $length_flag = 1;
+        }
+        if(length($line1) != $length_hold && !$c->variable_length_reads) {
+            $self->logsay("It seems your read lengths vary, but you didn't set -variable_length_reads. I'm going to set it for you, but it's generally safer to set it on the command-line since I only spot check the file.");
+            $self->say();
+            $c->set('variable_length_reads', 1);
+            $c->save;
+        }
+        $length_hold = length($line1);
+    }
+    
+}
+
 
 sub _determine_read_length {
     
     my ($self) = @_;
 
-    my @lines = head($self->config->chunk_file("reads.fa", 1), 2);
+    my @lines = head($self->config->in_chunk_dir("reads.fa"), 2);
     my $read = $lines[1];
     my $len = length($read);
     my $min = $self->config->min_length;
@@ -239,9 +253,11 @@ sub _determine_read_length {
     if ($self->config->variable_length_reads) {
         $log->info("Using variable read length");
         $self->config->set("read_length", "v");
+        $self->config->save;
     }
     else{
         $self->config->set("read_length", $len);
+        $self->config->save;
         if (($min || 0) > $len) {
             die "You specified a minimum length alignment to report as '$min', however your read length is only $len\n";
         }
@@ -304,6 +320,7 @@ sub _reformat_reads {
         die "@errors" if @errors;
         $have_quals = 1;
         $self->{input_needs_splitting} = 0;
+        return;
     }
  
     elsif ($is_fasta && !$config->variable_length_reads && !$preformatted) {
@@ -311,35 +328,44 @@ sub _reformat_reads {
         shell("perl $parse_fasta $reads_in $num_chunks $reads_fa $name_mapping_opt 2>> $error_log");
         $have_quals = 0;
         $self->{input_needs_splitting} = 0;
+        return;
      } 
 
     elsif (!$preformatted) {
-
         $self->say("Splitting fasta file into reads and quals");
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
-        $self->{input_needs_splitting} = 1;
-        my $X = join("\n", head($config->chunk_file("quals.fa", 1), 20));
-        if($X =~ /\S/s && !($X =~ /Sorry, can\'t figure these files out/s)) {
-            $have_quals = "true";
-        }
+        
+        $have_quals = _got_quals($quals_fa);
     }
     else {
-        # This should only be entered when we have one read file
-        $self->say("Splitting read file, please be patient...");        
-
-        $self->_breakup_file($reads[0], 0);
-
-        if ($have_quals) {
-            $self->say( "Half done splitting; starting qualities...");
-            _breakup_file($config->chunk_file("quals.fa", 1), 1);
-        }
-        elsif ($config->user_quals) {
-            $self->say( "Half done splitting; starting qualities...");
-            _breakup_file($config->user_quals, 1);
-        }
-        $self->say("Done splitting");
+        link $reads_in, $reads_fa;
     }
+
+    # This should only be entered when we have one read file
+    $self->say("Splitting read file, please be patient...");        
+    
+    $self->_breakup_file($reads_fa, 0);
+
+    if ($have_quals) {
+        $self->say( "Half done splitting; starting qualities...");
+        $self->_breakup_file($quals_fa, 1);
+    }
+    elsif ($config->user_quals) {
+        $self->say( "Half done splitting; starting qualities...");
+        $self->_breakup_file($config->user_quals, 1);
+    }
+    $self->say("Done splitting");
+}
+
+sub _got_quals {
+    my ($filename) = @_;
+    open my $in, "<", $filename;
+    for my $i (1 .. 20) {
+        defined(local $_ = <$in>) or return 1;
+        return 0 if /Sorry, can't figure these files out/s;
+    }
+    return 1;
 }
 
 sub _breakup_file  {
@@ -348,7 +374,7 @@ sub _breakup_file  {
     my $c = $self->config;
 
     if(!(open(INFILE, $FILE))) {
-       die("Cannot open '$FILE' for reading.");
+        die("Cannot open '$FILE' for reading.");
     }
     my $tail = `tail -2 $FILE | head -1`;
     $tail =~ /seq.(\d+)/s;
@@ -378,9 +404,9 @@ sub _breakup_file  {
     $F2 =~ s!.*/!!;
     
     my $PS = $c->paired_end ? $piecesize * 2 : $piecesize;
-
+    my $base_name = $qualflag ? "quals.fa" : "reads.fa";
     for(my $i=1; $i < $c->num_chunks; $i++) {
-	my $outfilename = $c->chunk_file("reads.fa", $i);
+	my $outfilename = $c->chunk_file($base_name, $i);
 
         $log->debug("Building $outfilename");
 	open(OUTFILE, ">$outfilename");
@@ -401,7 +427,7 @@ sub _breakup_file  {
 	close(OUTFILE);
     }
 
-    my $outfilename = $c->chunk_file("reads.fa", $c->num_chunks);
+    my $outfilename = $c->chunk_file($base_name, $c->num_chunks);
     open(OUTFILE, ">$outfilename");
     while(my $line = <INFILE>) {
 	print OUTFILE $line;

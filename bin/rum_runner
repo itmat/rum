@@ -1,7 +1,5 @@
 #!/usr/bin/env perl
 
-package RUM::Script::Pipeline;
-
 use strict;
 use warnings;
 use autodie;
@@ -9,8 +7,36 @@ use autodie;
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 
-use RUM::Script;
+use RUM::Logging;
 
+# Initialize the logging system. We only want to log if the action is
+# 'align', as we're really only interested in log messages that come
+# from the pipeline itself.
+
+# This is a bit lame, but I'm not sure else to do it. We want the log
+# files to go in the output directory, but we need to initialize the
+# logging system before we 'use' any RUM modules, since they get their
+# logger statically.
+
+# If we're aligning, try to find the output directory specified on the
+# command line and initialize the logging system so that it puts
+# output files there.
+if ($ARGV[0] eq 'align') {
+    for (my $i = 0; $i < @ARGV; $i++) {
+        local $_ = $ARGV[$i];
+        if (/^(-o|--out)/) {
+            RUM::Logging->init($ARGV[$i + 1]);
+        }
+    }
+}
+
+# Otherwise initialize it without an argument, which will cause it to
+# suppress all logging.
+RUM::Logging->init;
+
+# We have to require and not use, as use happens at compile time,
+# before logging is initialized.
+require "RUM/Script.pm";
 RUM::Script->run_with_logging("RUM::Script::Main");
 
 =pod

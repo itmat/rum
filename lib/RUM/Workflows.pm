@@ -270,6 +270,7 @@ sub chunk_workflow {
     $m->step(
         "Create SAM file",
         ["perl", $c->script("rum2sam.pl"),
+         "--genome-in", $c->genome_fa,
          "--unique-in", pre($rum_unique),
          "--non-unique-in", pre($rum_nu),
          "--reads-in", $reads_fa,
@@ -303,6 +304,8 @@ sub chunk_workflow {
     
     my @goal = ($rum_unique_sorted,
                 $rum_nu_sorted,
+                $rum_unique,
+                $rum_nu,
                 $sam_file,
                 $nu_stats,
                 $chr_counts_nu,
@@ -405,6 +408,9 @@ sub postprocessing_workflow {
     my $name = $c->name;
     my $w = RUM::Workflow->new();
 
+    my @rum_unique_by_id = map { $c->chunk_file("RUM_Unique", $_) } @chunks;
+    my @rum_nu_by_id     = map { $c->chunk_file("RUM_NU", $_) } @chunks;
+
     my @rum_unique    = map { $c->chunk_file("RUM_Unique.sorted", $_) } @chunks;
     my @rum_nu        = map { $c->chunk_file("RUM_NU.sorted", $_) } @chunks;
     my @sam_headers   = map { $c->sam_header($_) } @chunks;
@@ -416,7 +422,7 @@ sub postprocessing_workflow {
     my @sam_files = map { $c->chunk_file("RUM.sam", $_) } @chunks;
 
 
-    my @start = (@rum_unique, @rum_nu, @sam_headers, @sam_files);
+    my @start = (@rum_unique, @rum_nu, @sam_headers, @sam_files, @rum_nu_by_id, @rum_unique_by_id);
     my $mapping_stats               = $c->in_output_dir("mapping_stats_temp.txt");
     my $inferred_internal_exons     = $c->in_output_dir("inferred_internal_exons.bed");
     my $inferred_internal_exons_txt = $c->in_output_dir("inferred_internal_exons.txt");
@@ -450,7 +456,7 @@ sub postprocessing_workflow {
     push @start, @chr_counts_u, @chr_counts_nu;
     $w->add_command(
         name => "Compute mapping statistics",
-        pre => [$rum_unique, $rum_nu, @chr_counts_u, @chr_counts_nu],
+        pre => [$rum_unique, $rum_nu, @chr_counts_u, @chr_counts_nu, @rum_unique_by_id, @rum_nu_by_id],
         post => [$mapping_stats],
         commands => sub {
             my $reads = $reads_fa;
@@ -459,8 +465,8 @@ sub postprocessing_workflow {
             my $out = $w->temp($mapping_stats);
             return [
                 ["perl", $c->script("count_reads_mapped.pl"),
-                 "--unique-in", $rum_unique,
-                 "--non-unique-in", $rum_nu,
+                 map(("--unique-in", $_), @rum_unique_by_id),
+                 map(("--non-unique-in", $_), @rum_nu_by_id),
                  "--min-seq", 1,
                  @max_seq_opt,
                  ">", $w->temp($mapping_stats)],
@@ -775,6 +781,7 @@ sub postprocessing_workflow {
     $w->step(
         "Merge SAM headers",
         ["perl", $c->script("rum_merge_sam_headers.pl"),
+         "--name", $c->name,
          map(pre($_), @sam_headers), "> ", post($c->sam_header)]);
 
     $w->step("Concatenate SAM files",
