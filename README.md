@@ -77,7 +77,6 @@ module installation process:
 ```sh
 perl Makefile.PL
 make
-make test # (optional, takes a couple minutes)
 make install # (may need sudo)
 ```
 
