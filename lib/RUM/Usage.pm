@@ -93,14 +93,29 @@ sub help {
     my ($self) = @_;
     my $action = ref($self) ? $self->{action} : undef;
 
+    # Since the user explicitly asked for help, be verbose. 
+    my %options = (-verbose => 2);
+    
+    # If the user specified an action, show the help for that
+    # action. That will be in "rum_runner/$action.pod", on a directory
+    # in our path. We need to tell Pod::Usage where our path is so it
+    # can find it.
     if ($action) {
-        pod2usage({-input => "rum_runner/$action.pod",
-                   -verbose => 2,
-                   -pathlist => \@INC});
+        $options{-input} = "rum_runner/$action.pod";
+        $options{-pathlist} = \@INC;
     }
-    else {
-        pod2usage({-verbose => 2});
-    }
+
+    # By default Pod::Usage with -verbose set to 2 will run perldoc to
+    # print a nicely formatted, paginated help message. However, if
+    # you run perldoc as root, it turns on taint checking, and if you
+    # run perldoc in a directory where there's a Makefile.PL file,
+    # Pod::Perldoc will add some stuff to our @INC that taints it. So
+    # basically you can't run perldoc as root in a directory that
+    # contains a Makefile.PL file. So if that's the case, tel
+    # Pod::Usage not to run perldoc.
+    my $is_root = ! $<;
+    $options{-noperldoc} = 1 if $is_root && -e "Makefile.PL";
+    pod2usage(\%options);
 }
 
 sub man {

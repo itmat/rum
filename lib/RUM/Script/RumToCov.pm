@@ -53,6 +53,7 @@ sub main {
         $footprint = 0;
     }
     while ($flag < 2) {
+
         if ($flag == 1) {
             $flag = 2;
         }
@@ -163,17 +164,19 @@ sub main {
         }
         $chr_prev = $chr;
         $start_prev = $start;
-        if ($line eq '') {
-            $flag = 1;
+
+        if (!$line) {
+
+            $flag ||= 1;
             for ($tryagain=0; $tryagain<10; $tryagain++) {
                 $line = <INFILE>;
                 chomp($line);
-                if ($line ne '') {
+                if ($line) {
                     $tryagain = 10;
                     $flag = 0;
                 }
             }
-            if ($flag == 1) {
+            if ($flag) {
                 $chr = "";
                 return;
             }

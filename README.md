@@ -42,7 +42,7 @@ paired-end, expect to use about 100-200 GB disk space.
 #### Autodie
 
 You will now need the `autodie` Perl module. If you are using perl >=
-5.10, this should already be installed. If not, you may neet to
+5.10, this should already be installed. If not, you may need to
 install it. You should be able to install it very quickly by running:
 
 ```

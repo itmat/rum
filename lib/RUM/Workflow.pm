@@ -393,7 +393,14 @@ sub _run_step {
                 $stdout_mode = ">>";
             }
         }
-        
+
+        # Before we fork, get a temporary file name for the child
+        # process to write its stderr to. If it fails we'll read this
+        # in and log it.
+        my $err_fh = File::Temp->new(UNLINK => 1);
+        my $err_fname = $err_fh->filename;
+        close $err_fh;
+
         if (my $pid = fork) {
             
             my $oldhandler = $SIG{TERM};
@@ -411,9 +418,24 @@ sub _run_step {
             
             waitpid($pid, 0);
             $SIG{TERM} = $oldhandler;
-            
+
             if ($?) {
-                die "Error running @$cmd. Please see error log file $RUM::Logging::ERROR_LOG_FILE for details.";
+                # The stderr from the child process should have been
+                # redirected here.
+                open my $error_fh, "<", $err_fname;
+                my @errors = (<$error_fh>);
+                close $error_fh;
+
+                my $msg = "\nError running \"@$cmd\"\n\n";
+                if (@errors) {
+                    $msg .= "The stderr from that command is\n\n";
+                    $msg .= join("", map("> $_", @errors)) . "\n";
+                }
+                else {
+                    $msg .= "The command had no stderr output.\n\n";
+                }
+                $msg .= "The error log file $RUM::Logging::ERROR_LOG_FILE may have more details.\n";
+                die $msg;
             }                    
         }
         else {
@@ -421,6 +443,12 @@ sub _run_step {
                 close STDOUT;
                 open STDOUT, $stdout_mode, $stdout or croak "Can't open output $stdout: $!";
             }
+            close STDERR;
+
+            # This will redirect my (the child's) output to the temp
+            # file obtained above.
+            open STDERR, ">", $err_fname;
+            
             exec(@to);
         }
     }
