@@ -21,8 +21,12 @@ $flag = 0;
 open(OUTFILE, ">$F1");
 while($line = <INFILE>) {
     if($line =~ />/) {
-	$line =~ /^>EG:([^\s]+)\s/;
-	$chr = $1;
+	if($line =~ /^>EG:([^\s]+)\s/) {
+	    $chr = $1;
+	} else {
+	    $line =~ /^>([^ ]+) /;
+	    $chr = $1;
+	}
         if($flag == 0) {
             print OUTFILE ">$chr\n";
             $flag = 1;
