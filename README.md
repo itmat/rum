@@ -69,9 +69,11 @@ Installing RUM
 We recommend that you download the latest release from
 https://github.com/PGFI/rum/downloads. If you need the latest
 development version, you can fork the repository from
-https://github.com/PGFI/rum. There are a few different options for
-installing RUM. Note that for each option, the last step involves
-running `rum_indexes` to install whichever indexes you need.
+https://github.com/PGFI/rum. 
+
+You have a few different options for installing RUM, depending on
+whether you want it in a system location, in an arbitrary user
+directory, or in another location where you keep Perl modules.
 
 ### In a system directory
 
@@ -127,8 +129,8 @@ make
 make install
 ```
 
-Like the *In a user directory* option, you will either need to run
-`rum_runner` using the full path, or add `$RUM_HOME/bin` to your `$PATH`.
+As in the previous option, you will either need to run `rum_runner`
+using the full path, or add `$RUM_HOME/bin` to your `$PATH`.
 
 Installing Indexes
 ------------------
