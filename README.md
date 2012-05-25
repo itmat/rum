@@ -123,7 +123,7 @@ If you have an alternate location where you keep Perl modules, you
 should be able to install RUM there by passing an
 `INSTALL_BASE=/some/path` option to the `perl Makefile.PL step`. RUM
 should automatically find all of its perl modules if you install it in
-this manner. For example
+this manner. For example:
 
 ```sh
 RUM_HOME=~/rum
@@ -150,6 +150,17 @@ rum_indexes
 
 # Install them in ~/rum-indexes
 rum_indexes --prefix ~/rum-indexes
+```
+
+For every index you install, a file named like `rum.config_*` will be
+downloaded into the `conf` directory. You will need to specify one of
+these index configuration files when you run rum. For example, if you
+installed the mm9 index by running `rum_indexes --prefix
+~/rum-indexes`, in order to align some reads using that index, you
+would run:
+
+```
+rum_runner align --config ~/rum-indexes/conf/rum.config_mm9 ...
 ```
 
 Note that you will need a lot of available disk space in order to
