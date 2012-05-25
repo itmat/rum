@@ -100,8 +100,11 @@ simply do:
 tar zxvf RUM-Pipeline-2.00_11.tar.gz
 ```
 
-Note that you will  need to either run `rum_runner` using an explicit
-path
+This will place all the rum executables in `RUM-Pipeline-2.00_11/bin`.
+They will find the RUM libraries they need automatically.
+
+Note that you will need to either run `rum_runner` using an explicit
+path:
 
 ```sh
 $RUM_HOME/rum_runner ...
