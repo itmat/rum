@@ -69,30 +69,80 @@ Installing RUM
 We recommend that you download the latest release from
 https://github.com/PGFI/rum/downloads. If you need the latest
 development version, you can fork the repository from
-https://github.com/PGFI/rum.
+https://github.com/PGFI/rum. 
 
-The new recommended way to install RUM is to use the standard Perl
+You have a few different options for installing RUM, depending on
+whether you want it in a system location, in an arbitrary user
+directory, or in another location where you keep Perl modules.
+
+### In a system directory
+
+If you have root priviliges and want to install RUM in a system
+location like `/usr/local`, you can now do so using the standard Perl
 module installation process:
 
 ```sh
 perl Makefile.PL
 make
-make test # (optional, takes a couple minutes)
 make install # (may need sudo)
 ```
 
-You should also be able to install RUM in a non-standard location by
-passing a `INSTALL_BASE=/some/path` option to the `perl Makefile.PL
-step`. RUM should automatically find all of its perl modules if you
-install it in this manner.
+### In a user directory
+
+If you would rather install RUM in a user-owned directory, you can
+simply untar RUM right in the directory where you to install it. For
+example, if you want to have rum installed in
+`~/RUM-Pipeline-2.00_11`, assuming you have downloaded
+`RUM-Pipeline-2.00_11.tar.gz` to your current directory, you can
+simply do:
+
+```
+tar zxvf RUM-Pipeline-2.00_11.tar.gz
+```
+
+This will place all the rum executables in `RUM-Pipeline-2.00_11/bin`.
+They will find the RUM libraries they need automatically.
+
+Note that you will need to either run `rum_runner` using an explicit
+path:
+
+```sh
+$RUM_HOME/rum_runner ...
+```
+
+ or add the location where you installed it to your path:
+
+```sh
+export PATH="${PATH}:${RUM_HOME}/bin"
+rum_runner ...
+```
+
+### In an alternate Perl module location
+
+If you have an alternate location where you keep Perl modules, you
+should be able to install RUM there by passing an
+`INSTALL_BASE=/some/path` option to the `perl Makefile.PL step`. RUM
+should automatically find all of its perl modules if you install it in
+this manner. For example:
+
+```sh
+RUM_HOME=~/rum
+perl Makefile.PL INSTALL_BASE=$RUM_HOME
+make
+make install
+```
+
+As in the previous option, you will either need to run `rum_runner`
+using the full path, or add `$RUM_HOME/bin` to your `$PATH`.
 
 Installing Indexes
 ------------------
 
-Then you should use the `rum_indexes` program to install one or more
-indexes. By default it will install indexes in the location where you
-installed RUM itself, but you can use the `--prefix` option to tell it
-to install indexes somewhere else:
+Once you install the RUM code, you'll want to use the `rum_indexes`
+program to install one or more indexes. By default it will install
+indexes in the location where you installed RUM itself, but you can
+use the `--prefix` option to tell it to install indexes somewhere
+else:
 
 ```sh
 # Install them where you installed rum
@@ -100,6 +150,17 @@ rum_indexes
 
 # Install them in ~/rum-indexes
 rum_indexes --prefix ~/rum-indexes
+```
+
+For every index you install, a file named like `rum.config_*` will be
+downloaded into the `conf` directory. You will need to specify one of
+these index configuration files when you run rum. For example, if you
+installed the mm9 index by running `rum_indexes --prefix
+~/rum-indexes`, in order to align some reads using that index, you
+would run:
+
+```
+rum_runner align --config ~/rum-indexes/conf/rum.config_mm9 ...
 ```
 
 Note that you will need a lot of available disk space in order to

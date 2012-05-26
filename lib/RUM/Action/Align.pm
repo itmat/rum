@@ -620,7 +620,7 @@ sub check_ram {
             $self->logsay(sprintf(
                 "It seems like you have %.2f Gb of RAM on ".
                 "your machine. Unless you have too much other stuff ".
-                "running, RAM should not be a problem.", $RAMperchunk));
+                "running, RAM should not be a problem.", $totalram));
         } else {
             $self->logsay(
                 "Warning: you have only $RAMperchunk Gb of RAM ",

@@ -50,11 +50,11 @@ inferred.
 =item B<--config> I<config_file>
 
 This file tells RUM where to find the various executables and indexes.
-This file is included in the 'lib' directory when you download an
-organism, for example rum.config_mm9 for mouse build mm9, which will
+This file is included in the 'conf' directory when you download an
+index, for example rum.config_mm9 for mouse build mm9, which will
 work if you leave everything in its default location.  To modify or
-make your own config file, run this program with the single argument
-'config' for more information on the config file.
+make your own config file, run this program with the argument
+'help config' for more information on the config file.
 
 =item B<-o>, B<--output-dir> I<output_dir>
 
