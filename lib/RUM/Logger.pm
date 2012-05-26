@@ -47,7 +47,7 @@ logger by opening the output filehandle.
 =cut
 
 sub init {
-    my ($class, $log_file, $error_log_file);
+    my ($class, $log_file, $error_log_file) = @_;
 
     return unless $log_file && $error_log_file;
     
