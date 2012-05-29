@@ -237,3 +237,15 @@ your system seem unresponsive.
 
 So if RUM seems to put too much strain on your system, reducing the
 number of chunks might help.
+
+### How should I run rum_runner in the background?
+
+If you're on a Sun Grid Engine cluster and you run rum with the
+`--qsub` option, it will do a minimal amount of processing up front
+and then submit a job to do most of the work. So with SGE you don't
+need to run it in the background.
+
+
+If you're running it locally, you can use `nohup rum_runner
+... &`. It's also very convenient to run rum_runner from within a [GNU
+screen](http://www.gnu.org/software/screen) session.
