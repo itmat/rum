@@ -395,6 +395,8 @@ sub _make_master_file_of_genes_impl {
       next if($line =~ /^#/);
 
       my @a = split(/\t/,$line);
+      $a[$namecol] =~ s/\(/-/g;
+      $a[$namecol] =~ s/\)/-/g;
       $a[$exonStartscol] =~ /^(\d+)/ 
         or croak "Expected a number in the exon starts col";
       my $txStart = $1;
