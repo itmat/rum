@@ -101,21 +101,29 @@ tar zxvf RUM-Pipeline-2.00_11.tar.gz
 ```
 
 This will place all the rum executables in `RUM-Pipeline-2.00_11/bin`.
-They will find the RUM libraries they need automatically.
-
-Note that you will need to either run `rum_runner` using an explicit
-path:
-
-```sh
-$RUM_HOME/rum_runner ...
-```
-
- or add the location where you installed it to your path:
+They will find the RUM libraries they need automatically. You may want
+to add the `bin` directory to your path, so that you can run RUM
+simply by typing `rum_runner`:
 
 ```sh
 export PATH="${PATH}:${RUM_HOME}/bin"
 rum_runner ...
 ```
+
+If you don't add the RUM bin directory to your path, you will need to
+specify the path to `rum_runner` when you run it. For example, if
+you're in the root of the RUM installation, you can run:
+
+```sh
+bin/rum_runner ...
+```
+
+If you're in the bin directory, run:
+
+```sh
+./rum_runner ...
+```
+
 
 ### In an alternate Perl module location
 
@@ -199,3 +207,17 @@ After you've installed RUM and one or more indexes, please run
 `rum_runner help` to see usage information. Please also see the [main
 user guide](http://www.cbil.upenn.edu/RUM/userguide.php) for an
 explanation of the pipeline and the output files.
+
+Frequently Asked Questions
+--------------------------
+
+### My job stopped without writing an error messages to the log files. What happened?
+
+rum_runner will attempt to write a FATAL message to the error logs if
+it encounters an error that it can't handle and needs to
+exit. However, there are some conditions that cause rum_runner to exit
+immediately, and the program won't log a message in that case. Running
+out of memory is one example. So if you have a job that just appeared
+to stop prematurely without leaving any trace of a reason in the log
+file, it's likely that it ran out of memory.
+
