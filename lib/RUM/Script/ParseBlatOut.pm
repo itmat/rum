@@ -9,6 +9,32 @@ use RUM::Common qw(getave addJunctionsToSeq);
 
 our $log = RUM::Logging->get_logger();
 
+# Given a filehandle, skip over all rows that appear to be header
+# rows. After I return, the filehandle will be positioned at the first
+# data row.
+sub skip_headers {
+    my ($fh) = @_;
+
+    my $off;
+    local $_;
+    # Skip over header lines
+    while (1) {
+        
+        $off = tell $fh;
+
+        defined ($_ = <$fh>) or last;
+
+        unless (/--------------------------------/ ||
+                /psLayout/ || 
+                /blockSizes/ || 
+                /match\s+match/ || 
+                !/\S/) {
+            last;
+        }
+    }
+    seek $fh, $off, 0;
+}
+
 $| = 1;
 # blat run on forward/reverse reads separately, reported in order
 # first make hash 'blathits' which is all alignments of the read that we would accept (indexed by t=0,1 for forward/reverse)
@@ -62,14 +88,10 @@ sub main {
 
     open(BLATHITS, "<", $blatfile) 
         or die "Can't open $blatfile for reading: $!";
-    # check the blat file is in sorted order
-    # print "Checking that the blat file is in correctly sorted order.\n";
+
+    skip_headers(\*BLATHITS);
     $line = <BLATHITS>;
-    chomp($line);
-    while (($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
-        $line = <BLATHITS>;
-        chomp($line);
-    }
+    chomp $line;
     $line1 = $line;
     $blatsorted = "true";
     $log->info("Checking to see if blat file is sorted");
@@ -176,12 +198,10 @@ sub main {
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
     for ($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
         if ($seq_count == $first_seq_num) {
+
+            skip_headers(\*BLATHITS);
             $line = <BLATHITS>;
-            chomp($line);
-            while (($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
-                $line = <BLATHITS>;
-                chomp($line);
-            }
+            chomp $line;
             @a = split(/\t/,$line);
             $readlength = $a[10];
             if ($readlength < 80) {
@@ -286,7 +306,7 @@ sub main {
         }
         @a = split(/\t/,$line);
         @a_x = split(/\t/,$line);
-        while ($seqnum == $seq_count) {
+        while (defined($seqnum) && $seqnum == $seq_count) {
             $LENGTH = getTotalSizeFromBlockSizes($a[18]);
             $SCORE = $LENGTH - $a[1]; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
             if ($SCORE > $cutoff{$seqname}) { # so match is at least cutoff long (and this cutoff was set to be longer if there are a lot of N's (bad reads or low complexity masked by dust)
@@ -425,15 +445,9 @@ sub main {
                     }
                 }
             }
+            skip_headers(\*BLATHITS);
             $line = <BLATHITS>;
-            chomp($line);
-            while (($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
-                $line = <BLATHITS>;
-                if ($line eq '') {
-                    last;
-                }
-                chomp($line);
-            }	    
+            chomp $line;
             @a = split(/\t/,$line);
             @a_x = split(/\t/,$line);
             $seqname = $a[9];

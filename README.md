@@ -42,7 +42,7 @@ paired-end, expect to use about 100-200 GB disk space.
 #### Autodie
 
 You will now need the `autodie` Perl module. If you are using perl >=
-5.10, this should already be installed. If not, you may neet to
+5.10, this should already be installed. If not, you may need to
 install it. You should be able to install it very quickly by running:
 
 ```
@@ -69,30 +69,88 @@ Installing RUM
 We recommend that you download the latest release from
 https://github.com/PGFI/rum/downloads. If you need the latest
 development version, you can fork the repository from
-https://github.com/PGFI/rum.
+https://github.com/PGFI/rum. 
 
-The new recommended way to install RUM is to use the standard Perl
+You have a few different options for installing RUM, depending on
+whether you want it in a system location, in an arbitrary user
+directory, or in another location where you keep Perl modules.
+
+### In a system directory
+
+If you have root priviliges and want to install RUM in a system
+location like `/usr/local`, you can now do so using the standard Perl
 module installation process:
 
 ```sh
 perl Makefile.PL
 make
-make test # (optional, takes a couple minutes)
 make install # (may need sudo)
 ```
 
-You should also be able to install RUM in a non-standard location by
-passing a `INSTALL_BASE=/some/path` option to the `perl Makefile.PL
-step`. RUM should automatically find all of its perl modules if you
-install it in this manner.
+### In a user directory
+
+If you would rather install RUM in a user-owned directory, you can
+simply untar RUM right in the directory where you to install it. For
+example, if you want to have rum installed in
+`~/RUM-Pipeline-2.00_11`, assuming you have downloaded
+`RUM-Pipeline-2.00_11.tar.gz` to your current directory, you can
+simply do:
+
+```
+tar zxvf RUM-Pipeline-2.00_11.tar.gz
+```
+
+This will place all the rum executables in `RUM-Pipeline-2.00_11/bin`.
+They will find the RUM libraries they need automatically. You may want
+to add the `bin` directory to your path, so that you can run RUM
+simply by typing `rum_runner`:
+
+```sh
+export PATH="${PATH}:${RUM_HOME}/bin"
+rum_runner ...
+```
+
+If you don't add the RUM bin directory to your path, you will need to
+specify the path to `rum_runner` when you run it. For example, if
+you're in the root of the RUM installation, you can run:
+
+```sh
+bin/rum_runner ...
+```
+
+If you're in the bin directory, run:
+
+```sh
+./rum_runner ...
+```
+
+
+### In an alternate Perl module location
+
+If you have an alternate location where you keep Perl modules, you
+should be able to install RUM there by passing an
+`INSTALL_BASE=/some/path` option to the `perl Makefile.PL step`. RUM
+should automatically find all of its perl modules if you install it in
+this manner. For example:
+
+```sh
+RUM_HOME=~/rum
+perl Makefile.PL INSTALL_BASE=$RUM_HOME
+make
+make install
+```
+
+As in the previous option, you will either need to run `rum_runner`
+using the full path, or add `$RUM_HOME/bin` to your `$PATH`.
 
 Installing Indexes
 ------------------
 
-Then you should use the `rum_indexes` program to install one or more
-indexes. By default it will install indexes in the location where you
-installed RUM itself, but you can use the `--prefix` option to tell it
-to install indexes somewhere else:
+Once you install the RUM code, you'll want to use the `rum_indexes`
+program to install one or more indexes. By default it will install
+indexes in the location where you installed RUM itself, but you can
+use the `--prefix` option to tell it to install indexes somewhere
+else:
 
 ```sh
 # Install them where you installed rum
@@ -100,6 +158,17 @@ rum_indexes
 
 # Install them in ~/rum-indexes
 rum_indexes --prefix ~/rum-indexes
+```
+
+For every index you install, a file named like `rum.config_*` will be
+downloaded into the `conf` directory. You will need to specify one of
+these index configuration files when you run rum. For example, if you
+installed the mm9 index by running `rum_indexes --prefix
+~/rum-indexes`, in order to align some reads using that index, you
+would run:
+
+```
+rum_runner align --config ~/rum-indexes/conf/rum.config_mm9 ...
 ```
 
 Note that you will need a lot of available disk space in order to
@@ -138,3 +207,45 @@ After you've installed RUM and one or more indexes, please run
 `rum_runner help` to see usage information. Please also see the [main
 user guide](http://www.cbil.upenn.edu/RUM/userguide.php) for an
 explanation of the pipeline and the output files.
+
+Frequently Asked Questions
+--------------------------
+
+### My job stopped prematurely without writing any error messages to the log files. What happened?
+
+rum_runner will attempt to write a FATAL message to the error logs if
+it encounters an error that it can't handle and needs to
+exit. However, there are some conditions that cause rum_runner to exit
+immediately, and the program won't log a message in that case. Running
+out of memory is one example. So if you have a job that just appeared
+to stop prematurely without leaving any trace of a reason in the log
+file, it's likely that it ran out of memory.
+
+### I started a RUM job and now my system is unresponsive. Why?
+
+If you run a job on a single machine and split it up into multiple
+chunks, it may be using too much memory or CPU time.
+
+For a human genome, each chunk will use about 6 GB of ram, so in order
+to run it in 10 chunks on a single machine, you'd need at least 60 GB
+of ram free to be safe.
+
+You probably don't want to use more chunks than you have cores in your
+system. For example if you have a dual-core system, running a job with
+10 chunks will likely create high contention for CPU resources, making
+your system seem unresponsive.
+
+So if RUM seems to put too much strain on your system, reducing the
+number of chunks might help.
+
+### How should I run rum_runner in the background?
+
+If you're on a Sun Grid Engine cluster and you run rum with the
+`--qsub` option, it will do a minimal amount of processing up front
+and then submit a job to do most of the work. So with SGE you don't
+need to run it in the background.
+
+
+If you're running it locally, you can use `nohup rum_runner
+... &`. It's also very convenient to run rum_runner from within a [GNU
+screen](http://www.gnu.org/software/screen) session.
