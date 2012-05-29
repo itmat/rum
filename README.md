@@ -211,7 +211,7 @@ explanation of the pipeline and the output files.
 Frequently Asked Questions
 --------------------------
 
-### My job stopped without writing an error messages to the log files. What happened?
+### My job stopped prematurely without writing any error messages to the log files. What happened?
 
 rum_runner will attempt to write a FATAL message to the error logs if
 it encounters an error that it can't handle and needs to
@@ -221,3 +221,19 @@ out of memory is one example. So if you have a job that just appeared
 to stop prematurely without leaving any trace of a reason in the log
 file, it's likely that it ran out of memory.
 
+### I started a RUM job and now my system is unresponsive. Why?
+
+If you run a job on a single machine and split it up into multiple
+chunks, it may be using too much memory or CPU time.
+
+For a human genome, each chunk will use about 6 GB of ram, so in order
+to run it in 10 chunks on a single machine, you'd need at least 60 GB
+of ram free to be safe.
+
+You probably don't want to use more chunks than you have cores in your
+system. For example if you have a dual-core system, running a job with
+10 chunks will likely create high contention for CPU resources, making
+your system seem unresponsive.
+
+So if RUM seems to put too much strain on your system, reducing the
+number of chunks might help.
