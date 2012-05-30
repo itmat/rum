@@ -282,7 +282,7 @@ sub get_options {
         my $existing = $c->get($k);
         if (defined($existing) && $existing ne $v) {
             $did_set = 1;
-            $self->logsay("Changing $k from $existing to $v");
+            $log->info("Changing $k from $existing to $v");
         }
         
         $c->set($k, $v);
@@ -379,7 +379,7 @@ sub check_config {
             "For paired-end data, you cannot set --max-insertions-per-read".
                 " to be greater than 1.");
     }
-    
+
     if (defined($c->user_quals)) {
         $c->quals_file =~ /\// or $usage->bad(
             "do not specify -quals file with a full path, ".
@@ -424,6 +424,11 @@ sub check_config {
         -r $c->alt_quant_model or die
             "Can't read from ".$c->alt_quant_model.": $!";
     }
+
+    for my $fname (@{ $reads || [] }) {
+        -r $fname or die "Can't read from read file $fname";
+    }
+    
     
 }
 
