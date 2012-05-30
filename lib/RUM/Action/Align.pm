@@ -72,7 +72,7 @@ sub run {
     my $platform_name = $c->platform;
     my $local = $platform_name =~ /Local/;
     
-    unless ($c->genome_size) {
+    if ( !$c->genome_size && ($local || $d->parent )) {
         $c->set('genome_size', $self->genome_size);
     }
 

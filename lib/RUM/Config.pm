@@ -600,7 +600,6 @@ sub novel_inferred_internal_exons_quantifications {
                                     .$self->name);
 }
 
-
 sub AUTOLOAD {
     my ($self) = @_;
     

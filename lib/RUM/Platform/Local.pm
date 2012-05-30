@@ -587,6 +587,8 @@ sub postprocess {
     $self->say("Postprocessing");
     $self->say("--------------");
 
+    
+
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
     $w->execute($self->_step_printer($w), ! $self->directives->no_clean);
 }
