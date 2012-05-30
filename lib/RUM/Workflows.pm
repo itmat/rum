@@ -117,7 +117,7 @@ sub chunk_workflow {
     # non-unique files for it.
     unless ($c->blat_only) {
         $m->step(
-            "Separate unique and non-unique mappers from genome bowtie output",
+            "Parse genome Bowtie output",
             ["perl", $c->script("make_GU_and_GNU.pl"), 
              "--unique", post($gu),
              "--non-unique", post($gnu),
@@ -129,7 +129,7 @@ sub chunk_workflow {
     # unique and non-unique files for it.
     unless ($c->dna || $c->blat_only || $c->genome_only) {
         $m->step(
-            "Separate unique and non-unique mappers from transcriptome bowtie output",
+            "Parse transcriptome Bowtie output",
             ["perl", $c->script("make_TU_and_TNU.pl"), 
              "--unique",        post($tu),
              "--non-unique",    post($tnu),
@@ -174,8 +174,7 @@ sub chunk_workflow {
     # If we have the merged bowtie unique mappers and the merged
     # bowtie non-unique mappers, we can create the unmapped file.
     $m->step(
-        "Make a file containing the unmapped reads, to be passed ".
-            "into blat",
+        "Make unmapped reads file for blat",
         ["perl", $c->script("make_unmapped_file.pl"),
          "--reads", $reads_fa,
          "--unique", pre($bowtie_unique), 
