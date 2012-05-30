@@ -553,7 +553,7 @@ Return an estimate of the size of the genome.
 sub genome_size {
     my ($self) = @_;
 
-    $self->logsay("Determining how much RAM you need based on your genome.");
+    $self->logsay("Determining the size of your genome.");
 
     my $c = $self->config;
     my $genome_blat = $c->genome_fa;
@@ -587,7 +587,7 @@ sub check_ram {
 
     my $c = $self->config;
 
-    return if $c->ram_ok;
+    return if $c->ram_ok || $c->ram;
 
     if (!$c->ram) {
         $self->say("I'm going to try to figure out how much RAM ",

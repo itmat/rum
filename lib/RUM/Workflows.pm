@@ -289,7 +289,6 @@ sub chunk_workflow {
         ["perl", $c->script("sort_RUM_by_location.pl"),
          $c->ram_opt,
          pre($rum_unique),
-         "--ram", $c->min_ram_gb,
          "-o", post($rum_unique_sorted),
          ">>", post($chr_counts_u)]);
     
@@ -298,7 +297,6 @@ sub chunk_workflow {
         ["perl", $c->script("sort_RUM_by_location.pl"),
          $c->ram_opt,
          pre($rum_nu),
-         "--ram", $c->min_ram_gb,
          "-o", post($rum_nu_sorted),
          ">>", post($chr_counts_nu)]);
     

@@ -95,6 +95,8 @@ submitted.
 
 sub start_parent {
     my ($self) = @_;
+
+    $log->info("Submitting a job to monitor child tasks, then exiting.");
     my $d = $self->directives;
     my $dir = $self->config->output_dir;
     my $cmd =  "-b y $0 align --parent --output $dir --lock $RUM::Lock::FILE";
@@ -115,7 +117,7 @@ Return a list of ram-related arguments to pass to qsub.
 
 sub ram_args {
     my ($self) = @_;
-    my $ram = $self->config->min_ram_gb . "G";
+    my $ram = ($self->config->ram || $self->config->min_ram_gb) . "G";
     ("-l", "mem_free=$ram,h_vmem=$ram");
 }
 

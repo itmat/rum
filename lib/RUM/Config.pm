@@ -327,7 +327,7 @@ sub paired_end_opt          { $_[0]->{paired_end} ? "--paired" : "--single" }
 sub dna_opt                 { $_[0]->{dna} ? "--dna" : "" }
 sub name_mapping_opt   { "" } 
 sub ram_opt {
-    return $_[0]->ram ? ("--ram", $_[0]->ram) : ();
+    return $_[0]->ram ? ("--ram", $_[0]->ram || $_[0]->min_ram_gb) : ();
 }
 sub blat_opts {
     my ($self) = @_;
