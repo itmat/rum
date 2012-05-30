@@ -175,7 +175,7 @@ rum_fails_ok(
 
 # Check that we set some default values correctly
 {
-    my @argv = ("align", "--config", $config,
+    my @argv = ("--config", $config,
                 "--output", "foo",
                 "--name", "asdf",
                 $forward_64_fq);
@@ -201,18 +201,18 @@ rum_fails_ok(
 # Check that we clean up a name
 is(rum("--config", $config,
        "--output", "foo",
-       "in.fq", "--name", ",foo bar,baz,")->config->name,
+       $forward_64_fq, "--name", ",foo bar,baz,")->config->name,
    "foo_bar_baz",
    "Clean up name with invalid characters");
 
 # Check that rum fails if a read file is missing
 rum_fails_ok(["align","--config", $config, "--output", tmp_out(),
               "--name", "asdf", "asdf.fq", "-q"],
-             qr/asdf.fq.*no such file or directory/i,
+             qr/read from.*asdf.fq/i,
              "Read file doesn't exist");    
 rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
               $forward_64_fq, "asdf.fq", "-q"],
-             qr/asdf.fq.*no such file or directory/i, 
+             qr/read from.*asdf.fq/i, 
              "Read file doesn't exist");    
 
 # Check bad reads
@@ -466,7 +466,7 @@ rum_fails_ok(["align", @standard_args, "--alt-quant", "foobar"],
              "Bad --alt-quant");
 
 chunk_cmd_unlike([@standard_args, "--alt-quant", $alt_quant],
-                 "Separate unique and non-unique mappers from transcriptome bowtie output",
+                 "Parse transcriptome Bowtie output",
                   qr/$alt_quant/i,
                   "--alt-quant does not get passed to make_tu_and_tnu");
 

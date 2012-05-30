@@ -377,9 +377,17 @@ sub check_config {
 
     my $reads = $c->reads;
 
-    $reads && (@$reads == 1 || @$reads == 2) or $usage->bad(
-        "Please provide one or two read files. You provided " .
-        join(", ", @$reads));
+
+    if ($reads) {
+        @$reads == 1 || @$reads == 2 or $usage->bad(
+            "Please provide one or two read files. You provided " .
+                join(", ", @$reads));
+    }
+    else {
+        $usage->bad("Please provide one or two read files.");
+    }
+
+
     if ($reads && @$reads == 2) {
         $reads->[0] ne $reads->[1] or $usage->bad(
         "You specified the same file for the forward and reverse reads, ".
@@ -438,7 +446,6 @@ sub check_config {
     for my $fname (@{ $reads || [] }) {
         -r $fname or die "Can't read from read file $fname";
     }
-    
     
 }
 
