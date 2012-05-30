@@ -48,29 +48,31 @@ configuration so that we don't need to repeat that step.
 
 sub preprocess {
     my ($self) = @_;
+    my $config = $self->config;
 
     $self->say();
     $self->say("Preprocessing");
     $self->say("-------------");
 
-    my $config = $self->config;
+    # If any steps of postprocessing have run, then we don't need to
+    # run preprocessing.
     if (RUM::Workflows->postprocessing_workflow($config)->steps_done) {
         $self->say("(skipping: we're in the postprocessing phase)");
         return;
     }
 
-    my $all_chunks_started = 1;
-
+    # We don't start any chunks until preprocessing is completely
+    # done. So if any chunks have started, we don't need to do
+    # preprocessing. TODO: It would be better to split preprocessing
+    # up so at can be run as the first step of each chunk.
     for my $chunk ($self->chunk_nums) {
         my $workflow = RUM::Workflows->chunk_workflow($config, $chunk);
-        if ( ! $workflow->steps_done) {
-            $all_chunks_started = 0;
+        if ($workflow->steps_done) {
+            $self->say("(skipping: we're in the processing phase)");
+            $log->info("Not preprocessing, as we seem to be in the " .
+                           "processing phase");
+            return;
         }
-    }
-
-    if ($all_chunks_started) {
-        $self->say("(skipping: we're in the processing phase)");
-        return;
     }
 
     $self->_check_input();
