@@ -14,7 +14,7 @@ use strict;
 use warnings;
 use autodie;
 
-use Getopt::Long;
+use Getopt::Long qw(:config pass_through);
 use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
 use Carp;
@@ -239,6 +239,17 @@ sub get_options {
         "help|h" => sub { $usage->help }
     );
 
+    my @reads;
+
+    while (local $_ = shift @ARGV) {
+        if (/^-/) {
+            $usage->bad("Unrecognized option $_");
+        }
+        else {
+            push @reads, File::Spec->rel2abs($_);
+        }
+    }
+
     $output_dir or $usage->bad(
         "The --output or -o option is required for \"rum_runner align\"");
 
@@ -293,8 +304,6 @@ sub get_options {
     $alt_genes = File::Spec->rel2abs($alt_genes) if $alt_genes;
     $alt_quant = File::Spec->rel2abs($alt_quant) if $alt_quant;
     $rum_config_file = File::Spec->rel2abs($rum_config_file) if $rum_config_file;
-
-    my @reads = map { File::Spec->rel2abs($_) } @ARGV;
 
     $self->{chunk} = $chunk;
 
@@ -369,7 +378,8 @@ sub check_config {
     my $reads = $c->reads;
 
     $reads && (@$reads == 1 || @$reads == 2) or $usage->bad(
-        "Please provide one or two read files");
+        "Please provide one or two read files. You provided " .
+        join(", ", @$reads));
     if ($reads && @$reads == 2) {
         $reads->[0] ne $reads->[1] or $usage->bad(
         "You specified the same file for the forward and reverse reads, ".
