@@ -271,8 +271,8 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
                   $forward_64_fq, $reverse_64_fq);
     $rum->setup;
     $rum->platform->preprocess;
-    my $forward_64_fq = $rum->config->output_dir . "/chunks/reads.fa";
-    my $quals = $rum->config->output_dir . "/chunks/quals.fa";
+    my $forward_64_fq = $rum->config->in_output_dir("reads.fa");
+    my $quals = $rum->config->in_output_dir("quals.fa");
 
     my $prefix = "2, paired, fq, no chunks";
     ok(-e $forward_64_fq, "$prefix: made reads file");
