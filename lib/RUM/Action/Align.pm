@@ -260,7 +260,7 @@ sub get_options {
 
     my $dir = $output_dir;
     $ENV{RUM_OUTPUT_DIR} = $dir;
-    my $c = RUM::Config->load($dir);
+    my $c = $dir ? RUM::Config->load($dir) : undef;
     !$c or ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
     my $did_load;
     if ($c) {

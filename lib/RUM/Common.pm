@@ -2,6 +2,11 @@ package RUM::Common;
 
 use strict;
 no warnings;
+
+use RUM::Logging;
+
+our $log = RUM::Logging->get_logger;
+
 use Carp;
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
@@ -397,6 +402,7 @@ output status and croak if it fails.
 
 sub shell {
     my @cmd = @_;
+    $log->info("Running @cmd");
     system(@cmd) == 0 or croak "Error running @cmd: $!";
 }
 

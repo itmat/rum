@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 use strict;
 
+use File::Spec;
+
 if(@ARGV<3) {
     die "
 Usage: parsefasta.pl <infile> <num chunks> <reads out> [option]
@@ -68,12 +70,20 @@ my $recordsize = $totalsize / $FL;
 my $numrecords = int($filesize / $recordsize);
 my $numrecords_per_chunk = int($numrecords / $numchunks);
 
+sub in_chunk_dir {
+    my $filename = shift;
+
+    my (undef, $dir, $file) = File::Spec->splitpath($filename);
+    return File::Spec->catfile($dir, "chunks", $file);
+}
+
+
 my $seq_counter = 0;
 my $endflag = 0;
 open(ROUTALL, ">$reads_out");
 if($paired eq "false") {
     for(my $chunk=1; $chunk<=$numchunks; $chunk++) {
-	my $reads_file = $reads_out . ".$chunk";
+	my $reads_file = in_chunk_dir($reads_out) . ".$chunk";
 	if($endflag == 1) {
 	    $chunk = $numchunks;
 	    next;
@@ -129,7 +139,8 @@ if($paired eq "false") {
 
 if($paired eq "true") {
     for(my $chunk=1; $chunk<=$numchunks; $chunk++) {
-	my $reads_file = $reads_out . ".$chunk";
+	my $reads_file = in_chunk_dir($reads_out) . ".$chunk";
+
 	if($endflag == 1) {
 	    $chunk = $numchunks;
 	    next;

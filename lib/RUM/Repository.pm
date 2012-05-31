@@ -151,7 +151,7 @@ sub fetch_binaries {
     my ($self) = @_;
     $self->mkdirs;
     my $bin_tarball = $BIN_TARBALL_MAP{$^O}
-        or croak "I don't have a binary tarball for this operating systen ($^O)";
+        or croak "I don't have a binary tarball for this operating system ($^O)";
     my $url = "$BIN_TARBALL_URL_PREFIX/$bin_tarball";
     my $bin_dir = $self->bin_dir;
     my $local = "$bin_dir/$bin_tarball";

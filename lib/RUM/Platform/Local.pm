@@ -21,6 +21,7 @@ use warnings;
 
 use Carp;
 use Text::Wrap qw(wrap fill);
+use File::Path qw(mkpath);
 
 use RUM::WorkflowRunner;
 use RUM::Logging;
@@ -247,7 +248,7 @@ sub _determine_read_length {
     
     my ($self) = @_;
 
-    my @lines = head($self->config->in_chunk_dir("reads.fa"), 2);
+    my @lines = head($self->config->in_output_dir("reads.fa"), 2);
     my $read = $lines[1];
     my $len = length($read);
     my $min = $self->config->min_length;
@@ -289,10 +290,12 @@ sub _reformat_reads {
     my $parse_2_quals = $config->script("fastq2qualities.pl");
     my $num_chunks = $config->num_chunks || 1;
 
+    mkpath($config->chunk_dir);
+
     my @reads = @{ $config->reads };
 
-    my $reads_fa = $config->in_chunk_dir("reads.fa");
-    my $quals_fa = $config->in_chunk_dir("quals.fa");
+    my $reads_fa = $config->in_output_dir("reads.fa");
+    my $quals_fa = $config->in_output_dir("quals.fa");
 
     my $name_mapping_opt = $config->preserve_names ?
         "-name_mapping $output_dir/read_names_mapping" : "";    

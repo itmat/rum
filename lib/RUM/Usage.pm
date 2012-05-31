@@ -138,10 +138,10 @@ sub bad {
         -verbose => 0,
         -exitval => "NOEXIT"});
     if ($0 =~ /rum_runner$/) {
-        print STDERR "Please see $0 help for more information.\n";
+        print "Please see $0 help for more information.\n";
     }
     else {
-        print STDERR "Please see $0 --help for more information.\n";
+        print "Please see $0 --help for more information.\n";
     }
 
     exit(1);
@@ -168,7 +168,7 @@ sub check {
                 -pathlist => \@INC,
                 -verbose => 0,
                 -exitval => "NOEXIT"});
-            print STDERR "Please see $0 help $action for more information";
+            print "Please see $0 help $action for more information\n";
         }
         else {
             __PACKAGE__->bad($msg);
