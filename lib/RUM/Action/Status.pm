@@ -47,6 +47,12 @@ sub run {
     $self->print_postprocessing_status;
     $self->say();
     $self->_chunk_error_logs_are_empty;
+
+    my $postproc = RUM::Workflows->postprocessing_workflow($self->config);
+    if ($postproc->is_complete) {
+        $self->say("");
+        $self->say("RUM Finished.");
+    }
 }
 
 =item print_processing_status
