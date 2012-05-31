@@ -44,22 +44,6 @@ sub run {
     $self->clean($very);
 }
 
-=item cleanup_reads_and_quals
-
-Remove all the reads.fa.* and quals.fa.* files. The preprocessing step
-(which produces these files) isn't yet modeled as a RUM::Workflow, so
-we can't use its clean method on these files.
-
-=cut
-
-sub cleanup_reads_and_quals {
-    my ($self) = @_;
-    for my $chunk ($self->chunk_nums) {
-        unlink($self->config->chunk_file("quals.fa", $chunk),
-               $self->config->chunk_file("reads.fa", $chunk));
-    }
-
-}
 
 =item clean
 
@@ -79,6 +63,9 @@ sub clean {
             unlink $File::Find::name;
         }
     }, $c->output_dir;
+
+    unlink($self->config->in_output_dir("quals.fa"),
+           $self->config->in_output_dir("reads.fa"));
 
     # Make a list of dirs to remove
     my @dirs = ($c->chunk_dir, $c->temp_dir, $c->postproc_dir);
