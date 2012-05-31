@@ -25,7 +25,7 @@ GetOptions(
     "test=s" => \(my $TEST));
 
 if (-e $INDEX_CONFIG) {
-    plan tests => 271;
+    plan tests => 303;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -291,23 +291,22 @@ sub check_two_fastq_var_length {
 
 
 SKIP: {
-#    check_defaults;
-#    check_chunks;
-#    check_strand_specific;
-#    check_alt_quants;
-#    check_strand_specific_alt_quants;
-#    check_dna;
-#    check_dna_quant;
-#    check_dna_junctions;
-#    check_dna_junctions_quant;
-
-#    check_genome_only;
-#    check_blat_only;
-#    check_one_fastq;
-#    check_two_fasta;
-#    check_one_fasta;
-#    check_one_fasta_var_length;
-#    check_two_fasta_var_length;
+    check_defaults;
+    check_chunks;
+    check_strand_specific;
+    check_alt_quants;
+    check_strand_specific_alt_quants;
+    check_dna;
+    check_dna_quant;
+    check_dna_junctions;
+    check_dna_junctions_quant;
+    check_genome_only;
+    check_blat_only;
+    check_one_fastq;
+    check_two_fasta;
+    check_one_fasta;
+    check_one_fasta_var_length;
+    check_two_fasta_var_length;
     check_one_fastq_var_length;
     check_two_fastq_var_length;
 }
