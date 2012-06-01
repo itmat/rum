@@ -24,7 +24,7 @@ BEGIN {
         push @missing, $lib if $@;
     }
     plan skip_all => "@missing needed" if @missing;
-    plan tests => 99;
+    plan tests => 103;
 }
 
 
@@ -214,6 +214,7 @@ sub cluster {
     my $result = $cluster->postprocess;
 
     my $pos = 1;
+    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'submit_postproc',  "submit postprocessing");
     $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     ok ! $cluster->call_pos(++$pos), "Stopped";
@@ -234,6 +235,7 @@ sub cluster {
     my $result = $cluster->postprocess;
 
     my $pos = 1;
+    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'submit_postproc', 'submit postprocessing');
     $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'postproc_ok', "check if postproc was ok,");
@@ -259,6 +261,7 @@ sub cluster {
     my $pos = 1;
 
     my $result = $cluster->postprocess;
+    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'submit_postproc', 'submit postprocessing');
     $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'postproc_ok', "check if the proc is ok,");
@@ -281,6 +284,7 @@ sub cluster {
     my $pos = 1;
 
     my $result = $cluster->postprocess;
+    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'submit_postproc', 'submit the postprocess');
     $cluster->called_args_pos_is($pos, 2, undef, "with no chunks");
     $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');

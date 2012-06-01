@@ -185,6 +185,13 @@ sub _chunk_error_logs_are_empty {
     return $result;
 }
 
+=item still_processing
+
+Return a true value if we have started postprocessing or if at least
+one of my chunks is still processing.
+
+=cut
+
 sub still_processing {
     my ($self) = @_;
 
