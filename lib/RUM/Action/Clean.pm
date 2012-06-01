@@ -64,9 +64,6 @@ sub clean {
         }
     }, $c->output_dir;
 
-    unlink($self->config->in_output_dir("quals.fa"),
-           $self->config->in_output_dir("reads.fa"));
-
     # Make a list of dirs to remove
     my @dirs = ($c->chunk_dir, $c->temp_dir, $c->postproc_dir);
 
@@ -75,6 +72,10 @@ sub clean {
     if ($very) {
         push @dirs, $c->in_output_dir("log");
         RUM::Workflows->postprocessing_workflow($c)->clean(1);
+        unlink($self->config->in_output_dir("quals.fa"),
+               $self->config->in_output_dir("reads.fa"));
+
+
     }
 
     rmtree(\@dirs);
