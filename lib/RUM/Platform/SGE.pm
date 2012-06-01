@@ -59,11 +59,11 @@ sub new {
 
     $self->{cmd} = {};
     $self->{cmd}{preproc}  =  "perl $0 align --child --output $dir --preprocess";
-    $self->{cmd}{proc}     =  "perl $0 align --child --output $dir --chunk \$SGE_TASK_ID";
-    $self->{cmd}{postproc} =  "perl $0 align --child --output $dir --postprocess";
+    $self->{cmd}{proc}     =  "perl $0 align --child --output $dir --chunk \$SGE_TASK_ID --postprocess";
+ #   $self->{cmd}{postproc} =  "perl $0 align --child --output $dir --postprocess";
 
     $self->{cmd}{proc} .= " --no-clean" if $directives->no_clean;
-    $self->{cmd}{postproc} .= " --no-clean" if $directives->no_clean;
+#    $self->{cmd}{postproc} .= " --no-clean" if $directives->no_clean;
 
     $self->{jids}{$_} = [] for @JOB_TYPES;
 
@@ -189,11 +189,11 @@ submit_postproc until the processing is done.
 
 sub submit_postproc {
     my ($self, $c) = @_;
-    $log->info("Submitting postprocessing job");
-    my $sh = $self->_write_shell_script("postproc");
-    my $jid = $self->_qsub($self->ram_args, $sh);
-    push @{ $self->_postproc_jids }, $jid;
-    $self->save;
+    # RUM::Platform::Cluster might call me to submit a new
+    # postprocessing job, but the last chunk should handle it. So make
+    # sure there's no other postprocessing task running before
+    # actually submitting it.
+    $self->submit_proc($self->config->num_chunks) unless $self->postproc_ok;
 }
 
 =item update_status
@@ -241,7 +241,7 @@ sub proc_ok {
 
 sub postproc_ok {
     my ($self) = @_;
-    return $self->_some_job_ok("postproc", $self->_postproc_jids);
+    return $self->proc_ok($self->config->num_chunks);
 }
 
 =item save
@@ -273,7 +273,7 @@ sub _qsub {
     my $dir = $RUM::Logging::LOGGING_DIR;
     my $dir_opt = $dir ? "-o $dir -e $dir" : "";
     my $cmd = "qsub -V -cwd -j y $dir_opt @args";
-    $log->debug("Running '$cmd'");
+    $log->info("Submitting job to SGE: '$cmd'");
     my $out = `$cmd`;
     $log->debug("'$cmd' produced output $out");
     if ($?) {
@@ -426,7 +426,7 @@ sub stop {
         ["parent",         $self->_parent_jids ],
         ["preprocessing",  $self->_preproc_jids ],
         ["processing",     $self->_proc_jids ],
-        ["postprocessing", $self->_postproc_jids ]
+#        ["postprocessing", $self->_postproc_jids ]
     );
 
     for my $type (@JOB_TYPES) {
@@ -453,7 +453,6 @@ sub stop {
 sub _parent_jids   { $_[0]->{jids}{parent} };
 sub _preproc_jids  { $_[0]->{jids}{preproc} };
 sub _proc_jids     { $_[0]->{jids}{proc} };
-sub _postproc_jids { $_[0]->{jids}{postproc} };
 
 sub _write_shell_script {
     my ($self, $phase) = @_;

@@ -121,7 +121,7 @@ sub process {
             # complete (based on the files that exist), we can
             # consider it done.
             if ($workflow->is_complete) {
-                $log->debug("Chunk $chunk is done");
+                $log->info("Chunk $chunk is done");
                 $results[$chunk] = 1;
             }
 
@@ -165,7 +165,7 @@ sub postprocess {
     my $workflow = $self->postprocessing_workflow;
     my $run = sub { $self->submit_postproc };
     my $runner = RUM::WorkflowRunner->new($workflow, $run);
-
+    $self->update_status;
     $runner->run;
 
     while (1) {

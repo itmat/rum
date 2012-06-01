@@ -576,6 +576,7 @@ sub _step_printer {
     };
 }
 
+
 ## Post-processing
 
 =item postprocess
@@ -586,11 +587,21 @@ Runs the postprocessing phase, in the current process.
 
 sub postprocess {
     my ($self) = @_;
+
+    my $c = $self->config;
+
+    # If I'm called before processing is done, sleep until it is
+    # done. This is so we can make one of the chunks do
+    # postprocessing, but only after all the other chunks are done.
+    while ($self->still_processing) {
+        $log->info("Processing is not complete, going to sleep");
+        sleep(30);
+    }
+    $log->info("Processing is complete");
+
     $self->say();
     $self->say("Postprocessing");
     $self->say("--------------");
-
-    
 
     my $w = RUM::Workflows->postprocessing_workflow($self->config);
     $w->execute($self->_step_printer($w), ! $self->directives->no_clean);

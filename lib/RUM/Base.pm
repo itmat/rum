@@ -118,6 +118,7 @@ Log @msg at the warning level.
 
 sub alert {
     my ($self, @msg) = @_;
+    $self->say(@msg);
     my $package;
     ref($self) =~ /(.*)=/ and $package = $1;
     RUM::Logging->get_logger($package)->warn(@msg);
@@ -175,13 +176,30 @@ sub _chunk_error_logs_are_empty {
 
     my $log_file = File::Spec->catfile($dir, "rum_errors.log");
     if (-s $log_file) {
-        $log->warn("!!! Main log file had errors, please check $log_file");
+        $self->alert("!!! Main log file had errors, please check $log_file");
         $result = 0;
     }
     else {
         $self->logsay("Main error log file is empty, that's good");
     }
     return $result;
+}
+
+sub still_processing {
+    my ($self) = @_;
+
+    my $config = $self->config;
+
+    # If postprocessing has started, then we can't be in the
+    # processing phase
+    if (RUM::Workflows->postprocessing_workflow($config)->steps_done) {
+        return 0;
+    }
+
+    for my $chunk ( 1 .. $config->num_chunks ) {
+        return 1 unless RUM::Workflows->chunk_workflow($config, $chunk)->is_complete;
+    }
+    return 0;
 }
 
 =back

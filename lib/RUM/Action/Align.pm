@@ -108,12 +108,33 @@ sub run {
     $self->_show_match_length;
     $self->_check_read_lengths;
 
+    my $chunk = $self->{chunk};
+    
+    # If user said --process or at least didn't say --preprocess or
+    # --postprocess, then check if we still need to process, and if so
+    # execute the processing phase.
     if ($d->process || $d->all) {
-        $platform->process($self->{chunk});
+        if ($self->still_processing) {
+            $platform->process($chunk);
+        }
     }
+
+    # If user said --postprocess or didn't say --preprocess or
+    # --process, then we need to do postprocessing.
     if ($d->postprocess || $d->all) {
-        $platform->postprocess;
-        $self->_final_check;
+        
+        # If we're called with "--chunk X --postprocess", that means
+        # we're supposed to process chunk X and do postprocessing only
+        # if X is the last chunk. I realize that's not very
+        # intuitive...
+        #
+        # TODO: Come up with a better way for the parent to
+        # communicate with one of its child processes, telling it to
+        # do postproessing
+        if ( !$chunk || $chunk == $self->config->num_chunks ) {
+            $platform->postprocess;
+            $self->_final_check;
+        }
     }
     RUM::Lock->release;
 }
@@ -275,12 +296,10 @@ sub get_options {
     ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
 
     # If a chunk is specified, that implies that the user wants to do
-    # the 'processing' phase, so unset preprocess and postprocess
+    # the 'processing' phase, so unset preprocess.
     if ($chunk) {
         $usage->bad("Can't use --preprocess with --chunk")
               if $d->preprocess;
-        $usage->bad("Can't use --postprocess with --chunk")
-              if $d->postprocess;
         $d->unset_all;
         $d->set_process;
     }
