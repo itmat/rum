@@ -73,9 +73,6 @@ our %DEFAULTS = (
     genome_bowtie => undef,
     genome_fa => undef,
     annotations => undef,
-    bowtie_bin => undef,
-    mdust_bin => undef,
-    blat_bin => undef,
     trans_bowtie => undef,
 );
 
@@ -117,9 +114,9 @@ sub new {
 =item load_rum_config_file
 
 Load the settings from the rum index configuration file I am
-configured with. This allows you to call annotations, bowtie_bin,
-blat_bin, mdust_bin, genome_bowtie, trans_bowtie, and genome_fa on me
-rather than loading the config object yourself.
+configured with. This allows you to call annotations, genome_bowtie,
+trans_bowtie, and genome_fa on me rather than loading the config
+object yourself.
 
 =cut
 
@@ -132,24 +129,12 @@ sub load_rum_config_file {
     $cf->make_absolute;
     my %data;
     $data{annotations}   = $cf->gene_annotation_file;
-    $data{bowtie_bin}    = $cf->bowtie_bin;
-    $data{blat_bin}      = $cf->blat_bin;
-    $data{mdust_bin}     = $cf->mdust_bin;
     $data{genome_bowtie} = $cf->bowtie_genome_index;
     $data{trans_bowtie}  = $cf->bowtie_gene_index;
     $data{genome_fa}     = $cf->blat_genome_index;
 
     -e $data{annotations} || $self->dna or die
         "the file '$data{annotations}' does not seem to exist.";         
-
-    -e $data{bowtie_bin} or die
-        "the executable '$data{bowtie_bin}' does not seem to exist.";
-
-    -e $data{blat_bin} or die
-        "the executable '$data{blat_bin}' does not seem to exist.";
-
-    -e $data{mdust_bin} or die
-        "the executable '$data{mdust_bin}' does not seem to exist.";        
 
     -e $data{genome_fa} or die
         "the file '$data{genome_fa}' does not seem to exist.";

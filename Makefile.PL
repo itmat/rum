@@ -4,6 +4,11 @@ use ExtUtils::MakeMaker;
 
 use File::Find;
 
+use lib "lib";
+use RUM::BinDeps;
+
+RUM::BinDeps->new->fetch();
+
 my @exe_files;
 find sub {
     my $file = "bin/$_";

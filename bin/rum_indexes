@@ -171,7 +171,6 @@ EOF
 }
 
 
-
 sub print_indexes {
     my ($self, @indexes) = @_;
 
@@ -243,7 +242,6 @@ EOF
     my $org = $self->select_index($spec) or die "\n";
     print "Installing $org->{build}: $org->{common} ($org->{latin})\n";
 
-    $self->repo->fetch_binaries();
     $self->repo->install_index($org, $callback);
 }
 
@@ -289,7 +287,6 @@ sub interactive {
                 my $idx = $indexes[0];
                 printf "I'll install %s: %s (%s)\n", 
                     $idx->build, $idx->common, $idx->latin;
-                $self->repo->fetch_binaries();
                 $self->repo->install_index($idx, $callback);            
             }
 

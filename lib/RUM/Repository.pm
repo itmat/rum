@@ -37,20 +37,14 @@ use RUM::Repository::IndexSpec;
 use RUM::ConfigFile;
 use Carp;
 use File::Spec;
+use File::Copy qw(cp);
+use File::Temp qw(tempdir);
 use Exporter qw(import);
 FindBin->again;
 
 our @EXPORT_OK = qw(download);
 
 our $ORGANISMS_URL = "http://itmat.rum.s3.amazonaws.com/organisms.txt";
-
-# Maps os name to bin tarball name
-our %BIN_TARBALL_MAP = (
-    darwin => "bin_mac1.5.tar",
-    linux  => "bin_linux64.tar"
-);
-
-our $BIN_TARBALL_URL_PREFIX = "http://itmat.rum.s3.amazonaws.com";
 
 =head1 DESCRIPTION
 
@@ -140,26 +134,6 @@ sub organisms_file { $_[0]->{organisms_file} }
 =head2 Querying and Modifying the Repository
 
 =over 4
-
-=item $self->fetch_binaries
-
-Download the binary dependencies (blat, bowtie, mdust).
-
-=cut
-
-sub fetch_binaries {
-    my ($self) = @_;
-    $self->mkdirs;
-    my $bin_tarball = $BIN_TARBALL_MAP{$^O}
-        or croak "I don't have a binary tarball for this operating system ($^O)";
-    my $url = "$BIN_TARBALL_URL_PREFIX/$bin_tarball";
-    my $bin_dir = $self->bin_dir;
-    my $local = "$bin_dir/$bin_tarball";
-    download($url, $local);
-    system("tar -C $bin_dir --strip-components 1 -xf $local") == 0
-        or croak "Can't unpack $local";
-    unlink $local;
-}
 
 =item $self->fetch_organisms_file
 

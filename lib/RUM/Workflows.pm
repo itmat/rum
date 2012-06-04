@@ -6,10 +6,11 @@ use warnings;
 use Carp;
 use Text::Wrap qw(fill wrap);
 
-use RUM::StateMachine;
-use RUM::Workflow qw(pre post);
+use RUM::BinDeps;
 use RUM::Config;
 use RUM::Logging;
+use RUM::StateMachine;
+use RUM::Workflow qw(pre post);
 
 our $log = RUM::Logging->get_logger;
 
@@ -68,7 +69,10 @@ sub chunk_workflow {
     my $nu_stats = chunk_file("nu_stats");
     my $sam_file = chunk_file("RUM.sam");
 
-    my $bowtie_bin = $c->bowtie_bin;
+    my $deps = RUM::BinDeps->new;
+    my $bowtie_bin = $deps->bowtie;
+    my $blat_bin   = $deps->blat;
+    my $mdust_bin  = $deps->mdust;
     my $bowtie_cutoff_opt = $c->bowtie_cutoff_opt;
 
     # From the start state we can run bowtie on either the genome or
@@ -76,7 +80,7 @@ sub chunk_workflow {
     unless ($c->blat_only) {
         $m->step(
             "Run bowtie on genome",
-            [$c->bowtie_bin,
+            [$bowtie_bin,
              $c->bowtie_cutoff_opt,
              "--best", 
              "--strata",
@@ -92,7 +96,7 @@ sub chunk_workflow {
     unless ($c->dna || $c->blat_only || $c->genome_only) {
         $m->step(
             "Run bowtie on transcriptome",
-            [$c->bowtie_bin,
+            [$bowtie_bin,
              $c->bowtie_cutoff_opt,
              "--best", 
              "--strata",
@@ -184,7 +188,7 @@ sub chunk_workflow {
     
     $m->step(
         "Run blat on unmapped reads",
-        [$c->blat_bin,
+        [$blat_bin,
          $c->genome_fa,
          pre($bowtie_unmapped),
          post($blat_output),
@@ -192,7 +196,7 @@ sub chunk_workflow {
     
     $m->step(
          "Run mdust on unmapped reads",
-         [$c->mdust_bin,
+         [$mdust_bin,
           pre($bowtie_unmapped),
           " > ",
           post($mdust_output)]);
@@ -797,7 +801,8 @@ sub postprocessing_workflow {
          ">", post($c->mapping_stats_final)]);
     
     push @goal, $sam_file;
-
+#    push @goal, $reads_fa;
+#    push @start, $reads_fa;
     $w->start([@start]);
     $w->set_goal([@goal]);
 

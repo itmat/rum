@@ -31,6 +31,7 @@ use warnings;
 use Carp;
 use Text::Wrap qw(wrap fill);
 
+use RUM::Directives;
 use RUM::Logging;
 
 our $log = RUM::Logging->get_logger();
@@ -52,7 +53,7 @@ sub new {
     my ($class, $config, $directives) = @_;
     my $self = {};
     $self->{config} = $config; # or croak        "$class->new called without config";
-    $self->{directives} = $directives; # or croak        "$class->new called without directives";
+    $self->{directives} = $directives || RUM::Directives->new;
     bless $self, $class;
 }
 
@@ -79,7 +80,7 @@ RUM::Runner to tell it what to do.
 
 =cut
 
-sub directives { $_[0]->{directives} }
+sub directives { ref($_[0]) or confess "Not a ref"; $_[0]->{directives} }
 
 =item say(@msg)
 
