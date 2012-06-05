@@ -270,6 +270,9 @@ sub install_index {
     my $genome_fasta = _basename($config_file->blat_genome_index);
     my $bowtie_genome_index = _basename($config_file->bowtie_genome_index);
     my $bowtie_gene_index = _basename($config_file->bowtie_gene_index);
+
+
+    print "Determining the size of the genome.\n";
     
     my $index = RUM::Index->new(
         directory => $dir,
@@ -296,8 +299,6 @@ Return an estimate of the size of the genome.
 
 sub genome_size {
     my ($filename) = @_;
-
-    print "Determining the size of the genome.";
 
     my $gs1 = -s $filename;
     my $gs2 = 0;

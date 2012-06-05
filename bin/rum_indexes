@@ -110,12 +110,16 @@ pointing to a set of indexes in another location:
 
 use strict;
 use warnings;
+use autodie;
 
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 use RUM::Repository;
 use RUM::Script qw(get_options show_usage);
 use POSIX;
+use File::Spec qw(splitpath);
+use File::Path qw(mkpath);
+use File::Copy qw(mv);
 
 sub new {
     my ($class) = @_;
@@ -126,19 +130,20 @@ sub main {
     my ($self) = @_;
 
     get_options(
-        "--list|l"    => \(my $do_list),
-        "--install|i" => \(my $do_install),
-        "--remove|r"  => \(my $do_remove),
-        "--prefix|p=s"  => \(my $prefix),
+        "--list|l"      => \(my $do_list),
+        "--install|i"   => \(my $do_install),
+        "--migrate|m" => \(my $do_migrate),
+        "--remove|r"    => \(my $do_remove),
+        "--prefix|p=s"  => \(my $prefix="indexes"),
         "--markdown"    => \(my $use_markdown));
     
     # show_usage() unless $do_list || $do_install || $do_remove;
     my %options;
-    $options{root_dir} = $prefix if $prefix;
+    $options{indexes_dir} = $prefix;
 
     $self->{repo} = RUM::Repository->new(%options);
     $self->{markdown} = $use_markdown;
-    printf "Looking at the repository located at %s\n", $self->repo->root_dir;
+    printf "Looking at the repository located at $prefix\n";
     
     if ($do_list) {
         $self->list_indexes(@ARGV);
@@ -148,6 +153,9 @@ sub main {
     }
     elsif ($do_remove) {
         $self->remove_index(@ARGV);
+    }
+    elsif ($do_migrate) {
+        $self->migrate_indexes(@ARGV);
     }
     else {
         $self->interactive();
@@ -243,6 +251,90 @@ EOF
     print "Installing $org->{build}: $org->{common} ($org->{latin})\n";
 
     $self->repo->install_index($org, $callback);
+}
+
+
+
+sub migrate_indexes {
+    my ($self, @old_config_files) = @_;
+    
+    my @old_configs;
+    my @new_configs;
+    my @names;
+    my @old_files;
+
+    local $_;
+
+    my $root = $self->{repo}->indexes_dir;
+
+    for my $filename (@old_config_files) {
+        open my $in, "<", $filename;
+        my $old_config = RUM::ConfigFile->parse($in);
+
+        my $gene_annotations            = $old_config->gene_annotation_file;
+        my $genome_fasta                = $old_config->blat_genome_index;
+        my $bowtie_genome_prefix        = $old_config->bowtie_genome_index;
+        my $bowtie_transcriptome_prefix = $old_config->bowtie_gene_index;
+
+        my $name = RUM::Repository->config_url_to_index_name($filename);
+
+        my $dir = File::Spec->catfile($self->{repo}->indexes_dir, $name);
+
+        my (undef, undef, $new_gene_annotations) = 
+            File::Spec->splitpath($gene_annotations);
+        my (undef, undef, $new_genome_fasta) = 
+            File::Spec->splitpath($genome_fasta);
+        my (undef, undef, $new_bowtie_genome_prefix) = 
+            File::Spec->splitpath($bowtie_genome_prefix);
+        my (undef, undef, $new_bowtie_transcriptome_prefix) = 
+            File::Spec->splitpath($bowtie_transcriptome_prefix);
+
+        my @these_files = ( $gene_annotations,
+                            $genome_fasta,
+                            glob("$bowtie_genome_prefix*"),
+                            glob("$bowtie_transcriptome_prefix*") );
+        
+        print "\nThis will remove $filename and move the following files into $dir:\n\n";
+        for (@these_files) {
+            print "  $_\n";
+        }
+
+        print "\nIs this ok (y/n): ";
+        $_ = <STDIN>;
+        print "\n";
+
+        unless (/^y/) {
+            print "Skipping $name\n";
+            next;
+        }
+
+        mkpath $dir;
+        for (@these_files) {
+            print "  mv $_ $dir\n";
+            mv $_, $dir;
+        }
+        print "\n";
+
+        push @names, $name;
+        push @old_configs,$old_config;
+        print "Determining the size of the genome.\n";
+        my $genome_size =  RUM::Repository::genome_size(File::Spec->catfile($dir, $new_genome_fasta));
+
+        my $new_config = RUM::Index->new(
+            directory => $dir,
+            gene_annotations => $new_gene_annotations,
+            genome_fasta => $new_genome_fasta,
+            bowtie_genome_index => $new_bowtie_genome_prefix,
+            bowtie_transcriptome_index => $new_bowtie_transcriptome_prefix,
+            genome_size => $genome_size
+        );
+        
+        print "Saving new config file to " . $new_config->config_filename . "\n";
+        $new_config->save;
+
+        print "Removing old config file\n";
+        unlink $filename;
+    }
 }
 
 sub remove_index {

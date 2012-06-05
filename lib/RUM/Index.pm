@@ -153,7 +153,8 @@ sub save {
     
     local $_;
     for (@FIELDS) {
-        $self->{$_} or croak "Can't save index config without $_";
+        $self->{$_} or croak "Can't save index config without $_"
+            unless /common|latin|build/;
     }
 
     open my $out, ">", $self->config_filename;
