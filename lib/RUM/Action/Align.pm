@@ -72,10 +72,6 @@ sub run {
     my $platform_name = $c->platform;
     my $local = $platform_name =~ /Local/;
     
-    if ( !$c->genome_size && ($local || $d->parent )) {
-        $c->set('genome_size', $self->genome_size);
-    }
-
     if ($local) {
         $self->check_ram;
     }
@@ -219,12 +215,12 @@ sub get_options {
         "no-clean" => sub { $d->set_no_clean },
 
         # Options typically entered by a user to define a job.
-        "config=s"    => \(my $rum_config_file),
-        "output|o=s"  => \(my $output_dir),
-        "name=s"      => \(my $name),
-        "chunks=s"    => \(my $num_chunks),
-        "qsub"        => \(my $qsub),
-        "platform=s"  => \(my $platform),
+        "index-dir|i=s" => \(my $rum_index),
+        "output|o=s"    => \(my $output_dir),
+        "name=s"        => \(my $name),
+        "chunks=s"      => \(my $num_chunks),
+        "qsub"          => \(my $qsub),
+        "platform=s"    => \(my $platform),
 
         # Advanced options
         "alt-genes=s"      => \(my $alt_genes),
@@ -322,7 +318,7 @@ sub get_options {
 
     $alt_genes = File::Spec->rel2abs($alt_genes) if $alt_genes;
     $alt_quant = File::Spec->rel2abs($alt_quant) if $alt_quant;
-    $rum_config_file = File::Spec->rel2abs($rum_config_file) if $rum_config_file;
+    $rum_index = File::Spec->rel2abs($rum_index) if $rum_index;
 
     $self->{chunk} = $chunk;
 
@@ -350,7 +346,7 @@ sub get_options {
     $set->('quantify', $quantify);
     $set->('ram', $ram);
     $set->('reads', @reads ? [@reads] : undef) if @reads && @reads ne @{ $c->reads || [] };
-    $set->('rum_config_file', $rum_config_file);
+    $set->('rum_index', $rum_index);
     $set->('strand_specific', $strand_specific);
     $set->('user_quals', $quals_file);
     $set->('variable_length_reads', $variable_length_reads);
@@ -363,6 +359,12 @@ sub get_options {
     $usage->check;
 }
 
+
+=item check_deps
+
+
+
+=cut
 
 =item check_config
 
@@ -390,9 +392,9 @@ sub check_config {
         $usage->bad("Please specify a name with --name");
     }
 
-    $c->rum_config_file or $usage->bad(
+    $c->rum_index or $usage->bad(
         "Please specify a rum config file with --config");
-    $c->load_rum_config_file if $c->rum_config_file;
+    $c->load_rum_config_file if $c->rum_index;
 
     my $reads = $c->reads;
 
@@ -578,36 +580,6 @@ sub dump_config {
         $log->debug("$key: $val");
     }
     $log->debug("-" x 40);
-}
-
-=item genome_size
-
-Return an estimate of the size of the genome.
-
-=cut
-
-sub genome_size {
-    my ($self) = @_;
-
-    $self->logsay("Determining the size of your genome.");
-
-    my $c = $self->config;
-    my $genome_blat = $c->genome_fa;
-
-    my $gs1 = -s $genome_blat;
-    my $gs2 = 0;
-    my $gs3 = 0;
-
-    open my $in, "<", $genome_blat;
-
-    local $_;
-    while (defined($_ = <$in>)) {
-        next unless /^>/;
-        $gs2 += length;
-        $gs3 += 1;
-    }
-
-    return $gs1 - $gs2 - $gs3;
 }
 
 =item check_ram

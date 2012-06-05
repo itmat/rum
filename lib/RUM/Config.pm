@@ -40,7 +40,7 @@ our %DEFAULTS = (
     name => undef,
     platform => "Local",
     output_dir => ".",
-    rum_config_file => undef,
+    rum_index => undef,
     reads => undef,
     user_quals => undef,
     alt_genes => undef,
@@ -62,7 +62,7 @@ our %DEFAULTS = (
 
     # These are derived from the user-provided properties, and saved
     # to the .rum/job_settings file
-    genome_size => undef,
+
     ram_ok => 0,
     input_needs_splitting => undef,
     input_is_preformatted => undef,
@@ -74,6 +74,7 @@ our %DEFAULTS = (
     genome_fa => undef,
     annotations => undef,
     trans_bowtie => undef,
+    genome_size => undef,
 );
 
 =head1 CONSTRUCTOR
@@ -122,16 +123,17 @@ object yourself.
 
 sub load_rum_config_file {
     my ($self) = @_;
-    my $path = $self->rum_config_file or croak
-        "No RUM config file was supplied";
-    open my $in, "<", $path or croak "Can't open config file $path: $!";
-    my $cf = RUM::ConfigFile->parse($in);
-    $cf->make_absolute;
+    my $path = $self->rum_index or croak
+        "No RUM index config file was supplied";
+
+    my $index = RUM::Index->load($path);
+
     my %data;
-    $data{annotations}   = $cf->gene_annotation_file;
-    $data{genome_bowtie} = $cf->bowtie_genome_index;
-    $data{trans_bowtie}  = $cf->bowtie_gene_index;
-    $data{genome_fa}     = $cf->blat_genome_index;
+    $data{annotations}   = $index->gene_annotations;
+    $data{genome_bowtie} = $index->bowtie_genome_index;
+    $data{trans_bowtie}  = $index->bowtie_transcriptome_index;
+    $data{genome_fa}     = $index->genome_fasta;
+    $data{genome_size}   = $index->genome_size;
 
     -e $data{annotations} || $self->dna or die
         "the file '$data{annotations}' does not seem to exist.";         
@@ -143,7 +145,6 @@ sub load_rum_config_file {
     for (keys %data) {
         $self->set($_, $data{$_});
     }
-    
 }
 
 =item script($name)

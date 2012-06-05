@@ -31,15 +31,19 @@ RUM::Repository - Models a local repository of RUM indexes
 
 use strict;
 no warnings;
+use autodie;
 
 use FindBin qw($Bin);
 use RUM::Repository::IndexSpec;
 use RUM::ConfigFile;
+use RUM::Index;
 use Carp;
 use File::Spec;
+use File::Path qw(mkpath);
 use File::Copy qw(cp);
 use File::Temp qw(tempdir);
 use Exporter qw(import);
+use List::Util qw(first);
 FindBin->again;
 
 our @EXPORT_OK = qw(download);
@@ -185,6 +189,32 @@ sub indexes {
     return @orgs;
 }
 
+sub basename {
+    my ($path) = @_;
+    my ($vol, $dir, $file) = File::Spec->splitpath($path);
+    return $file;
+}
+
+
+sub index_dir {
+    my ($self, $index_spec) = @_;
+    my $config_url = $self->config_url($index_spec) 
+        or croak "Can't find the config file";
+    my $name = $self->config_url_to_index_name($config_url) 
+        or croak "Can't parse the index name from $config_url";
+    return File::Spec->catfile($self->indexes_dir, $name);
+}
+
+sub config_url {
+    my ($self, $index_spec) = @_;
+    return first { $self->is_config_url($_) } $index_spec->urls;
+}
+
+sub index_urls {
+    my ($self, $index_spec) = @_;
+    return grep { ! $self->is_config_url($_) } $index_spec->urls;
+}
+
 =item $repo->install_index($index, $callback)
 
 Install the given index. F<index> must be a
@@ -196,29 +226,81 @@ download complets with ("end", $url).
 =cut
 
 sub install_index {
-    my ($self, $index, $callback) = @_;
+    my ($self, $index_spec, $callback) = @_;
     $self->mkdirs;
-    for my $url ($index->urls) {
+
+    my @urls = $index_spec->urls;
+
+    my $config_file_url = $self->config_url($index_spec);
+    my @index_urls      = $self->index_urls($index_spec);
+
+    my $dir = $self->index_dir($index_spec);
+
+    my $config_filename = File::Spec->catfile($dir, $RUM::Index::CONFIG_FILENAME) . ".old";
+
+    mkpath $dir;
+    download($config_file_url, $config_filename);
+    open my $in, "<", $config_filename;
+    my $config_file = RUM::ConfigFile->parse($in, quiet => 1);
+
+    for my $url (@index_urls) {
         $callback->("start", $url) if $callback;
-        my $filename = $self->index_filename($url);
-        download($url, $filename);
-        if ($self->is_config_filename($filename)) {
-            open my $in, "<", $filename 
-                or croak "Can't open config file $filename for reading: $!";
-            my $config = RUM::ConfigFile->parse($in, quiet => 1);
-            close $in;
-            $config->make_absolute($self->root_dir);
-            open my $out, ">", $filename 
-                or croak "Can't open config file $filename for writing: $!";
-            print $out $config->to_str;
-            close $out;
-        }
-        if ($filename =~ /.gz$/) {
-            system("gunzip -f $filename") == 0 
-                or die "Couldn't unzip $filename: $!";
+        my $path = $self->index_filename($index_spec, $url);
+        download($url, $path);
+        if ($path =~ /.gz$/) {
+            system("gunzip -f $path") == 0 
+                or die "Couldn't unzip $path: $!";
         }
         $callback->("end", $url) if $callback;
     }
+    
+    my $gene_annotations = basename($config_file->gene_annotation_file);
+    my $genome_fasta = basename($config_file->blat_genome_index);
+    my $bowtie_genome_index = basename($config_file->bowtie_genome_index);
+    my $bowtie_gene_index = basename($config_file->bowtie_gene_index);
+    
+    my $index = RUM::Index->new(
+        directory => $dir,
+        gene_annotations => $gene_annotations,
+        genome_fasta => $genome_fasta,
+        bowtie_genome_index => $bowtie_genome_index,
+        bowtie_transcriptome_index => $bowtie_gene_index,
+        genome_build => $index_spec->build,
+        common_name => $index_spec->common,
+        latin_name => $index_spec->latin,
+        genome_size => genome_size(File::Spec->catfile($dir, $genome_fasta))
+    );
+
+    $index->save;
+    unlink $config_filename;
+        
+}
+
+=item genome_size
+
+Return an estimate of the size of the genome.
+
+=cut
+
+sub genome_size {
+    my ($filename) = @_;
+
+    print "Determining the size of the genome.";
+
+    my $gs1 = -s $filename;
+    my $gs2 = 0;
+    my $gs3 = 0;
+
+    open my $in, "<", $filename;
+
+    local $_;
+    while (defined($_ = <$in>)) {
+        next unless /^>/;
+        $gs2 += length;
+        $gs3 += 1;
+    }
+
+    return $gs1 - $gs2 - $gs3;
 }
 
 =item $repo->remove_index($index, $callback)
@@ -232,16 +314,26 @@ download completes with ("end", $filename).
 =cut
 
 sub remove_index {
-    my ($self, $index, $callback) = @_;
-    for my $url ($index->urls) {
-     
-        my $filename = $self->index_filename($url);
+    my ($self, $index_spec, $callback) = @_;
+    for my $url ($self->index_urls($index_spec)) {
+        my $filename = $self->index_filename($index_spec, $url);
         if (-e $filename) {
             $callback->("start", $filename) if $callback;
             unlink $filename or croak "rm $filename: $!";
             $callback->("end", $filename) if $callback;
         }
     }
+
+    my $filename = $self->config_filename($index_spec);
+    
+    if (-e $filename) {
+        $callback->("start", $filename) if $callback;
+        unlink $filename or croak "rm $filename: $!";
+        $callback->("end", $filename) if $callback;
+    }
+    
+    my $dir = $self->index_dir($index_spec);
+    rmdir $dir if -d $dir;
 }
 
 
@@ -252,24 +344,32 @@ Return the local filename for the given URL.
 =cut
 
 sub index_filename {
-    my ($self, $url) = @_;
+    my ($self, $index_spec, $url) = @_;
+    my $config_url = $self->config_url($index_spec);
+    my $name = $self->config_url_to_index_name($config_url);
     my ($vol, $dir, $file) = File::Spec->splitpath($url);
-    my $subdir = $self->is_config_filename($file)
-        ? $self->conf_dir : $self->indexes_dir;
-    return File::Spec->catdir($subdir, $file);
+    return File::Spec->catfile($self->indexes_dir, $name, $file);
 }
 
-=item $repo->is_config_filename($filename)
+sub config_url_to_index_name {
+    my ($self, $filename) = @_;
+
+    if ($filename =~ /\/rum.config_(.*)$/) {
+        return $1;
+    }
+    return undef;
+}
+
+=item $repo->is_config_url($filename)
 
 Return true if the given $filename seems to be a configuration file
 (rum.config_*), false otherwise.
 
 =cut
 
-sub is_config_filename {
+sub is_config_url {
     my ($self, $filename) = @_;
-    my ($vol, $dir, $file) = File::Spec->splitpath($filename);
-    return $file =~ /^rum.config/;
+    return $self->config_url_to_index_name($filename);
 }
 
 =item $repo->local_filenames($index)
@@ -280,7 +380,7 @@ Return all the local filenames for the given index.
 
 sub local_filenames {
     my ($self, $index) = @_;
-    return map { $self->index_filename($_) } $index->urls;
+    return map { $self->index_filename($index, $_) } $index->urls;
 }
 
 =item $repo->config_filename($index)
@@ -290,12 +390,12 @@ Return the configuration file name for the given index.
 =cut
 
 sub config_filename {
-    my ($self, $index) = @_;
-    my @filenames = $self->local_filenames($index);
-    my @conf_filenames = grep { $self->is_config_filename($_) } @filenames;
-    croak "I can't find exactly one index filename in @conf_filenames"
-        unless @conf_filenames == 1;
-    return $conf_filenames[0];
+    my ($self, $index_spec) = @_;
+
+    my $config_file_url = $self->config_url($index_spec);
+    my $dir = $self->index_dir($index_spec);
+
+    return File::Spec->catfile($dir, $RUM::Index::CONFIG_FILENAME);
 }
 
 =item $repo->genome_fasta_filename($index)
@@ -324,7 +424,9 @@ Return a true value if the index exists in this repository, false otherwise.
 
 sub has_index {
     my ($self, $index) = @_;
-    my @files = map { $self->index_filename($_) } $index->urls;
+    my @index_urls  = $self->index_urls($index);
+    my @files = map { $self->index_filename($index, $_) } @index_urls;
+#    print "@files are @files\n";
     for (@files) {
         s/\.gz$//;
     }
