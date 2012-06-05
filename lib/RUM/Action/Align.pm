@@ -393,7 +393,7 @@ sub check_config {
     }
 
     $c->rum_index or $usage->bad(
-        "Please specify a rum config file with --config");
+        "Please specify a rum index directory with --index-dir or -i");
     $c->load_rum_config_file if $c->rum_index;
 
     my $reads = $c->reads;

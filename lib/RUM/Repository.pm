@@ -189,12 +189,12 @@ sub indexes {
     return @orgs;
 }
 
-sub basename {
-    my ($path) = @_;
-    my ($vol, $dir, $file) = File::Spec->splitpath($path);
-    return $file;
-}
+=item $repo->index_dir($index_spec)
 
+Return the directory where we should store files for the given
+RUM::Repository::IndexSpec.
+
+=cut
 
 sub index_dir {
     my ($self, $index_spec) = @_;
@@ -205,10 +205,22 @@ sub index_dir {
     return File::Spec->catfile($self->indexes_dir, $name);
 }
 
+=item $repo->config_url($index_spec)
+
+Return the URL of the index config file for the given RUM::Repository::IndexSpec
+
+=cut
+
 sub config_url {
     my ($self, $index_spec) = @_;
     return first { $self->is_config_url($_) } $index_spec->urls;
 }
+
+=item $repo->index_urls
+
+Return the list of index urls for the given RUM::Repository::IndexSpec.
+
+=cut
 
 sub index_urls {
     my ($self, $index_spec) = @_;
@@ -254,10 +266,10 @@ sub install_index {
         $callback->("end", $url) if $callback;
     }
     
-    my $gene_annotations = basename($config_file->gene_annotation_file);
-    my $genome_fasta = basename($config_file->blat_genome_index);
-    my $bowtie_genome_index = basename($config_file->bowtie_genome_index);
-    my $bowtie_gene_index = basename($config_file->bowtie_gene_index);
+    my $gene_annotations = _basename($config_file->gene_annotation_file);
+    my $genome_fasta = _basename($config_file->blat_genome_index);
+    my $bowtie_genome_index = _basename($config_file->bowtie_genome_index);
+    my $bowtie_gene_index = _basename($config_file->bowtie_gene_index);
     
     my $index = RUM::Index->new(
         directory => $dir,
@@ -350,6 +362,12 @@ sub index_filename {
     my ($vol, $dir, $file) = File::Spec->splitpath($url);
     return File::Spec->catfile($self->indexes_dir, $name, $file);
 }
+
+=item $repo->config_url_to_index_name($url)
+
+Parse the index name out of the given url and return it.
+
+=cut
 
 sub config_url_to_index_name {
     my ($self, $filename) = @_;
@@ -505,5 +523,13 @@ Mike DeLaurentis (delaurentis@gmail.com)
 Copyright 2012 University of Pennsylvania
 
 =cut
+
+sub _basename {
+    my ($path) = @_;
+    my ($vol, $dir, $file) = File::Spec->splitpath($path);
+    return $file;
+}
+
+
 
 1;
