@@ -35,6 +35,14 @@ already installed.
 
 Install the index specified by the B<INDEX> argument. This can be the number of the index, according to the output of C<rum_indexes --list>, or a pattern that matches part of the index name.
 
+=item B<-m>, B<--migrate>
+
+Migrates an index from RUM 1.x into the directory structure needed by
+RUM 2.0. Please provide one or more RUM 1.x index configuration files
+on the command line, and it will move all the files from those indexes
+into their new locations. If you provide a --prefix argument, I'll put
+the indexes in subdirectories under that directory.
+
 =item B<-r>, B<--remove>
 
 Remove the index specified by the B<INDEX> argument, which has the
