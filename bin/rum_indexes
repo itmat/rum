@@ -140,7 +140,8 @@ sub main {
     get_options(
         "--list|l"      => \(my $do_list),
         "--install|i"   => \(my $do_install),
-        "--migrate|m" => \(my $do_migrate),
+        "--all|a"       => \(my $all),
+        "--migrate|m"   => \(my $do_migrate),
         "--remove|r"    => \(my $do_remove),
         "--prefix|p=s"  => \(my $prefix="indexes"),
         "--markdown"    => \(my $use_markdown));
@@ -157,7 +158,12 @@ sub main {
         $self->list_indexes(@ARGV);
     }
     elsif ($do_install) {
-        $self->install_index(@ARGV);
+        if ($all) {
+            $self->install_all_indexes();
+        }
+        else {
+            $self->install_index(@ARGV);
+        }
     }
     elsif ($do_remove) {
         $self->remove_index(@ARGV);
@@ -259,6 +265,18 @@ EOF
     print "Installing $org->{build}: $org->{common} ($org->{latin})\n";
 
     $self->repo->install_index($org, $callback);
+}
+
+
+
+sub install_all_indexes {
+    my ($self) = @_;
+    $self->repo->setup;
+    for my $org ($self->repo->indexes) {
+        print "Installing $org->{build}: $org->{common} ($org->{latin})\n";
+        $self->repo->install_index($org, $callback);
+    }
+
 }
 
 
