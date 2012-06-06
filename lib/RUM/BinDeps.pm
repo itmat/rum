@@ -68,10 +68,10 @@ the "lib/RUM" directory.
 sub fetch {
     my ($self) = @_;
 
-    if (-e $self->blat && -e $self->bowtie && -e $self->mdust) {
-        $self->say("Already have blat, bowtie, and mdust; not installing them");
-        return;
-    }
+#    if (-e $self->blat && -e $self->bowtie && -e $self->mdust) {
+#        $self->say("Already have blat, bowtie, and mdust; not installing them");
+#        return;
+#    }
     $self->say("Downloading blat, bowtie, and mdust");
 
     my $tmp_dir = $self->_download_to_tmp_dir;
@@ -80,9 +80,11 @@ sub fetch {
         my $path = File::Spec->catfile($tmp_dir, $bin);
         -e $path or croak "I couldn't seem to download $bin";
         my $newpath = $self->_path($bin);
-        $log->info("Installing $bin");
-        $log->info("cp $path $newpath");
+        $self->logsay("Installing $bin");
+        $self->logsay("cp $path $newpath");
         cp $path, $newpath;
+        $self->logsay("chmod 0755 $newpath");
+        chmod 0755, $newpath;
     }
 }
 
