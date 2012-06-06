@@ -131,8 +131,6 @@ sub process {
 
             my $is_done = $workflow->is_complete;
 
-            $log->info("Chunk $chunk status is $is_done");
-
             # If the state of the workflow indicates that it's
             # complete (based on the files that exist), we can
             # consider it done.
@@ -152,7 +150,8 @@ sub process {
             # be that we had trouble checking the status. Give it
             # $NUM_CHECKS_BEFORE_RESTART chances before trying to start it
             # again.
-            elsif ($t->{not_ok_count}++ < $NUM_CHECKS_BEFORE_RESTART) {
+            elsif (++$t->{not_ok_count} < $NUM_CHECKS_BEFORE_RESTART) {
+
                 $log->warn("Chunk $chunk is not running or waiting. ".
                            "I've checked on it $t->{not_ok_count} " .
                            ($t->{not_ok_count} == 1 ? "time" : "times") .
@@ -178,7 +177,7 @@ sub process {
         # See if there are any chunks with non-zero results, meaning that we are
         # still waiting for them.
         my @waiting = grep { !defined } @results[@chunks];
-        print "Still waiting on @waiting";
+
         unless ( @waiting ) {
             $log->error("It looks like we've given up on all the chunks");
             last;
