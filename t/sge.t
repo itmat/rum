@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 18;
+use Test::More tests => 19;
 
 use FindBin qw($Bin);
 use File::Temp qw(tempdir);
@@ -63,6 +63,10 @@ is_deeply($class->_parse_qstat_out(@QSTAT_GROUPED),
            {job_id => 636813, state => 'qw', task_id => 3},
            {job_id => 636814, state => 'hqw'}],
           "qstat ungrouped");
+
+is($class->_parse_qstat_out("error: failed receiving gdi request response for ".
+                                "mid=1 (got syncron message receive timeout error)."), 
+   undef);
 
 my $sge = RUM::Platform::SGE->new(
     RUM::Config->new(output_dir => tempdir(CLEANUP => 1)),

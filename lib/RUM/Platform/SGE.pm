@@ -23,7 +23,7 @@ use base 'RUM::Platform::Cluster';
 
 our $log = RUM::Logging->get_logger();
 
-our $MAX_UPDATE_STATUS_TRIES = 10;
+our $MAX_UPDATE_STATUS_TRIES = 5;
 our $JOB_ID_FILE = ".rum/sge_job_ids";
 our @JOB_TYPES = qw(parent preproc proc postproc);
 our %JOB_TYPE_NAMES = (
@@ -213,22 +213,27 @@ sub update_status {
     my ($self) = @_;
 
     my $tries = 0;
-    my @qstat;
 
     while ($tries++ < $MAX_UPDATE_STATUS_TRIES) {
-        @qstat = `qstat`;
-        last unless $?;
-        $log->info("qstat command failed with status: $?");
-    }
-    if ($tries == $MAX_UPDATE_STATUS_TRIES) {
-        die "I tried to update my status with qstat $tries times and it ". 
-            "failed every time.";
+        my @qstat = `qstat`;
+        $log->debug("qstat: $_") foreach @qstat;
+        
+        if ($?) {
+            $log->info("qstat command failed with status: $?");
+            next;
+        }
+        elsif (my $status = $self->_parse_qstat_out(@qstat)) {
+            $self->_build_job_states($self->_parse_qstat_out(@qstat));
+            $self->save;
+            return 1;
+        }
+        else {
+            $log->info("Couldn't parse qstat output");
+        }
     }
 
-    $log->debug("qstat: $_") foreach @qstat;
-    $self->_build_job_states($self->_parse_qstat_out(@qstat));
-    $self->save;
-    return 1;
+    die "I tried to update my status with qstat $tries times and it ". 
+        "failed every time.";
 }
 
 =item preproc_ok
@@ -316,6 +321,11 @@ sub _extract_field {
 sub _parse_qstat_out {
     my ($self, @lines) = @_;
 
+    if ("@lines" =~ /error: failed receiving gdi request response/) {
+        $log->info("Looks like qstat timed out");
+        return undef;
+    }
+
     # Get the header line and determine the offset and length of each
     # field from it
     local $_ = shift @lines;
@@ -329,11 +339,14 @@ sub _parse_qstat_out {
     my @result;
 
     for my $line (@lines) {
-        my $job   = _extract_field $line, $job_start, $job_len or croak
-            "Got empty job id from line $line";
-        my $state   = _extract_field $line, $state_start, $state_len or croak
-            "Got empty state from line $line";
+        my $job   = _extract_field $line, $job_start, $job_len;
+        my $state   = _extract_field $line, $state_start, $state_len;
         my $task   = _extract_field $line, $task_start, $task_len;
+
+        unless ($job && $state) {
+            $log->info("Got invalid output from qstat: $line");
+            return undef;
+        }
 
         my %rec = (job_id => $job, state => $state);
 
