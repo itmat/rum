@@ -23,7 +23,7 @@ use base 'RUM::Platform::Cluster';
 
 our $log = RUM::Logging->get_logger();
 
-
+our $MAX_UPDATE_STATUS_TRIES = 10;
 our $JOB_ID_FILE = ".rum/sge_job_ids";
 our @JOB_TYPES = qw(parent preproc proc postproc);
 our %JOB_TYPE_NAMES = (
@@ -165,12 +165,18 @@ sub submit_proc {
     }
 
     if (@chunks) {
+        $log->info("Submitting jobs for chunks " . join(", ", @chunks));
         for my $chunk (@chunks) {
-            push @jids, $self->_qsub(@args, "-t", $chunk, $sh);
+            my $jid = $self->_qsub(@args, "-t", $chunk, $sh);
+            $log->info("Chunk $chunk is job id $jid");
+            push @jids, $jid;
         }
     }
     else {
-        push @jids, $self->_qsub(@args, "-t", "1:$n", $sh);
+        $log->info("Submitting an array job for $n chunks");
+        my $jid = $self->_qsub(@args, "-t", "1:$n", $sh);
+        $log->info("Array job id is $jid");
+        push @jids, $jid;
     }
 
     push @{ $self->_proc_jids }, @jids;
@@ -206,14 +212,23 @@ status of all jobs.
 sub update_status {
     my ($self) = @_;
 
-    my @qstat = `qstat`;
-    if ($?) {
-        croak "qstat command failed: $!";
-    }
-    $log->debug("qstat: $_") foreach @qstat;
+    my $tries = 0;
+    my @qstat;
 
+    while ($tries++ < $MAX_UPDATE_STATUS_TRIES) {
+        @qstat = `qstat`;
+        last unless $?;
+        $log->info("qstat command failed with status: $?");
+    }
+    if ($tries == $MAX_UPDATE_STATUS_TRIES) {
+        die "I tried to update my status with qstat $tries times and it ". 
+            "failed every time.";
+    }
+
+    $log->debug("qstat: $_") foreach @qstat;
     $self->_build_job_states($self->_parse_qstat_out(@qstat));
     $self->save;
+    return 1;
 }
 
 =item preproc_ok
@@ -391,10 +406,12 @@ sub _some_job_ok {
     my @states = map { $self->_job_state($_, $task) || "" } @jids;
     my @ok = grep { $_ && /r|w|t/ } @states;
     
-    my $msg = "I have these jobs for phase $phase";
-    $msg .= " task $task" if $task;
-    $msg .= ": [";
-    $msg .= join(", ", map "$jids[$_]($states[$_])", (0 .. $#jids)) . "]";
+
+    my $task_label = "phase $phase " . ($task ? " task $task" : "");
+
+    my $msg = (
+        "I have these jobs for phase $task_label: ". 
+        "[" . join(", ", map "$jids[$_]($states[$_])", (0 .. $#jids)) . "] ");
 
     if (@ok == 1) {
         $log->debug($msg);
@@ -404,7 +421,12 @@ sub _some_job_ok {
         $log->error("$msg and none of them are running or waiting");
     }
     else {
-        $log->error("$msg and more than one of them are running or waiting");
+        $msg .= join(
+        " ", "and more than one of them are running or waiting.",
+        "This is probably because SGE was not reporting a status",
+        "of running or waiting, and I started a new job, and then",
+        "the job started running again");
+        return 1;
     }
 
     return 0;

@@ -2,6 +2,7 @@ package RUM::Workflow;
 
 use strict;
 use warnings;
+use autodie;
 
 use Carp;
 use Text::Wrap qw(fill wrap);
@@ -422,9 +423,10 @@ sub _run_step {
             if ($?) {
                 # The stderr from the child process should have been
                 # redirected here.
-                open my $error_fh, "<", $err_fname;
-                my @errors = (<$error_fh>);
-                close $error_fh;
+                my @errors = eval {
+                    open my $error_fh, "<", $err_fname;
+                    (<$error_fh>);
+                };
 
                 my $msg = "\nError running \"@$cmd\"\n\n";
                 if (@errors) {
@@ -449,7 +451,10 @@ sub _run_step {
             # file obtained above.
             open STDERR, ">", $err_fname;
             
-            exec(@to);
+            exec(@to) or die(
+                "Couldn't exec '@to': $!\n" .
+                "This probably means that the program $to[0] doesn't exist " .
+                "or isn't executable");
         }
     }
 
@@ -517,13 +522,15 @@ sub execute {
             my $state = $self->state;
             $self->_run_step($state, $step, $sm->transition($state, $step));
         }
-        my $need = $min_states->[$count]; # ->union($sm->start);
+        my $need = $min_states->[$count]->union($sm->start);
 
         for ($sm->closure->and_not($need)->flags) {
             next unless -e;
             my $size = -s;
             $log->info("Size of $_ is $size");
-            unlink if $clean;
+            if ($clean) {
+                system("rm $_") == 0 or $log->warn("Couldn't remove $_");
+            }
         }
         $count++;
     }
@@ -628,7 +635,7 @@ sub clean {
     }
     else {
         my $state = $self->state;
-        my $extra_bits = $state->and_not($m->goal);
+        my $extra_bits = $state->and_not($m->goal->union($m->start));
         for ($extra_bits->flags) {
             $log->debug("clean: removing $_");
             unlink;
