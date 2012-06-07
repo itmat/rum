@@ -421,9 +421,13 @@ sub _some_job_ok {
     
     my $task_label = "phase $phase " . ($task ? " task $task" : "");
 
+
     my $msg = (
         "I have these jobs for phase $task_label: ". 
-        "[" . join(", ", map "$jids[$_]($states[$_])", (0 .. $#jids)) . "] ");
+        "[" . 
+        join(", ", 
+             map "$jids[$_]($states[$_])", grep { $states[$_] } (0 .. $#jids))
+        . "] ");
 
     if (@ok == 1) {
         $log->debug($msg);
@@ -438,6 +442,7 @@ sub _some_job_ok {
         "This is probably because SGE was not reporting a status",
         "of running or waiting, and I started a new job, and then",
         "the job started running again");
+        $log->warn($msg);
         return 1;
     }
 
