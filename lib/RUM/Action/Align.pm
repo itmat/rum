@@ -63,6 +63,7 @@ sub run {
     my $c = $self->config;
     my $d = $self->directives;
     $self->check_config;        
+    $self->check_deps;
     $self->check_gamma;
     $self->setup;
     $self->get_lock;
@@ -467,7 +468,35 @@ sub check_config {
     for my $fname (@{ $reads || [] }) {
         -r $fname or die "Can't read from read file $fname";
     }
-    
+}
+
+=item check_deps
+
+Check to make sure the dependencies (bowtie, blat, mdust) exist,
+and die with an error message if they don't.
+
+=cut
+
+sub check_deps {
+
+    my ($self) = @_;
+    local $_;
+    my $deps = RUM::BinDeps->new;
+    my @deps = ($deps->bowtie, $deps->blat, $deps->mdust);
+    my @missing;
+    for (@deps) {
+        -x or push @missing, $_;
+    }
+    my $dependency_doesnt = @missing == 1 ? "dependency doesn't" : "dependencies don't";
+    my $it = @missing == 1 ? "it" : "them";
+
+    if (@missing) {
+        die(
+            "The following binary $dependency_doesnt exist:\n\n" .
+            join("", map(" * $_\n", @missing)) .
+            "\n" . 
+            "Please install $it by running \"perl Makefile.PL\"\n");
+    }
 }
 
 =item get_lock
