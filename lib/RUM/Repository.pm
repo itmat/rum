@@ -260,8 +260,7 @@ sub install_index {
         my $path = $self->index_filename($index_spec, $url);
         download($url, $path);
         if ($path =~ /.gz$/) {
-            system("gunzip -f $path") == 0 
-                or die "Couldn't unzip $path: $!";
+            system("gunzip -f $path") == 0 or die "Couldn't unzip $path";
         }
         $callback->("end", $url) if $callback;
     }
@@ -271,6 +270,7 @@ sub install_index {
     my $bowtie_genome_index = _basename($config_file->bowtie_genome_index);
     my $bowtie_gene_index = _basename($config_file->bowtie_gene_index);
 
+    $genome_fasta =~ s/\.gz$//;
 
     print "Determining the size of the genome.\n";
     
