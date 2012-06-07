@@ -415,11 +415,10 @@ sub _job_state {
 
 sub _some_job_ok {
     my ($self, $phase, $jids, $task) = @_;
-    my @jids = @{ $jids };
+    my @jids = @{ $jids } or return 0;
     my @states = map { $self->_job_state($_, $task) || "" } @jids;
     my @ok = grep { $_ && /r|w|t/ } @states;
     
-
     my $task_label = "phase $phase " . ($task ? " task $task" : "");
 
     my $msg = (
