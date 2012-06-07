@@ -40,6 +40,8 @@ print <<EOF;
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+                      INSTALLATION INSTRUCTIONS
+
 If you want to install RUM in a system location, you can run:
 
   make
@@ -47,7 +49,7 @@ If you want to install RUM in a system location, you can run:
   rum_indexes --prefix PREFIX
   rum_runner help
 
-Otherwise you can run it now from right here by running:
+Otherwise you can run it from this location:
 
   ./bin/rum_indexes --prefix PREFIX
   ./bin/rum_runner help
@@ -55,5 +57,7 @@ Otherwise you can run it now from right here by running:
 RUM requires an index for each organism you will be working with.  The
 "rum_indexes" step will prompt you for which indexes you need, and
 then install them. PREFIX is the location where you want indexes
-installed.
+installed. We recomend that you install indexes in a place independent
+of the RUM code itself, so that in the future you can upgrade the RUM
+code without re-installing the indexes.
 EOF
