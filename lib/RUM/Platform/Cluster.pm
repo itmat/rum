@@ -135,7 +135,6 @@ sub process {
             # complete (based on the files that exist), we can
             # consider it done.
             if ($is_done) {
-                $log->info("Chunk $chunk is done");
                 $results[$chunk] = 1;
             }
 
