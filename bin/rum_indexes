@@ -273,10 +273,15 @@ sub install_all_indexes {
     my ($self) = @_;
     $self->repo->setup;
     for my $org ($self->repo->indexes) {
-        print "Installing $org->{build}: $org->{common} ($org->{latin})\n";
-        $self->repo->install_index($org, $callback);
+        my $name = "$org->{build}: $org->{common} ($org->{latin})";
+        if ($self->repo->has_index($org)) {
+            print "Already have $name, not installing without --force\n";
+        }
+        else {
+            print "Installing $name\n";
+            $self->repo->install_index($org, $callback);
+        }
     }
-
 }
 
 
