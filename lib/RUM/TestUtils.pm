@@ -36,7 +36,7 @@ use RUM::Repository qw(download);
 
 our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR
                  $INDEX_CONFIG $SHARED_INPUT_DIR is_sorted_by_location same_line_count
-                 $RUM_HOME $GENE_INFO);
+                 $RUM_HOME $GENE_INFO $INDEX_DIR);
 our @EXPORT_OK = qw(no_diffs is_sorted_by_location);
 our %EXPORT_TAGS = (
     all => [@EXPORT_OK]);
@@ -59,9 +59,10 @@ our $RUM_BIN      = "$RUM_HOME/bin";
 our $RUM_CONF     = "$RUM_HOME/conf";
 our $RUM_INDEXES  = "$RUM_HOME/indexes";
 
-our $INDEX_CONFIG = "$RUM_CONF/rum.config_Arabidopsis";
-our $GENOME_FA    = "$RUM_INDEXES/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs.fa";
-our $GENE_INFO    = "$RUM_INDEXES/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
+our $INDEX_DIR    = "$RUM_INDEXES/Arabidopsis";
+our $INDEX_CONFIG = "$INDEX_DIR/rum_index.conf";
+our $GENOME_FA    = "$INDEX_DIR/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs.fa";
+our $GENE_INFO    = "$INDEX_DIR/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
 our $SHARED_INPUT_DIR = "$RUM_HOME/t/data/shared";
 our $INPUT_DIR        = "$RUM_HOME/t/data/$PROGRAM_NAME";
 our $EXPECTED_DIR      = "$RUM_HOME/t/expected/$PROGRAM_NAME";

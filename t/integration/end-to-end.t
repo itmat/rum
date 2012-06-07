@@ -40,7 +40,7 @@ sub run_end_to_end {
     my ($name, @addl_args) = @_;
     my $dir = output_dir($name);
     my @args = ("align", "--name", $name, "-o", $dir, 
-                "--config", $INDEX_CONFIG, @addl_args);
+                "--index", $INDEX_DIR, @addl_args);
     my $rum = "$RUM_HOME/bin/rum_runner";
 
   SKIP: {
