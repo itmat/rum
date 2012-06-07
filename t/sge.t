@@ -64,6 +64,10 @@ is_deeply($class->_parse_qstat_out(@QSTAT_GROUPED),
            {job_id => 636814, state => 'hqw'}],
           "qstat ungrouped");
 
+is($class->_parse_qstat_out("error: failed receiving gdi request response for ".
+                                "mid=1 (got syncron message receive timeout error)."), 
+   undef);
+
 my $sge = RUM::Platform::SGE->new(
     RUM::Config->new(output_dir => tempdir(CLEANUP => 1)),
     RUM::Directives->new);
@@ -86,8 +90,6 @@ is($sge->_job_state(636813, 3), 'r', "Can get job state");
 ok($sge->proc_ok(3), "Proc chunk is ok");
 ok(! $sge->proc_ok(4), "Unknown chunk is not ok");
 
-push @{ $sge->_postproc_jids }, 636814;
-is_deeply($sge->_postproc_jids, [636814], "Get postproc job id");
 $sge->_build_job_states($sge->_parse_qstat_out(@QSTAT_UNGROUPED));
 is($sge->{job_states}{636814}, 'hqw', "Set state to hqw");
 is($sge->_job_state(636814), 'hqw', "Can get job state");

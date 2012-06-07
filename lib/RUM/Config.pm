@@ -40,7 +40,7 @@ our %DEFAULTS = (
     name => undef,
     platform => "Local",
     output_dir => ".",
-    rum_config_file => undef,
+    rum_index => undef,
     reads => undef,
     user_quals => undef,
     alt_genes => undef,
@@ -62,7 +62,7 @@ our %DEFAULTS = (
 
     # These are derived from the user-provided properties, and saved
     # to the .rum/job_settings file
-    genome_size => undef,
+
     ram_ok => 0,
     input_needs_splitting => undef,
     input_is_preformatted => undef,
@@ -73,10 +73,8 @@ our %DEFAULTS = (
     genome_bowtie => undef,
     genome_fa => undef,
     annotations => undef,
-    bowtie_bin => undef,
-    mdust_bin => undef,
-    blat_bin => undef,
     trans_bowtie => undef,
+    genome_size => undef,
 );
 
 =head1 CONSTRUCTOR
@@ -117,39 +115,28 @@ sub new {
 =item load_rum_config_file
 
 Load the settings from the rum index configuration file I am
-configured with. This allows you to call annotations, bowtie_bin,
-blat_bin, mdust_bin, genome_bowtie, trans_bowtie, and genome_fa on me
-rather than loading the config object yourself.
+configured with. This allows you to call annotations, genome_bowtie,
+trans_bowtie, and genome_fa on me rather than loading the config
+object yourself.
 
 =cut
 
 sub load_rum_config_file {
     my ($self) = @_;
-    my $path = $self->rum_config_file or croak
-        "No RUM config file was supplied";
-    open my $in, "<", $path or croak "Can't open config file $path: $!";
-    my $cf = RUM::ConfigFile->parse($in);
-    $cf->make_absolute;
+    my $path = $self->rum_index or croak
+        "No RUM index config file was supplied";
+
+    my $index = RUM::Index->load($path);
+
     my %data;
-    $data{annotations}   = $cf->gene_annotation_file;
-    $data{bowtie_bin}    = $cf->bowtie_bin;
-    $data{blat_bin}      = $cf->blat_bin;
-    $data{mdust_bin}     = $cf->mdust_bin;
-    $data{genome_bowtie} = $cf->bowtie_genome_index;
-    $data{trans_bowtie}  = $cf->bowtie_gene_index;
-    $data{genome_fa}     = $cf->blat_genome_index;
+    $data{annotations}   = $index->gene_annotations;
+    $data{genome_bowtie} = $index->bowtie_genome_index;
+    $data{trans_bowtie}  = $index->bowtie_transcriptome_index;
+    $data{genome_fa}     = $index->genome_fasta;
+    $data{genome_size}   = $index->genome_size;
 
     -e $data{annotations} || $self->dna or die
         "the file '$data{annotations}' does not seem to exist.";         
-
-    -e $data{bowtie_bin} or die
-        "the executable '$data{bowtie_bin}' does not seem to exist.";
-
-    -e $data{blat_bin} or die
-        "the executable '$data{blat_bin}' does not seem to exist.";
-
-    -e $data{mdust_bin} or die
-        "the executable '$data{mdust_bin}' does not seem to exist.";        
 
     -e $data{genome_fa} or die
         "the file '$data{genome_fa}' does not seem to exist.";
@@ -158,7 +145,6 @@ sub load_rum_config_file {
     for (keys %data) {
         $self->set($_, $data{$_});
     }
-    
 }
 
 =item script($name)
@@ -327,7 +313,7 @@ sub paired_end_opt          { $_[0]->{paired_end} ? "--paired" : "--single" }
 sub dna_opt                 { $_[0]->{dna} ? "--dna" : "" }
 sub name_mapping_opt   { "" } 
 sub ram_opt {
-    return $_[0]->ram ? ("--ram", $_[0]->ram) : ();
+    return $_[0]->ram ? ("--ram", $_[0]->ram || $_[0]->min_ram_gb) : ();
 }
 sub blat_opts {
     my ($self) = @_;
@@ -599,7 +585,6 @@ sub novel_inferred_internal_exons_quantifications {
     return $self->in_output_dir("novel_inferred_internal_exons_quantifications_"
                                     .$self->name);
 }
-
 
 sub AUTOLOAD {
     my ($self) = @_;

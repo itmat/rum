@@ -24,7 +24,7 @@ BEGIN {
         push @missing, $lib if $@;
     }
     plan skip_all => "@missing needed" if @missing;
-    plan tests => 99;
+    plan tests => 186;
 }
 
 
@@ -126,14 +126,15 @@ sub cluster {
     my $done = 0;
     my $ok = 0;
 
+    my @is_complete = (0, 0, 0, 0, 0, 0, 0, 1);
+    my @proc_ok     = (0, 0, 0, 0, 0, 1);
+
     $cluster->set_true('submit_proc', 'proc_ok', 'update_status');
     $cluster->mock('chunk_workflow' => sub {
-                       Test::MockObject->new->mock('is_complete' => sub { $done++ })
+                       Test::MockObject->new->mock('is_complete' => sub { shift @is_complete })
                              ->mock('state' => sub { RUM::State->new });
                    });
-    $cluster->mock('proc_ok' => sub {
-                       $ok++
-                   });
+    $cluster->mock('proc_ok' => sub { shift @proc_ok  });
     my $pos = 2;
     
     $cluster->clear;
@@ -146,10 +147,21 @@ sub cluster {
 
     $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit the process');
     $cluster->called_args_pos_is($pos, 2, undef, "with no chunks");
-    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
-    $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
+
+    # Check on it five times
+    for (1 .. $RUM::Platform::Cluster::NUM_CHECKS_BEFORE_RESTART) {
+        $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
+        $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
+    }
+
     $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit it again,');
-    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status again,');
+    
+    for (1 .. 2) {
+        $cluster->called_pos_ok(++$pos, 'update_status', 'update its status again,');
+        $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
+        
+    }
+    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     ok ! $cluster->call_pos(++$pos), 'and stop.';
     ok $results->[1], "Chunk should succeed";
 }
@@ -168,34 +180,29 @@ sub cluster {
     $cluster->set_false('proc_ok');
     my $pos = 1;
     my $results = $cluster->process;
+
     $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit the process');
     $cluster->called_args_pos_is($pos, 2, undef, "with no chunks");
-    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
-    $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
-    $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit it again,');
-    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status again,');
-    $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
-    $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit it again,');
-    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status again,');
-    $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
-    $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit it again,');
-    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status again,');
-    $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
-    $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit it again,');
-    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status again,');
-    $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
-    $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit it again,');
-    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status again,');
-    $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
-    $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit it again,');
-    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status again,');
-    $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
-    $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit it again,');
-    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status again,');
-    $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
+
+    for my $i (1 .. $RUM::WorkflowRunner::MAX_STARTS_PER_STATE + 1) {
+    
+        # Check on it five times
+        for my $j (1 .. $RUM::Platform::Cluster::NUM_CHECKS_BEFORE_RESTART) {
+            $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
+            $cluster->called_pos_ok(++$pos, 'proc_ok', "check if the proc is ok,");
+        }
+
+        if ($i <= $RUM::WorkflowRunner::MAX_STARTS_PER_STATE) {
+            $cluster->called_pos_ok(++$pos, 'submit_proc', 'submit the process');
+            $cluster->called_args_pos_is($pos, 2, 1, "with chunk 1");
+        }
+        
+    }
+
     ok ! $cluster->call_pos(++$pos), 'and stop.';
     ok ! $results->[1], "Chunk should fail";
 }
+
 
 ################################################################################
 ###
@@ -214,6 +221,7 @@ sub cluster {
     my $result = $cluster->postprocess;
 
     my $pos = 1;
+    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'submit_postproc',  "submit postprocessing");
     $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     ok ! $cluster->call_pos(++$pos), "Stopped";
@@ -234,6 +242,7 @@ sub cluster {
     my $result = $cluster->postprocess;
 
     my $pos = 1;
+    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'submit_postproc', 'submit postprocessing');
     $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'postproc_ok', "check if postproc was ok,");
@@ -259,6 +268,7 @@ sub cluster {
     my $pos = 1;
 
     my $result = $cluster->postprocess;
+    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'submit_postproc', 'submit postprocessing');
     $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'postproc_ok', "check if the proc is ok,");
@@ -267,6 +277,7 @@ sub cluster {
     ok ! $cluster->call_pos(++$pos), 'and stop.';
     ok $result, "Postprocessing should succeed";
 }
+
 
 # Make sure we give up on a single chunk that fails too many times.
 {
@@ -281,6 +292,7 @@ sub cluster {
     my $pos = 1;
 
     my $result = $cluster->postprocess;
+    $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
     $cluster->called_pos_ok(++$pos, 'submit_postproc', 'submit the postprocess');
     $cluster->called_args_pos_is($pos, 2, undef, "with no chunks");
     $cluster->called_pos_ok(++$pos, 'update_status', 'update its status,');
@@ -334,4 +346,3 @@ throws_ok { $cluster->postproc_ok } qr/not implemented/i, "postproc_ok not imple
         "Get postproc workflow";
 }
 
-exit;

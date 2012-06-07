@@ -23,7 +23,7 @@ use base 'RUM::Platform::Cluster';
 
 our $log = RUM::Logging->get_logger();
 
-
+our $MAX_UPDATE_STATUS_TRIES = 5;
 our $JOB_ID_FILE = ".rum/sge_job_ids";
 our @JOB_TYPES = qw(parent preproc proc postproc);
 our %JOB_TYPE_NAMES = (
@@ -59,11 +59,11 @@ sub new {
 
     $self->{cmd} = {};
     $self->{cmd}{preproc}  =  "perl $0 align --child --output $dir --preprocess";
-    $self->{cmd}{proc}     =  "perl $0 align --child --output $dir --chunk \$SGE_TASK_ID";
-    $self->{cmd}{postproc} =  "perl $0 align --child --output $dir --postprocess";
+    $self->{cmd}{proc}     =  "perl $0 align --child --output $dir --chunk \$SGE_TASK_ID --postprocess";
+ #   $self->{cmd}{postproc} =  "perl $0 align --child --output $dir --postprocess";
 
     $self->{cmd}{proc} .= " --no-clean" if $directives->no_clean;
-    $self->{cmd}{postproc} .= " --no-clean" if $directives->no_clean;
+#    $self->{cmd}{postproc} .= " --no-clean" if $directives->no_clean;
 
     $self->{jids}{$_} = [] for @JOB_TYPES;
 
@@ -95,6 +95,8 @@ submitted.
 
 sub start_parent {
     my ($self) = @_;
+
+    $log->info("Submitting a job to monitor child tasks, then exiting.");
     my $d = $self->directives;
     my $dir = $self->config->output_dir;
     my $cmd =  "-b y $0 align --parent --output $dir --lock $RUM::Lock::FILE";
@@ -115,7 +117,7 @@ Return a list of ram-related arguments to pass to qsub.
 
 sub ram_args {
     my ($self) = @_;
-    my $ram = $self->config->min_ram_gb . "G";
+    my $ram = ($self->config->ram || $self->config->min_ram_gb) . "G";
     ("-l", "mem_free=$ram,h_vmem=$ram");
 }
 
@@ -163,12 +165,18 @@ sub submit_proc {
     }
 
     if (@chunks) {
+        $log->info("Submitting jobs for chunks " . join(", ", @chunks));
         for my $chunk (@chunks) {
-            push @jids, $self->_qsub(@args, "-t", $chunk, $sh);
+            my $jid = $self->_qsub(@args, "-t", $chunk, $sh);
+            $log->info("Chunk $chunk is job id $jid");
+            push @jids, $jid;
         }
     }
     else {
-        push @jids, $self->_qsub(@args, "-t", "1:$n", $sh);
+        $log->info("Submitting an array job for $n chunks");
+        my $jid = $self->_qsub(@args, "-t", "1:$n", $sh);
+        $log->info("Array job id is $jid");
+        push @jids, $jid;
     }
 
     push @{ $self->_proc_jids }, @jids;
@@ -187,11 +195,11 @@ submit_postproc until the processing is done.
 
 sub submit_postproc {
     my ($self, $c) = @_;
-    $log->info("Submitting postprocessing job");
-    my $sh = $self->_write_shell_script("postproc");
-    my $jid = $self->_qsub($self->ram_args, $sh);
-    push @{ $self->_postproc_jids }, $jid;
-    $self->save;
+    # RUM::Platform::Cluster might call me to submit a new
+    # postprocessing job, but the last chunk should handle it. So make
+    # sure there's no other postprocessing task running before
+    # actually submitting it.
+    $self->submit_proc($self->config->num_chunks) unless $self->postproc_ok;
 }
 
 =item update_status
@@ -204,14 +212,28 @@ status of all jobs.
 sub update_status {
     my ($self) = @_;
 
-    my @qstat = `qstat`;
-    if ($?) {
-        croak "qstat command failed: $!";
-    }
-    $log->debug("qstat: $_") foreach @qstat;
+    my $tries = 0;
 
-    $self->_build_job_states($self->_parse_qstat_out(@qstat));
-    $self->save;
+    while ($tries++ < $MAX_UPDATE_STATUS_TRIES) {
+        my @qstat = `qstat`;
+        $log->debug("qstat: $_") foreach @qstat;
+        
+        if ($?) {
+            $log->info("qstat command failed with status: $?");
+            next;
+        }
+        elsif (my $status = $self->_parse_qstat_out(@qstat)) {
+            $self->_build_job_states($self->_parse_qstat_out(@qstat));
+            $self->save;
+            return 1;
+        }
+        else {
+            $log->info("Couldn't parse qstat output");
+        }
+    }
+
+    die "I tried to update my status with qstat $tries times and it ". 
+        "failed every time.";
 }
 
 =item preproc_ok
@@ -239,7 +261,7 @@ sub proc_ok {
 
 sub postproc_ok {
     my ($self) = @_;
-    return $self->_some_job_ok("postproc", $self->_postproc_jids);
+    return $self->proc_ok($self->config->num_chunks);
 }
 
 =item save
@@ -271,7 +293,7 @@ sub _qsub {
     my $dir = $RUM::Logging::LOGGING_DIR;
     my $dir_opt = $dir ? "-o $dir -e $dir" : "";
     my $cmd = "qsub -V -cwd -j y $dir_opt @args";
-    $log->debug("Running '$cmd'");
+    $log->info("Submitting job to SGE: '$cmd'");
     my $out = `$cmd`;
     $log->debug("'$cmd' produced output $out");
     if ($?) {
@@ -299,6 +321,11 @@ sub _extract_field {
 sub _parse_qstat_out {
     my ($self, @lines) = @_;
 
+    if ("@lines" =~ /error: failed receiving gdi request response/) {
+        $log->info("Looks like qstat timed out");
+        return undef;
+    }
+
     # Get the header line and determine the offset and length of each
     # field from it
     local $_ = shift @lines;
@@ -312,11 +339,14 @@ sub _parse_qstat_out {
     my @result;
 
     for my $line (@lines) {
-        my $job   = _extract_field $line, $job_start, $job_len or croak
-            "Got empty job id from line $line";
-        my $state   = _extract_field $line, $state_start, $state_len or croak
-            "Got empty state from line $line";
+        my $job   = _extract_field $line, $job_start, $job_len;
+        my $state   = _extract_field $line, $state_start, $state_len;
         my $task   = _extract_field $line, $task_start, $task_len;
+
+        unless ($job && $state) {
+            $log->info("Got invalid output from qstat: $line");
+            return undef;
+        }
 
         my %rec = (job_id => $job, state => $state);
 
@@ -385,14 +415,19 @@ sub _job_state {
 
 sub _some_job_ok {
     my ($self, $phase, $jids, $task) = @_;
-    my @jids = @{ $jids };
+    my @jids = @{ $jids } or return 0;
     my @states = map { $self->_job_state($_, $task) || "" } @jids;
     my @ok = grep { $_ && /r|w|t/ } @states;
     
-    my $msg = "I have these jobs for phase $phase";
-    $msg .= " task $task" if $task;
-    $msg .= ": [";
-    $msg .= join(", ", map "$jids[$_]($states[$_])", (0 .. $#jids)) . "]";
+    my $task_label = "phase $phase " . ($task ? " task $task" : "");
+
+
+    my $msg = (
+        "I have these jobs for phase $task_label: ". 
+        "[" . 
+        join(", ", 
+             map "$jids[$_]($states[$_])", grep { $states[$_] } (0 .. $#jids))
+        . "] ");
 
     if (@ok == 1) {
         $log->debug($msg);
@@ -402,7 +437,13 @@ sub _some_job_ok {
         $log->error("$msg and none of them are running or waiting");
     }
     else {
-        $log->error("$msg and more than one of them are running or waiting");
+        $msg .= join(
+        " ", "and more than one of them are running or waiting.",
+        "This is probably because SGE was not reporting a status",
+        "of running or waiting, and I started a new job, and then",
+        "the job started running again");
+        $log->warn($msg);
+        return 1;
     }
 
     return 0;
@@ -424,7 +465,7 @@ sub stop {
         ["parent",         $self->_parent_jids ],
         ["preprocessing",  $self->_preproc_jids ],
         ["processing",     $self->_proc_jids ],
-        ["postprocessing", $self->_postproc_jids ]
+#        ["postprocessing", $self->_postproc_jids ]
     );
 
     for my $type (@JOB_TYPES) {
@@ -451,7 +492,6 @@ sub stop {
 sub _parent_jids   { $_[0]->{jids}{parent} };
 sub _preproc_jids  { $_[0]->{jids}{preproc} };
 sub _proc_jids     { $_[0]->{jids}{proc} };
-sub _postproc_jids { $_[0]->{jids}{postproc} };
 
 sub _write_shell_script {
     my ($self, $phase) = @_;

@@ -47,14 +47,11 @@ files of forward and reverse reads.
 NOTE ON FILE FORMATS: Files can be either fasta or fastq, the type is
 inferred.
 
-=item B<--config> I<config_file>
+=item B<-i>, B<--index-dir> I<index_dir>
 
-This file tells RUM where to find the various executables and indexes.
-This file is included in the 'conf' directory when you download an
-index, for example rum.config_mm9 for mouse build mm9, which will
-work if you leave everything in its default location.  To modify or
-make your own config file, run this program with the argument
-'help config' for more information on the config file.
+The path to the directory that contains the RUM index for the organism
+you want to align against.  Please use I<rum_indexes> to install
+indexes.
 
 =item B<-o>, B<--output-dir> I<output_dir>
 

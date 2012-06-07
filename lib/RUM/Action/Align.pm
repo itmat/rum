@@ -14,7 +14,7 @@ use strict;
 use warnings;
 use autodie;
 
-use Getopt::Long;
+use Getopt::Long qw(:config pass_through);
 use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
 use Carp;
@@ -63,6 +63,7 @@ sub run {
     my $c = $self->config;
     my $d = $self->directives;
     $self->check_config;        
+    $self->check_deps;
     $self->check_gamma;
     $self->setup;
     $self->get_lock;
@@ -72,10 +73,6 @@ sub run {
     my $platform_name = $c->platform;
     my $local = $platform_name =~ /Local/;
     
-    unless ($c->genome_size) {
-        $c->set('genome_size', $self->genome_size);
-    }
-
     if ($local) {
         $self->check_ram;
     }
@@ -108,12 +105,33 @@ sub run {
     $self->_show_match_length;
     $self->_check_read_lengths;
 
+    my $chunk = $self->{chunk};
+    
+    # If user said --process or at least didn't say --preprocess or
+    # --postprocess, then check if we still need to process, and if so
+    # execute the processing phase.
     if ($d->process || $d->all) {
-        $platform->process($self->{chunk});
+        if ($self->still_processing) {
+            $platform->process($chunk);
+        }
     }
+
+    # If user said --postprocess or didn't say --preprocess or
+    # --process, then we need to do postprocessing.
     if ($d->postprocess || $d->all) {
-        $platform->postprocess;
-        $self->_final_check;
+        
+        # If we're called with "--chunk X --postprocess", that means
+        # we're supposed to process chunk X and do postprocessing only
+        # if X is the last chunk. I realize that's not very
+        # intuitive...
+        #
+        # TODO: Come up with a better way for the parent to
+        # communicate with one of its child processes, telling it to
+        # do postproessing
+        if ( !$chunk || $chunk == $self->config->num_chunks ) {
+            $platform->postprocess;
+            $self->_final_check;
+        }
     }
     RUM::Lock->release;
 }
@@ -198,12 +216,12 @@ sub get_options {
         "no-clean" => sub { $d->set_no_clean },
 
         # Options typically entered by a user to define a job.
-        "config=s"    => \(my $rum_config_file),
-        "output|o=s"  => \(my $output_dir),
-        "name=s"      => \(my $name),
-        "chunks=s"    => \(my $num_chunks),
-        "qsub"        => \(my $qsub),
-        "platform=s"  => \(my $platform),
+        "index-dir|i=s" => \(my $rum_index),
+        "output|o=s"    => \(my $output_dir),
+        "name=s"        => \(my $name),
+        "chunks=s"      => \(my $num_chunks),
+        "qsub"          => \(my $qsub),
+        "platform=s"    => \(my $platform),
 
         # Advanced options
         "alt-genes=s"      => \(my $alt_genes),
@@ -239,6 +257,17 @@ sub get_options {
         "help|h" => sub { $usage->help }
     );
 
+    my @reads;
+
+    while (local $_ = shift @ARGV) {
+        if (/^-/) {
+            $usage->bad("Unrecognized option $_");
+        }
+        else {
+            push @reads, File::Spec->rel2abs($_);
+        }
+    }
+
     $output_dir or $usage->bad(
         "The --output or -o option is required for \"rum_runner align\"");
 
@@ -249,7 +278,7 @@ sub get_options {
 
     my $dir = $output_dir;
     $ENV{RUM_OUTPUT_DIR} = $dir;
-    my $c = RUM::Config->load($dir);
+    my $c = $dir ? RUM::Config->load($dir) : undef;
     !$c or ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
     my $did_load;
     if ($c) {
@@ -264,12 +293,10 @@ sub get_options {
     ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
 
     # If a chunk is specified, that implies that the user wants to do
-    # the 'processing' phase, so unset preprocess and postprocess
+    # the 'processing' phase, so unset preprocess.
     if ($chunk) {
         $usage->bad("Can't use --preprocess with --chunk")
               if $d->preprocess;
-        $usage->bad("Can't use --postprocess with --chunk")
-              if $d->postprocess;
         $d->unset_all;
         $d->set_process;
     }
@@ -282,7 +309,7 @@ sub get_options {
         my $existing = $c->get($k);
         if (defined($existing) && $existing ne $v) {
             $did_set = 1;
-            $self->logsay("Changing $k from $existing to $v");
+            $log->info("Changing $k from $existing to $v");
         }
         
         $c->set($k, $v);
@@ -292,9 +319,7 @@ sub get_options {
 
     $alt_genes = File::Spec->rel2abs($alt_genes) if $alt_genes;
     $alt_quant = File::Spec->rel2abs($alt_quant) if $alt_quant;
-    $rum_config_file = File::Spec->rel2abs($rum_config_file) if $rum_config_file;
-
-    my @reads = map { File::Spec->rel2abs($_) } @ARGV;
+    $rum_index = File::Spec->rel2abs($rum_index) if $rum_index;
 
     $self->{chunk} = $chunk;
 
@@ -322,7 +347,7 @@ sub get_options {
     $set->('quantify', $quantify);
     $set->('ram', $ram);
     $set->('reads', @reads ? [@reads] : undef) if @reads && @reads ne @{ $c->reads || [] };
-    $set->('rum_config_file', $rum_config_file);
+    $set->('rum_index', $rum_index);
     $set->('strand_specific', $strand_specific);
     $set->('user_quals', $quals_file);
     $set->('variable_length_reads', $variable_length_reads);
@@ -335,6 +360,12 @@ sub get_options {
     $usage->check;
 }
 
+
+=item check_deps
+
+
+
+=cut
 
 =item check_config
 
@@ -362,14 +393,23 @@ sub check_config {
         $usage->bad("Please specify a name with --name");
     }
 
-    $c->rum_config_file or $usage->bad(
-        "Please specify a rum config file with --config");
-    $c->load_rum_config_file if $c->rum_config_file;
+    $c->rum_index or $usage->bad(
+        "Please specify a rum index directory with --index-dir or -i");
+    $c->load_rum_config_file if $c->rum_index;
 
     my $reads = $c->reads;
 
-    $reads && (@$reads == 1 || @$reads == 2) or $usage->bad(
-        "Please provide one or two read files");
+
+    if ($reads) {
+        @$reads == 1 || @$reads == 2 or $usage->bad(
+            "Please provide one or two read files. You provided " .
+                join(", ", @$reads));
+    }
+    else {
+        $usage->bad("Please provide one or two read files.");
+    }
+
+
     if ($reads && @$reads == 2) {
         $reads->[0] ne $reads->[1] or $usage->bad(
         "You specified the same file for the forward and reverse reads, ".
@@ -379,7 +419,7 @@ sub check_config {
             "For paired-end data, you cannot set --max-insertions-per-read".
                 " to be greater than 1.");
     }
-    
+
     if (defined($c->user_quals)) {
         $c->quals_file =~ /\// or $usage->bad(
             "do not specify -quals file with a full path, ".
@@ -424,7 +464,39 @@ sub check_config {
         -r $c->alt_quant_model or die
             "Can't read from ".$c->alt_quant_model.": $!";
     }
-    
+
+    for my $fname (@{ $reads || [] }) {
+        -r $fname or die "Can't read from read file $fname";
+    }
+}
+
+=item check_deps
+
+Check to make sure the dependencies (bowtie, blat, mdust) exist,
+and die with an error message if they don't.
+
+=cut
+
+sub check_deps {
+
+    my ($self) = @_;
+    local $_;
+    my $deps = RUM::BinDeps->new;
+    my @deps = ($deps->bowtie, $deps->blat, $deps->mdust);
+    my @missing;
+    for (@deps) {
+        -x or push @missing, $_;
+    }
+    my $dependency_doesnt = @missing == 1 ? "dependency doesn't" : "dependencies don't";
+    my $it = @missing == 1 ? "it" : "them";
+
+    if (@missing) {
+        die(
+            "The following binary $dependency_doesnt exist:\n\n" .
+            join("", map(" * $_\n", @missing)) .
+            "\n" . 
+            "Please install $it by running \"perl Makefile.PL\"\n");
+    }
 }
 
 =item get_lock
@@ -539,36 +611,6 @@ sub dump_config {
     $log->debug("-" x 40);
 }
 
-=item genome_size
-
-Return an estimate of the size of the genome.
-
-=cut
-
-sub genome_size {
-    my ($self) = @_;
-
-    $self->logsay("Determining how much RAM you need based on your genome.");
-
-    my $c = $self->config;
-    my $genome_blat = $c->genome_fa;
-
-    my $gs1 = -s $genome_blat;
-    my $gs2 = 0;
-    my $gs3 = 0;
-
-    open my $in, "<", $genome_blat;
-
-    local $_;
-    while (defined($_ = <$in>)) {
-        next unless /^>/;
-        $gs2 += length;
-        $gs3 += 1;
-    }
-
-    return $gs1 - $gs2 - $gs3;
-}
-
 =item check_ram
 
 Make sure there seems to be enough ram, based on the size of the
@@ -582,7 +624,7 @@ sub check_ram {
 
     my $c = $self->config;
 
-    return if $c->ram_ok;
+    return if $c->ram_ok || $c->ram;
 
     if (!$c->ram) {
         $self->say("I'm going to try to figure out how much RAM ",

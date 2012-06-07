@@ -1,8 +1,35 @@
 #!/usr/bin/env perl
 
+BEGIN {
+
+    my @modules = qw(autodie);
+    my %errors;
+    for my $module (@modules) {
+        my $file = $module . ".pm";
+        $file =~ s/::/\//g;
+
+        eval {
+            require $file;
+        };
+        if ($@) {
+            warn "$@\n";
+            $errors{$module} = $@;
+        }
+    }
+    if (keys %errors) {
+        my $msg = "";
+        $msg .= "There were some dependencies I couldn't find.\n";
+        $msg .= "Please make sure the following libraries are installed:\n";
+        for my $error (keys %errors) {
+            $msg .= "  * $error\n";
+        }
+        die "$msg\n";
+    }
+}
+
+
 use strict;
 use warnings;
-use autodie;
 
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");

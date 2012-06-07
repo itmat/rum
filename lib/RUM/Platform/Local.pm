@@ -21,6 +21,7 @@ use warnings;
 
 use Carp;
 use Text::Wrap qw(wrap fill);
+use File::Path qw(mkpath);
 
 use RUM::WorkflowRunner;
 use RUM::Logging;
@@ -48,29 +49,31 @@ configuration so that we don't need to repeat that step.
 
 sub preprocess {
     my ($self) = @_;
+    my $config = $self->config;
 
     $self->say();
     $self->say("Preprocessing");
     $self->say("-------------");
 
-    my $config = $self->config;
+    # If any steps of postprocessing have run, then we don't need to
+    # run preprocessing.
     if (RUM::Workflows->postprocessing_workflow($config)->steps_done) {
         $self->say("(skipping: we're in the postprocessing phase)");
         return;
     }
 
-    my $all_chunks_started = 1;
-
+    # We don't start any chunks until preprocessing is completely
+    # done. So if any chunks have started, we don't need to do
+    # preprocessing. TODO: It would be better to split preprocessing
+    # up so at can be run as the first step of each chunk.
     for my $chunk ($self->chunk_nums) {
         my $workflow = RUM::Workflows->chunk_workflow($config, $chunk);
-        if ( ! $workflow->steps_done) {
-            $all_chunks_started = 0;
+        if ($workflow->steps_done) {
+            $self->say("(skipping: we're in the processing phase)");
+            $log->info("Not preprocessing, as we seem to be in the " .
+                           "processing phase");
+            return;
         }
-    }
-
-    if ($all_chunks_started) {
-        $self->say("(skipping: we're in the processing phase)");
-        return;
     }
 
     $self->_check_input();
@@ -245,7 +248,7 @@ sub _determine_read_length {
     
     my ($self) = @_;
 
-    my @lines = head($self->config->in_chunk_dir("reads.fa"), 2);
+    my @lines = head($self->config->in_output_dir("reads.fa"), 2);
     my $read = $lines[1];
     my $len = length($read);
     my $min = $self->config->min_length;
@@ -287,10 +290,12 @@ sub _reformat_reads {
     my $parse_2_quals = $config->script("fastq2qualities.pl");
     my $num_chunks = $config->num_chunks || 1;
 
+    mkpath($config->chunk_dir);
+
     my @reads = @{ $config->reads };
 
-    my $reads_fa = $config->in_chunk_dir("reads.fa");
-    my $quals_fa = $config->in_chunk_dir("quals.fa");
+    my $reads_fa = $config->in_output_dir("reads.fa");
+    my $quals_fa = $config->in_output_dir("quals.fa");
 
     my $name_mapping_opt = $config->preserve_names ?
         "-name_mapping $output_dir/read_names_mapping" : "";    
@@ -571,6 +576,7 @@ sub _step_printer {
     };
 }
 
+
 ## Post-processing
 
 =item postprocess
@@ -581,6 +587,18 @@ Runs the postprocessing phase, in the current process.
 
 sub postprocess {
     my ($self) = @_;
+
+    my $c = $self->config;
+
+    # If I'm called before processing is done, sleep until it is
+    # done. This is so we can make one of the chunks do
+    # postprocessing, but only after all the other chunks are done.
+    while ($self->still_processing) {
+        $log->info("Processing is not complete, going to sleep");
+        sleep(30);
+    }
+    $log->info("Processing is complete");
+
     $self->say();
     $self->say("Postprocessing");
     $self->say("--------------");

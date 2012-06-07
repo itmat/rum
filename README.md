@@ -90,14 +90,16 @@ make install # (may need sudo)
 ### In a user directory
 
 If you would rather install RUM in a user-owned directory, you can
-simply untar RUM right in the directory where you to install it. For
-example, if you want to have rum installed in
-`~/RUM-Pipeline-2.00_11`, assuming you have downloaded
-`RUM-Pipeline-2.00_11.tar.gz` to your current directory, you can
+simply untar RUM right in the directory where you to install it, and
+then run `perl Makefile.PL`. For example, if you want to have rum
+installed in `~/RUM-Pipeline-2.00_13`, assuming you have downloaded
+`RUM-Pipeline-2.00_13.tar.gz` to your current directory, you can
 simply do:
 
 ```
-tar zxvf RUM-Pipeline-2.00_11.tar.gz
+tar zxvf RUM-Pipeline-2.00_13.tar.gz
+cd RUM-Pipeline-2.00_13
+perl Makefile.PL
 ```
 
 This will place all the rum executables in `RUM-Pipeline-2.00_11/bin`.

@@ -25,7 +25,7 @@ GetOptions(
     "test=s" => \(my $TEST));
 
 if (-e $INDEX_CONFIG) {
-    plan tests => 271;
+    plan tests => 303;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -40,7 +40,7 @@ sub run_end_to_end {
     my ($name, @addl_args) = @_;
     my $dir = output_dir($name);
     my @args = ("align", "--name", $name, "-o", $dir, 
-                "--config", $INDEX_CONFIG, @addl_args);
+                "--index", $INDEX_DIR, @addl_args);
     my $rum = "$RUM_HOME/bin/rum_runner";
 
   SKIP: {
@@ -50,6 +50,7 @@ sub run_end_to_end {
         rmtree($dir);
         mkpath($dir);
 
+        diag "Running \"$rum @args\"";
         system($rum, @args);
         ok(!$?, "Rum exited ok");
     }
@@ -58,6 +59,8 @@ sub run_end_to_end {
 sub default_files {
     my $name = shift;
     return (
+        "reads.fa",
+        "quals.fa",
         "RUM.sam",
         "RUM_NU",
         "RUM_NU.cov",
@@ -247,26 +250,30 @@ sub check_one_fastq {
 sub check_two_fasta {
     my $name = "two-fasta";
     run_end_to_end($name, @FASTA);
-    all_files_exist($name, default_files($name));
+    my @files = grep { not /quals.fa/ } default_files($name);
+    all_files_exist($name, @files);
 }
 
 sub check_one_fasta {
     my $name = "one-fasta";
     run_end_to_end($name, $FASTA[0]);
-    all_files_exist($name, default_files($name));
+    my @files = grep { not /quals.fa/ } default_files($name);
+    all_files_exist($name, @files);
 }
 
 
 sub check_one_fasta_var_length {
     my $name = "one-fasta-var-length";
     run_end_to_end($name, $FASTA_VAR[0]);
-    all_files_exist($name, default_files($name));
+    my @files = grep { not /quals.fa/ } default_files($name);
+    all_files_exist($name, @files);
 }
 
 sub check_two_fasta_var_length {
     my $name = "one-fasta-var-length";
     run_end_to_end($name, @FASTA_VAR);
-    all_files_exist($name, default_files($name));
+    my @files = grep { not /quals.fa/ } default_files($name);
+    all_files_exist($name, @files);
 }
 
 sub check_one_fastq_var_length {

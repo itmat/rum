@@ -6,10 +6,11 @@ use warnings;
 use Carp;
 use Text::Wrap qw(fill wrap);
 
-use RUM::StateMachine;
-use RUM::Workflow qw(pre post);
+use RUM::BinDeps;
 use RUM::Config;
 use RUM::Logging;
+use RUM::StateMachine;
+use RUM::Workflow qw(pre post);
 
 our $log = RUM::Logging->get_logger;
 
@@ -68,7 +69,10 @@ sub chunk_workflow {
     my $nu_stats = chunk_file("nu_stats");
     my $sam_file = chunk_file("RUM.sam");
 
-    my $bowtie_bin = $c->bowtie_bin;
+    my $deps = RUM::BinDeps->new;
+    my $bowtie_bin = $deps->bowtie;
+    my $blat_bin   = $deps->blat;
+    my $mdust_bin  = $deps->mdust;
     my $bowtie_cutoff_opt = $c->bowtie_cutoff_opt;
 
     # From the start state we can run bowtie on either the genome or
@@ -76,7 +80,7 @@ sub chunk_workflow {
     unless ($c->blat_only) {
         $m->step(
             "Run bowtie on genome",
-            [$c->bowtie_bin,
+            [$bowtie_bin,
              $c->bowtie_cutoff_opt,
              "--best", 
              "--strata",
@@ -92,7 +96,7 @@ sub chunk_workflow {
     unless ($c->dna || $c->blat_only || $c->genome_only) {
         $m->step(
             "Run bowtie on transcriptome",
-            [$c->bowtie_bin,
+            [$bowtie_bin,
              $c->bowtie_cutoff_opt,
              "--best", 
              "--strata",
@@ -117,7 +121,7 @@ sub chunk_workflow {
     # non-unique files for it.
     unless ($c->blat_only) {
         $m->step(
-            "Separate unique and non-unique mappers from genome bowtie output",
+            "Parse genome Bowtie output",
             ["perl", $c->script("make_GU_and_GNU.pl"), 
              "--unique", post($gu),
              "--non-unique", post($gnu),
@@ -129,7 +133,7 @@ sub chunk_workflow {
     # unique and non-unique files for it.
     unless ($c->dna || $c->blat_only || $c->genome_only) {
         $m->step(
-            "Separate unique and non-unique mappers from transcriptome bowtie output",
+            "Parse transcriptome Bowtie output",
             ["perl", $c->script("make_TU_and_TNU.pl"), 
              "--unique",        post($tu),
              "--non-unique",    post($tnu),
@@ -174,8 +178,7 @@ sub chunk_workflow {
     # If we have the merged bowtie unique mappers and the merged
     # bowtie non-unique mappers, we can create the unmapped file.
     $m->step(
-        "Make a file containing the unmapped reads, to be passed ".
-            "into blat",
+        "Make unmapped reads file for blat",
         ["perl", $c->script("make_unmapped_file.pl"),
          "--reads", $reads_fa,
          "--unique", pre($bowtie_unique), 
@@ -185,7 +188,7 @@ sub chunk_workflow {
     
     $m->step(
         "Run blat on unmapped reads",
-        [$c->blat_bin,
+        [$blat_bin,
          $c->genome_fa,
          pre($bowtie_unmapped),
          post($blat_output),
@@ -193,7 +196,7 @@ sub chunk_workflow {
     
     $m->step(
          "Run mdust on unmapped reads",
-         [$c->mdust_bin,
+         [$mdust_bin,
           pre($bowtie_unmapped),
           " > ",
           post($mdust_output)]);
@@ -289,7 +292,6 @@ sub chunk_workflow {
         ["perl", $c->script("sort_RUM_by_location.pl"),
          $c->ram_opt,
          pre($rum_unique),
-         "--ram", $c->min_ram_gb,
          "-o", post($rum_unique_sorted),
          ">>", post($chr_counts_u)]);
     
@@ -298,7 +300,6 @@ sub chunk_workflow {
         ["perl", $c->script("sort_RUM_by_location.pl"),
          $c->ram_opt,
          pre($rum_nu),
-         "--ram", $c->min_ram_gb,
          "-o", post($rum_nu_sorted),
          ">>", post($chr_counts_nu)]);
     
@@ -800,7 +801,8 @@ sub postprocessing_workflow {
          ">", post($c->mapping_stats_final)]);
     
     push @goal, $sam_file;
-
+#    push @goal, $reads_fa;
+#    push @start, $reads_fa;
     $w->start([@start]);
     $w->set_goal([@goal]);
 

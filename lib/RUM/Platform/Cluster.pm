@@ -26,12 +26,14 @@ use Carp;
 use RUM::WorkflowRunner;
 use RUM::Workflows;
 use RUM::Logging;
+use RUM::JobStatus;
 
 use base 'RUM::Platform';
 
 our $log = RUM::Logging->get_logger;
 
 our $CLUSTER_CHECK_INTERVAL = 30;
+our $NUM_CHECKS_BEFORE_RESTART = 5;
 
 =item preprocess
 
@@ -87,7 +89,9 @@ sub process {
 
     # Build a list of tasks, one for each chunk, that bundles together
     # the chunk number, configuration, workflow, and workflow runner.
-    my @tasks;
+    # The first task is undef since chunk ids start at 1.
+
+    my @tasks = (undef);
     for my $chunk ($self->chunk_nums) {
         my $workflow = $self->chunk_workflow($chunk);
         my $run = sub { $self->submit_proc($chunk) };
@@ -95,19 +99,27 @@ sub process {
         push @tasks, {
             chunk => $chunk,
             workflow => $workflow,
-            runner => $runner
+            runner => $runner,
+            not_ok_count => 0
         };
     }
 
-    my @results;
+    # A slot for each chunk. Set to 0 if a chunk fails. TODO: Maybe set to 1 if
+    # it succeeds.
+    my @results = (undef);
 
     # First submit all the chunks as one array job
     $self->submit_proc;
-    
-    while (1) {
 
-        # Counter of tasks that are still running
-        my $still_running = 0;
+    my $status = RUM::JobStatus->new($self->config);
+
+    # While there are still some chunks that aren't finished
+    while ( my @chunks = $status->outstanding_chunks ) {
+
+        $log->info("Chunks still outstanding: @chunks");
+
+        # Get a list of the task maps for the outstanding chunks
+        my @tasks = @tasks[@chunks];
 
         # Refresh the cluster's status so that calls to proc_ok will
         # return the latest status
@@ -117,11 +129,12 @@ sub process {
 
             my ($workflow, $chunk, $runner) = @$t{qw(workflow chunk runner)};
 
+            my $is_done = $workflow->is_complete;
+
             # If the state of the workflow indicates that it's
             # complete (based on the files that exist), we can
             # consider it done.
-            if ($workflow->is_complete) {
-                $log->debug("Chunk $chunk is done");
+            if ($is_done) {
                 $results[$chunk] = 1;
             }
 
@@ -130,26 +143,48 @@ sub process {
             # finish.
             elsif ($self->proc_ok($chunk)) {
                 $log->debug("Looks like chunk $chunk is running or waiting");
-                $still_running++;
             }
 
-            # Otherwise the task is not done and it's not running, so
-            # submit it again unless we've exceeded the restart limit.
+            # Otherwise the task may have died for some reason, but it may just 
+            # be that we had trouble checking the status. Give it
+            # $NUM_CHECKS_BEFORE_RESTART chances before trying to start it
+            # again.
+            elsif (++$t->{not_ok_count} < $NUM_CHECKS_BEFORE_RESTART) {
+
+                $log->warn("Chunk $chunk is not running or waiting. ".
+                           "I've checked on it $t->{not_ok_count} " .
+                           ($t->{not_ok_count} == 1 ? "time" : "times") .
+                           ". I'll give it a few more minutes");
+            }
+
+            # If it reported a failed status $NUM_CHECKS_BEFORE_RESTART times 
+            # in a row, go ahead and start again.
             elsif ($runner->run) {
                 $log->error("Chunk $chunk is not queued; started it");
-                $still_running++;
+                $t->{not_ok_count} = 0;
             }
+
+            # If $runner->run returned false, that means we've restarted it too 
+            # many times, so give up on it. Set it's @result value to to record
+            # that we gave up on it.
             else {
                 $log->error("Restarted $chunk too many times; giving up");
                 $results[$chunk] = 0;
             }
         }
-        $log->debug("$still_running chunks are still running");
-        last unless $still_running;
+
+        # See if there are any chunks with non-zero results, meaning that we are
+        # still waiting for them.
+        my @waiting = grep { !defined } @results[@chunks];
+
+        unless ( @waiting ) {
+            $log->error("It looks like we've given up on all the chunks");
+            last;
+        }
+
         sleep $CLUSTER_CHECK_INTERVAL;
     }
     return \@results;
-    
 }
 
 =item postprocess
@@ -165,7 +200,7 @@ sub postprocess {
     my $workflow = $self->postprocessing_workflow;
     my $run = sub { $self->submit_postproc };
     my $runner = RUM::WorkflowRunner->new($workflow, $run);
-
+    $self->update_status;
     $runner->run;
 
     while (1) {

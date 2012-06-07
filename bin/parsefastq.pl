@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 use strict;
 
+use File::Spec;
+
 if(@ARGV<4) {
     die "
 Usage: parsefastq.pl <infile> <num chunks> <reads out> <quals out> [option]
@@ -74,10 +76,21 @@ open(QOUTALL, ">$quals_out");
 my $linecnt = 0;
 my $readname;
 my $name_mapping_chunk;
+
+sub in_chunk_dir {
+    my $filename = shift;
+
+    my (undef, $dir, $file) = File::Spec->splitpath($filename);
+    return File::Spec->catfile($dir, "chunks", $file);
+}
+
 if($paired eq "false") {
     for(my $chunk=1; $chunk<=$numchunks; $chunk++) {
-	my $reads_file = $reads_out . ".$chunk";
-	my $quals_file = $quals_out . ".$chunk";
+
+
+	my $reads_file = in_chunk_dir($reads_out) . ".$chunk";
+	my $quals_file = in_chunk_dir($quals_out) . ".$chunk";
+        warn "File is $reads_file\n";
 	if($endflag == 1) {
 	    $chunk = $numchunks;
 	    next;
@@ -154,8 +167,8 @@ my $linecnt1=0;
 my $linecnt2=0;
 if($paired eq "true") {
     for(my $chunk=1; $chunk<=$numchunks; $chunk++) {
-	my $reads_file = $reads_out . ".$chunk";
-	my $quals_file = $quals_out . ".$chunk";
+	my $reads_file = in_chunk_dir($reads_out) . ".$chunk";
+	my $quals_file = in_chunk_dir($quals_out) . ".$chunk";
 	if($endflag == 1) {
 	    $chunk = $numchunks;
 	    next;

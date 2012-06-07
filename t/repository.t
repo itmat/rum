@@ -113,7 +113,7 @@ do {
               "Parse build names correctly");
 
     my $repo = RUM::Repository->new();
-    like($repo->config_filename($got[0]), qr(conf/rum.config_hg18),
+    like($repo->config_filename($got[0]), qr(indexes/hg18/rum_index.conf),
        "Found config file");
           
 }

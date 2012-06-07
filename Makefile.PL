@@ -4,6 +4,13 @@ use ExtUtils::MakeMaker;
 
 use File::Find;
 
+use lib "lib";
+use RUM::BinDeps;
+
+use Text::Wrap;
+
+RUM::BinDeps->new->fetch();
+
 my @exe_files;
 find sub {
     my $file = "bin/$_";
@@ -29,3 +36,28 @@ sub MY::postamble {
     "index:\n\t\$(PREFIX)/bin/rum_indexes"
 }
 
+print <<EOF;
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+                      INSTALLATION INSTRUCTIONS
+
+If you want to install RUM in a system location, you can run:
+
+  make
+  make install
+  rum_indexes --prefix PREFIX
+  rum_runner help
+
+Otherwise you can run it from this location:
+
+  ./bin/rum_indexes --prefix PREFIX
+  ./bin/rum_runner help
+
+RUM requires an index for each organism you will be working with.  The
+"rum_indexes" step will prompt you for which indexes you need, and
+then install them. PREFIX is the location where you want indexes
+installed. We recomend that you install indexes in a place independent
+of the RUM code itself, so that in the future you can upgrade the RUM
+code without re-installing the indexes.
+EOF

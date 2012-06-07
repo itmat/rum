@@ -89,3 +89,6 @@ t/tmp
 nohup.out
 Rakefile
 todo
+lib/RUM/blat
+lib/RUM/bowtie
+lib/RUM/mdust

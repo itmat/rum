@@ -31,6 +31,7 @@ use warnings;
 use Carp;
 use Text::Wrap qw(wrap fill);
 
+use RUM::Directives;
 use RUM::Logging;
 
 our $log = RUM::Logging->get_logger();
@@ -52,7 +53,7 @@ sub new {
     my ($class, $config, $directives) = @_;
     my $self = {};
     $self->{config} = $config; # or croak        "$class->new called without config";
-    $self->{directives} = $directives; # or croak        "$class->new called without directives";
+    $self->{directives} = $directives || RUM::Directives->new;
     bless $self, $class;
 }
 
@@ -79,7 +80,7 @@ RUM::Runner to tell it what to do.
 
 =cut
 
-sub directives { $_[0]->{directives} }
+sub directives { ref($_[0]) or confess "Not a ref"; $_[0]->{directives} }
 
 =item say(@msg)
 
@@ -118,6 +119,7 @@ Log @msg at the warning level.
 
 sub alert {
     my ($self, @msg) = @_;
+    $self->say(@msg);
     my $package;
     ref($self) =~ /(.*)=/ and $package = $1;
     RUM::Logging->get_logger($package)->warn(@msg);
@@ -175,13 +177,37 @@ sub _chunk_error_logs_are_empty {
 
     my $log_file = File::Spec->catfile($dir, "rum_errors.log");
     if (-s $log_file) {
-        $log->warn("!!! Main log file had errors, please check $log_file");
+        $self->alert("!!! Main log file had errors, please check $log_file");
         $result = 0;
     }
     else {
         $self->logsay("Main error log file is empty, that's good");
     }
     return $result;
+}
+
+=item still_processing
+
+Return a true value if we have started postprocessing or if at least
+one of my chunks is still processing.
+
+=cut
+
+sub still_processing {
+    my ($self) = @_;
+
+    my $config = $self->config;
+
+    # If postprocessing has started, then we can't be in the
+    # processing phase
+    if (RUM::Workflows->postprocessing_workflow($config)->steps_done) {
+        return 0;
+    }
+
+    for my $chunk ( 1 .. $config->num_chunks ) {
+        return 1 unless RUM::Workflows->chunk_workflow($config, $chunk)->is_complete;
+    }
+    return 0;
 }
 
 =back

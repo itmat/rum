@@ -84,6 +84,7 @@ lib/RUM/Action/Profile.pm
 lib/RUM/Action/Status.pm
 lib/RUM/Action/Version.pm
 lib/RUM/Base.pm
+lib/RUM/BinDeps.pm
 lib/RUM/Common.pm
 lib/RUM/Config.pm
 lib/RUM/ConfigFile.pm
@@ -91,6 +92,8 @@ lib/RUM/CoverageMap.pm
 lib/RUM/Directives.pm
 lib/RUM/FileIterator.pm
 lib/RUM/Heap.pm
+lib/RUM/Index.pm
+lib/RUM/JobStatus.pm
 lib/RUM/Lock.pm
 lib/RUM/Logger.pm
 lib/RUM/Logging.pm
@@ -153,6 +156,7 @@ README
 README.md
 t/00-load.t
 t/60-dist.it
+t/bindeps.t
 t/boilerplate.t
 t/cluster.t
 t/common.t

@@ -13,7 +13,7 @@ use File::Temp qw(tempdir);
 use strict;
 use warnings;
 
-our $config = "$Bin/../conf/rum.config_Arabidopsis";
+our $index = "$Bin/../indexes/Arabidopsis";
 our $bad_reads  = "$SHARED_INPUT_DIR/bad-reads.fq";
 our $good_reads_same_size_as_bad  = "$SHARED_INPUT_DIR/good-reads-same-size-as-bad.fq";
 our $forward_64_fq = "$SHARED_INPUT_DIR/forward64.fq";
@@ -30,7 +30,7 @@ BEGIN {
     plan skip_all => "Test::Exception needed" if $@;
 }
 
-if (-e $config) {
+if (-e $index) {
     plan tests => 84;
 }
 else {
@@ -140,42 +140,42 @@ like(run_rum("help", "config"),
 
 
 # Check that it fails if required arguments are missing
-rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf"],
+rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf"],
              qr/please.*read files/i, "Missing read files");
 
-rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
               "1.fq", "2.fq", "3.fq"],
              qr/please.*read files/i, "Too many read files");
 
-rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
               "1.fq", "1.fq"],
              qr/same file for the forward and reverse/i,
              "Duplicate read file");
-rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
               $forward_64_fa, "$SHARED_INPUT_DIR/reads.fa"],
              qr/same size/i, "Read files are not the same size");
 
-#rum_fails_ok(["--config", $config, "--name", "asdf", "in.fq"],
+#rum_fails_ok(["--index", $index, "--name", "asdf", "in.fq"],
 #             qr/--output/i, "Missing output dir");
 
-rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "in.fq"],
+rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "in.fq"],
              qr/--name/i, "Missing name");
 
 rum_fails_ok(["align", "--output", tmp_out(), "--name", "foo", "in.fq"],
-             qr/--config/i, "Missing config");
+             qr/--index/i, "Missing config");
 
-rum_fails_ok(["align", "--config", "missing-config-file",
+rum_fails_ok(["align", "--index", "missing-config-file",
               "--output", tmp_out(), "--name", "asdf", "in.fq"],
-             qr/no such file/i, "Config file that doesn't exist");
+             qr/rum_index.conf/i, "Config file that doesn't exist");
 
 my $name = 'a' x 300;
 rum_fails_ok(
-    ["align", "--config", $config, "--output", tmp_out(), "--name", $name," in.fq"],
+    ["align", "--index", $index, "--output", tmp_out(), "--name", $name," in.fq"],
     qr/250 characters/, "Long name");
 
 # Check that we set some default values correctly
 {
-    my @argv = ("align", "--config", $config,
+    my @argv = ("--index", $index,
                 "--output", "foo",
                 "--name", "asdf",
                 $forward_64_fq);
@@ -184,7 +184,7 @@ rum_fails_ok(
     my $c = $rum->config or BAIL_OUT("Can't get RUM");
     is($c->name, "asdf", "Name");
     like($c->output_dir, qr/foo$/, "Output dir");
-    like($c->rum_config_file, qr/$config/, "Config");
+    like($c->rum_index, qr/$index/, "Index");
     is($c->min_length, undef, "min length");
     is($c->max_insertions, 1, "max insertions");
     ok(!$c->dna, "no DNA");
@@ -199,30 +199,30 @@ rum_fails_ok(
 }
 
 # Check that we clean up a name
-is(rum("--config", $config,
+is(rum("--index", $index,
        "--output", "foo",
-       "in.fq", "--name", ",foo bar,baz,")->config->name,
+       $forward_64_fq, "--name", ",foo bar,baz,")->config->name,
    "foo_bar_baz",
    "Clean up name with invalid characters");
 
 # Check that rum fails if a read file is missing
-rum_fails_ok(["align","--config", $config, "--output", tmp_out(),
+rum_fails_ok(["align","--index", $index, "--output", tmp_out(),
               "--name", "asdf", "asdf.fq", "-q"],
-             qr/asdf.fq.*no such file or directory/i,
+             qr/read from.*asdf.fq/i,
              "Read file doesn't exist");    
-rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
               $forward_64_fq, "asdf.fq", "-q"],
-             qr/asdf.fq.*no such file or directory/i, 
+             qr/read from.*asdf.fq/i, 
              "Read file doesn't exist");    
 
 # Check bad reads
-rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
               $bad_reads, "-q"],
              qr/you appear to have entries/i, "Bad reads");    
-rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf",
+rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf",
               $bad_reads, $good_reads_same_size_as_bad, "-q"], 
              qr/you appear to have entries/i, "Bad reads");    
-rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "asdf",
+rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf",
               $good_reads_same_size_as_bad, $bad_reads, "-q"],
              qr/you appear to have entries/i, "Bad reads");    
 
@@ -230,7 +230,7 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
 {
     $log->warn("About to preprocess");
     warn "Here";
-    my $rum = preprocess("--config", $config,
+    my $rum = preprocess("--index", $index,
                          "-o", tempdir(CLEANUP => 1),
                          "--name", "asdf", "$SHARED_INPUT_DIR/reads.fa");
     warn "Done";
@@ -245,7 +245,7 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
 
 # Check that we process a single forward-read-only fasta file correctly
 {
-    my $rum = preprocess("--config", $config,
+    my $rum = preprocess("--index", $index,
                          "-o", tempdir(CLEANUP => 1),
                          "--name", "asdf",
                          "$SHARED_INPUT_DIR/forward_only.fa");
@@ -266,13 +266,13 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
 
 # Check that we process a pair of fastq files correctly
 {
-    my @argv = ("--config", $config, "--name", "asdf");
+    my @argv = ("--index", $index, "--name", "asdf");
     my $rum = rum(@argv, "-o", tempdir(CLEANUP => 1),
                   $forward_64_fq, $reverse_64_fq);
     $rum->setup;
     $rum->platform->preprocess;
-    my $forward_64_fq = $rum->config->output_dir . "/chunks/reads.fa";
-    my $quals = $rum->config->output_dir . "/chunks/quals.fa";
+    my $forward_64_fq = $rum->config->in_output_dir("reads.fa");
+    my $quals = $rum->config->in_output_dir("quals.fa");
 
     my $prefix = "2, paired, fq, no chunks";
     ok(-e $forward_64_fq, "$prefix: made reads file");
@@ -283,7 +283,7 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
 # Check that we process a pair of fastq files correctly when tnhe need
 # to be split into chunks.
 {
-    my @argv = ("--config", $config, "--name", "asdf");
+    my @argv = ("--index", $index, "--name", "asdf");
     my $rum = preprocess(@argv, "-o", tempdir(CLEANUP => 1),
                          "--chunks", 2,
                          $forward_64_fq, $reverse_64_fq);
@@ -300,7 +300,7 @@ rum_fails_ok(["align", "--config", $config, "--output", tmp_out(), "--name", "as
 # Check that we process a pair of fasta files correctly when the need
 # to be split into chunks
 {
-    my @argv = ("--config", $config, "--name", "asdf");
+    my @argv = ("--index", $index, "--name", "asdf");
     my $rum = preprocess(@argv, "-o", tempdir(CLEANUP => 0),
                   "--chunks", 2,
                   $forward_64_fa, $reverse_64_fa);
@@ -378,7 +378,7 @@ sub postproc_cmd_like {
 # Tests that verify that options to rum_runner make it into the
 # workflow
 
-my @standard_args = ("--config", $config,
+my @standard_args = ("--index", $index,
                      "--output", tempdir(CLEANUP => 1),
                      "--name", "asdf",
                      $forward_64_fq, $reverse_64_fq);
@@ -466,7 +466,7 @@ rum_fails_ok(["align", @standard_args, "--alt-quant", "foobar"],
              "Bad --alt-quant");
 
 chunk_cmd_unlike([@standard_args, "--alt-quant", $alt_quant],
-                 "Separate unique and non-unique mappers from transcriptome bowtie output",
+                 "Parse transcriptome Bowtie output",
                   qr/$alt_quant/i,
                   "--alt-quant does not get passed to make_tu_and_tnu");
 

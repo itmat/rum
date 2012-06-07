@@ -22,9 +22,9 @@ my $out_dir = "$Bin/tmp/40-workflows";
 my $conf_dir = $repo->conf_dir;
 my $index_dir = $repo->indexes_dir;
 my $annotations = $RUM::TestUtils::GENE_INFO;
-my $index_conf = "$conf_dir/rum.config_Arabidopsis";
+my $index = "$index_dir/Arabidopsis";
 
-if (-e $index_conf) {
+if (-e $index_dir) {
     plan tests => 23;
 }
 else {
@@ -36,7 +36,7 @@ my %defaults = (
     strand_specific => 0,
     output_dir => $out_dir,
     read_length => 75,
-    rum_config_file => $index_conf,
+    rum_index => $index,
     dna => 0,
     num_chunks => 2,
     genome_only => 0,

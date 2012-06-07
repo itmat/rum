@@ -11,9 +11,9 @@ RUM::Pipeline - RNASeq Unified Mapper Pipeline
 
 =head1 VERSION
 
-Version 2.00_10
+Version 2.00_12
 
 =cut
 
-our $VERSION = '2.00_10';
-our $RELEASE_DATE = "May 23, 2012";
+our $VERSION = '2.00_13';
+our $RELEASE_DATE = "June 7, 2012";

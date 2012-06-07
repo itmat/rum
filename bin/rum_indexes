@@ -35,6 +35,14 @@ already installed.
 
 Install the index specified by the B<INDEX> argument. This can be the number of the index, according to the output of C<rum_indexes --list>, or a pattern that matches part of the index name.
 
+=item B<-m>, B<--migrate>
+
+Migrates an index from RUM 1.x into the directory structure needed by
+RUM 2.0. Please provide one or more RUM 1.x index configuration files
+on the command line, and it will move all the files from those indexes
+into their new locations. If you provide a --prefix argument, I'll put
+the indexes in subdirectories under that directory.
+
 =item B<-r>, B<--remove>
 
 Remove the index specified by the B<INDEX> argument, which has the
@@ -110,12 +118,16 @@ pointing to a set of indexes in another location:
 
 use strict;
 use warnings;
+use autodie;
 
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 use RUM::Repository;
 use RUM::Script qw(get_options show_usage);
 use POSIX;
+use File::Spec qw(splitpath);
+use File::Path qw(mkpath);
+use File::Copy qw(mv);
 
 sub new {
     my ($class) = @_;
@@ -126,28 +138,40 @@ sub main {
     my ($self) = @_;
 
     get_options(
-        "--list|l"    => \(my $do_list),
-        "--install|i" => \(my $do_install),
-        "--remove|r"  => \(my $do_remove),
-        "--prefix|p=s"  => \(my $prefix),
+        "--list|l"      => \(my $do_list),
+        "--install|i"   => \(my $do_install),
+        "--all|a"       => \(my $all),
+        "--force|f"       => \(my $force),
+        "--migrate|m"   => \(my $do_migrate),
+        "--remove|r"    => \(my $do_remove),
+        "--prefix|p=s"  => \(my $prefix="indexes"),
         "--markdown"    => \(my $use_markdown));
     
     # show_usage() unless $do_list || $do_install || $do_remove;
     my %options;
-    $options{root_dir} = $prefix if $prefix;
+    $options{indexes_dir} = $prefix;
 
     $self->{repo} = RUM::Repository->new(%options);
     $self->{markdown} = $use_markdown;
-    printf "Looking at the repository located at %s\n", $self->repo->root_dir;
+    $self->{force} = $force;
+    printf "Looking at the repository located at $prefix\n";
     
     if ($do_list) {
         $self->list_indexes(@ARGV);
     }
     elsif ($do_install) {
-        $self->install_index(@ARGV);
+        if ($all) {
+            $self->install_all_indexes();
+        }
+        else {
+            $self->install_index(@ARGV);
+        }
     }
     elsif ($do_remove) {
         $self->remove_index(@ARGV);
+    }
+    elsif ($do_migrate) {
+        $self->migrate_indexes(@ARGV);
     }
     else {
         $self->interactive();
@@ -169,7 +193,6 @@ EOF
     $query{pattern} = qr /$pattern/ if $pattern;
     $self->print_indexes($self->repo->indexes(%query));
 }
-
 
 
 sub print_indexes {
@@ -243,8 +266,108 @@ EOF
     my $org = $self->select_index($spec) or die "\n";
     print "Installing $org->{build}: $org->{common} ($org->{latin})\n";
 
-    $self->repo->fetch_binaries();
     $self->repo->install_index($org, $callback);
+}
+
+
+
+sub install_all_indexes {
+    my ($self) = @_;
+    $self->repo->setup;
+    for my $org ($self->repo->indexes) {
+        my $name = "$org->{build}: $org->{common} ($org->{latin})";
+        if ($self->repo->has_index($org) && !$self->{force}) {
+            print "Already have $name, not installing without --force\n";
+        }
+        else {
+            print "Installing $name\n";
+            $self->repo->install_index($org, $callback);
+        }
+    }
+}
+
+
+
+sub migrate_indexes {
+    my ($self, @old_config_files) = @_;
+    
+    my @old_configs;
+    my @new_configs;
+    my @names;
+    my @old_files;
+
+    local $_;
+
+    my $root = $self->{repo}->indexes_dir;
+
+    for my $filename (@old_config_files) {
+        open my $in, "<", $filename;
+        my $old_config = RUM::ConfigFile->parse($in);
+
+        my $gene_annotations            = $old_config->gene_annotation_file;
+        my $genome_fasta                = $old_config->blat_genome_index;
+        my $bowtie_genome_prefix        = $old_config->bowtie_genome_index;
+        my $bowtie_transcriptome_prefix = $old_config->bowtie_gene_index;
+
+        my $name = RUM::Repository->config_url_to_index_name($filename);
+
+        my $dir = File::Spec->catfile($self->{repo}->indexes_dir, $name);
+
+        my (undef, undef, $new_gene_annotations) = 
+            File::Spec->splitpath($gene_annotations);
+        my (undef, undef, $new_genome_fasta) = 
+            File::Spec->splitpath($genome_fasta);
+        my (undef, undef, $new_bowtie_genome_prefix) = 
+            File::Spec->splitpath($bowtie_genome_prefix);
+        my (undef, undef, $new_bowtie_transcriptome_prefix) = 
+            File::Spec->splitpath($bowtie_transcriptome_prefix);
+
+        my @these_files = ( $gene_annotations,
+                            $genome_fasta,
+                            glob("$bowtie_genome_prefix*"),
+                            glob("$bowtie_transcriptome_prefix*") );
+        
+        print "\nThis will remove $filename and move the following files into $dir:\n\n";
+        for (@these_files) {
+            print "  $_\n";
+        }
+
+        print "\nIs this ok (y/n): ";
+        $_ = <STDIN>;
+        print "\n";
+
+        unless (/^y/) {
+            print "Skipping $name\n";
+            next;
+        }
+
+        mkpath $dir;
+        for (@these_files) {
+            print "  mv $_ $dir\n";
+            mv $_, $dir;
+        }
+        print "\n";
+
+        push @names, $name;
+        push @old_configs,$old_config;
+        print "Determining the size of the genome.\n";
+        my $genome_size =  RUM::Repository::genome_size(File::Spec->catfile($dir, $new_genome_fasta));
+
+        my $new_config = RUM::Index->new(
+            directory => $dir,
+            gene_annotations => $new_gene_annotations,
+            genome_fasta => $new_genome_fasta,
+            bowtie_genome_index => $new_bowtie_genome_prefix,
+            bowtie_transcriptome_index => $new_bowtie_transcriptome_prefix,
+            genome_size => $genome_size
+        );
+        
+        print "Saving new config file to " . $new_config->config_filename . "\n";
+        $new_config->save;
+
+        print "Removing old config file\n";
+        unlink $filename;
+    }
 }
 
 sub remove_index {
@@ -289,7 +412,6 @@ sub interactive {
                 my $idx = $indexes[0];
                 printf "I'll install %s: %s (%s)\n", 
                     $idx->build, $idx->common, $idx->latin;
-                $self->repo->fetch_binaries();
                 $self->repo->install_index($idx, $callback);            
             }
 
