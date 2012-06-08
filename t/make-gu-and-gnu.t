@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More tests => 9;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::Script::MakeGuAndGnu;
