@@ -77,7 +77,7 @@ my $class = "RUM::Script::MakeGuAndGnu";
 }
 
 sub by_start_loc {
-     { $a->[0] <=> $b->[0] };
+     { $a->[0][0] <=> $b->[0][0] };
 }
 
 {
