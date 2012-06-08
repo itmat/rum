@@ -36,8 +36,8 @@ use RUM::Repository qw(download);
 
 our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR
                  $INDEX_CONFIG $SHARED_INPUT_DIR is_sorted_by_location same_line_count
-                 $RUM_HOME $GENE_INFO $INDEX_DIR);
-our @EXPORT_OK = qw(no_diffs is_sorted_by_location);
+                 $RUM_HOME $GENE_INFO $INDEX_DIR same_contents_sorted);
+our @EXPORT_OK = qw(no_diffs is_sorted_by_location same_contents_sorted);
 our %EXPORT_TAGS = (
     all => [@EXPORT_OK]);
 
@@ -80,6 +80,20 @@ sub no_diffs {
     my $diffs = `diff $options $file2 $file1 > /dev/null`;
     my $status = $? >> 8;
     ok($status == 0, $name);
+}
+
+sub same_contents_sorted {
+    my ($got_filename, $exp_filename, $name) = @_;
+    open my $got, "<", $got_filename;
+    open my $exp, "<", $exp_filename;
+
+    my @got = sort (<$got>);
+    my @exp = sort (<$exp>);
+
+    print "Got is @got";
+    print "Exp is @exp";
+
+    is_deeply(\@got, \@exp, $name)
 }
 
 =item line_count($filename)

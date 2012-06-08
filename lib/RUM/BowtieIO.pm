@@ -13,17 +13,24 @@ sub parse_aln {
 
     my ($readid, $strand, $chr, $loc, $seq) = split /\t/;
 
-    return RUM::Alignment->new(-readid => $readid,
-                               -chr => $chr,
-                               -loc => $loc,
-                               -strand => $strand,
-                               -seq => $seq);  
+    return RUM::Alignment->new(readid => $readid,
+                               chr => $chr,
+                               loc => $loc,
+                               strand => $strand,
+                               seq => $seq);  
 }
 
 sub format_aln {
     my ($self, $aln) = @_;
     my @fields = @$aln{qw(readid strand chr loc seq)};
     return join("\t", @fields);
+}
+
+sub readid_directionless {
+    my ($self) = @_;
+    local $_ = $self->readid;
+    s/(a|b)$//;
+    return $_;
 }
 
 1;
