@@ -13,11 +13,11 @@ sub parse_aln {
     
     my @locs = map { [split /-/] } split /,\s*/, $locs;
 
-    return RUM::Alignment->new(-readid => $readid,
-                               -chr => $chr,
-                               -locs => \@locs,
-                               -strand => $strand,
-                               -seq => $seq);
+    return RUM::Alignment->new(readid => $readid,
+                               chr => $chr,
+                               locs => \@locs,
+                               strand => $strand,
+                               seq => $seq);
 }
 
 sub format_aln {
