@@ -10,10 +10,15 @@ use RUM::Script::MakeGuAndGnu;
 use RUM::TestUtils;
 use Data::Dumper;
 
+my %inputs = (
+    single => "$INPUT_DIR/single_X.1",
+    paired => "$INPUT_DIR/X.1",
+);
+
 for my $type (qw(paired single)) {
     my $u  = temp_filename(TEMPLATE => "$type-unique.XXXXXX", UNLINK => 0);
     my $nu = temp_filename(TEMPLATE => "$type-non-unique.XXXXXX", UNLINK => 0);
-    @ARGV = ("$INPUT_DIR/X.1",
+    @ARGV = ($inputs{$type},
              "--unique", $u,
              "--non-unique", $nu,
              "--$type");

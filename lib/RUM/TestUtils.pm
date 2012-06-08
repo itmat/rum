@@ -90,9 +90,6 @@ sub same_contents_sorted {
     my @got = sort (<$got>);
     my @exp = sort (<$exp>);
 
-    print "Got is @got";
-    print "Exp is @exp";
-
     is_deeply(\@got, \@exp, $name)
 }
 

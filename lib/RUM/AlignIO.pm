@@ -27,4 +27,6 @@ sub write_aln {
     print $fh $self->format_aln($aln), "\n";
 }
 
+sub parse_aln { croak "Not implemented" }
+
 1;
