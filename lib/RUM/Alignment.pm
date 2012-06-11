@@ -38,14 +38,33 @@ sub strand     { $_[0]->{strand} }
 sub seq        { $_[0]->{seq} } 
 sub starts     { [ map { $_->[0] } @{ $_[0]->{locs} } ] }
 
-sub is_forward { 
-    my $self = shift;
-    local $_ = $self->readid;
-    /seq\.\d+(a|b)/ or croak "Can't determine direction for $_";
-    return $1 eq 'a';
+sub _direction {
+    local $_ = shift->readid;
+    if (/^seq\.\d+([ab]?)$/) {
+        return $1;
+    }
+    else {
+        warn "Misformatted read id $_\n";
+        return undef;
+    }
 }
-sub is_reverse { ! $_[0]->is_forward }
 
+
+sub is_forward { 
+    shift->_direction eq 'a';
+}
+
+sub is_reverse { 
+    shift->_direction eq 'b';
+}
+
+sub contains_forward {
+    shift->_direction ne 'b';
+}
+
+sub contains_reverse {
+    shift->_direction ne 'a';
+}
 
 sub is_same_read {
     my ($self, $other) = @_;
@@ -63,6 +82,11 @@ sub is_mate {
     return $other->readid eq "$num$other_dir";
 }
 
-
+sub readid_directionless {
+    my ($self) = @_;
+    local $_ = $self->readid;
+    s/(a|b)$//;
+    return $_;
+}
 
 1;

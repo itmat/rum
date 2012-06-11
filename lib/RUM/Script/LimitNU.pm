@@ -1,11 +1,13 @@
 package RUM::Script::LimitNU;
 
 use strict;
-no warnings;
+use warnings;
+use autodie;
 
 use File::Copy;
 use RUM::Usage;
 use RUM::Logging;
+use RUM::RUMIO;
 use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
@@ -20,8 +22,6 @@ sub main {
         "verbose|v"  => sub { $log->more_logging(1) },
         "quiet|q"    => sub { $log->less_logging(1) });
 
-    #$cutoff && $cutoff > 0 or RUM::Usage->bad(
-    #    "Please specify a positive cutoff with --cutoff or -n");
     $outfile_name or RUM::Usage->bad(
         "Please specify an output file with --output or -o");
     my $infile_name = $ARGV[0] or RUM::Usage->bad(
@@ -35,31 +35,28 @@ sub main {
 
     $log->info("Filtering out mappers that appear $cutoff times or more");
    
-    my (%hash_a, %hash_b);
+    my (%fwd, %rev);
 
-    open my $infile, "<", $infile_name
-        or die "Can't open $infile_name for reading: $!";
-    open my $outfile, ">", $outfile_name 
-        or die "Can't open $outfile_name for writing: $!";
+    open my $infile,  "<", $infile_name;
+    open my $outfile, ">", $outfile_name;
 
-    while (defined (my $line = <$infile>)) {
-        $line =~ /seq.(\d+)([^\d])/;
-        my $seqnum = $1;
-        my $type = $2;
-        if($type eq "a" || $type eq "\t") {
-            $hash_a{$seqnum}++;
-        }
-        if($type eq "b" || $type eq "\t") {
-            $hash_b{$seqnum}++;
-        }
+    my $in = RUM::RUMIO->new(-fh => $infile);
+    my $out = RUM::RUMIO->new(-fh => $outfile);
+
+    while (my $aln = $in->next_aln) {
+        my $readid = $aln->readid_directionless;
+        $fwd{$readid}++ if $aln->contains_forward;
+        $rev{$readid}++ if $aln->contains_reverse;
     }
 
     seek($infile, 0, 0);
-    while(defined (my $line = <$infile>)) {
-        $line =~ /seq.(\d+)[^\d]/;
-        my $seqnum = $1;
-        if($hash_a{$seqnum}+0 <= $cutoff && $hash_b{$seqnum}+0 <= $cutoff) {
-            print $outfile $line;
+    while(my $aln = $in->next_aln) {
+        my $readid = $aln->readid_directionless;
+        my $fwd = $fwd{$readid} || 0;
+        my $rev = $rev{$readid} || 0;
+
+        if ($fwd <= $cutoff && $rev <= $cutoff) {
+            $out->write_aln($aln);
         }
     }
 }

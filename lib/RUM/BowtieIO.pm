@@ -26,11 +26,4 @@ sub format_aln {
     return join("\t", @fields);
 }
 
-sub readid_directionless {
-    my ($self) = @_;
-    local $_ = $self->readid;
-    s/(a|b)$//;
-    return $_;
-}
-
 1;
