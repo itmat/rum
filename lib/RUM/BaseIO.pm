@@ -6,6 +6,8 @@ use autodie;
 
 use Carp;
 
+use RUM::Iterator;
+
 sub new {
 
     my ($class, %options) = @_;

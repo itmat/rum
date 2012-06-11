@@ -17,7 +17,8 @@ sub parse_aln {
                                chr => $chr,
                                locs => \@locs,
                                strand => $strand,
-                               seq => $seq);
+                               seq => $seq,
+                               raw => $_);
 }
 
 sub format_aln {

@@ -60,35 +60,22 @@ sub main {
     
     my %chunk_ids_mapping = read_chunk_id_mapping($chunk_ids_file);
 
-    my @file;
-    for (my $i=0; $i<@infiles; $i++) {
-        $file[$i] = $infiles[$i];
-        my $j = $i+1;
-        my $mapped_id = $chunk_ids_mapping{$j} || "";
-        if ($mapped_id =~ /\S/) {
-            $file[$i] =~ s/(\d|\.)+$//;
-            $file[$i] = $file[$i] . ".$j." . $mapped_id;
-        }
-    }
-
-    $log->info("Merging ".scalar(@file)." files into $outfile");    
+    $log->info("Merging ".scalar(@infiles)." files into $outfile");    
 
     # If there's only one file, just copy it
-    if (@file == 1) {
+    if (@infiles == 1) {
         $log->debug("There's only one file; just copying it");
-        `cp $file[0] $outfile`;
+        `cp $infiles[0] $outfile`;
         return;
     }
 
     # Otherwise if there's more than one file, open iterators over all
     # the files and merge them together.
     my @iters;
-    for my $filename (@file) {
+    for my $filename (@infiles) {
         $log->debug("Reading from $filename");
-        open my $file, "<", $filename
-            or $log->logdie("Can't open $filename for reading: $!");
-        my $iter = file_iterator($file);
-        push @iters, $iter if peek_it($iter);
+        my $iter = RUM::RUMIO->new(-file => $filename)->aln_iterator->peekable;
+        push @iters, $iter if $iter->peek;
     }
 
     open my $out, ">", $outfile

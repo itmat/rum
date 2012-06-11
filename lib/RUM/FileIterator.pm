@@ -68,6 +68,7 @@ use Carp;
 use RUM::Sort qw(by_location cmpChrs by_chromosome);
 use RUM::Heap;
 use RUM::Logging;
+use RUM::RUMIO;
 
 our $log = RUM::Logging->get_logger();
 #use Devel::Size qw(total_size);
@@ -352,11 +353,12 @@ sub merge_iterators {
     # Populate the queue, skipping any iterators that are already exhausted.
     my $i = 0;
     for my $iter (@iters) {
-        if (my $rec = $iter->("pop")) {
-            $chr[$i]   = $rec->{chr};
-            $start[$i] = $rec->{start};
-            $end[$i]   = $rec->{end};
-            $entry[$i] = $rec->{entry};
+        if (my $aln = $iter->next_val) {
+            my ($start, $end) = @{ $aln->locs->[0] };
+            $chr[$i]   = $aln->chromosome;
+            $start[$i] = $start;
+            $end[$i]   = $end;
+            $entry[$i] = $aln->raw;
             $q->pushon($i);
             $i++;
         }
@@ -367,11 +369,13 @@ sub merge_iterators {
     # unless it is empty.
     while (defined(my $index = $q->poplowest())) {
         print $outfile "$entry[$index]\n";
-        if (my $rec = $iters[$index]->("pop")) {
-            $chr[$index]   = $rec->{chr};
-            $start[$index] = $rec->{start};
-            $end[$index]   = $rec->{end};
-            $entry[$index] = $rec->{entry};
+        my $iter = $iters[$index];
+        if (my $aln = $iter->next_val) {
+            my ($start, $end) = @{ $aln->locs->[0] };
+            $chr[$index]   = $aln->chromosome;
+            $start[$index] = $start;
+            $end[$index]   = $end;
+            $entry[$index] = $aln->raw;
             $q->pushon($index);
         } else {
             $log->debug("Exhausted an iterator");

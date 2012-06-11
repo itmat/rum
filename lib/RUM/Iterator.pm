@@ -48,6 +48,11 @@ sub group_by {
     return RUM::Iterator->new($it);
 }
 
+sub next_val {
+    my ($self) = @_;
+    $self->();
+}
+
 sub take {
     my ($self) = @_;
     $self->();

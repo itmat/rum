@@ -13,6 +13,7 @@ sub new {
     for (qw(readid chr strand seq)) {
         defined($self->{$_} = delete $params{$_}) or croak "Need $_";
     }
+    $self->{raw} = delete $params{raw};
 
     defined($self->{locs}   = delete $params{locs})
     or defined($self->{loc}   = delete $params{loc})
@@ -37,6 +38,7 @@ sub loc        { $_[0]->{loc} }
 sub strand     { $_[0]->{strand} }
 sub seq        { $_[0]->{seq} } 
 sub starts     { [ map { $_->[0] } @{ $_[0]->{locs} } ] }
+sub raw        { $_[0]->{raw} }
 
 sub _direction {
     local $_ = shift->readid;
