@@ -111,7 +111,11 @@ sub main {
     }
 
     if ($clean eq "false") {
-        $log->error("While trying to sort \"$infile\": the size of the unsorted input ($size_input) and sorted output\nfiles ($size_output) are not equal.  I tried three times and it failed every\ntime.  Must be something strange about the input file");
+        $log->error("While trying to sort \"$infile\": the size of the " .
+                    "unsorted input ($size_input) and sorted output files " .
+                    "($size_output) are not equal.  I tried three times and " .
+                    "it failed every time.  Must be something strange about " .
+                    "the input file");
     }
 
 }

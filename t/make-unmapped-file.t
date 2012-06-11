@@ -13,6 +13,7 @@ my $reads      = "$INPUT_DIR/reads.fa.1";
 my $unique     = "$INPUT_DIR/BowtieUnique.1";
 my $non_unique = "$INPUT_DIR/BowtieNU.1";
 my $unmapped   = temp_filename("unmapped.XXXXXX");
+my $unmapped_single   = temp_filename("unmapped-single.XXXXXX");
 
 @ARGV = (
     "--reads-in", $reads, 
@@ -25,4 +26,13 @@ my $unmapped   = temp_filename("unmapped.XXXXXX");
 RUM::Script::MakeUnmappedFile->main();
 no_diffs($unmapped, "$EXPECTED_DIR/R.1");
 
+@ARGV = (
+    "--reads-in", "$INPUT_DIR/reads-single.fa",
+    "--unique-in", "$INPUT_DIR/BowtieUnique-single",
+    "--non-unique-in", "$INPUT_DIR/BowtieNU-single",
+    "--output", $unmapped_single,
+    "--single",
+    "-q");
 
+RUM::Script::MakeUnmappedFile->main();
+no_diffs($unmapped_single, "$EXPECTED_DIR/R-single");
