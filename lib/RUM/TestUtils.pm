@@ -29,7 +29,6 @@ use File::Spec;
 use FindBin qw($Bin);
 use File::Temp;
 
-use RUM::FileIterator qw(file_iterator);
 use RUM::Sort qw(by_chromosome);
 use RUM::Common qw(shell is_on_cluster);
 use RUM::Repository qw(download);
@@ -129,14 +128,16 @@ Asserts that the given RUM file is sorted by location.
 
 sub is_sorted_by_location {
     my ($filename) = @_;
-    open my $in, "<", $filename or croak "Can't open $filename for reading: $!";
-    my $it = file_iterator($in);
+    my $it = my $iter = RUM::RUMIO->new(-file => $filename)->aln_iterator;
 
     my @recs;
-    my @keys = qw(chr start end);
-    while (my $rec = $it->("pop")) {
-        my %rec;
-        @rec{@keys} = @$rec{@keys};
+
+    while (my $rec = $iter->next_val) {
+        my %rec = (
+            chr => $rec->chromosome,
+            start => $rec->start,
+            end => $rec->end
+        );
         push @recs, \%rec;
     }
 

@@ -41,7 +41,12 @@ sub seq        { $_[0]->{seq} }
 sub starts     { [ map { $_->[0] } @{ $_[0]->{locs} } ] }
 sub raw        { $_[0]->{raw} }
 
-
+sub start { $_[0]->locs->[0][0] }
+sub end {
+    my ($self) = @_;
+    my $nlocs = @{ $self->locs };
+    return $self->locs->[$nlocs - 1][1];
+}
 
 
 1;

@@ -8,7 +8,7 @@ no warnings;
 use Getopt::Long;
 use Pod::Usage;
 use RUM::Common qw(read_chunk_id_mapping);
-use RUM::FileIterator qw(file_iterator merge_iterators peek_it);
+use RUM::FileIterator qw(merge_iterators peek_it);
 use RUM::Logging;
 use RUM::Usage;
 
