@@ -84,7 +84,7 @@ sub sort_by_location {
     my $count = 0;
     $log->debug("Reading now");
     while (my $pair = $in->next_val) {
-
+        $pair = $pair->to_array;
         my ($fwd, $rev) = @{ $pair };
         my $chr = $fwd->chromosome;
         my ($start, $end) = $class->pair_range($fwd, $rev);

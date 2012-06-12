@@ -128,7 +128,7 @@ sub get_chromosome_counts {
     my %counts;
 
     while (my $alns = $in->next_val) {
-        my $chr = $alns->[0]->chromosome;
+        my $chr = $alns->next_val->chromosome;
         $counts{$chr}++;
     }
     return %counts;

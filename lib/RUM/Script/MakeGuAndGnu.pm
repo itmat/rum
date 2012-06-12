@@ -275,7 +275,7 @@ sub run {
     my $it = $bowtie_in->aln_iterator->group_by(\&same_or_mate);
 
     while (my $group = $it->()) {
-        my $mappers = $self->handle_group($group);
+        my $mappers = $self->handle_group($group->to_array);
         my $fh = @$mappers == 1 ? $gu : $gnu;
         for my $aln (@$mappers) {
             my @reads = ref($aln) =~ /^ARRAY/ ? @{ $aln } : $aln;

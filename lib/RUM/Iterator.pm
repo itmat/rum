@@ -41,9 +41,8 @@ sub group_by {
             last unless $group_fn->($group[0], $val);
             push @group, $val;
         }
-       return \@group;
+        return RUM::Iterator->new(\@group);
     };
-
 
     return RUM::Iterator->new($it);
 }

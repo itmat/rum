@@ -99,10 +99,8 @@ INFILE
 {
     open my $in, "<", \$data;
     my $it = RUM::RUMIO->new(-fh => $in)->aln_iterator->group_by(\&RUM::Identifiable::is_mate);
-    my @rows;
-    while (my $row = $it->next_val) {
-        push @rows, $row;
-    }
+    my @rows = @{ $it->to_array };
+    @rows = map { $_->to_array } @rows;
 
     is(@rows, 9, "Got right number of rows without separating");
     is_deeply( [map { $_->[0]->readid =~ /(\d+)/ and $1 } @rows],
