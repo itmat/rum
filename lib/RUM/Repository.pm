@@ -376,7 +376,7 @@ sub config_url_to_index_name {
     if ($filename =~ /\/rum.config_(.*)$/) {
         return $1;
     }
-    return undef;
+    return;
 }
 
 =item $repo->is_config_url($filename)

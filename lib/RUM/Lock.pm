@@ -42,7 +42,7 @@ by "someone".
 
 sub acquire {
     my ($self, $file) = @_;
-    return undef if -e $file;
+    return if -e $file;
     $FILE = $file;
     open my $out, ">", $file or croak "Can't open lock file $file: $!";
     print $out $$;

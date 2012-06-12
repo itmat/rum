@@ -33,7 +33,7 @@ sub group_by {
     my $val = $self->();
     
     my $it = sub {
-        return undef unless $val;
+        return unless $val;
         
         my @group = ($val);
         

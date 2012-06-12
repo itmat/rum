@@ -192,7 +192,7 @@ sub _init_log4perl {
     # Try to load Log::Log4perl, and if we can't just return so we
     # fall back to RUM::Logger.
     eval {
-        require "Log/Log4perl.pm";
+        require "Log/Log4perl.pm"; ## no critic
         my $resp = "LOG::Log4perl"->import(qw(:no_extra_logdie_message));
         # This prevents a duplicate die message from being printed
         $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR = 0;

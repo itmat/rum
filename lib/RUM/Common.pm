@@ -2,6 +2,7 @@ package RUM::Common;
 
 use strict;
 no warnings;
+use autodie;
 
 use RUM::Logging;
 
@@ -84,7 +85,7 @@ sub addJunctionsToSeq {
 Return the lower case roman numeral for N.
 
 =cut
-sub roman($) {
+sub roman {
     return lc(Roman(shift()));
 }
 
@@ -93,7 +94,7 @@ sub roman($) {
 Return a true value if N is a roman numeral, false otherwise.
 
 =cut
-sub isroman($) {
+sub isroman {
     my $arg = shift;
     return $arg ne '' and
         $arg =~ /^(?: M{0,3})
@@ -107,13 +108,13 @@ sub isroman($) {
 Return the arabic number for the given roman numeral.
 
 =cut
-sub arabic($) {
+sub arabic {
     my $arg = shift;
     my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
     my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
     my  @figure = reverse sort keys %roman_digit;
     $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    isroman $arg or return undef;
+    isroman $arg or return;
     my ($last_digit) = 1000;
     my $arabic=0;
     foreach (split(//, uc $arg)) {
@@ -129,13 +130,13 @@ sub arabic($) {
 Return the roman numeral for N.
 
 =cut
-sub Roman($) {
+sub Roman {
     my $arg = shift;
     my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
     my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
     my @figure = reverse sort keys %roman_digit;
     $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    0 < $arg and $arg < 4000 or return undef;
+    0 < $arg and $arg < 4000 or return;
     my $roman = "";
     my $x;
     foreach (@figure) {
@@ -289,8 +290,7 @@ sub read_chunk_id_mapping {
     my %chunk_ids_mapping;
     return unless $chunk_ids_file && -e $chunk_ids_file;
 
-    open my $infile, "$chunk_ids_file"
-        or die "Error: cannot open '$chunk_ids_file' for reading.\n\n";
+    open my $infile, "<", "$chunk_ids_file";
     while (defined(local $_ = <$infile>)) {
         chomp;
         my ($old, $new) = split /\t/;
@@ -426,7 +426,7 @@ sub is_executable_in_path {
     my ($bin_name) = @_;
     local $_ = `which $bin_name`;
     chomp;
-    return undef unless $_;
+    return unless $_;
     return -x;
 }
 

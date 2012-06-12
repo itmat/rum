@@ -14,7 +14,7 @@ sub next_seq {
     my ($self) = @_;
     my $fh = $self->{fh};
     my $header = <$fh>;
-    return undef unless defined $header;
+    return unless defined $header;
 
     chomp $header;
 

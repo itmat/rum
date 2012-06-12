@@ -54,7 +54,7 @@ sub new {
     $cmp ||= sub { return $_[0] <=> $_[1]};
 
     my $self=[$cmp];
-    bless $self;
+    bless $self, $class;
     return $self;
 }
 

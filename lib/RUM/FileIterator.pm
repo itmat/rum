@@ -152,7 +152,7 @@ sub _read_record {
     # the iterator.
     unless (defined($line1) and $line1 =~ /\S/) {
         close $in;
-        return undef;
+        return;
     }
     
     chomp($line1);
