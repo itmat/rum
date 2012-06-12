@@ -16,5 +16,6 @@ my $out_non_unique = temp_filename(TEMPLATE => "non-unique.XXXXXX");
 
 @ARGV = ($in, "--non-unique", $out_non_unique, "--unique", $out_unique, "-q");
 RUM::Script::RemoveDups->main();
-no_diffs($out_non_unique, "$EXPECTED_DIR/RUM_NU_temp3.1");
+
+same_contents_sorted($out_non_unique, "$EXPECTED_DIR/RUM_NU_temp3.1");
 no_diffs($out_unique, "$EXPECTED_DIR/RUM_Unique_temp2.1");
