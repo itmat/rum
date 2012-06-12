@@ -8,6 +8,7 @@ use base 'RUM::AlignIO';
 use RUM::Logging;
 use RUM::Sort qw(by_chromosome);
 use RUM::Heap;
+use RUM::Sort qw(cmpChrs);
 
 use Carp;
 
@@ -46,6 +47,8 @@ sub pair_range {
     return ($fwd->start, $rev->end) if $fwd->strand eq '+';
     return ($rev->start, $fwd->end);
 }
+
+=over 4
 
 =item sort_by_location($in, $out, %options)
 

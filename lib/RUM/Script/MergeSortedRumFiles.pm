@@ -8,7 +8,7 @@ no warnings;
 use Getopt::Long;
 use Pod::Usage;
 use RUM::Common qw(read_chunk_id_mapping);
-use RUM::FileIterator qw(merge_iterators peek_it);
+use RUM::RUMIO;
 use RUM::Logging;
 use RUM::Usage;
 
@@ -80,5 +80,5 @@ sub main {
 
     open my $out, ">", $outfile
         or $log->logdie("Can't open $outfile for writing: $!");
-    merge_iterators($out, @iters);
+    RUM::RUMIO->merge_iterators($out, @iters);
 }
