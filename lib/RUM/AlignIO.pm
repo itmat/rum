@@ -31,4 +31,11 @@ sub write_aln {
 
 sub parse_aln { croak "Not implemented" }
 
+sub write_alns {
+    my ($self, $iter) = @_;
+    while (my $aln = $iter->next_val) {
+        $self->write_aln($aln);
+    }
+}
+
 1;

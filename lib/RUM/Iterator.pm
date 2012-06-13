@@ -81,6 +81,35 @@ sub imap {
     return blessed($self)->new($next_item);
 }
 
+sub ireduce {
+    my $self = shift;
+    my $code = shift;
+
+    my @args = @_;
+
+    my $type = Scalar::Util::reftype($code);
+
+    unless($type and $type eq 'CODE') {
+        Carp::croak("Not a subroutine reference");
+    }
+    no strict 'refs';
+    
+    use vars qw($a $b);
+    
+    my $caller = caller;
+    local(*{$caller."::a"}) = \my $a;
+    local(*{$caller."::b"}) = \my $b;
+    
+    $a = @args ? $args[0] : $self->next_val;
+
+    while ($b = $self->next_val) {
+        $a = &{$code}();
+    }
+    
+    return $a;
+}
+
+
 sub igrep {
     my $self = shift;
     my $f    = shift;
@@ -106,6 +135,8 @@ package RUM::Iterator::Buffered;
 
 use strict;
 use warnings;
+
+use Scalar::Util qw(blessed);
 
 use base 'RUM::Iterator';
 
@@ -137,6 +168,27 @@ sub peek {
     my $self = shift;
     my $steps = shift || 0;
     $self->($steps);
+}
+
+sub merge {
+    my ($self, $cmp, $other, $handle_dup) = @_;
+
+    $handle_dup ||= sub { shift->next_val };
+
+    unless ($other->can('peek')) {
+        die "Can only merge with a peekable iterator";
+    }
+
+    my $f = sub {
+        my $mine   = $self->peek  or return $other->next_val;
+        my $theirs = $other->peek or return $self->next_val;
+        my $val = $cmp->($mine, $theirs);
+        return ($val < 0 ? $self->next_val :
+                $val > 0 ? $other->next_val :
+                $handle_dup->($self, $other));
+
+    };
+    return blessed($self)->new($f);
 }
 
 1;
