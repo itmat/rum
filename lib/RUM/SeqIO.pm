@@ -12,7 +12,7 @@ use base 'RUM::BaseIO';
 sub next_seq {
 
     my ($self) = @_;
-    my $fh = $self->{fh};
+    my $fh = $self->filehandle;
     my $header = <$fh>;
     return unless defined $header;
 
@@ -27,7 +27,7 @@ sub next_seq {
 
 sub write_seq {
     my ($self, $seq) = @_;
-    my $fh = $self->{fh};
+    my $fh = $self->filehandle;
     printf $fh ">%s\n%s\n", $seq->readid, $seq->seq;
 }
 

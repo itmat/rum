@@ -74,7 +74,7 @@ sub main {
     my @iters;
     for my $filename (@infiles) {
         $log->debug("Reading from $filename");
-        my $iter = RUM::RUMIO->new(-file => $filename)->aln_iterator->peekable;
+        my $iter = RUM::RUMIO->new(-file => $filename)->peekable;
         push @iters, $iter if $iter->peek;
     }
 

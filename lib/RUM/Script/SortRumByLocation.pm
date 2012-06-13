@@ -223,7 +223,7 @@ sub doEverything  {
 
             my $grouper = $separate ? sub { undef } : \&are_mates;
 
-            my $it = RUM::RUMIO->new(-fh => $sorting_chunk_in)->aln_iterator->group_by($grouper);
+            my $it = RUM::RUMIO->new(-fh => $sorting_chunk_in)->group_by($grouper);
 	    my $FLAG = 0;
 	    my $chunk_num = 0;
 
@@ -252,7 +252,7 @@ sub doEverything  {
 
                     my @iters = map { RUM::RUMIO->new(-file => $_) } @tempfiles;
                     for (@iters) {
-                        $_ = $_->aln_iterator->peekable;
+                        $_ = $_->peekable;
                     }
 
 		    RUM::RUMIO->merge_iterators($temp_merged_out, @iters);
@@ -288,7 +288,7 @@ sub doEverything  {
 	}
 	my $INFILE = $infile . "_sorting_tempfile." . $chunk;
         my $grouper = $separate ? sub { undef } : \&are_mates;
-        my $iter = RUM::RUMIO->new(-file => $INFILE)->aln_iterator->group_by($grouper);
+        my $iter = RUM::RUMIO->new(-file => $INFILE)->group_by($grouper);
         RUM::RUMIO->sort_by_location($iter, *FINALOUT);
 	$chunk++;
     }

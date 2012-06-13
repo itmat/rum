@@ -6,7 +6,7 @@ use autodie;
 
 use Carp;
 
-use RUM::Iterator;
+use base 'RUM::Iterator';
 
 sub new {
 
@@ -25,16 +25,32 @@ sub new {
     }
 
     open $fh, "<", $file unless $fh;
-    my $self = {};
-    $self->{file} = $file;
-    $self->{fh} = $fh;
-    return bless $self, $class;
+
+    my $self;
+
+    $self = sub {
+        my (@args) = @_;
+
+        if (@args && $args[0] eq "filehandle") {
+            return $fh;
+        }
+        elsif (@args && $args[0] eq "filename") {
+            return $file;
+        }
+        else {
+            $self->next_rec;
+        }
+    };
+
+    return $class->SUPER::new($self);
 }
 
-sub aln_iterator {
-    my ($self) = @_;
-    return RUM::Iterator->new(sub { $self->next_aln });
-}
+
+sub filehandle { $_[0]->("filehandle") }
+
+sub filename { $_[0]->("filename") }
+
+sub aln_iterator { $_[0] }
 
 sub table_to_tab_file {
     my ($class, $table) = @_;

@@ -65,4 +65,11 @@ sub is_mate {
     return $other->readid eq "$num$other_dir";
 }
 
+sub cmp_read_ids {
+    my ($self, $other) = @_;
+    my ($self_num)  = $self->readid  =~ /seq\.(\d+)/g;
+    my ($other_num) = $other->readid =~ /seq\.(\d+)/g;
+    return $self_num <=> $other_num;
+}
+
 1;

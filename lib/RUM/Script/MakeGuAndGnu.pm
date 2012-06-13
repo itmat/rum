@@ -272,7 +272,7 @@ sub run {
     my $gnu = $self->{gnu};
     my $in = $self->{in};
     my $bowtie_in = RUM::BowtieIO->new(-file => $in);
-    my $it = $bowtie_in->aln_iterator->group_by(\&same_or_mate);
+    my $it = $bowtie_in->group_by(\&same_or_mate);
 
     while (my $group = $it->()) {
         my $mappers = $self->handle_group($group->to_array);
