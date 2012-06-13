@@ -30,21 +30,21 @@ sub main {
     open(INFILE2, "<", $infile2) or die "Can't open $infile2 for reading: $!";
     open(INFILE3, "<", $infile3) or die "Can't open $infile3 for reading: $!";
 
-    $x1 = `tail -1 $infile1`;
-    $x2 = `tail -1 $infile2`;
-    $x3 = `tail -1 $infile3`;
-    $x1 =~ /seq.(\d+)[^\d]/;
-    $n1 = $1;
-    $x2 =~ /seq.(\d+)[^\d]/;
-    $n2 = $1;
-    $x3 =~ /seq.(\d+)[^\d]/;
-    $n3 = $1;
-    $M = $n1;
-    if ($n2 > $M) {
-        $M = $n2;
+    $last_row_gnu = `tail -1 $infile1`;
+    $last_row_tnu = `tail -1 $infile2`;
+    $last_row_cnu = `tail -1 $infile3`;
+    $last_row_gnu =~ /seq.(\d+)[^\d]/;
+    $last_id_gnu = $1;
+    $last_row_tnu =~ /seq.(\d+)[^\d]/;
+    $last_id_tnu = $1;
+    $last_row_cnu =~ /seq.(\d+)[^\d]/;
+    $last_id_cnu = $1;
+    $last_id = $last_id_gnu;
+    if ($last_id_tnu > $last_id) {
+        $last_id = $last_id_tnu;
     }
-    if ($n3 > $M) {
-        $M = $n3;
+    if ($last_id_cnu > $last_id) {
+        $last_id = $last_id_cnu;
     }
     $line1 = <INFILE1>;
     $line2 = <INFILE2>;
@@ -55,7 +55,7 @@ sub main {
 
     open(OUTFILE, ">", $outfile) or die "Can't open $outfile for writing: $!";
 
-    for ($s=1; $s<=$M; $s++) {
+    for ($s=1; $s<=$last_id; $s++) {
         undef %hash;
         $line1 =~ /seq.(\d+)([^\d])/;
         $n = $1;
