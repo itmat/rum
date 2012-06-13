@@ -50,3 +50,6 @@ is $it->(), 4;
 is $it->(), 2;
 is $it->(), undef;
 
+$it = RUM::Iterator->new([1,2,3])->append(RUM::Iterator->new([4,5,6]));
+
+is_deeply $it->to_array, [1,2,3,4,5,6], "append";

@@ -90,9 +90,17 @@ sub igrep {
         return $item;
     };
     return blessed($self)->new($next_item);
-
 }
 
+sub append {
+    my ($self, $other) = @_;
+    my $f = sub {
+        my $next = $self->();
+        return $next if defined $next; 
+        return $other->();
+    };
+    return blessed($self)->new($f);
+}
 
 package RUM::Iterator::Buffered;
 
