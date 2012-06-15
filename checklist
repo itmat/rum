@@ -12,7 +12,7 @@
      314 QuantifyExons.pm
 *    291 MakeGuAndGnu.pm
      230 RumToCov.pm
-     223 MergeJunctions.pm
+*    223 MergeJunctions.pm
 *    190 JunctionsToBed.pm
 *    159 SortRumById.pm
 *    139 MergeGnuAndTnuAndCnu.pm
