@@ -4,6 +4,7 @@ no warnings;
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
+use RUM::RUMIO;
 
 our $log = RUM::Logging->get_logger();
 
@@ -33,14 +34,14 @@ sub main {
 
     $name ||= $infile . " Coverage";
 
-    open(INFILE, $infile) 
-        or die "Can't open $infile for reading: $!";
+    my $iter = RUM::RUMIO->new(-file => $infile)->peekable;
     open(OUTFILE, ">$outfile") 
         or die "Can't open $outfile for writing: $!";
 
     print OUTFILE "track type=bedGraph name=\"$name\" description=\"$name\" visibility=full color=255,0,0 priority=10\n";
 
     $flag = 0;
+
     &getStartEndandSpans_of_nextline();
     $current_chr = $chr;
     $current_loc = $start-1;
@@ -49,6 +50,7 @@ sub main {
     $end_max = 0;
     $span_ended = 1;
     $prev_end = $end+2;
+
     if ($statsfile) {
         $footprint = 0;
     }
@@ -157,21 +159,21 @@ sub main {
     $log->info("It took $elapsed to create the coverage file $outfile.");
 
     sub getStartEndandSpans_of_nextline () {
-        $line = <INFILE>;
-        chomp($line);
+        my $aln = $iter->next_val;
+
         if ($end > $end_max) {
             $end_max = $end;
         }
         $chr_prev = $chr;
         $start_prev = $start;
 
-        if (!$line) {
-
+        if (!$aln) {
+            
             $flag ||= 1;
             for ($tryagain=0; $tryagain<10; $tryagain++) {
-                $line = <INFILE>;
-                chomp($line);
-                if ($line) {
+                $aln = $iter->next_val;
+
+                if ($aln) {
                     $tryagain = 10;
                     $flag = 0;
                 }
@@ -181,41 +183,30 @@ sub main {
                 return;
             }
         }
-        @a_g = split(/\t/,$line);
-        $chr = $a_g[1];
-        $a_g[2] =~ /^(\d+)-/;
-        $start = $1;
-        $spans = $a_g[2];
-        if ($a_g[0] =~ /a/) {
-            $a_g[0] =~ /(\d+)/;
-            $seqnum1 = $1;
-            $line2 = <INFILE>;
-            chomp($line2);
-            @b_g = split(/\t/,$line2);
-            $b_g[0] =~ /(\d+)/;
-            $seqnum2 = $1;
-            if ($seqnum1 == $seqnum2 && $b_g[0] =~ /b/) {
-                if ($a_g[3] eq "+") {
-                    $b_g[2] =~ /-(\d+)$/;
-                    $end = $1;
-                    $spans = $spans . ", " . $b_g[2];
+
+        $chr = $aln->chromosome;
+        $start = $aln->start;
+        $spans = RUM::RUMIO->format_locs($aln);
+
+        if ($aln->is_forward) {
+
+            $rev = $iter->peek;
+
+            if ($rev && $aln->is_mate($rev)) {
+                $iter->next_val;
+                if ($aln->strand eq "+") {
+                    $end = $rev->end;
+                    $spans = $spans . ", " . RUM::RUMIO->format_locs($rev);
                 } else {
-                    $b_g[2] =~ /^(\d+)-/;
-                    $start = $1;
-                    $a_g[2] =~ /-(\d+)$/;
-                    $end = $1;
-                    $spans = $b_g[2] . ", " . $spans;
+                    $start = $rev->start;
+                    $end = $aln->end;
+                    $spans = RUM::RUMIO->format_locs($rev) . ", " . $spans;
                 }
             } else {
-                $a_g[2] =~ /-(\d+)$/;
-                $end = $1;
-                # reset the file handle so the last line read will be read again
-                $len_g = -1 * (1 + length($line2));
-                seek(INFILE, $len_g, 1);
+                $end = $aln->end;
             }
         } else {
-            $a_g[2] =~ /-(\d+)$/;
-            $end = $1;
+            $end = $aln->end;
         }
         if ($chr ne $chr_prev) {
             $chromosomes_finished{$chr_prev}++;

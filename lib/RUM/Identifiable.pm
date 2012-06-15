@@ -37,7 +37,7 @@ sub _direction {
         return $1;
     }
     else {
-        warn "Misformatted read id $_\n";
+        warn "Misformatted read id '$_'\n";
         return;
     }
 }

@@ -48,5 +48,9 @@ sub end {
     return $self->locs->[$nlocs - 1][1];
 }
 
+sub order {
+    my ($self) = @_;
+    $self->readid =~ /seq.(\d+)/ and return $1;
+}
 
 1;

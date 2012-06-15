@@ -32,6 +32,12 @@ sub parse_aln {
                                raw => $_);
 }
 
+sub format_locs {
+    my ($self, $aln) = @_;
+    my $locs = $aln->locs;
+    join(", ", map("$_->[0]-$_->[1]", @$locs));
+}
+
 sub format_aln {
     my ($self, $aln) = @_;
     my ($readid, $chr, $locs, $strand, $seq) = 
@@ -95,7 +101,7 @@ sub sort_by_location {
         $data{$chr} ||= {};
         $data{$chr}{$start} ||= {};
         $data{$chr}{$start}{$end}   ||= [];
-        push @{ $data{$chr}{$start}{$end} }, "@entries";
+        push @{ $data{$chr}{$start}{$end} }, join("", @entries);
         if ($max && ($count++ >= $max)) {
             last;
         }
