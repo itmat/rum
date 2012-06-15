@@ -149,7 +149,9 @@ sub new {
         my $skip = shift;
         if (defined($skip)) {
             while ($#buffer < $skip) {
-                push @buffer, $f->();
+                # TODO: If I don't wrap $f->() in scalar(), I get into
+                # an infinite loop. Why?
+                push @buffer, scalar($f->()); 
             }
             return $buffer[$skip];
         }

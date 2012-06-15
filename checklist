@@ -14,8 +14,8 @@
      230 RumToCov.pm
      223 MergeJunctions.pm
      190 JunctionsToBed.pm
-     159 SortRumById.pm
-     139 MergeGnuAndTnuAndCnu.pm
+*    159 SortRumById.pm
+*    139 MergeGnuAndTnuAndCnu.pm
 *    135 MergeQuants.pm
 *    103 RemoveDups.pm
 *    102 MakeUnmappedFile.pm
