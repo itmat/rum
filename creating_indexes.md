@@ -69,7 +69,7 @@ assembly.
    in other words, add a column with '0' between the chr and size cols,
    and add a col with '+' at the end
 
-   *The next steps get fasta file with the complete genome sequence.*
+   *The next steps get a FASTA file with the complete genome sequence.*
 
 5.  Submit the file from the previous step to the genome browser as a
     custom track, then go to table browser and set as follows:
@@ -93,21 +93,16 @@ assembly.
 
 ### Making gene info files
 
-Now to make files of gene info and sequence:
-
-* you can use any of the annotation tracks as long as they have the
-  five fields you are asked to select below:
-
-* the following illustrates using two tracks "UCSC Known" and
-  "RefSeq".
-
-* If there are many annotation tracks, such as for mouse where there
-  are more than ten, you probably shouldn't include them all, by
-  default we have been using just three of them for mouse: refseq,
-  ucsc and aceview. Using all tracks would create a transcript db that
-  is too complex, it's better to let blat map the reads for
-  transcripts that are not present in the db rather than to expand the
-  db too much with false transcripts.
+Now to make files of gene info and sequence. You can use any of the
+annotation tracks as long as they have the five fields you are asked
+to select below. The following illustrates using two tracks "UCSC
+Known" and "RefSeq". If there are many annotation tracks, such as for
+mouse where there are more than ten, you probably shouldn't include
+them all. By default we have been using just three of them for mouse:
+refseq, ucsc and aceview. Using all tracks would create a transcript
+db that is too complex, it's better to let blat map the reads for
+transcripts that are not present in the db rather than to expand the
+db too much with false transcripts.
 
 1. Set the table browser as follows:
 
@@ -130,6 +125,8 @@ Now to make files of gene info and sequence:
 
         refseq.txt
         ucscknown.txt
+
+### Assembling the index
 
 All the  data files you just downloaded need to be in the same
 directory. Now from that directory, run:
@@ -181,12 +178,10 @@ Once you found your species, click on the "Downloads" link at the top
 of the page (you may have to stretch your browser wide enough to see
 it). On the Downloads page scroll down to the section called "FTP
 site" and click the "FTP site" link. You should see a table full of
-links on the right.
-
-Click the "FASTA (DNA)" link for your species, it should open in a new
-window.  You want the file that has "toplevel" in the name and *not*
-'rm' (which stands for 'repeat masked'). So for example for the fungus
-aspergillus nidulans we would get this file:
+links on the right. Click the "FASTA (DNA)" link for your species, it
+should open in a new window.  You want the file that has "toplevel" in
+the name and *not* 'rm' (which stands for 'repeat masked'). So for
+example for the fungus aspergillus nidulans we would get this file:
 
     Aspergillus_nidulans.CADRE2.dna.toplevel.fa.gz
 
@@ -196,7 +191,7 @@ Rename the file to be: NAME_genome.txt where "NAME" should be replaced
 by something that identifies your name/assembly, e.g.mouse-mm9. Just
 use alphanumeric, dashes, periods in NAME, do not use underscores. The
 scripts below won't work unless you follow this naming convention
-exactly. Note the suffix must be '.txt' not '.fa'
+exactly. Note the suffix must be '.txt' not '.fa'.
 
 Now go back to the big table of links on the FTP page and click the
 "GTF" link for your species.
