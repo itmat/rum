@@ -109,42 +109,40 @@ Now to make files of gene info and sequence:
   transcripts that are not present in the db rather than to expand the
   db too much with false transcripts.
 
-Set the table browser as follows:
+1. Set the table browser as follows:
 
-    group: Genes and Gene Prediction Tracks
-    track: UCSC Genes (or whatever track you like)
-    table: knownGene (or whatever is the corresponding name for the track you chose)
-    region: genome
-    output format: selected fields from primary and related tables
-    output file: ucscknown.txt (keep the name of this file simple, but it must end in '.txt')
+        group: Genes and Gene Prediction Tracks
+        track: UCSC Genes (or whatever track you like)
+        table: knownGene (or whatever is the corresponding name for the track you chose)
+        region: genome
+        output format: selected fields from primary and related tables
+        output file: ucscknown.txt (keep the name of this file simple, but it must end in '.txt')
 
-Hit "get output"
+2. Hit "get output"
 
-Select the following fields from the table:
+3. Select the following fields from the table: name, chrom, strand, exonStarts, and exonEnds.
 
-* name
-* chrom
-* strand
-* exonStarts
-* exonEnds
+4. hit "get output".
 
-hit "get output".
+5. Now do the same thing but get RefSeq genes, save to file called: refseq.txt. Set 'table' to be "refGene".
 
-Now do the same thing but get RefSeq genes, save to file called: refseq.txt. Set 'table' to be "refGene".
+6. make a file called "gene_info_files" with one line per gene annotation filename:
 
-make a file called "gene_info_files" with one line per gene annotation filename:
+        refseq.txt
+        ucscknown.txt
 
-    refseq.txt
-    ucscknown.txt
-
-All the scripts and the data files you just downloaded need to be in the same
-directory. Now run:
+All the  data files you just downloaded need to be in the same
+directory. Now from that directory, run:
 
     > perl create_indexes_from_ucsc.pl NAME_genome.txt NAME_refseq_ucsc
 
-* this is a master script that runs a bunch of other scripts including bowtie-build...
 
-* you will need a fair amount of RAM to do this, 10Gb was sufficient for Human
+
+Note that you will need to supply the full path to the
+create_indexes_from_ucsc.pl script, which is available in the 'bin'
+directory of the RUM distribution. This is a master script that runs a
+bunch of other scripts including bowtie-build. You will need a fair
+amount of RAM to do this, 10Gb was sufficient for Human.
 
 This will create a directory called $NAME (where NAME is the prefix of
 the files you provided as command line arguments) and put all of the
