@@ -147,13 +147,12 @@ directory. Now run:
 
 * you will need a fair amount of RAM to do this, 10Gb was sufficient for Human
 
-* This will create a directory called $NAME (where NAME is the prefix
-  of the files you provided as command line arguments) and put all of
-  the important index files in there.  Move that directory to where
-  your other RUM indexes are stored.  For example, if you keep all of
-  your RUM indexes in ~/rum_indexes, and you have indexes for mouse
-  (mm9) and human (hg19), you would have the following directory
-  structure:
+This will create a directory called $NAME (where NAME is the prefix of
+the files you provided as command line arguments) and put all of the
+important index files in there.  Move that directory to where your
+other RUM indexes are stored.  For example, if you keep all of your
+RUM indexes in ~/rum_indexes, and you have indexes for mouse (mm9) and
+human (hg19), you would have the following directory structure:
 
     ~/
     ~/rum_indexes
@@ -316,58 +315,30 @@ scripts.Be careful to follow the specifications exactly.
 
         > perl create_indexes_from_ucsc.pl NAME_genome.txt NAME_refseq_ucsc
 
-=over 4
+* NAME is as defined above - make sure there are no underscores in NAME
 
-=item * 
+* this is a master script that runs a bunch of other scripts including bowtie-build...
 
-NAME is as defined above - make sure there are no underscores in NAME
+* You will need a fair amount of RAM to do this, 10Gb was sufficient for Human
 
-=item *
+This will create a directory called $NAME (where NAME is the prefix of
+the files you provided as command line arguments) and put all of the
+important index files in there.  Move that directory to where your
+other RUM indexes are stored.  For example, if you keep all of your
+RUM indexes in ~/rum_indexes, and you have indexes for mouse (mm9) and
+human (hg19), you would have the following directory structure:
 
-this is a master script that runs a bunch of other scripts including bowtie-build...
-
-=item *
-
-you will need a fair amount of RAM to do this, 10Gb was sufficient for Human
-
-=back
-
-After it is finished, the files you need to keep are the following 15:
-
-  NAME_refseq_ucsc_gene_info.txt
-  NAME_genome_one-line-seqs.fa
-  NAME_genes.4.ebwt
-  NAME_genes.3.ebwt
-  NAME_genes.2.ebwt
-  NAME_genes.1.ebwt
-  NAME_genes.rev.2.ebwt
-  NAME_genes.rev.1.ebwt
-  NAME_genome.4.ebwt
-  NAME_genome.3.ebwt
-  NAME_genome.2.ebwt
-  NAME_genome.1.ebwt
-  NAME_genome.rev.2.ebwt
-  NAME_genome.rev.1.ebwt
-  rum.config_NAME
-
-Put all these files in a directory named NAME, and move that directory
-to where your other RUM indexes are stored.  For example, if you keep
-all of your RUM indexes in ~/rum_indexes, and you have indexes for
-mouse (mm9) and human (hg19), you would have the following directory
-structure:
-
-  ~/
-  ~/rum_indexes
-  ~/rum_indexes/mm9/
-  ~/rum_indexes/mm9/mm9_refseq_ucsc_gene_info.txt
-  ...
-  ~/rum_indexes/hg19/
-  ~/rum_indexes/hg19/hg19_refseq_ucsc_gene_info.txt
-  ...
+    ~/
+    ~/rum_indexes
+    ~/rum_indexes/mm9/
+    ~/rum_indexes/mm9/mm9_refseq_ucsc_gene_info.txt
+    ...
+    ~/rum_indexes/hg19/
+    ~/rum_indexes/hg19/hg19_refseq_ucsc_gene_info.txt
+    ...
 
 To run RUM with one of these indexes, for example hg19, you would
 provide the directory location with the B<--index-dir> or B<-i>
 option:
 
-  rum_runner -i ~/rum_indexes/hg19 ...
-
+    rum_runner -i ~/rum_indexes/hg19 ...
