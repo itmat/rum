@@ -79,8 +79,8 @@ and add a col with '+' at the end
 
 * The next steps get fasta file with the complete genome sequence.
 
-Submit the file from the previous step to the genome browser as a custom track, then go to table browser
-and set as follows:
+Submit the file from the previous step to the genome browser as a
+custom track, then go to table browser and set as follows:
 
   group: custom tracks
   track: User Track
@@ -89,10 +89,11 @@ and set as follows:
   output file: NAME_genome.txt
   file type returned: gzip
 
-where "NAME" should be replaced by something that identifies your name/assembly, eg mm9.
-Just use alphanumeric, dashes, periods in NAME, do not use underscores.
-The scripts below won't work unless you follow this naming convention exactly.
-Note the suffix must be '.txt' not '.fa'
+where "NAME" should be replaced by something that identifies your
+name/assembly, eg mm9.  Just use alphanumeric, dashes, periods in
+NAME, do not use underscores.  The scripts below won't work unless you
+follow this naming convention exactly.  Note the suffix must be '.txt'
+not '.fa'
 
 Hit get output, and request all upper case
 
@@ -106,8 +107,8 @@ Now to make files of gene info and sequence:
 
 =item *
 
-you can use any of the annotation tracks as long as they have the five fields you
-are asked to select below:
+you can use any of the annotation tracks as long as they have the five
+fields you are asked to select below:
 
 =item *
 
@@ -189,14 +190,26 @@ After it is finished, the files you need to keep are the following 15:
   NAME_genome.rev.1.ebwt
   rum.config_NAME
 
-Put all but rum.config_NAME in the indexes directory. The last file rum.config_NAME
-might need to be edited if you have put anything somewhere other than the default
-locations. The default location to put rum.config_NAME is in RUM's lib directory
-(but it actually doesn't matter where you put it, you specify its location when you
-run RUM).
+Put all these files in a directory named NAME, and move that directory
+to where your other RUM indexes are stored.  For example, if you keep
+all of your RUM indexes in ~/rum_indexes, and you have indexes for
+mouse (mm9) and human (hg19), you would have the following directory
+structure:
 
- *** Note: edit rum.config_NAME if you have moved any scripts, executables, or indexes
-     from their default locations.
+  ~/
+  ~/rum_indexes
+  ~/rum_indexes/mm9/
+  ~/rum_indexes/mm9/mm9_refseq_ucsc_gene_info.txt
+  ...
+  ~/rum_indexes/hg19/
+  ~/rum_indexes/hg19/hg19_refseq_ucsc_gene_info.txt
+  ...
+
+To run RUM with one of these indexes, for example hg19, you would
+provide the directory location with the B<--index-dir> or B<-i>
+option:
+
+  rum_runner -i ~/rum_indexes/hg19 ...
 
 =head2 Your organism is available on the ensembl website
 
@@ -280,14 +293,26 @@ After it is finished, the files you need to keep are the following 15:
   NAME_genome.rev.1.ebwt
   rum.config_NAME
 
-Put all but rum.config_NAME in the indexes directory. The last file rum.config_NAME
-might need to be edited if you have put anything somewhere other than the default
-locations. The default location to put rum.config_NAME is in RUM's lib directory
-(but it actually doesn't matter where you put it, you specify its location when you
-run RUM).
+Put all these files in a directory named NAME, and move that directory
+to where your other RUM indexes are stored.  For example, if you keep
+all of your RUM indexes in ~/rum_indexes, and you have indexes for
+mouse (mm9) and human (hg19), you would have the following directory
+structure:
 
-I<Note>: edit rum.config_NAME if you have moved any scripts, executables,
- or indexes from their default locations.
+  ~/
+  ~/rum_indexes
+  ~/rum_indexes/mm9/
+  ~/rum_indexes/mm9/mm9_refseq_ucsc_gene_info.txt
+  ...
+  ~/rum_indexes/hg19/
+  ~/rum_indexes/hg19/hg19_refseq_ucsc_gene_info.txt
+  ...
+
+To run RUM with one of these indexes, for example hg19, you would
+provide the directory location with the B<--index-dir> or B<-i>
+option:
+
+  rum_runner -i ~/rum_indexes/hg19 ...
 
 =head2 Your organism is not on either ucsc or ensembl but you have
 genome sequence and optionally gene or transcript models.
@@ -410,12 +435,24 @@ After it is finished, the files you need to keep are the following 15:
   NAME_genome.rev.1.ebwt
   rum.config_NAME
 
-Put all but rum.config_NAME in the indexes directory. The last file rum.config_NAME
-might need to be edited if you have put anything somewhere other than the default
-locations. The default location to put rum.config_NAME is in RUM's lib directory
-(but it actually doesn't matter where you put it, you specify its location when you
-run RUM).
+Put all these files in a directory named NAME, and move that directory
+to where your other RUM indexes are stored.  For example, if you keep
+all of your RUM indexes in ~/rum_indexes, and you have indexes for
+mouse (mm9) and human (hg19), you would have the following directory
+structure:
 
- *** Note: edit rum.config_NAME if you have moved any scripts, executables, or indexes
-     from their default locations.
+  ~/
+  ~/rum_indexes
+  ~/rum_indexes/mm9/
+  ~/rum_indexes/mm9/mm9_refseq_ucsc_gene_info.txt
+  ...
+  ~/rum_indexes/hg19/
+  ~/rum_indexes/hg19/hg19_refseq_ucsc_gene_info.txt
+  ...
+
+To run RUM with one of these indexes, for example hg19, you would
+provide the directory location with the B<--index-dir> or B<-i>
+option:
+
+  rum_runner -i ~/rum_indexes/hg19 ...
 
