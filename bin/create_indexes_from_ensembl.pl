@@ -97,10 +97,11 @@ sub basename {
 my $config = RUM::Index->new(
     gene_annotations           => "${gene_model_name}_gene_info.txt",
     bowtie_genome_index        => "${name}_genome",
-    bowtie_transcriptome_index => "${name}_genes",
+    bowtie_transcriptome_index => "${gene_model_name}_genes",
     genome_fasta               => basename($genome_one_line_seqs),
     genome_size                => $genome_size,
     directory                  => $name);
+$config->save;
 
 sub bowtie {
   my @cmd = ("bowtie-build", @_);
