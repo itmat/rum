@@ -16,7 +16,7 @@ bowtie-build executable must be in the system path. If that's not
 possible then you can edit the perl scripts where bowtie-build is
 called to add the full path.
 
-NOTE: Some genome builds contain haplotype copies of the same
+*NOTE*: Some genome builds contain haplotype copies of the same
 chromosome.  You should not include multiple haplotypes in a RUM index
 because the pipeline will consider reads mapping to two haplotypes as
 non-uniquely determined alignments. Therefore when we built the human
@@ -47,50 +47,49 @@ file(s) using the table browser.
 If you do not opt to get the fasta files from the download page, then
 use the following instructions:
 
-Go to UCSC's main page (http://genome.ucsc.edu/), choose the organism and
+1. Go to UCSC's main page (http://genome.ucsc.edu/), choose the organism and
 assembly.
 
-Go to Table Browser and set the options as follows:
+2. Go to Table Browser and set the options as follows:
 
-    group: all tables
-    table: chromInfo
-    output format: selected fields from primary and related tables
-    output file: chromosome_sizes.txt
+        group: all tables
+        table: chromInfo
+        output format: selected fields from primary and related tables
+        output file: chromosome_sizes.txt
 
+3. hit "get output" and choose the 'chrom' and 'size' fields.
 
-hit "get output" and choose the 'chrom' and 'size' fields.
+4. Now remove the header line (if any) from chromosome_sizes.txt and
+   add columns so rows look like this:
 
-Now remove the header line (if any) from chromosome_sizes.txt and add
-columns so rows look like this:
+        chr1    0       249250621     +
+        chr2    0       181748087     +
+        ....
 
-    chr1    0       249250621     +
-    chr2    0       181748087     +
-    ....
+   in other words, add a column with '0' between the chr and size cols,
+   and add a col with '+' at the end
 
-in other words, add a column with '0' between the chr and size cols,
-and add a col with '+' at the end
+   *The next steps get fasta file with the complete genome sequence.*
 
-* The next steps get fasta file with the complete genome sequence.
+5.  Submit the file from the previous step to the genome browser as a
+    custom track, then go to table browser and set as follows:
 
-Submit the file from the previous step to the genome browser as a
-custom track, then go to table browser and set as follows:
+        group: custom tracks
+        track: User Track
+        region: genome
+        output format: sequence
+        output file: NAME_genome.txt
+        file type returned: gzip
 
-    group: custom tracks
-    track: User Track
-    region: genome
-    output format: sequence
-    output file: NAME_genome.txt
-    file type returned: gzip
+    where "NAME" should be replaced by something that identifies your
+    name/assembly, eg mm9.  Just use alphanumeric, dashes, periods in
+    NAME, do not use underscores.  The scripts below won't work unless
+    you follow this naming convention exactly.  Note the suffix must
+    be '.txt' not '.fa'
 
-where "NAME" should be replaced by something that identifies your
-name/assembly, eg mm9.  Just use alphanumeric, dashes, periods in
-NAME, do not use underscores.  The scripts below won't work unless you
-follow this naming convention exactly.  Note the suffix must be '.txt'
-not '.fa'
+6.  Hit get output, and request all upper case
 
-Hit get output, and request all upper case
-
-gunzip the file and run:
+7.  gunzip the file and run the following steps.
 
 ### Making gene info files
 
@@ -243,7 +242,7 @@ option:
     rum_runner -i ~/rum_indexes/hg19 ...
 
 Not available on UCSC or Ensembl
-================================
+--------------------------------
 
 Your organism is not on either ucsc or ensembl but you have genome
 sequence and optionally gene or transcript models.
