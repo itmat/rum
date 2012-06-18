@@ -1,46 +1,66 @@
 #!/usr/bin/perl
 
-# Written by Gregory R. Grant
-# University of Pennsylvania, 2010
+=head1 NAME
+
+create_indexes_from_ensembl.pl
+
+=head1 SYNOPSIS
+
+  create_indexes_from_ensembl.pl --name NAME GENOME_FA GTF
+
+=head1 AUTHOR
+
+Gregory R. Grant (ggrant@grant.org)
+
+=head1 COPYRIGHT
+
+Copyright 2012 University of Pennsylvania
+
+=cut
 
 use strict;
 use warnings;
 use autodie;
 
+use Getopt::Long;
+use File::Copy qw(mv);
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 
+use RUM::Common qw(shell);
 use RUM::Index;
 use RUM::Repository;
 use RUM::Script qw(get_options show_usage);
-use RUM::Common qw(shell);
+use RUM::Usage;
 
+# This imports the subs from RUM::Script and wraps them in methods
+# that will print a log message before and after each one runs.
 RUM::Script::import_scripts_with_logging();
 
-use Getopt::Long;
-use File::Copy qw(mv);
+
+###
+### Parse command line args
+###
 
 GetOptions("name=s" => \(my $name));
 
+$name or RUM::Usage->bad("Please give me a name for the index, for example ".
+                         "the organism name or assembly, with --name");
+
+@ARGV == 2 or RUM::Usage->bad("Please provide the genome FASTA file and " .
+                              "the GTF file");
+
+
 mkdir $name unless -d $name;
 
-if(@ARGV < 1) {
-    die "
-Usage: create_indexes_from_ensembl.pl <genome fasta> <gtf>
-
-";
-}
+###
+### Some variables for filenames
+###
 
 my ($genome, $gtf) = @ARGV;
 
-my $genome_base;
-
-if ($genome =~ /^(.*).txt/) {
-    $genome_base = $1;
-}
-else {
-    die "Genome file must end with .txt";
-}
+my $genome_base = $genome =~ /^(.*).txt/ && $1 or die(
+    "Genome file must end with .txt");
 
 my $gene_model_name = $name . "_ensembl";
 

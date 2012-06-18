@@ -134,17 +134,16 @@ sub bad {
     my $log = RUM::Logging->get_logger();
     $log->info("Improper usage of $package->main(): $msg");
     pod2usage({
-        -message => "\n$msg\n",
         -verbose => 0,
         -exitval => "NOEXIT"});
     if ($0 =~ /rum_runner$/) {
         print "Please see $0 help for more information.\n";
     }
     else {
-        print "Please see $0 --help for more information.\n";
+        #print "Please see $0 --help for more information.\n";
     }
 
-    exit(1);
+    die "$msg\n";
 }
 
 sub check {
