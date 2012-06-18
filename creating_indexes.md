@@ -243,6 +243,9 @@ option:
 
     rum_runner -i ~/rum_indexes/hg19 ...
 
+Not available on UCSC or Ensembl
+================================
+
 Your organism is not on either ucsc or ensembl but you have genome
 sequence and optionally gene or transcript models.
 
@@ -250,42 +253,42 @@ If your organism is not available through UCSC, you must create by
 hand the files described below, and then run some (supplied) parsing
 scripts.Be careful to follow the specifications exactly.
 
-# A fasta file of genome sequence with one entry per
-  chromosome/contig/scaffold. The fasta def lines should give simple
-  chromosome/contig/scaffold names.Stick to alphanumeric characters,
-  underscores, periods, dashes.You might get away with other
-  characters but definitely do not use colons, quotes or
-  whitespace.Use the forward (plus) strand sequence, all bases should
-  be upper case A, C, G, T or N.The first base of each entry will be
-  considered be cooordinate number 1 of the
-  chromosome/contig/scaffold. Call this file NAME_genome.txt, where
-  "NAME" should be replaced by something that identifies your
-  name/assembly, e.g.mouse-mm9. Just use alphanumeric, dashes, periods
-  in NAME, do not use underscores. The scripts below won't work unless
-  you follow this naming convention exactly. Note the suffix must be
-  '.txt' not '.fa'
+1. A fasta file of genome sequence with one entry per
+chromosome/contig/scaffold. The fasta def lines should give simple
+chromosome/contig/scaffold names.Stick to alphanumeric characters,
+underscores, periods, dashes.You might get away with other characters
+but definitely do not use colons, quotes or whitespace.Use the forward
+(plus) strand sequence, all bases should be upper case A, C, G, T or
+N.The first base of each entry will be considered be cooordinate
+number 1 of the chromosome/contig/scaffold. Call this file
+NAME_genome.txt, where "NAME" should be replaced by something that
+identifies your name/assembly, e.g.mouse-mm9. Just use alphanumeric,
+dashes, periods in NAME, do not use underscores. The scripts below
+won't work unless you follow this naming convention exactly. Note the
+suffix must be '.txt' not '.fa'
 
-# A file (or files) of transcript models. Keep the name(s) of these
-  files simple, like refseq.txt. A transcript model file has one row
-  for each transcript, with each row havin five tab delimited colums:
+1. A file (or files) of transcript models. Keep the name(s) of these
+files simple, like refseq.txt. A transcript model file has one row for
+each transcript, with each row havin five tab delimited colums:
 
-## *name* The name of the transcript.Keep it relatively simple, use
-    just alphanumeric, underscores, dashes and periods.Names don't
-    have to be unique, the parsing scripts will make them unique later
-    by adding numbers to ones that are equal.
+    * *name* The name of the transcript.Keep it relatively simple, use
+      just alphanumeric, underscores, dashes and periods.Names don't
+      have to be unique, the parsing scripts will make them unique
+      later by adding numbers to ones that are equal.
 
-## *chrom* The name of the chromosome/contig/scaffold the transcript
-    is on Names should match those in the genome fasta file.
+    * *chrom* The name of the chromosome/contig/scaffold the
+      transcript is on Names should match those in the genome fasta
+      file.
 
-## *strand* The strand, + or -.
+    * *strand* The strand, + or -.
 
-## *exonStarts* A comma delimited list (with no whitespace) of exon
-    start locations in zero based coordinates.The last character can
-    be a comma, but not the first.
+    * *exonStarts* A comma delimited list (with no whitespace) of exon
+      start locations in zero based coordinates.The last character can
+      be a comma, but not the first.
 
-## *exonEnds* A comma delimited list (with no whitespace) of exon end
-    locations in one based coordinates.The last character can be a
-    comma, but not the first.
+    * *exonEnds* A comma delimited list (with no whitespace) of exon
+      end locations in one based coordinates.The last character can be
+      a comma, but not the first.
 
 Note 1: It is not a typo that we want zero-based coordinates for the
 starts and one-based coordinates for the ends, we are just being
