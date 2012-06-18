@@ -272,22 +272,23 @@ scripts.Be careful to follow the specifications exactly.
     files simple, like refseq.txt. A transcript model file has one row for
     each transcript, with each row havin five tab delimited colums:
 
-  * *name* The name of the transcript.Keep it relatively simple, use
-    just alphanumeric, underscores, dashes and periods.Names don't
+    **name**: The name of the transcript.Keep it relatively simple,
+    use just alphanumeric, underscores, dashes and periods.Names don't
     have to be unique, the parsing scripts will make them unique later
     by adding numbers to ones that are equal.
 
-  * *chrom* The name of the chromosome/contig/scaffold the transcript
-    is on Names should match those in the genome fasta file.
+    **chrom** The name of the chromosome/contig/scaffold the
+    transcript is on Names should match those in the genome fasta
+    file.
 
-  * *strand* The strand, + or -.
+    **strand** The strand, + or -.
 
-  * *exonStarts* A comma delimited list (with no whitespace) of exon
+    **exonStarts** A comma delimited list (with no whitespace) of exon
     start locations in zero based coordinates.The last character can
     be a comma, but not the first.
 
-  * *exonEnds* A comma delimited list (with no whitespace) of exon end
-    locations in one based coordinates.The last character can be a
+    **exonEnds** A comma delimited list (with no whitespace) of exon
+    end locations in one based coordinates.The last character can be a
     comma, but not the first.
 
     Note 1: It is not a typo that we want zero-based coordinates for
