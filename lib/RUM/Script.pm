@@ -159,6 +159,7 @@ file format, so we don't need to have the sequence all on one line. It
 would be easy to write a fasta parser, or we could use BioPerl.
 
 =cut
+
 sub modify_fa_to_have_seq_on_one_line {
   my @args = @_;
   my ($in, $out) = _open_in_and_out(@args);
