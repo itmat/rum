@@ -217,138 +217,94 @@ downloaded are in the same directory. Run the following:
 Where <gtf> is the name of the gtf file you downloaded, and NAME is the name you
 have chosen above.
 
-=over 4
+* This is a master script that runs a bunch of other scripts including bowtie-build...
 
-=item *
+* You will need a fair amount of RAM to do this, 10Gb was sufficient for Human
 
-This is a master script that runs a bunch of other scripts including bowtie-build...
+This will create a directory called $NAME (where NAME is the prefix of
+the files you provided as command line arguments) and put all of the
+important index files in there.  Move that directory to where your
+other RUM indexes are stored.  For example, if you keep all of your
+RUM indexes in ~/rum_indexes, and you have indexes for mouse (mm9) and
+human (hg19), you would have the following directory structure:
 
-=item *
-
-You will need a fair amount of RAM to do this, 10Gb was sufficient for Human
-
-=back
-
-After it is finished, the files you need to keep are the following 15:
-
-  NAME_refseq_ucsc_gene_info.txt
-  NAME_genome_one-line-seqs.fa
-  NAME_genes.4.ebwt
-  NAME_genes.3.ebwt
-  NAME_genes.2.ebwt
-  NAME_genes.1.ebwt
-  NAME_genes.rev.2.ebwt
-  NAME_genes.rev.1.ebwt
-  NAME_genome.4.ebwt
-  NAME_genome.3.ebwt
-  NAME_genome.2.ebwt
-  NAME_genome.1.ebwt
-  NAME_genome.rev.2.ebwt
-  NAME_genome.rev.1.ebwt
-  rum.config_NAME
-
-Put all these files in a directory named NAME, and move that directory
-to where your other RUM indexes are stored.  For example, if you keep
-all of your RUM indexes in ~/rum_indexes, and you have indexes for
-mouse (mm9) and human (hg19), you would have the following directory
-structure:
-
-  ~/
-  ~/rum_indexes
-  ~/rum_indexes/mm9/
-  ~/rum_indexes/mm9/mm9_refseq_ucsc_gene_info.txt
-  ...
-  ~/rum_indexes/hg19/
-  ~/rum_indexes/hg19/hg19_refseq_ucsc_gene_info.txt
-  ...
+    ~/
+    ~/rum_indexes
+    ~/rum_indexes/mm9/
+    ~/rum_indexes/mm9/mm9_refseq_ucsc_gene_info.txt
+    ...
+    ~/rum_indexes/hg19/
+    ~/rum_indexes/hg19/hg19_refseq_ucsc_gene_info.txt
+    ...
 
 To run RUM with one of these indexes, for example hg19, you would
 provide the directory location with the B<--index-dir> or B<-i>
 option:
 
-  rum_runner -i ~/rum_indexes/hg19 ...
+    rum_runner -i ~/rum_indexes/hg19 ...
 
-=head2 Your organism is not on either ucsc or ensembl but you have
-genome sequence and optionally gene or transcript models.
+Your organism is not on either ucsc or ensembl but you have genome
+sequence and optionally gene or transcript models.
 
-If your organism is not available through UCSC, you must create by hand the files
-described below, and then run some (supplied) parsing scripts.Be careful to follow
-the specifications exactly.
+If your organism is not available through UCSC, you must create by
+hand the files described below, and then run some (supplied) parsing
+scripts.Be careful to follow the specifications exactly.
 
-=over 4
+# A fasta file of genome sequence with one entry per
+  chromosome/contig/scaffold. The fasta def lines should give simple
+  chromosome/contig/scaffold names.Stick to alphanumeric characters,
+  underscores, periods, dashes.You might get away with other
+  characters but definitely do not use colons, quotes or
+  whitespace.Use the forward (plus) strand sequence, all bases should
+  be upper case A, C, G, T or N.The first base of each entry will be
+  considered be cooordinate number 1 of the
+  chromosome/contig/scaffold. Call this file NAME_genome.txt, where
+  "NAME" should be replaced by something that identifies your
+  name/assembly, e.g.mouse-mm9. Just use alphanumeric, dashes, periods
+  in NAME, do not use underscores. The scripts below won't work unless
+  you follow this naming convention exactly. Note the suffix must be
+  '.txt' not '.fa'
 
-=item  1
+# A file (or files) of transcript models. Keep the name(s) of these
+  files simple, like refseq.txt. A transcript model file has one row
+  for each transcript, with each row havin five tab delimited colums:
 
-A fasta file of genome sequence with one entry per chromosome/contig/scaffold.
-The fasta def lines should give simple chromosome/contig/scaffold names.Stick to
-alphanumeric characters, underscores, periods, dashes.You might get away with other
-characters but definitely do not use colons, quotes or whitespace.Use the forward
-(plus) strand sequence, all bases should be upper case A, C, G, T or N.The first
-base of each entry will be considered be cooordinate number 1 of the
-chromosome/contig/scaffold. Call this file NAME_genome.txt, where "NAME" should be
-replaced by something that identifies your name/assembly, e.g.mouse-mm9. Just use
-alphanumeric, dashes, periods in NAME, do not use underscores. The scripts below
-won't work unless you follow this naming convention exactly. Note the suffix must
-be '.txt' not '.fa'
+## *name* The name of the transcript.Keep it relatively simple, use
+    just alphanumeric, underscores, dashes and periods.Names don't
+    have to be unique, the parsing scripts will make them unique later
+    by adding numbers to ones that are equal.
 
-=item 2
+## *chrom* The name of the chromosome/contig/scaffold the transcript
+    is on Names should match those in the genome fasta file.
 
-A file (or files) of transcript models.Keep the name(s) of these files simple,
-like refseq.txt.A transcript model file has one row for each transcript, with each
-row havin five tab delimited colums:
+## *strand* The strand, + or -.
 
-=over 4
+## *exonStarts* A comma delimited list (with no whitespace) of exon
+    start locations in zero based coordinates.The last character can
+    be a comma, but not the first.
 
-=item name
+## *exonEnds* A comma delimited list (with no whitespace) of exon end
+    locations in one based coordinates.The last character can be a
+    comma, but not the first.
 
-The name of the transcript.Keep it relatively simple, use just
-            alphanumeric, underscores, dashes and periods.Names don't have to be
-            unique, the parsing scripts will make them unique later by adding numbers
-            to ones that are equal.
-=item chrom
+Note 1: It is not a typo that we want zero-based coordinates for the
+starts and one-based coordinates for the ends, we are just being
+compliant with UCSC standards.
 
-The name of the chromosome/contig/scaffold the transcript is on
-            Names should match those in the genome fasta file.
+Note 2: You can make multiple files of transcripts, the parsing
+scripts will take care of merging them into one consistent database of
+transcripts.If two files have the same transcript, even if they have
+different names, the scripts will merge them into one and merge the
+names.Basically, in your gene models files, different transcripts can
+have the same name and one transcript can have serveral different
+names, even in the same file.All you need to worry about is getting
+each file formatted exactly as described above.
 
-=item strand
+# Make a file called "gene_info_files" with one line per gene
+  annotation filename (even if you have only one). E.g.:
 
-The strand, + or -.
-
-=item exonStarts
-
-A comma delimited list (with no whitespace) of exon start locations in
-zero based coordinates.The last character can be a comma, but not the
-first.
-
-=item exonEnds
-
-A comma delimited list (with no whitespace) of exon end locations in
-one based coordinates.The last character can be a comma, but not the
-first.
-
-=back
-
-   Note 1: It is not a typo that we want zero-based coordinates for the starts and
-           one-based coordinates for the ends, we are just being compliant with UCSC
-           standards.
-   Note 2: You can make multiple files of transcripts, the parsing scripts will take
-           care of merging them into one consistent database of transcripts.If two
-           files have the same transcript, even if they have different names, the
-           scripts will merge them into one and merge the names.Basically, in your
-           gene models files, different transcripts can have the same name and one
-           transcript can have serveral different names, even in the same file.All
-           you need to worry about is getting each file formatted exactly as described
-           above.
-
-=item 3
-
-Make a file called "gene_info_files" with one line per gene annotation filename
-(even if you have only one). E.g.:
-
-  refseq.txt
-  ucscknown.txt
-
-=back
+    refseq.txt
+    ucscknown.txt
 
 All the scripts and the data files you just downloaded need to be in the same
 directory. Now run:
