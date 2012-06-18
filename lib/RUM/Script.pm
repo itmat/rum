@@ -1023,6 +1023,14 @@ sub run_with_logging {
     }
 }
 
+=item import_scripts_with_logging
+
+Import all the script methods into the current package, wrapping them
+in code that prints out a message before and after the script runs.
+
+=cut
+
+
 sub import_scripts_with_logging {
   my @names = @{$RUM::Script::EXPORT_TAGS{scripts}};
   for my $name (@names) {
