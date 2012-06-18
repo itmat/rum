@@ -272,24 +272,23 @@ scripts.Be careful to follow the specifications exactly.
     files simple, like refseq.txt. A transcript model file has one row for
     each transcript, with each row havin five tab delimited colums:
 
-    * *name* The name of the transcript.Keep it relatively simple, use
-      just alphanumeric, underscores, dashes and periods.Names don't
-      have to be unique, the parsing scripts will make them unique
-      later by adding numbers to ones that are equal.
+  * *name* The name of the transcript.Keep it relatively simple, use
+    just alphanumeric, underscores, dashes and periods.Names don't
+    have to be unique, the parsing scripts will make them unique later
+    by adding numbers to ones that are equal.
 
-    * *chrom* The name of the chromosome/contig/scaffold the
-      transcript is on Names should match those in the genome fasta
-      file.
+  * *chrom* The name of the chromosome/contig/scaffold the transcript
+    is on Names should match those in the genome fasta file.
 
-    * *strand* The strand, + or -.
+  * *strand* The strand, + or -.
 
-    * *exonStarts* A comma delimited list (with no whitespace) of exon
-      start locations in zero based coordinates.The last character can
-      be a comma, but not the first.
+  * *exonStarts* A comma delimited list (with no whitespace) of exon
+    start locations in zero based coordinates.The last character can
+    be a comma, but not the first.
 
-    * *exonEnds* A comma delimited list (with no whitespace) of exon
-      end locations in one based coordinates.The last character can be
-      a comma, but not the first.
+  * *exonEnds* A comma delimited list (with no whitespace) of exon end
+    locations in one based coordinates.The last character can be a
+    comma, but not the first.
 
     Note 1: It is not a typo that we want zero-based coordinates for
     the starts and one-based coordinates for the ends, we are just
@@ -305,16 +304,16 @@ scripts.Be careful to follow the specifications exactly.
     need to worry about is getting each file formatted exactly as
     described above.
 
-# Make a file called "gene_info_files" with one line per gene
-  annotation filename (even if you have only one). E.g.:
+3.  Make a file called "gene_info_files" with one line per gene
+    annotation filename (even if you have only one). E.g.:
 
-    refseq.txt
-    ucscknown.txt
+        refseq.txt
+        ucscknown.txt
 
-All the scripts and the data files you just downloaded need to be in the same
-directory. Now run:
+    All the scripts and the data files you just downloaded need to be
+    in the same directory. Now run:
 
-  > perl create_indexes_from_ucsc.pl NAME_genome.txt NAME_refseq_ucsc
+        > perl create_indexes_from_ucsc.pl NAME_genome.txt NAME_refseq_ucsc
 
 =over 4
 
