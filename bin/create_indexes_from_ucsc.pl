@@ -63,8 +63,6 @@ use RUM::Script qw(get_options show_usage);
 get_options("debug" => \(my $debug));
 my ($infile, $NAME) = @ARGV;
 show_usage unless @ARGV == 2;
-die "ERROR: the <NAME_genome.txt> file has to end in '.txt', ".
-  "yours doesn't...\n" unless $infile =~ /\.txt$/;
 
 sub unlink_temp_files {
   my @files = @_;
@@ -98,13 +96,14 @@ mkdir $organism unless -d $organism;
 my $gene_info = "$organism/${NAME}_gene_info.txt";
 
 # Put all the filenames we will use in vars.
-my $genome_txt = $infile;
-my $genome_fa = $infile;
-my $genome_one_line_seqs_temp = $infile;
-my $genome_one_line_seqs = "$organism/$infile";
-$genome_fa =~ s/.txt$/.fa/;
-$genome_one_line_seqs_temp =~ s/.txt$/_one-line-seqs_temp.fa/;
-$genome_one_line_seqs =~ s/.txt$/_one-line-seqs.fa/;
+
+my $genome_base = $infile =~ /^(.*).txt/ && $1 or die(
+    "Genome file must end with .txt");
+
+my $genome_txt = "$genome_base.txt";
+my $genome_fa = "${genome_base}.fa";
+my $genome_one_line_seqs_temp = "${genome_base}_one-line-seqs_temp.fa";
+my $genome_one_line_seqs = "$organism/${genome_base}_one-line-seqs.fa";
 my $gene_info_orig = $NAME . "_gene_info_orig.txt";
 my $genes_unsorted = $NAME . "_genes_unsorted.fa";
 my $gene_info_unsorted = $NAME . "_gene_info_unsorted.txt";
@@ -149,7 +148,7 @@ my $genome_size = RUM::Repository::genome_size($genome_one_line_seqs);
 my $config = RUM::Index->new(
     gene_annotations           => basename($gene_info),
     bowtie_genome_index        => basename("${organism}_genome"),
-    bowtie_transcriptome_index => basename("${organism}_genes"),
+    bowtie_transcriptome_index => basename("${NAME}_genes"),
     genome_fasta               => basename($genome_one_line_seqs),
     genome_size                => $genome_size,
     directory                  => $organism);
@@ -168,7 +167,7 @@ sub bowtie {
 
 # run bowtie on genes index
 warn "\nRunning bowtie on the gene index, please wait...\n\n";
-bowtie($genes_fa, "$organism/${organism}_genes");
+bowtie($genes_fa, "$organism/${NAME}_genes");
 
 # run bowtie on genome index
 warn "running bowtie on the genome index, please wait this can take some time...\n\n";
