@@ -3,14 +3,14 @@ How to create indexes for the RUM pipeline
 
 These instructions have three parts:
 
-* Your organism is available on the ucsc genome browser
+1. Your organism is available on the ucsc genome browser
 
-* Your organism is available on the ensembl website
+2. Your organism is available on the ensembl website
 
-* Your organism is not on either ucsc or ensembl but you have genome
+3. Your organism is not on either ucsc or ensembl but you have genome
   sequence and optionally gene or transcript models.
 
-Prerequisites: You need bowtie installed on your system, including
+**Prerequisites** You need bowtie installed on your system, including
 bowtie-build which should come with the default installation. The
 bowtie-build executable must be in the system path. If that's not
 possible then you can edit the perl scripts where bowtie-build is
@@ -136,8 +136,6 @@ directory. Now from that directory, run:
 
     > perl create_indexes_from_ucsc.pl NAME_genome.txt NAME_refseq_ucsc
 
-
-
 Note that you will need to supply the full path to the
 create_indexes_from_ucsc.pl script, which is available in the 'bin'
 directory of the RUM distribution. This is a master script that runs a
@@ -161,7 +159,7 @@ human (hg19), you would have the following directory structure:
     ...
 
 To run RUM with one of these indexes, for example hg19, you would
-provide the directory location with the B<--index-dir> or B<-i>
+provide the directory location with the `--index-dir` or `-i`
 option:
 
     rum_runner -i ~/rum_indexes/hg19 ...
@@ -213,9 +211,11 @@ downloaded are in the same directory. Run the following:
 Where <gtf> is the name of the gtf file you downloaded, and NAME is the name you
 have chosen above.
 
-* This is a master script that runs a bunch of other scripts including bowtie-build...
-
-* You will need a fair amount of RAM to do this, 10Gb was sufficient for Human
+Note that you will need to supply the full path to the
+create_indexes_from_ucsc.pl script, which is available in the 'bin'
+directory of the RUM distribution. This is a master script that runs a
+bunch of other scripts including bowtie-build. You will need a fair
+amount of RAM to do this, 10Gb was sufficient for Human.
 
 This will create a directory called $NAME (where NAME is the prefix of
 the files you provided as command line arguments) and put all of the
@@ -312,11 +312,14 @@ scripts.Be careful to follow the specifications exactly.
 
         > perl create_indexes_from_ucsc.pl NAME_genome.txt NAME_refseq_ucsc
 
-* NAME is as defined above - make sure there are no underscores in NAME
+* NAME is as defined above - make sure there are no underscores in
+  NAME
 
-* this is a master script that runs a bunch of other scripts including bowtie-build...
-
-* You will need a fair amount of RAM to do this, 10Gb was sufficient for Human
+Note that you will need to supply the full path to the
+create_indexes_from_ucsc.pl script, which is available in the 'bin'
+directory of the RUM distribution. This is a master script that runs a
+bunch of other scripts including bowtie-build. You will need a fair
+amount of RAM to do this, 10Gb was sufficient for Human.
 
 This will create a directory called $NAME (where NAME is the prefix of
 the files you provided as command line arguments) and put all of the
