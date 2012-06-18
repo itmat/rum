@@ -18,8 +18,11 @@ use RUM::Common qw(shell);
 RUM::Script::import_scripts_with_logging();
 
 use Getopt::Long;
+use File::Copy qw(mv);
 
 GetOptions("name=s" => \(my $name));
+
+mkdir $name unless -d $name;
 
 if(@ARGV < 1) {
     die "
@@ -43,7 +46,7 @@ my $gene_model_name = $name . "_ensembl";
 
 my $genome_fa                 = "${genome_base}.fa";
 my $genome_one_line_seqs_temp = "${genome_base}_one-line-seqs_temp.fa";
-my $genome_one_line_seqs      = "${genome_base}_one-line-seqs.fa";
+my $genome_one_line_seqs      = "$name/${genome_base}_one-line-seqs.fa";
 
 open INFILE, "<", $genome;
 open OUTFILE, ">", $genome_fa;
@@ -79,6 +82,9 @@ close $out;
 
 shell "perl $Bin/create_gene_indexes.pl --name $gene_model_name $genome_one_line_seqs\n";
 
+mv "${gene_model_name}_gene_info.txt", "$name/${gene_model_name}_gene_info.txt"
+or die "mv ${gene_model_name}_gene_info.txt $name/${gene_model_name}_gene_info.txt: $!"; 
+
 my $genome_size = RUM::Repository::genome_size($genome_one_line_seqs);
 
 sub basename {
@@ -103,7 +109,7 @@ sub bowtie {
 
 print STDERR "\nBuilding the bowtie genome index, this could take some time...\n\n";
 
-bowtie($genome_one_line_seqs, "${name}_genome");
+bowtie($genome_one_line_seqs, "$name/${name}_genome");
 
 my $N1 = $gene_model_name . "_gene_info_orig.txt";
 my $N6 = $gene_model_name . "_gene_info.txt";
@@ -114,9 +120,13 @@ my $temp2 = $gene_model_name . ".fa";
 
 print STDERR "Building the bowtie gene index...\n\n";
 
-bowtie($temp2, $gene_model_name);
+bowtie($temp2, "$name/$gene_model_name");
 
-#unlink($genome_fa);
-#unlink($genome_one_line_seqs_temp);
+unlink($temp2);
+unlink($genome_fa);
+unlink($genome_one_line_seqs_temp);
+unlink("gene_info_files");
+unlink("ensembl.txt");
+unlink($N1);
 
 print STDERR "ok, all done...\n\n";

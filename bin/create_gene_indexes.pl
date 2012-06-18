@@ -50,8 +50,10 @@ make_fasta_files_for_master_list_of_genes(["temp.fa", "master_list_of_exons.txt"
 
 sort_gene_info($N4, $N6);
 sort_gene_fa_by_chr($N3, $N5);
-#unlink($N3);
-#unlink($N4);
-#unlink("temp.fa");
-
-
+unlink($N3);
+unlink($N4);
+unlink("temp.fa");
+unlink("gene_info_merged_sorted_fixed.txt");
+unlink("gene_info_merged_unsorted_fixed.txt");
+unlink("gene_info_merged_unsorted.txt");
+unlink("master_list_of_exons.txt");
