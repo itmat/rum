@@ -37,7 +37,6 @@ use RUM::Usage;
 # that will print a log message before and after each one runs.
 RUM::Script::import_scripts_with_logging();
 
-
 ###
 ### Parse command line args
 ###
