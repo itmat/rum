@@ -1023,6 +1023,22 @@ sub run_with_logging {
     }
 }
 
+sub import_scripts_with_logging {
+  my @names = @{$RUM::Script::EXPORT_TAGS{scripts}};
+  for my $name (@names) {
+    no strict "refs";
+    my $long_name = "RUM::Script::$name";
+    my $new_name  = "main::$name";
+    *{$new_name} = sub {
+      my @args = @_;
+      warn "START $name @args";
+      &$long_name(@args);
+      warn "END $name @args";
+    };
+  }
+}
+
+
 =back
 
 =head1 AUTHOR
