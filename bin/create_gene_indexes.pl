@@ -3,6 +3,23 @@
 # Written by Gregory R. Grant
 # Universiry of Pennsylvania, 2010
 
+use strict;
+use warnings;
+use autodie;
+
+use FindBin qw($Bin);
+use lib ("$Bin/../lib", "$Bin/../lib/perl5");
+
+use RUM::Index;
+use RUM::Repository;
+use RUM::Script qw(get_options show_usage);
+use RUM::Common qw(shell);
+
+use Getopt::Long;
+GetOptions("name=s" => \(my $name));
+
+RUM::Script::import_scripts_with_logging();
+
 if(@ARGV < 1) {
     die "
 Usage: create_gene_indexes.pl <name> <genome fasta>
@@ -16,41 +33,27 @@ Genome fasta file must be formatted as described in:
 ";
 }
 
-$NAME = $ARGV[0];
+my $N1 = $name . "_gene_info_orig.txt";
+my $N2 = $ARGV[0];
+my $N3 = $name . "_genes_unsorted.fa";
+my $N4 = $name . "_gene_info_unsorted.txt";
+my $N5 = $name . "_genes.fa";
+my $N6 = $name . "_gene_info.txt";
 
-$N1 = $NAME . "_gene_info_orig.txt";
-$N2 = $ARGV[1];
-$N3 = $NAME . "_genes_unsorted.fa";
-$N4 = $NAME . "_gene_info_unsorted.txt";
-$N5 = $NAME . "_genes.fa";
-$N6 = $NAME . "_gene_info.txt";
+make_master_file_of_genes("gene_info_files", "gene_info_merged_unsorted.txt");
+fix_geneinfofile_for_neg_introns("gene_info_merged_unsorted.txt", "gene_info_merged_unsorted_fixed.txt", 5, 6, 4);
+sort_geneinfofile("gene_info_merged_unsorted_fixed.txt", "gene_info_merged_sorted_fixed.txt");
+make_ids_unique4geneinfofile("gene_info_merged_sorted_fixed.txt", $N1);
+get_master_list_of_exons_from_geneinfofile($N1, "master_list_of_exons.txt");
+modify_fa_to_have_seq_on_one_line($N2, "temp.fa");
+make_fasta_files_for_master_list_of_genes(["temp.fa", "master_list_of_exons.txt", $N1], [$N4, $N3]);
 
-`perl make_master_file_of_genes.pl gene_info_files > gene_info_merged_unsorted.txt`;
-`perl fix_geneinfofile_for_neg_introns.pl gene_info_merged_unsorted.txt 5 6 4 > gene_info_merged_unsorted_fixed.txt`;
-`perl sort_geneinfofile.pl gene_info_merged_unsorted_fixed.txt > gene_info_merged_sorted_fixed.txt`;
-`perl make_ids_unique4geneinfofile.pl gene_info_merged_sorted_fixed.txt $N1;`;
-`perl get_master_list_of_exons_from_geneinfofile.pl $N1`;
-`perl modify_fa_to_have_seq_on_one_line.pl $N2 > temp.fa`;
-`perl make_fasta_files_for_master_list_of_genes.pl temp.fa master_list_of_exons.txt $N1 $N4 > $N3`;
-`perl sort_gene_info.pl $N4 > $N6`;
-`perl sort_gene_fa_by_chr.pl $N3 > $N5`;
+sort_gene_info($N4, $N6);
+sort_gene_fa_by_chr($N3, $N5);
 unlink($N3);
 unlink($N4);
 unlink("temp.fa");
-
-$config = "indexes/$N6\n";
-$N6 =~ /^([^_]+)_/;
-$organism = $1;
-$config = $config . "bin/bowtie\n";
-$config = $config . "bin/blat\n";
-$config = $config . "bin/mdust\n";
-$config = $config . "indexes/$organism" . "_genome\n";
-$config = $config . "indexes/$organism" . "_genes\n";
-$config = $config . "indexes/$organism" . "_genome_one-line-seqs.fa\n";
-$config = $config . "scripts\n";
-$config = $config . "lib\n";
-
-$configfile = "rum.config_" . $organism;
-open(OUTFILE, ">$configfile");
-print OUTFILE $config;
-close(OUTFILE);
+unlink("gene_info_merged_sorted_fixed.txt");
+unlink("gene_info_merged_unsorted_fixed.txt");
+unlink("gene_info_merged_unsorted.txt");
+unlink("master_list_of_exons.txt");

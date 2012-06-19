@@ -1,28 +1,85 @@
 #!/usr/bin/perl
 
-# Written by Gregory R. Grant
-# University of Pennsylvania, 2010
+=head1 NAME
 
-if(@ARGV < 1) {
-    die "
-Usage: create_indexes_from_ensembl.pl <genome fasta> <gtf>
+create_indexes_from_ensembl.pl
 
-";
-}
-$genome = $ARGV[0];
-$genome =~ /^(.*)_genome.txt/;
-$name = $1;
-$F1 = $genome;
-$F1 =~ s/.txt$/.fa/;
-$gtf = $ARGV[1];
+=head1 SYNOPSIS
 
-open(INFILE, $ARGV[0]);
-$flag = 0;
-open(OUTFILE, ">$F1");
-while($line = <INFILE>) {
+  create_indexes_from_ensembl.pl --name NAME GENOME_FA GTF
+
+=head1 AUTHOR
+
+Gregory R. Grant (ggrant@grant.org)
+
+=head1 COPYRIGHT
+
+Copyright 2012 University of Pennsylvania
+
+=cut
+
+use strict;
+use warnings;
+use autodie;
+
+use Getopt::Long;
+use File::Copy qw(mv);
+use FindBin qw($Bin);
+use lib ("$Bin/../lib", "$Bin/../lib/perl5");
+
+use RUM::Common qw(shell);
+use RUM::Index;
+use RUM::Repository;
+use RUM::Script qw(get_options show_usage);
+use RUM::Usage;
+
+# This imports the subs from RUM::Script and wraps them in methods
+# that will print a log message before and after each one runs.
+RUM::Script::import_scripts_with_logging();
+
+###
+### Parse command line args
+###
+
+GetOptions("name=s" => \(my $name));
+
+$name or RUM::Usage->bad("Please give me a name for the index, for example ".
+                         "the organism name or assembly, with --name");
+
+@ARGV == 2 or RUM::Usage->bad("Please provide the genome FASTA file and " .
+                              "the GTF file");
+
+
+mkdir $name unless -d $name;
+
+###
+### Some variables for filenames
+###
+
+my ($genome, $gtf) = @ARGV;
+
+my $genome_base = $genome =~ /^(.*).txt/ && $1 or die(
+    "Genome file must end with .txt");
+
+my $gene_model_name = $name . "_ensembl";
+
+my $genome_fa                 = "${genome_base}.fa";
+my $genome_one_line_seqs_temp = "${genome_base}_one-line-seqs_temp.fa";
+my $genome_one_line_seqs      = "$name/${genome_base}_one-line-seqs.fa";
+
+open INFILE, "<", $genome;
+open OUTFILE, ">", $genome_fa;
+my $flag = 0;
+
+while(my $line = <INFILE>) {
     if($line =~ />/) {
-	$line =~ /^>EG:([^\s]+)\s/;
-	$chr = $1;
+	if($line =~ /^>EG:([^\s]+)\s/) {
+	    $chr = $1;
+	} else {
+	    $line =~ /^>([^ ]+) /;
+	    $chr = $1;
+	}
+
         if($flag == 0) {
             print OUTFILE ">$chr\n";
             $flag = 1;
@@ -39,57 +96,62 @@ print "\n";
 close(INFILE);
 close(OUTFILE);
 
-$F2 = $genome;
-$F2 =~ s/.txt$/_one-line-seqs_temp.fa/;
-$F3 = $genome;
-$F3 =~ s/.txt$/_one-line-seqs.fa/;
+modify_fa_to_have_seq_on_one_line($genome_fa, $genome_one_line_seqs_temp);
+sort_genome_fa_by_chr($genome_one_line_seqs_temp, $genome_one_line_seqs);
+shell "perl $Bin/gtf2rum-index-builder-friendly.pl $gtf > ensembl.txt";
 
-`perl modify_fa_to_have_seq_on_one_line.pl $F1 > $F2`;
-`perl sort_genome_fa_by_chr.pl $F2 >  $F3`;
+open my $out, ">", "gene_info_files";
+print $out "ensembl.txt\n";
+close $out;
 
-`perl gtf2rum-index-builder-friendly.pl $gtf > ensembl.txt`;
-open(OUTFILE, ">gene_info_files");
-print OUTFILE "ensembl.txt\n";
-close(OUTFILE);
+shell "perl $Bin/create_gene_indexes.pl --name $gene_model_name $genome_one_line_seqs\n";
 
-$name1 = $name . "_ensembl";
-print "perl create_gene_indexes.pl $name1 $F3\n";
-`perl create_gene_indexes.pl $name1 $F3`;
+mv "${gene_model_name}_gene_info.txt", "$name/${gene_model_name}_gene_info.txt"
+or die "mv ${gene_model_name}_gene_info.txt $name/${gene_model_name}_gene_info.txt: $!"; 
 
-$temp1 = $genome;
-$temp1 =~ s/.txt$//;
+my $genome_size = RUM::Repository::genome_size($genome_one_line_seqs);
+
+sub basename {
+    my ($filename) = @_;
+    my @parts = File::Spec->splitpath($filename);
+    return $parts[$#parts];
+}
+
+# write rum.config file:
+my $config = RUM::Index->new(
+    gene_annotations           => "${gene_model_name}_gene_info.txt",
+    bowtie_genome_index        => "${name}_genome",
+    bowtie_transcriptome_index => "${gene_model_name}_genes",
+    genome_fasta               => basename($genome_one_line_seqs),
+    genome_size                => $genome_size,
+    directory                  => $name);
+$config->save;
+
+sub bowtie {
+  my @cmd = ("bowtie-build", @_);
+  system(@cmd) == 0 or die "Couldn't run '@cmd': $!";
+}
 
 print STDERR "\nBuilding the bowtie genome index, this could take some time...\n\n";
 
-`bowtie-build $F3 $temp1`;
+bowtie($genome_one_line_seqs, "$name/${name}_genome");
 
-$N1 = $name1 . "_gene_info_orig.txt";
-$N6 = $name1 . "_gene_info.txt";
-$F3 = $name1 . "_one-line-seqs.fa";
+my $N1 = $gene_model_name . "_gene_info_orig.txt";
+my $N6 = $gene_model_name . "_gene_info.txt";
+$genome_one_line_seqs = $gene_model_name . "_one-line-seqs.fa";
 
-$name1 = $name1 . "_genes";
-$temp2 = $name1 . ".fa";
+$gene_model_name = $gene_model_name . "_genes";
+my $temp2 = $gene_model_name . ".fa";
 
 print STDERR "Building the bowtie gene index...\n\n";
 
-`bowtie-build $temp2 $name1`;
+bowtie($temp2, "$name/$gene_model_name");
 
-unlink($F1);
-unlink($F2);
-
-$config = "indexes/$N6\n";
-$config = $config . "bin/bowtie\n";
-$config = $config . "bin/blat\n";
-$config = $config . "bin/mdust\n";
-$config = $config . "indexes/$temp1\n";
-$config = $config . "indexes/$name1\n";
-$config = $config . "indexes/$F3\n";
-$config = $config . "scripts\n";
-$config = $config . "lib\n";
-
-$configfile = "rum.config_" . $name;
-open(OUTFILE, ">$configfile");
-print OUTFILE $config;
-close(OUTFILE);
+unlink($temp2);
+unlink($genome_fa);
+unlink($genome_one_line_seqs_temp);
+unlink("gene_info_files");
+unlink("ensembl.txt");
+unlink($N1);
 
 print STDERR "ok, all done...\n\n";

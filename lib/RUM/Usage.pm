@@ -140,7 +140,7 @@ sub bad {
         print "Please see $0 help for more information.\n";
     }
     else {
-#        print "Please see $0 --help for more information.\n";
+        #print "Please see $0 --help for more information.\n";
     }
 
     die "$msg\n";

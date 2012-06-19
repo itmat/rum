@@ -26,14 +26,27 @@ use another location with the B<--prefix> option.
 
 =over 4
 
+=item B<-a>, B<--all>
+
+When combined with B<-i>, (B<--install>), installs all the indexes
+found on the server that aren't already installed. Combine with B<-f>
+(B<--force>) to also install indexes you do already have.
+
+=item B<-f>, B<--force>
+
+When combined with B<-a>, (B<--all>) and B<-i> (B<--install>), forcibly
+re-installs all indexes found on the server.
+
+=item B<-i>, B<--install>
+
+Install the index specified by the B<INDEX> argument. This can be the
+number of the index, according to the output of C<rum_indexes --list>,
+or a pattern that matches part of the index name.
+
 =item B<-l>, B<--list>
 
 Print a list of available indexes, with a star next to any that are
 already installed.
-
-=item B<-i>, B<--install>
-
-Install the index specified by the B<INDEX> argument. This can be the number of the index, according to the output of C<rum_indexes --list>, or a pattern that matches part of the index name.
 
 =item B<-m>, B<--migrate>
 
@@ -43,15 +56,15 @@ on the command line, and it will move all the files from those indexes
 into their new locations. If you provide a --prefix argument, I'll put
 the indexes in subdirectories under that directory.
 
+=item B<--prefix> I<PREFIX>
+
+Specify a different location for the repository.
+
 =item B<-r>, B<--remove>
 
 Remove the index specified by the B<INDEX> argument, which has the
 same requirements as the B<INDEX> argument for the B<--install>
 option.
-
-=item B<--prefix> I<PREFIX>
-
-Specify a different location for the repository.
 
 =back
 
@@ -93,6 +106,16 @@ Install an index by build name, or number, or in another location:
   $ rum-indexes -i hg19
   $ rum-indexes -i 1
   $ rum-indexes -i 1 --prefix ~/rum/indexes
+
+Install all indexes we don't already have:
+
+  $ rum-indexes --install --all
+  $ rum-indexes -i -a
+
+Forcibly re-install all indexes found on the server:
+
+  $ rum-indexes --install --all --force
+  $ rum-indexes -i -a -f
 
 =head2 Removing Indexes
 

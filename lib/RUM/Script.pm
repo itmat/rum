@@ -159,6 +159,7 @@ file format, so we don't need to have the sequence all on one line. It
 would be easy to write a fasta parser, or we could use BioPerl.
 
 =cut
+
 sub modify_fa_to_have_seq_on_one_line {
   my @args = @_;
   my ($in, $out) = _open_in_and_out(@args);
@@ -1021,6 +1022,30 @@ sub run_with_logging {
         $log->info("FINISHED $script ($cmd)");
     }
 }
+
+=item import_scripts_with_logging
+
+Import all the script methods into the current package, wrapping them
+in code that prints out a message before and after the script runs.
+
+=cut
+
+
+sub import_scripts_with_logging {
+  my @names = @{$RUM::Script::EXPORT_TAGS{scripts}};
+  for my $name (@names) {
+    no strict "refs";
+    my $long_name = "RUM::Script::$name";
+    my $new_name  = "main::$name";
+    *{$new_name} = sub {
+      my @args = @_;
+      warn "START $name @args";
+      &$long_name(@args);
+      warn "END $name @args";
+    };
+  }
+}
+
 
 =back
 

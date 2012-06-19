@@ -48,7 +48,7 @@ use RUM::Logging;
 # If we're aligning, try to find the output directory specified on the
 # command line and initialize the logging system so that it puts
 # output files there.
-if ($ARGV[0] eq 'align') {
+if (@ARGV && $ARGV[0] eq 'align') {
     for (my $i = 0; $i < @ARGV; $i++) {
         local $_ = $ARGV[$i];
         if (/^(-o|--out)/) {

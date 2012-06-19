@@ -71,10 +71,10 @@ bin/sort_where_lines_start_seq.numa_or_seq.numb.pl
 bin/trim.pl
 Changes
 conf/rum_logging.conf
+creating_indexes.md
 doc/cmpChrs-changes.md
 doc/goals
 doc/how2setup_genome-indexes_forPipeline.txt
-doc/indexing.pod
 lib/RUM/Action.pm
 lib/RUM/Action/Align.pm
 lib/RUM/Action/Clean.pm

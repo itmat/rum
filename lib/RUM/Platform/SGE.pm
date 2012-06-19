@@ -357,6 +357,11 @@ sub _parse_qstat_out {
                 push @result, { %rec, task_id => $task_id };
             }
         }
+        elsif ($task && $task =~ /\d(,\d)+/) {
+            for my $task_id (split(/,/, $task)) {
+                push @result, { %rec, task_id => $task_id };
+            }
+        }
         elsif ($task) {
             push @result, { %rec, task_id => $task };
         }
