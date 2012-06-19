@@ -1,3 +1,4 @@
+
 package RUM::Action::Align;
 
 =head1 NAME
@@ -140,6 +141,12 @@ sub _check_read_lengths {
     my ($self) = @_;
     my $c = $self->config;
     my $rl = $c->read_length;
+
+    unless ($rl) {
+        $log->info("I haven't determined read length yet");
+        return;
+    }
+
     my $fixed = ! $c->variable_length_reads;
 
     if ( $fixed && $rl < 55 && !$c->nu_limit) {
@@ -161,6 +168,11 @@ sub _show_match_length {
     my $c = $self->config;
     my $match_length_cutoff;
     my $rl = $c->read_length;
+
+    unless ($rl) {
+        $log->info("I haven't determined read length yet");
+        return;
+    }
     if ( ! $c->min_length && !$c->variable_length_reads) {
         if ($rl < 80) {
             $match_length_cutoff ||= 35;
