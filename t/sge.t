@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 19;
+use Test::More tests => 20;
 
 use FindBin qw($Bin);
 use File::Temp qw(tempdir);
@@ -22,13 +22,21 @@ is ($class->_parse_qsub_out(
     634877, 
     "job output");
 
-
 my $QSTAT_GROUPED = <<'EOF';
 job-ID  prior   name       user         state submit/start at     queue                          slots ja-task-ID
 -----------------------------------------------------------------------------------------------------------------
  628724 0.36365 QLOGIN     midel        r     04/05/2012 08:40:17 all.q@node-r1-u2-c33-p11-o2.lo     1
  636537 0.25420 QLOGIN     midel        r     04/11/2012 09:22:20 all.q@node-r1-u2-c33-p11-o2.lo     1
  636813 0.00000 sh         midel        qw    04/11/2012 14:55:50                                    1 1-3:1
+ 636814 0.00000 sh         midel        hqw   04/11/2012 14:55:50                                    1
+EOF
+
+my $QSTAT_GROUPED2 = <<'EOF';
+job-ID  prior   name       user         state submit/start at     queue                          slots ja-task-ID
+-----------------------------------------------------------------------------------------------------------------
+ 628724 0.36365 QLOGIN     midel        r     04/05/2012 08:40:17 all.q@node-r1-u2-c33-p11-o2.lo     1
+ 636537 0.25420 QLOGIN     midel        r     04/11/2012 09:22:20 all.q@node-r1-u2-c33-p11-o2.lo     1
+ 636813 0.00000 sh         midel        qw    04/11/2012 14:55:50                                    1 1,2
  636814 0.00000 sh         midel        hqw   04/11/2012 14:55:50                                    1
 EOF
 
@@ -45,6 +53,7 @@ EOF
 
 my @QSTAT_UNGROUPED = split /\n/, $QSTAT_UNGROUPED;
 my @QSTAT_GROUPED = split /\n/, $QSTAT_GROUPED;
+my @QSTAT_GROUPED2 = split /\n/, $QSTAT_GROUPED2;
 
 is_deeply($class->_parse_qstat_out(@QSTAT_UNGROUPED),
           [{job_id => 628724, state => 'r'},
@@ -61,6 +70,14 @@ is_deeply($class->_parse_qstat_out(@QSTAT_GROUPED),
            {job_id => 636813, state => 'qw', task_id => 1},
            {job_id => 636813, state => 'qw', task_id => 2},
            {job_id => 636813, state => 'qw', task_id => 3},
+           {job_id => 636814, state => 'hqw'}],
+          "qstat ungrouped");
+
+is_deeply($class->_parse_qstat_out(@QSTAT_GROUPED2),
+          [{job_id => 628724, state => 'r'},
+           {job_id => 636537, state => 'r'},
+           {job_id => 636813, state => 'qw', task_id => 1},
+           {job_id => 636813, state => 'qw', task_id => 2},
            {job_id => 636814, state => 'hqw'}],
           "qstat ungrouped");
 
