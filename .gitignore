@@ -26,3 +26,7 @@ organisms.txt
 rum.config_*
 .DS_Store
 *.log
+t/tmp
+lib/RUM/blat
+lib/RUM/bowtie
+lib/RUM/mdust
