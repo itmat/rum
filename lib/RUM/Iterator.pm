@@ -122,13 +122,29 @@ sub igrep {
 }
 
 sub append {
-    my ($self, $other) = @_;
-    my $f = sub {
-        my $next = $self->();
-        return $next if defined $next; 
-        return $other->();
-    };
-    return blessed($self)->new($f);
+    shift unless ref $_[0];
+    my ($self, @others) = @_;
+
+    if (!@others) {
+        return $self;
+    }
+
+    if (@others == 1) {
+        my $other = shift @others;
+        my $f = sub {
+            my $next = $self->();
+            return $next if defined $next; 
+            return $other->();
+        };
+        return blessed($self)->new($f);
+    }
+
+    else {
+        for my $other (@others) {
+            $self = $self->append($other);
+        }
+        return $self;
+    }
 }
 
 package RUM::Iterator::Buffered;

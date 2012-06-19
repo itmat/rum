@@ -1,7 +1,7 @@
 #!perl
 # -*- cperl -*-
 
-use Test::More tests => 27;
+use Test::More tests => 28;
 use lib "lib";
 
 use strict;
@@ -52,6 +52,10 @@ is $it->(), undef;
 
 $it = RUM::Iterator->new([1,2,3])->append(RUM::Iterator->new([4,5,6]));
 is_deeply $it->to_array, [1,2,3,4,5,6], "append";
+
+$it = RUM::Iterator->new([1,2,3])->append(RUM::Iterator->new([4,5,6]),
+                                          RUM::Iterator->new([7,8,9]));
+is_deeply $it->to_array, [1,2,3,4,5,6,7,8,9], "append multi";
 
 {
     my $twos   = RUM::Iterator->new([2,4,6,8,10,12])->peekable;

@@ -1,11 +1,12 @@
 package RUM::Script::CountReadsMapped;
 
-
+use strict;
 no warnings;
 use autodie;
 
 use RUM::Usage;
 use RUM::Logging;
+use RUM::RUMIO;
 use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
@@ -14,23 +15,14 @@ sub log_stray_multi_mapper {
     my ($seqnum, $count, $line) = @_;
     my $msg = join(
         " ", "Looks like there's\na multi-mapper in the RUM_Unique file.",
-        "$seqnum ($joined{$seqnum}) $line");
+        "$seqnum $count $line");
     $log->warn($msg);
 }
 
 sub line_iterator {
-
     my @filenames = @_;
-
-    open my $in, shift(@filenames);
-
-    return sub {
-        my $line = <$in>;
-        return $line if defined $line;
-        return undef unless @filenames;
-        open $in, "<", shift(@filenames);
-        return <$in>;
-    };
+    my @iters = map { RUM::RUMIO->new(-file => $_) } @filenames;
+    return RUM::Iterator->append(@iters);
 }
 
 sub main {
@@ -46,15 +38,15 @@ sub main {
         "verbose|v" => sub { $log->more_logging(1) },
         "quiet|q"   => sub { $log->less_logging(1) });
 
-    $max_num_seqs_specified = "false";
-    $min_num_seqs_specified = "false";
+    my $max_num_seqs_specified;
+    my $min_num_seqs_specified;
 
-    @unique_in or RUM::Usage->bad(join(
-        " ",  "Please specify a file of unique mappers with --unique-in.",
-        "You can specify this option multiple times."));
-    @non_unique_in or RUM::Usage->bad(join(
-        " ",  "Please specify a file of non-unique mappers ",
-        "with --non-unique-in. You can specify this option multiple times."));
+    @unique_in or RUM::Usage->bad(
+        "Please specify a file of unique mappers with --unique-in. " .
+        "You can specify this option multiple times.");
+    @non_unique_in or RUM::Usage->bad(
+        "Please specify a file of non-unique mappers " .
+        "with --non-unique-in. You can specify this option multiple times.");
 
     my $unique_it = line_iterator(@unique_in);
     my $nu_it = line_iterator(@non_unique_in);
@@ -70,30 +62,28 @@ sub main {
             "--min-seq must be a number, not $min_seq_num");
     }
 
-    $flag = 0;
-    $num_areads = 0;
-    $num_breads = 0;
-    $current_seqnum = 0;
-    $previous_seqnum = 0;
+    my $num_areads = 0;
+    my $num_breads = 0;
+    my $current_seqnum = 0;
+    my $previous_seqnum = 0;
+    my $seqnum;
+    my (%typea, %typeb);
+    my ($num_a_only, $num_b_only);
+    my (%joined, %unjoined);
+    my $num_unjoined_consistent;
+    my $numjoined;
 
+    while (defined(my $aln = $unique_it->())) {
+        my $line = $aln->raw;
 
-    while (defined(my $line = $unique_it->())) {
-
-        chomp($line);
-        $line =~ /seq.(\d+)([^\d])/;
-        $seqnum = $1;
-        $type = $2;
+        $seqnum = $aln->order;
         $current_seqnum = $seqnum;
         if ($current_seqnum > $previous_seqnum) {
-            foreach $key (keys %typea) {
-                if ($typeb{$key} == 0) {
-                    $num_a_only++;
-                }
+            foreach my $key (keys %typea) {
+                $num_a_only++ unless $typeb{$key};
             }
-            foreach $key (keys %typeb) {
-                if ($typea{$key} == 0) {
-                    $num_b_only++;
-                }
+            foreach my $key (keys %typeb) {
+                $num_b_only++ unless $typea{$key};
             }
             undef %typea;
             undef %typeb;
@@ -101,25 +91,24 @@ sub main {
             undef %unjoined;
             $previous_seqnum = $current_seqnum;
         }
-        if ($flag == 0 && $min_num_seqs_specified eq "false") {
-            $flag = 1;
-            $min_seq_num = $seqnum;
-        }
-        if ($seqnum > $max_seq_num && $max_num_seqs_specified eq "false") {
+
+        $min_seq_num = $seqnum unless defined($min_seq_num);
+
+        if ($seqnum > $max_seq_num && !$max_num_seqs_specified) {
             $max_seq_num = $seqnum;
         }
-        if ($seqnum < $min_seq_num && $min_num_seqs_specified eq "false") {
+        if ($seqnum < $min_seq_num && !$min_num_seqs_specified) {
             $min_seq_num = $seqnum;
         }
 
-        if ($type eq "\t") {
+        if (! ($aln->is_forward || $aln->is_reverse)) {
             $joined{$seqnum}++;
             $numjoined++;
             if ($joined{$seqnum} > 1) {
                 log_stray_multi_mapper($seqnum, $joined{$seqnum}, $line);
             }
         }
-        if ($type eq "a" || $type eq "b") {
+        else {
             $unjoined{$seqnum}++;
             if ($unjoined{$seqnum} > 1) {
                 $num_unjoined_consistent++;
@@ -128,14 +117,14 @@ sub main {
                 log_stray_multi_mapper($seqnum, $joined{$seqnum}, $line);
             }
         }
-        if ($type eq "a") {
+        if ($aln->is_forward) {
             $typea{$seqnum}++;
             $num_areads++;
             if ($typea{$seqnum} > 1) {
                 log_stray_multi_mapper($seqnum, $joined{$seqnum}, $line);
-            }
+                }
         }
-        if ($type eq "b") {
+        if ($aln->is_reverse) {
             $typeb{$seqnum}++;
             $num_breads++;
             if ($typeb{$seqnum} > 1) {
@@ -146,10 +135,10 @@ sub main {
 
     my $is_paired = keys %typeb;
 
-    foreach $key (keys %typea) {
+    foreach my $key (keys %typea) {
         $num_a_only++ unless $typeb{$key};
     }
-    foreach $key (keys %typeb) {
+    foreach my $key (keys %typeb) {
         $num_b_only++ unless $typea{$key};
     }
 
@@ -158,14 +147,18 @@ sub main {
     undef %joined;
     undef %unjoined;
 
-    $f = format_large_int($seqnum);
-    $total= $max_seq_num - $min_seq_num + 1;
+    my $f = format_large_int($seqnum);
+    my $total= $max_seq_num - $min_seq_num + 1;
     $f = format_large_int($total);
     if ($num_breads > 0) {
         print "Number of read pairs: $f\n";
     } else {
         print "Number of reads: $f\n";
     }
+    my $percent_a_mapped;
+    my $percent_b_mapped;
+    my $num_bothmapped;
+    my $percent_bothmapped;
     if ($num_breads > 0) {
         print "\nUNIQUE MAPPERS\n--------------\n";
         $num_bothmapped = $numjoined + $num_unjoined_consistent;
@@ -183,8 +176,8 @@ sub main {
     if ($num_breads > 0) {
         print "Number of reverse mapped only: $f\n";
     }
-    $num_a_total = $num_a_only + $num_bothmapped;
-    $num_b_total = $num_b_only + $num_bothmapped;
+    my $num_a_total = $num_a_only + $num_bothmapped;
+    my $num_b_total = $num_b_only + $num_bothmapped;
     $f = format_large_int($num_a_total);
     $percent_a_mapped = int($num_a_total / $total * 10000) / 100;
     if ($num_breads > 0) {
@@ -197,9 +190,9 @@ sub main {
     if ($num_breads > 0) {
         print "Number of reverse total: $f ($percent_b_mapped%)\n";
     }
-    $at_least_one_of_forward_or_reverse_mapped = $num_bothmapped + $num_a_only + $num_b_only;
+    my $at_least_one_of_forward_or_reverse_mapped = $num_bothmapped + $num_a_only + $num_b_only;
     $f = format_large_int($at_least_one_of_forward_or_reverse_mapped);
-    $percent_at_least_one_of_forward_or_reverse_mapped = int($at_least_one_of_forward_or_reverse_mapped/ $total * 10000) / 100;
+    my $percent_at_least_one_of_forward_or_reverse_mapped = int($at_least_one_of_forward_or_reverse_mapped/ $total * 10000) / 100;
     if ($num_breads > 0) {
         print "At least one of forward or reverse mapped: $f ($percent_at_least_one_of_forward_or_reverse_mapped%)\n";
         print "\n";
@@ -207,26 +200,26 @@ sub main {
 
     $current_seqnum = 0;
     $previous_seqnum = 0;
-    $num_ambig_consistent=0;
-    $num_ambig_a_only=0;
-    $num_ambig_b_only=0;
-
+    my $num_ambig_consistent=0;
+    my $num_ambig_a_only=0;
+    my $num_ambig_b_only=0;
+    my ($num_ambig_a, $num_ambig_b);
     #print "------\n";
-    while (defined($line = $nu_it->())) {
-        chomp($line);
-        $line =~ /seq.(\d+)(.)/;
-        $seqnum = $1;
-        $type = $2;
+    my (%ambiga, %ambigb, %allids);
+    my $seqnum;
+    while (defined(my $aln = $nu_it->())) {
+        $seqnum = $aln->order;
         $current_seqnum = $seqnum;
         if ($current_seqnum > $previous_seqnum) {
+
             foreach $seqnum (keys %allids) {
                 if ( $ambiga{$seqnum} && $ambigb{$seqnum} ) {
                     $num_ambig_consistent++;	
                 }
-                elsif ( $ambiga{$seqnum} && ! $ambigb{$seqnum} ) {
+                elsif ( $ambiga{$seqnum} ) {
                     $num_ambig_a++;
                 }
-                elsif (! $ambiga{$seqnum} && $ambigb{$seqnum} ) {
+                elsif ( $ambigb{$seqnum} ) {
                     $num_ambig_b++;
                 }
             }
@@ -235,33 +228,27 @@ sub main {
             undef %ambigb;
             $previous_seqnum = $current_seqnum;
         }
-        if ($type eq "a") {
-            $ambiga{$seqnum}++;
-        }
-        if ($type eq "b") {
-            $ambigb{$seqnum}++;
-        }
-        if ($type eq "\t") {
-            $ambiga{$seqnum}++;
-            $ambigb{$seqnum}++;
-        }
+
+        $ambiga{$seqnum}++ if $aln->contains_forward;
+        $ambigb{$seqnum}++ if $aln->contains_reverse;;
         $allids{$seqnum}++;
     }
 
     foreach $seqnum (keys %allids) {
-        if ($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 > 0) {
+        if ($ambiga{$seqnum} && $ambigb{$seqnum}) {
             $num_ambig_consistent++;	
         }
-        if ($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 == 0) {
+        elsif ($ambiga{$seqnum}) {
             $num_ambig_a++;
         }
-        if ($ambiga{$seqnum}+0 == 0 && $ambigb{$seqnum}+0 > 0) {
+        elsif ($ambigb{$seqnum}) {
             $num_ambig_b++;
         }
     }
     undef %allids;
     undef %ambiga;
     undef %ambigb;
+    my ($f, $p);
 
     $f = format_large_int($num_ambig_a);
     $p = int($num_ambig_a/$total * 1000) / 10;
@@ -284,9 +271,9 @@ sub main {
         print "\nTOTAL\n-----\n";
     }
 
-    $num_forward_total = $num_a_total + $num_ambig_a + $num_ambig_consistent;
-    $num_reverse_total = $num_b_total + $num_ambig_b + $num_ambig_consistent;
-    $num_consistent_total = $num_bothmapped + $num_ambig_consistent;
+    my $num_forward_total = $num_a_total + $num_ambig_a + $num_ambig_consistent;
+    my $num_reverse_total = $num_b_total + $num_ambig_b + $num_ambig_consistent;
+    my $num_consistent_total = $num_bothmapped + $num_ambig_consistent;
     $f = format_large_int($num_forward_total);
     $p = int($num_forward_total/$total * 1000) / 10;
     if ($num_breads > 0) {
@@ -304,14 +291,12 @@ sub main {
     if ($num_breads > 0) {
         print "Total number consistent: $f ($p%)\n";
     }
-    $total_fragment = $at_least_one_of_forward_or_reverse_mapped + $num_ambig_a + $num_ambig_b + $num_ambig_consistent;
+    my $total_fragment = $at_least_one_of_forward_or_reverse_mapped + $num_ambig_a + $num_ambig_b + $num_ambig_consistent;
     $f = format_large_int($total_fragment);
     $p = int($total_fragment/$total * 1000) / 10;
     if ($num_breads > 0) {
         print "At least one of forward or reverse mapped: $f ($p%)\n";
     }
-
-
 
 }
 
