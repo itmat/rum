@@ -77,7 +77,7 @@ sub main {
                             $k=$j-1;
                             print OUTFILE "\t$k\t$current_cov\n"; # don't adjust the right point because half-open
                             if ($statsfile) {
-                                $footprint = $footprint + $k - $span_start;
+                                $footprint = $footprint + $end_max - $span_start;
                             }
                             $span_ended = 1;
                         }

@@ -73,8 +73,13 @@ my $flag = 0;
 
 while(my $line = <INFILE>) {
     if($line =~ />/) {
-	$line =~ /^>EG:([^\s]+)\s/ or $line =~ /^>(\w+)/;
-	my $chr = $1;
+	if($line =~ /^>EG:([^\s]+)\s/) {
+	    $chr = $1;
+	} else {
+	    $line =~ /^>([^ ]+) /;
+	    $chr = $1;
+	}
+
         if($flag == 0) {
             print OUTFILE ">$chr\n";
             $flag = 1;

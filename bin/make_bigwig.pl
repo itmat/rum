@@ -6,7 +6,7 @@ a bigwig file is to host it locally and just tell the genome browser
 where it is, instead of uploading the whole .cov file to the browser.
 This is necessary when the .cov file is too big to upload.
 
-Usage: make_bigwig.pl <cov file> <output file>
+Usage: make_bigwig.pl <cov file> <output file> <species>
 
 Where:
        <cov file> is a coverage file as output by
@@ -14,6 +14,8 @@ Where:
 
        <output file> the name of the bigwig output file
        (it should have suffix .bw)
+
+       <species> is mm9 or hg19 or whatever else you have chr sizes for
 
 In the same directory as this script you must have two things:
 1) bedGraphToBigWig (with executable permissions)
@@ -43,7 +45,7 @@ if(!($outfile =~ /\.bw$/)) {
 }
 `grep -v track $covfile > x.cov`;
 `sort -k1,1 -k2,2n x.cov > x_sorted.cov`;
-`./bedGraphToBigWig x_sorted.cov mm9.chrom.sizes $outfile`;
+`./bedGraphToBigWig x_sorted.cov $ARGV[2].chrom.sizes $outfile`;
 `yes|rm x.cov`;
 `yes|rm x_sorted.cov`;
 
