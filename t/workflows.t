@@ -67,7 +67,7 @@ SKIP: {
     rmtree($out_dir);
     mkpath $out_dir;
 
-    my $chunk = RUM::Workflows->chunk_workflow($config, 1);
+    my $chunk = RUM::Workflows->new($config)->chunk_workflow(1);
 
 #    open my $dot, ">", "workflow.dot";
 #    $chunk->state_machine->dotty($dot);
@@ -91,7 +91,7 @@ my $c = RUM::Config->new(
     %defaults,
 );
 $c->load_rum_config_file;
-my $w = RUM::Workflows->postprocessing_workflow($c);
+my $w = RUM::Workflows->new($c)->postprocessing_workflow;
 would_run($w, qr/merge rum_unique/i);
 would_run($w, qr/merge rum_nu/i);
 would_run($w, qr/compute mapping stat/i);
@@ -101,7 +101,7 @@ would_not_run($w, 'merge_alt_quants');
 $c = RUM::Config->new(%defaults);
 $c->set('strand_specific', 1);
 $c->load_rum_config_file;
-$w = RUM::Workflows->postprocessing_workflow($c);
+$w = RUM::Workflows->new($c)->postprocessing_workflow;
 
 would_not_run($w, qr/merge quants$/i);
 would_run($w, qr/merge.quants.p.*s/i);
@@ -114,7 +114,7 @@ would_run($w, qr/merge.strand.specific.quants/i);
 
 $c = RUM::Config->new(%defaults, 'alt_quant_model', => "foo");
 $c->load_rum_config_file;
-$w = RUM::Workflows->postprocessing_workflow($c);
+$w = RUM::Workflows->new($c)->postprocessing_workflow;
 would_run($w, qr/merge.*quants$/i);
 would_run($w, qr/merge.alt.quants/i);
 
@@ -123,7 +123,7 @@ $c->set('strand_specific', 1);
 $c->set('alt_quant_model', "foo");
 $c->load_rum_config_file;
 
-$w = RUM::Workflows->postprocessing_workflow($c);
+$w = RUM::Workflows->new($c)->postprocessing_workflow;
 
 would_run($w, qr/merge.quants.*p.*s/i);
 would_run($w, qr/merge.quants.*p.*a/i);

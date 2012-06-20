@@ -24,7 +24,6 @@ use warnings;
 use Carp;
 
 use RUM::WorkflowRunner;
-use RUM::Workflows;
 use RUM::Logging;
 use RUM::JobStatus;
 
@@ -45,29 +44,6 @@ sub preprocess {
     my ($self) = @_;
     $self->say("Submitting preprocessing task");
     $self->submit_preproc;
-}
-
-=item chunk_workflow($chunk)
-
-Return the RUM::Workflow for the given chunk.
-
-=cut
-
-sub chunk_workflow {
-    my ($self, $chunk) = @_;
-    return RUM::Workflows->chunk_workflow($self->config, $chunk);
-}
-
-=item postprocessing_workflow($chunk)
-
-Return the postprocessing RUM::Workflow.
-
-=cut
-
-sub postprocessing_workflow {
-    my ($self, $chunk) = @_;
-    my $config = $self->config;
-    my $workflow = RUM::Workflows->postprocessing_workflow($config);
 }
 
 =item process($chunk)
