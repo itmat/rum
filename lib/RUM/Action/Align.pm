@@ -1,4 +1,3 @@
-
 package RUM::Action::Align;
 
 =head1 NAME

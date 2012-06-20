@@ -29,7 +29,6 @@ sub run {
     my ($class) = @_;
 
     my $self = $class->new;
-
     my $d = $self->{directives} = RUM::Directives->new;
 
     my $usage = RUM::Usage->new(action => 'status');
@@ -43,12 +42,15 @@ sub run {
         "The --output or -o option is required for \"rum_runner status\"");
     $usage->check;
     $self->{config} = RUM::Config->load($dir, 1);
+
+    $self->{workflows} = RUM::Workflows->new($self->config);
+
     $self->print_processing_status;
     $self->print_postprocessing_status;
     $self->say();
     $self->_chunk_error_logs_are_empty;
 
-    my $postproc = RUM::Workflows->postprocessing_workflow($self->config);
+    my $postproc = $self->{workflows}->postprocessing_workflow;
     if ($postproc->is_complete) {
         $self->say("");
         $self->say("RUM Finished.");
@@ -71,15 +73,16 @@ sub print_processing_status {
 
     my @errored_chunks;
     my @progress;
-    my $workflow = RUM::Workflows->chunk_workflow($c, 1);
+    my $workflows = $self->{workflows};
+
+    my $workflow = $workflow->chunk_workflow(1);
     my $plan = $workflow->state_machine->plan or croak "Can't build a plan";
     my @plan = @{ $plan };
-
-    my $postproc = RUM::Workflows->postprocessing_workflow($c);
+    my $postproc = $workflows->postprocessing_workflow($c);
     my $postproc_started = $postproc->steps_done;
 
     for my $chunk (@chunks) {
-        my $w = RUM::Workflows->chunk_workflow($c, $chunk);
+        my $w = $workflows->chunk_workflow($chunk);
         my $m = $w->state_machine;
         my $state = $w->state;
         $m->recognize($plan, $state) 
@@ -128,7 +131,7 @@ sub print_postprocessing_status {
     $self->say("Postprocessing");
     $self->say("--------------");
 
-    my $postproc = RUM::Workflows->postprocessing_workflow($c);
+    my $postproc = $self->{workflows}->postprocessing_workflow($c);
 
     my $state = $postproc->state;
     my $plan = $postproc->state_machine->plan or croak "Can't build plan";

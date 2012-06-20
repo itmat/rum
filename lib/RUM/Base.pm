@@ -33,6 +33,7 @@ use Text::Wrap qw(wrap fill);
 
 use RUM::Directives;
 use RUM::Logging;
+use RUM::Workflows;
 
 our $log = RUM::Logging->get_logger();
 
@@ -198,16 +199,51 @@ sub still_processing {
 
     my $config = $self->config;
 
+    my $workflows = RUM::Workflows->new($config);
+
     # If postprocessing has started, then we can't be in the
     # processing phase
-    if (RUM::Workflows->postprocessing_workflow($config)->steps_done) {
+    if ($workflows->postprocessing_workflow->steps_done) {
         return 0;
     }
 
     for my $chunk ( 1 .. $config->num_chunks ) {
-        return 1 unless RUM::Workflows->chunk_workflow($config, $chunk)->is_complete;
+        return 1 unless $workflows->chunk_workflow($chunk)->is_complete;
     }
     return 0;
+}
+
+=item $self->workflows
+
+Return a RUM::Workflows object based on my configuration.
+
+=cut
+
+sub workflows {
+    my ($self) = @_;
+    $self->{workflows} ||= RUM::Workflows->new($self->config);
+}
+
+=item $self->chunk_workflow($chunk)
+
+Return the workflow for the given chunk, based on my configuration.
+
+=cut
+
+sub chunk_workflow {
+    my ($self, $chunk) = @_;
+    return $self->workflows->chunk_workflow($chunk);
+}
+
+=item $self->postprocessing_workflow
+
+Return the workflow for the postprocessing step, based on my configuration.
+
+=cut
+
+sub postprocessing_workflow {
+    my ($self) = @_;
+    return $self->workflows->postprocessing_workflow;
 }
 
 =back

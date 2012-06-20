@@ -37,12 +37,12 @@ Return a list of the chunk ids that are not yet done.
 
 sub postprocessing_workflow {
     my ($self) = @_;
-    return RUM::Workflows->postprocessing_workflow($self->config);
+    return $self->workflows->postprocessing_workflow;
 }
 
 sub processing_workflow {
     my ($self, $chunk) = @_;
-    return RUM::Workflows->chunk_workflow($self->config, $chunk);
+    return $self->workflows->chunk_workflow($chunk);
 }
 
 sub outstanding_chunks {

@@ -14,27 +14,15 @@ use RUM::Workflow qw(pre post);
 
 our $log = RUM::Logging->get_logger;
 
-our $POSTPROCESSING_WORKFLOW;
-our @PROCESSING_WORKFLOW;
-
-=head1 NAME
-
-RUM::Workflows - Collection of RUM workflows.
-
-=head1 CLASS METHODS
-
-=over 4
-
-=item chunk_workflow($config)
-
-Return the workflow for the chunk with the given RUM::Config.
-
-=cut
+sub new {
+    my ($class, $config) = @_;
+    return bless {config => $config}, $class;
+}
 
 sub chunk_workflow {
-    my ($class, $config, $chunk) = @_;
-
-    if (my $w = $PROCESSING_WORKFLOW[$chunk]) {
+    my ($self, $chunk) = @_;
+    my $config = $self->{config};
+    if (my $w = $self->{chunk_workflows}[$chunk]) {
         return $w;
     }
 
@@ -393,20 +381,16 @@ sub chunk_workflow {
 
     $m->set_goal(\@goal);
 
-    return $PROCESSING_WORKFLOW[$chunk] = $m;
+    return $self->{chunk_workflows}[$chunk] = $m;
 }
-
-=item postprocessing_workflow($config)
-
-Return the workflow for the postprocessing phase.
-
-=cut
 
 sub postprocessing_workflow {
 
-    my ($class, $c) = @_;
-
-    return $POSTPROCESSING_WORKFLOW if $POSTPROCESSING_WORKFLOW;
+    my ($self) = @_;
+    my $c = $self->{config};
+    if (my $w = $self->{postprocessing_workflow}) {
+        return $w;
+    }
 
     $c or croak "I need a config";
 
@@ -817,12 +801,39 @@ sub postprocessing_workflow {
     $w->start([@start]);
     $w->set_goal([@goal]);
 
-    return $POSTPROCESSING_WORKFLOW = $w;
+    return $self->{postprocessing_workflow} = $w;
 }
 
 
 1;
 
+=head1 NAME
+
+RUM::Workflows - Collection of RUM workflows.
+
+=head1 CONSTRUCTORS
+
+=over 4
+
+=item new($config)
+
+Make a new workflow collection based on the given configuration.
+
+=back
+
+=head1 OBJECT METHODS
+
+=over 4
+
+=item $workflows->chunk_workflow($chunk)
+
+Return the RUM::Workflow for the given chunk which should be a number > 0.
+
+=item $workflows->postprocessing_workflow
+
+Return the RUM::Workflow for the postprocessing step.
+
 =back
 
 =cut
+

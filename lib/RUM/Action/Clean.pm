@@ -71,7 +71,7 @@ sub clean {
     # the final output.
     if ($very) {
         push @dirs, $c->in_output_dir("log");
-        RUM::Workflows->postprocessing_workflow($c)->clean(1);
+        RUM::Workflows->new($c)->postprocessing_workflow->clean(1);
         unlink($self->config->in_output_dir("quals.fa"),
                $self->config->in_output_dir("reads.fa"));
 

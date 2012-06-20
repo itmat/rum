@@ -57,7 +57,7 @@ sub preprocess {
 
     # If any steps of postprocessing have run, then we don't need to
     # run preprocessing.
-    if (RUM::Workflows->postprocessing_workflow($config)->steps_done) {
+    if ($self->postprocessing_workflow->steps_done) {
         $self->say("(skipping: we're in the postprocessing phase)");
         return;
     }
@@ -67,7 +67,7 @@ sub preprocess {
     # preprocessing. TODO: It would be better to split preprocessing
     # up so at can be run as the first step of each chunk.
     for my $chunk ($self->chunk_nums) {
-        my $workflow = RUM::Workflows->chunk_workflow($config, $chunk);
+        my $workflow = $self->chunk_workflow($chunk);
         if ($workflow->steps_done) {
             $self->say("(skipping: we're in the processing phase)");
             $log->info("Not preprocessing, as we seem to be in the " .
@@ -459,7 +459,7 @@ sub process {
 
     my $config = $self->config;
 
-    my $postproc_started = RUM::Workflows->postprocessing_workflow($config)->steps_done;
+    my $postproc_started = $self->postprocessing_workflow->steps_done;
 
     $log->debug("Chunk is ".($chunk || ""));
 
@@ -476,7 +476,7 @@ sub process {
     if ($n == 1 || $chunk) {
         my $chunk = $chunk || 1;
         $log->info("Running chunk $chunk");
-        my $w = RUM::Workflows->chunk_workflow($config, $chunk);
+        my $w = $self->chunk_workflow($chunk);
         $w->execute($self->_step_printer($w), ! $self->directives->no_clean);
     }
     elsif ($config->num_chunks) {
@@ -508,7 +508,7 @@ sub _process_in_chunks {
         my @cmd = ($0, "align", "--child", "--output", $c->output_dir,
                    "--chunk", $chunk);
         push @cmd, "--no-clean" if $self->directives->no_clean;
-        my $workflow = RUM::Workflows->chunk_workflow($c, $chunk);
+        my $workflow = $self->chunk_workflow($chunk);
 
         my $run = sub {
             if (my $pid = fork) {
@@ -603,7 +603,7 @@ sub postprocess {
     $self->say("Postprocessing");
     $self->say("--------------");
 
-    my $w = RUM::Workflows->postprocessing_workflow($self->config);
+    my $w = $self->postprocessing_workflow;
     $w->execute($self->_step_printer($w), ! $self->directives->no_clean);
 }
 

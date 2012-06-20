@@ -329,7 +329,7 @@ sub chunk_cmd_like {
     eval {
         my $config = $rum->config;
         $config->set('read_length', 75);
-        my $workflow = RUM::Workflows->chunk_workflow($config, 3);
+        my $workflow = RUM::Workflows->new($config)->chunk_workflow(3);
         my @commands = $workflow->commands($step);
         my @cmd = @{ $commands[0] };
         if ($negate) {
@@ -357,7 +357,7 @@ sub postproc_cmd_like {
     eval {
         my $config = $rum->config;
         $config->set('read_length', 75);
-        my $workflow = RUM::Workflows->postprocessing_workflow($config);
+        my $workflow = RUM::Workflows->new($config)->postprocessing_workflow;
         my @commands = $workflow->commands($step);
         my @cmd = @{ $commands[0] };
         
