@@ -14,6 +14,9 @@ use RUM::Workflow qw(pre post);
 
 our $log = RUM::Logging->get_logger;
 
+our $POSTPROCESSING_WORKFLOW;
+our @PROCESSING_WORKFLOW;
+
 =head1 NAME
 
 RUM::Workflows - Collection of RUM workflows.
@@ -30,6 +33,11 @@ Return the workflow for the chunk with the given RUM::Config.
 
 sub chunk_workflow {
     my ($class, $config, $chunk) = @_;
+
+    if (my $w = $PROCESSING_WORKFLOW[$chunk]) {
+        return $w;
+    }
+
     $config or croak "I need a config";
     $chunk or croak "I need a chunk";
     my $c = $config;
@@ -385,7 +393,7 @@ sub chunk_workflow {
 
     $m->set_goal(\@goal);
 
-    return $m;
+    return $PROCESSING_WORKFLOW[$chunk] = $m;
 }
 
 =item postprocessing_workflow($config)
@@ -397,6 +405,9 @@ Return the workflow for the postprocessing phase.
 sub postprocessing_workflow {
 
     my ($class, $c) = @_;
+
+    return $POSTPROCESSING_WORKFLOW if $POSTPROCESSING_WORKFLOW;
+
     $c or croak "I need a config";
 
     my $rum_nu         = $c->in_output_dir("RUM_NU");
@@ -806,7 +817,7 @@ sub postprocessing_workflow {
     $w->start([@start]);
     $w->set_goal([@goal]);
 
-    return $w;
+    return $POSTPROCESSING_WORKFLOW = $w;
 }
 
 

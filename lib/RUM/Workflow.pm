@@ -166,9 +166,12 @@ job.
 =cut
 
 sub temp {
-    my ($self, $path) = @_;
+    my (undef, $path) = @_;
 
-    return sub { $self->{temp_files}{$path} ||= $self->_temp_filename($path) }
+    return sub { 
+        my $self = shift;
+        $self->{temp_files}{$path} ||= $self->_temp_filename($path);
+    };
 }
 
 =item start($files)
@@ -306,7 +309,7 @@ sub commands {
 
     my @result;
     for my $parts (@$commands) {
-        my @parts = map { ref($_) =~ /CODE/ ? $_->() : $_ } @$parts;
+        my @parts = map { ref($_) =~ /CODE/ ? $_->($self) : $_ } @$parts;
         push @result, \@parts;
     }
     return @result;
