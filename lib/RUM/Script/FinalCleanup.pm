@@ -334,21 +334,21 @@ sub trimright () {
 }
 
 sub addJunctionsToSeq () {
-    ($seq_in, $spans_in) = @_;
-    @s1 = split(//,$seq_in);
-    @b1 = split(/, /,$spans_in);
-    $seq_out = "";
-    $place = 0;
-    for ($j1=0; $j1<@b1; $j1++) {
-	@c1 = split(/-/,$b1[$j1]);
-	$len1 = $c1[1] - $c1[0] + 1;
-	if ($seq_out =~ /\S/) {
-	    $seq_out = $seq_out . ":";
+    use strict;
+    my ($seq_in, $spans_in) = @_;
+    my @spans = split(/, /,$spans_in);
+    my $seq_out = "";
+    my $place = 0;
+
+    for my $span (@spans) {
+
+        my ($start, $end) = split /-/, $span;
+	my $len = $end - $start + 1;
+	if ($seq_out) {
+            $seq_out .= ":";
 	}
-	for ($k1=0; $k1<$len1; $k1++) {
-	    $seq_out = $seq_out . $s1[$place];
-	    $place++;
-	}
+        $seq_out .= substr $seq_in, $place, $len;
+        $place += $len;
     }
     return $seq_out;
 }
