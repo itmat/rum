@@ -181,29 +181,6 @@ sub temp_filename {
     File::Temp->new(%options);
 }
 
-=item make_paths RUN_NAME
-
-Recursively make all the paths required for the given test run name,
-unless $DRY_RUN is set.
-
-=cut
-
-sub make_paths {
-    my (@paths) = @_;
-
-    for my $path (@paths) {
-        
-        if (-e $path) {
-            diag "$path exists; not creating it";
-        }
-        else {
-            print "mkdir -p $path\n";
-            mkpath($path) or die "Can't make path $path: $!";
-        }
-
-    }
-}
-
 =back
 
 =head1 AUTHOR

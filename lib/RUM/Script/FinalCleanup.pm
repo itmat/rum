@@ -353,22 +353,3 @@ sub addJunctionsToSeq () {
     return $seq_out;
 }
 
-sub countmismatches () {
-    ($seq1m, $seq2m) = @_;
-    # seq2m is the "read"
-
-    $seq1m =~ s/://g;
-    $seq2m =~ s/://g;
-    $seq2m =~ s/\+[^+]\+//g;
-
-    @C1 = split(//,$seq1m);
-    @C2 = split(//,$seq2m);
-    $NUM=0;
-    for ($k=0; $k<@C1; $k++) {
-	if ($C1[$k] ne $C2[$k]) {
-	    $NUM++;
-	}
-    }
-    return $NUM;
-}
-

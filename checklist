@@ -8,7 +8,7 @@
      584 MakeRumJunctionsFile.pm
      374 FinalCleanup.pm
 *    333 SortRumByLocation.pm
-     318 CountReadsMapped.pm
+*    318 CountReadsMapped.pm
      314 QuantifyExons.pm
 *    291 MakeGuAndGnu.pm
 *    230 RumToCov.pm

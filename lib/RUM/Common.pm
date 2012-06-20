@@ -13,7 +13,7 @@ use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
                     reversecomplement format_large_int spansTotalLength
                     reversesignal read_chunk_id_mapping is_fasta is_fastq head
-                    num_digits shell make_paths is_on_cluster);
+                    num_digits shell is_on_cluster);
 
 =head1 FUNCTIONS
 
