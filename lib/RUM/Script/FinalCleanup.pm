@@ -195,73 +195,75 @@ sub clean () {
     close(OUTFILE);
 }
 
-sub removefirst () {
-    ($n_1, $spans_1, $seq_1) = @_;
+sub removefirst {
+    use strict;
+    my ($n_1, $spans_1, $seq_1) = @_;
     $seq_1 =~ s/://g;
-    @a_1 = split(/, /, $spans_1);
-    $length_1 = 0;
-    @b_1 = split(/-/,$a_1[0]);
-    $length_1 = $b_1[1] - $b_1[0] + 1;
+    my @spans = split(/, /, $spans_1);
+    my ($start, $end) = split /-/, $spans[0];
+    my $length_1 = $end - $start + 1;
+
     if ($length_1 <= $n_1) {
-	$m_1 = $n_1 - $length_1;
-	$spans2_1 = $spans_1;
+	my $m_1 = $n_1 - $length_1;
+	my $spans2_1 = $spans_1;
 	$spans2_1 =~ s/^\d+-\d+, //;
-	for ($j_1=0; $j_1<$length_1; $j_1++) {
+	for (my $j_1=0; $j_1<$length_1; $j_1++) {
 	    $seq_1 =~ s/^.//;
 	}
-	$return = removefirst($m_1, $spans2_1, $seq_1);
-	return $return;
+	return removefirst($m_1, $spans2_1, $seq_1);
     } else {
-	for ($j_1=0; $j_1<$n_1; $j_1++) {
+	for (my $j_1=0; $j_1<$n_1; $j_1++) {
 	    $seq_1 =~ s/^.//;
 	}
 	$spans_1 =~ /^(\d+)-/;
-	$start_1 = $1 + $n_1;
+	my $start_1 = $1 + $n_1;
 	$spans_1 =~ s/^(\d+)-/$start_1-/;
 	return $spans_1 . "\t" . $seq_1;
     }
 }
 
-sub removelast () {
-    ($n_1, $spans_1, $seq_1) = @_;
-    $seq_1 =~ s/://g;
-    @a_1 = split(/, /, $spans_1);
-    @b_1 = split(/-/,$a_1[@a_1-1]);
-    $length_1 = $b_1[1] - $b_1[0] + 1;
-    if ($length_1 <= $n_1) {
-	$m_1 = $n_1 - $length_1;
-	$spans2_1 = $spans_1;
+sub removelast {
+    use strict;
+    my ($n, $spans, $seq) = @_;
+    $seq =~ s/://g;
+    my @spans = split /, /, $spans;
+    my ($start, $end) = split /-/, $spans[$#spans];
+
+    my $length_1 = $end - $start + 1;
+
+    if ($length_1 <= $n) {
+	my $m_1 = $n - $length_1;
+	my $spans2_1 = $spans;
 	$spans2_1 =~ s/, \d+-\d+$//;
-	for ($j_1=0; $j_1<$length_1; $j_1++) {
-	    $seq_1 =~ s/.$//;
-	}
-	$return = removelast($m_1, $spans2_1, $seq_1);
-	return $return;
+        $seq = substr $seq, 0, length($seq) - $length_1;
+	return removelast($m_1, $spans2_1, $seq);
     } else {
-	for ($j_1=0; $j_1<$n_1; $j_1++) {
-	    $seq_1 =~ s/.$//;
-	}
-	$spans_1 =~ /-(\d+)$/;
-	$end_1 = $1 - $n_1;
-	$spans_1 =~ s/-(\d+)$/-$end_1/;
-	return $spans_1 . "\t" . $seq_1;
+        $seq = substr $seq, 0, length($seq) - $n;
+	$spans =~ /-(\d+)$/;
+	my $end_1 = $1 - $n;
+	$spans =~ s/-(\d+)$/-$end_1/;
+	return $spans . "\t" . $seq;
     }
 }
 
-sub trimleft () {
-    ($seq1_2, $seq2_2, $spans_2) = @_;
+sub trimleft {
+    use strict;
+    my ($seq1_2, $seq2_2, $spans_2) = @_;
     # seq2_2 is the one that gets modified and returned
 
     $seq1_2 =~ s/://g;
     $seq1_2 =~ /^(.)(.)/;
+    my @genomebase_2;
     $genomebase_2[0] = $1;
     $genomebase_2[1] = $2;
     $seq2_2 =~ s/://g;
     $seq2_2 =~ /^(.)(.)/;
+    my @readbase_2;
     $readbase_2[0] = $1;
     $readbase_2[1] = $2;
-    $mismatch_count_2 = 0;
-    for ($j_2=0; $j_2<2; $j_2++) {
+    my $mismatch_count_2 = 0;
+    my @equal_2;
+    for (my $j_2=0; $j_2<2; $j_2++) {
 	if ($genomebase_2[$j_2] eq $readbase_2[$j_2]) {
 	    $equal_2[$j_2] = 1;
 	} else {
@@ -273,38 +275,37 @@ sub trimleft () {
 	return $spans_2 . "\t" . $seq2_2;
     }
     if ($mismatch_count_2 == 1 && $equal_2[0] == 0) {
-	&removefirst(1, $spans_2, $seq2_2) =~ /^(.*)\t(.*)/;
-	$spans_new_2 = $1;
-	$seq2_new_2 = $2;
+	removefirst(1, $spans_2, $seq2_2) =~ /^(.*)\t(.*)/;
+	my $spans_new_2 = $1;
+        my $seq2_new_2 = $2;
 	$seq1_2 =~ s/^.//;
-	$return = &trimleft($seq1_2, $seq2_new_2, $spans_new_2);
-	return $return;
+	return trimleft($seq1_2, $seq2_new_2, $spans_new_2);
     }
     if ($equal_2[1] == 0 || $mismatch_count_2 == 2) {
-	&removefirst(2, $spans_2, $seq2_2) =~ /^(.*)\t(.*)/;
-	$spans_new_2 = $1;
-	$seq2_new_2 = $2;
+	removefirst(2, $spans_2, $seq2_2) =~ /^(.*)\t(.*)/;
+	my $spans_new_2 = $1;
+	my $seq2_new_2 = $2;
 	$seq1_2 =~ s/^..//;
-	$return = &trimleft($seq1_2, $seq2_new_2, $spans_new_2);
-	return $return;
+	return trimleft($seq1_2, $seq2_new_2, $spans_new_2);
     }
 }
 
-sub trimright () {
-    ($seq1_2, $seq2_2, $spans_2) = @_;
+sub trimright {
+    use strict;
+    my ($seq1_2, $seq2_2, $spans_2) = @_;
     # seq2_2 is the one that gets modified and returned
 
     $seq1_2 =~ s/://g;
     $seq1_2 =~ /(.)(.)$/;
-    $genomebase_2[0] = $2;
-    $genomebase_2[1] = $1;
+    my @genomebase_2 = ($2, $1);
+
     $seq2_2 =~ s/://g;
     $seq2_2 =~ /(.)(.)$/;
-    $readbase_2[0] = $2;
-    $readbase_2[1] = $1;
-    $mismatch_count_2 = 0;
+    my @readbase_2 = ($2, $1);
 
-    for ($j_2=0; $j_2<2; $j_2++) {
+    my $mismatch_count_2 = 0;
+    my @equal_2;
+    for my $j_2 (0, 1) {
 	if ($genomebase_2[$j_2] eq $readbase_2[$j_2]) {
 	    $equal_2[$j_2] = 1;
 	} else {
@@ -312,24 +313,22 @@ sub trimright () {
 	    $mismatch_count_2++;
 	}
     }
-    if ($mismatch_count_2 == 0) {
+    if (!$mismatch_count_2) {
 	return $spans_2 . "\t" . $seq2_2;
     }
-    if ($mismatch_count_2 == 1 && $equal_2[0] == 0) {
-	&removelast(1, $spans_2, $seq2_2) =~ /(.*)\t(.*)$/;
-	$spans_new_2 = $1;
-	$seq2_new_2 = $2;
+    if ($mismatch_count_2 == 1 && !$equal_2[0]) {
+	removelast(1, $spans_2, $seq2_2) =~ /(.*)\t(.*)$/;
+	my $spans_new_2 = $1;
+	my $seq2_new_2 = $2;
 	$seq1_2 =~ s/.$//;
-	$return = &trimright($seq1_2, $seq2_new_2, $spans_new_2);
-	return $return;
+	return trimright($seq1_2, $seq2_new_2, $spans_new_2);
     }
-    if ($equal_2[1] == 0 || $mismatch_count_2 == 2) {
-	&removelast(2, $spans_2, $seq2_2) =~ /(.*)\t(.*)$/;
-	$spans_new_2 = $1;
-	$seq2_new_2 = $2;
+    if (!$equal_2[1] || $mismatch_count_2 == 2) {
+	removelast(2, $spans_2, $seq2_2) =~ /(.*)\t(.*)$/;
+	my $spans_new_2 = $1;
+	my $seq2_new_2 = $2;
 	$seq1_2 =~ s/..$//;
-	$return = &trimright($seq1_2, $seq2_new_2, $spans_new_2);
-	return $return;
+	return trimright($seq1_2, $seq2_new_2, $spans_new_2);
     }
 }
 
