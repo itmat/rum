@@ -75,7 +75,7 @@ sub print_processing_status {
     my @progress;
     my $workflows = $self->{workflows};
 
-    my $workflow = $workflow->chunk_workflow(1);
+    my $workflow = $workflows->chunk_workflow(1);
     my $plan = $workflow->state_machine->plan or croak "Can't build a plan";
     my @plan = @{ $plan };
     my $postproc = $workflows->postprocessing_workflow($c);
