@@ -13,6 +13,11 @@ use RUM::Sort qw(cmpChrs);
 our $log = RUM::Logging->get_logger();
 $|=1;
 
+our $match_length_cutoff;
+our %CHR2SEQ;
+our %samheader;
+our %chrsize;
+
 sub main {
 
     GetOptions(
@@ -22,7 +27,7 @@ sub main {
         "non-unique-out=s" => \(my $non_unique_out),
         "sam-header-out=s"   => \(my $sam_header_out),
         "genome=s" => \(my $genome),
-        "match-length-cutoff=s" => \(my $match_length_cutoff = 0),
+        "match-length-cutoff=s" => \($match_length_cutoff = 0),
         "faok"  => \(my $faok),
         "help|h"    => sub { RUM::Usage->help },
         "verbose|v" => sub { $log->more_logging(1) },
@@ -127,51 +132,53 @@ sub main {
 }
 
 sub clean () {
-    ($infilename, $outfilename) = @_;
-    open(INFILE, $infilename);
-    open(OUTFILE, ">>$outfilename");
-    while ($line = <INFILE>) {
-	$flag = 0;
+    use strict;
+    my ($infilename, $outfilename) = @_;
+    open my $infile, "<", $infilename;
+    open my $outfile, ">>", $outfilename;
+
+    while (my $line = <$infile>) {
+	my $flag = 0;
 	chomp($line);
-	@a = split(/\t/,$line);
-	$strand = $a[4];
-	$chr = $a[1];
-	@b2 = split(/, /,$a[2]);
+	my @a = split(/\t/,$line);
+	my $strand = $a[4];
+	my $chr = $a[1];
+	my @b2 = split(/, /,$a[2]);
 	$a[3] =~ s/://g;
-	$seq_temp = $a[3];
+	my $seq_temp = $a[3];
 	$seq_temp =~ s/\+//g;
 	if (length($seq_temp) < $match_length_cutoff) {
 	    next;
 	}
-	for ($i=0; $i<@b2; $i++) {
-	    @c2 = split(/-/,$b2[$i]);
+	for (my $i=0; $i<@b2; $i++) {
+	    my @c2 = split(/-/,$b2[$i]);
 	    if ($c2[1] < $c2[0]) {
 		$flag = 1;
 	    }
 	}
         if (defined $CHR2SEQ{$chr} && !(defined $samheader{$chr})) {
-	    $CS = $chrsize{$chr};
+	    my $CS = $chrsize{$chr};
 	    $samheader{$chr} = "\@SQ\tSN:$chr\tLN:$CS\n";
 	}
 	if (defined $CHR2SEQ{$chr} && $flag == 0) {
 	    if ($line =~ /[^\t]\+[^\t]/) { # insertions will break things, have to fix this, for now not just cleaning these lines
-		@LINE = split(/\t/,$line);
-		print OUTFILE "$LINE[0]\t$LINE[1]\t$LINE[2]\t$LINE[4]\t$LINE[3]\n";
+		my @LINE = split(/\t/,$line);
+		print $outfile "$LINE[0]\t$LINE[1]\t$LINE[2]\t$LINE[4]\t$LINE[3]\n";
 	    } else {
-		@b = split(/, /, $a[2]);
-		$SEQ = "";
-		for ($i=0; $i<@b; $i++) {
- 		    @c = split(/-/,$b[$i]);
-		    $len = $c[1] - $c[0] + 1;
-		    $start = $c[0] - 1;
+		my @b = split(/, /, $a[2]);
+		my $SEQ = "";
+		for (my $i=0; $i<@b; $i++) {
+ 		    my @c = split(/-/,$b[$i]);
+		    my $len = $c[1] - $c[0] + 1;
+		    my $start = $c[0] - 1;
 		    $SEQ = $SEQ . substr($CHR2SEQ{$chr}, $start, $len);
 		}
 		&trimleft($SEQ, $a[3], $a[2]) =~ /(.*)\t(.*)/;
-		$spans = $1;
-		$seq = $2;
-		$length1 = length($seq);
-		$length2 = length($SEQ);
-		for ($i=0; $i<$length2 - $length1; $i++) {
+		my $spans = $1;
+		my $seq = $2;
+		my $length1 = length($seq);
+		my $length2 = length($SEQ);
+		for (my $i=0; $i<$length2 - $length1; $i++) {
 		    $SEQ =~ s/^.//;
 		}
 		$seq =~ s/://g;
@@ -186,13 +193,12 @@ sub clean () {
 		$seq_temp =~ s/://g;
 		$seq_temp =~ s/\+//g;
 		if (length($seq_temp) >= $match_length_cutoff) {
-		    print OUTFILE "$a[0]\t$chr\t$spans\t$strand\t$seq\n";
+		    print $outfile "$a[0]\t$chr\t$spans\t$strand\t$seq\n";
 		}
 	    }
 	}
     }
-    close(INFILE);
-    close(OUTFILE);
+
 }
 
 sub removefirst {
@@ -352,3 +358,4 @@ sub addJunctionsToSeq () {
     return $seq_out;
 }
 
+1;
