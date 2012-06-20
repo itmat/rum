@@ -372,7 +372,7 @@ sub _run_step {
     $comment =~ s/\n//g;
     
     for my $cmd (@cmds) {
-        $log->debug("Running @$cmd");
+        $log->debug("Running @$cmd ");
             
         my $stdout;
         my $stdout_mode;

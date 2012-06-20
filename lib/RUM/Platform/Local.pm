@@ -80,6 +80,7 @@ sub preprocess {
     $self->_reformat_reads();
     $self->_determine_read_length();
     $self->config->save;
+    $self->{workflows} = undef;
 }
 
 
