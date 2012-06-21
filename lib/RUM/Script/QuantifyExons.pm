@@ -1,13 +1,15 @@
 package RUM::Script::QuantifyExons;
 
+use strict;
 no warnings;
+
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
 our $log = RUM::Logging->get_logger();
-use strict;
+
 
 
 sub main {
@@ -74,8 +76,8 @@ sub main {
 # read in the transcript models
 
     open(INFILE, $annotfile) or die "ERROR: in script rum2quantifications.pl: cannot open '$annotfile' for reading.\n\n";
-my %EXON;
-my %CHRS;
+    my %EXON;
+    my %CHRS;
     while (my $line = <INFILE>) {
         chomp($line);
         my @a = split(/\t/,$line);
@@ -194,11 +196,10 @@ my %CHRS;
                 if ($end < $EXON{$CHR}[$i]{start} || $i >= $ecnt{$CHR}) {
                     last;
                 }
-                undef @A;
-                $A[0] = $EXON{$CHR}[$i]{start};
-                $A[1] = $EXON{$CHR}[$i]{end};
-                my $b = &do_they_overlap(\@A, \@B);
-                if ($b == 1) {
+                my @A = ( $EXON{ $CHR }[ $i ]{ start },
+                          $EXON{ $CHR }[ $i ]{ end   } );
+
+                if (do_they_overlap(\@A, \@B)) {
                     $EXON{$CHR}[$i]{$type}++;
                 }
                 $i++;
@@ -239,8 +240,9 @@ sub do_they_overlap {
     my $i=0;
     my $j=0;
     
-    while (1==1) {
-        until (($B->[$j] < $A->[$i] && $i%2==0) || ($B->[$j] <= $A->[$i] && $i%2==1)) {
+    while (1) {
+        until (($B->[$j] <  $A->[$i] && $i%2==0) ||
+               ($B->[$j] <= $A->[$i] && $i%2==1)) {
             $i++;
             if ($i == @$A) {
                 if ($B->[$j] == $A->[@$A-1]) {
