@@ -20,24 +20,23 @@ sub new {
         $f = $x;
     }
 
-    else {
-        croak "Don't know how to iterate over $x";
-    }
+    return bless { next_val => $f }, $class if $f;
 
-    bless $f, $class;
+    return bless $x || {}, $class;
+
 }
 
 sub group_by {
     my ($self, $group_fn) = @_;
     
-    my $val = $self->();
+    my $val = $self->next_val;
     
     my $it = sub {
         return unless $val;
         
         my @group = ($val);
         
-        while ($val = $self->()) {
+        while ($val = $self->next_val) {
             last unless $group_fn->($group[0], $val);
             push @group, $val;
         }
@@ -49,12 +48,12 @@ sub group_by {
 
 sub next_val {
     my ($self) = @_;
-    $self->();
+    $self->{next_val}->();
 }
 
 sub take {
     my ($self) = @_;
-    $self->();
+    $self->next_val;
 }
 
 sub peekable {
@@ -65,7 +64,7 @@ sub peekable {
 sub to_array {
     my ($self) = @_;
     my @result;
-    while (defined(my $item = $self->())) {
+    while (defined(my $item = $self->next_val)) {
         push @result, $item;
     }
     return \@result;
@@ -75,10 +74,10 @@ sub imap {
     my $self = shift;
     my $f    = shift;
     my $next_item = sub {
-        my $item = $self->();
+        my $item = $self->next_val;
         return defined($item) ? $f->($item) : undef;
     };
-    return blessed($self)->new($next_item);
+    return RUM::Iterator->new($next_item);
 }
 
 sub ireduce {
@@ -115,10 +114,10 @@ sub igrep {
     my $f    = shift;
     my $next_item = sub {
         my $item;
-        do { $item = $self->() } until ((!defined($item)) || $f->($item));
+        do { $item = $self->next_val } until ((!defined($item)) || $f->($item));
         return $item;
     };
-    return blessed($self)->new($next_item);
+    return RUM::Iterator->new($next_item);
 }
 
 sub append {
@@ -132,11 +131,11 @@ sub append {
     if (@others == 1) {
         my $other = shift @others;
         my $f = sub {
-            my $next = $self->();
+            my $next = $self->next_val;
             return $next if defined $next; 
-            return $other->();
+            return $other->next_val;
         };
-        return blessed($self)->new($f);
+        return RUM::Iterator->new($f);
     }
 
     else {
@@ -152,40 +151,54 @@ package RUM::Iterator::Buffered;
 use strict;
 use warnings;
 
+use Carp;
 use Scalar::Util qw(blessed);
 
 use base 'RUM::Iterator';
 
 sub new {
-    my ($class, $f) = @_;
+    my ($class, $source) = @_;
+    croak "Source must be a RUM::Iterator, not $source" unless blessed($source) && $source->isa("RUM::Iterator");
+    my $self = $class->SUPER::new;
 
-    my @buffer;
+    $self->{buffer} = [];
+    $self->{source} = $source;
+    
+    return $self;
+}
 
-    my $self = sub {
-        my $skip = shift;
-        if (defined($skip)) {
-            while ($#buffer < $skip) {
-                # TODO: If I don't wrap $f->() in scalar(), I get into
-                # an infinite loop. Why?
-                push @buffer, scalar($f->()); 
-            }
-            return $buffer[$skip];
-        }
-        elsif (@buffer) {
-            return shift @buffer;
+sub source {
+    return shift->{source};
+}
+
+sub buffer { shift->{buffer} };
+
+sub next_val {
+    my ($self) = @_;
+    $self->fill(1);
+    return shift @{ $self->buffer };
+}
+
+sub fill {
+    my ($self, $n) = @_;
+
+    my $buffer = $self->buffer;
+
+    while (@{ $buffer } - 1 < $n) {
+        if (defined(my $val = $self->source->next_val)) {
+            push @$buffer, $val;
         }
         else {
-            $f->();
+            return;
         }
-    };
-   
-    bless $self, $class;
+    }
 }
 
 sub peek {
     my $self = shift;
-    my $steps = shift || 0;
-    $self->($steps);
+    my $skip = shift || 0;
+    $self->fill($skip);
+    return $self->buffer->[$skip];
 }
 
 sub merge {
@@ -206,7 +219,7 @@ sub merge {
                 $handle_dup->($self, $other));
 
     };
-    return blessed($self)->new($f);
+    return RUM::Iterator->new($f);
 }
 
 1;

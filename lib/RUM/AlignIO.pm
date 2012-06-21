@@ -11,16 +11,16 @@ use RUM::Alignment;
 use base 'RUM::BaseIO';
 
 sub next_rec {
+    return shift->next_aln;
+}
+
+sub next_aln {
     my ($self) = @_;
     my $fh = $self->filehandle;
     local $_ = <$fh>;
     defined or return;
     chomp;
     return $self->parse_aln($_);            
-}
-
-sub next_aln {
-    $_[0]->();
 }
 
 sub write_aln {

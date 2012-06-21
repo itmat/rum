@@ -73,7 +73,7 @@ sub main {
     my $num_unjoined_consistent;
     my $numjoined;
 
-    while (defined(my $aln = $unique_it->())) {
+    while (defined(my $aln = $unique_it->next_val)) {
         my $line = $aln->raw;
 
         $seqnum = $aln->order;
@@ -207,7 +207,7 @@ sub main {
     #print "------\n";
     my (%ambiga, %ambigb, %allids);
     my $seqnum;
-    while (defined(my $aln = $nu_it->())) {
+    while (defined(my $aln = $nu_it->next_val)) {
         $seqnum = $aln->order;
         $current_seqnum = $seqnum;
         if ($current_seqnum > $previous_seqnum) {

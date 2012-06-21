@@ -64,8 +64,8 @@ sub main {
     
     # Merge the gnu and tnu iterators together, and then merge that
     # result with the cnu iterator.
-    my $append = sub { $_[0]->next_val->append($_[1]->next_val) };
-    my $merged = $gnu->merge($cmp, $tnu, $append)->merge($cmp, $cnu, $append);
+    my $append = sub { $_[0]->next_val->append($_[1]->next_val)->peekable };
+    my $merged = $gnu->merge($cmp, $tnu, $append)->peekable->merge($cmp, $cnu, $append)->peekable;
 
     while (my $group = $merged->next_val) {
         my %seen;

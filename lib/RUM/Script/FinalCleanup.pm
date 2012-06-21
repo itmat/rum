@@ -9,6 +9,7 @@ use File::Temp qw(tempfile);
 use RUM::Usage;
 use RUM::Logging;
 use RUM::Common qw(roman Roman isroman arabic);
+use RUM::RUMIO;
 use RUM::Sort qw(cmpChrs);
 
 our $log = RUM::Logging->get_logger();
@@ -133,15 +134,18 @@ sub main {
 
 sub clean {
     my ($infilename, $outfilename) = @_;
+    my $iter = RUM::RUMIO->new(-file => $infilename,
+                               strand_last => 1);
     open my $infile, "<", $infilename;
     open my $outfile, ">>", $outfilename;
     
-    while (my $line = <$infile>) {
+    while (my $aln = $iter->next_val) {
+        my $line = $aln->raw;
 	my $flag = 0;
-	chomp($line);
 	my @a = split(/\t/,$line);
-	my $chr = $a[1];
+	my $chr = $aln->chromosome;
 	my @spans = split(/, /,$a[2]);
+        print "Seq is $a[3] or " . $aln->seq;
         my $seq_in = $a[3];
 	$seq_in =~ s/://g;
 	my $strand = $a[4];

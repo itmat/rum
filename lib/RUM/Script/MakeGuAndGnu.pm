@@ -274,7 +274,7 @@ sub run {
     my $bowtie_in = RUM::BowtieIO->new(-file => $in);
     my $it = $bowtie_in->group_by(\&same_or_mate);
 
-    while (my $group = $it->()) {
+    while (my $group = $it->next_val) {
         my $mappers = $self->handle_group($group->to_array);
         my $fh = @$mappers == 1 ? $gu : $gnu;
         for my $aln (@$mappers) {

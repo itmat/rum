@@ -14,12 +14,12 @@ use Carp;
 
 our $log = RUM::Logging->get_logger;
 
+
 sub parse_aln {
     my $self = shift;
     local $_ = shift;
 
     my ($readid, $chr, $locs, $strand, $seq) = split /\t/;
-    
     $locs or confess "Got empty location: $_";
 
     my @locs = map { [split /-/] } split /,\s*/, $locs;

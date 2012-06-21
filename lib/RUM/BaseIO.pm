@@ -26,29 +26,20 @@ sub new {
 
     open $fh, "<", $file unless $fh;
 
-    my $self;
+    my $self = $class->SUPER::new;
 
-    $self = sub {
-        my (@args) = @_;
-
-        if (@args && $args[0] eq "filehandle") {
-            return $fh;
-        }
-        elsif (@args && $args[0] eq "filename") {
-            return $file;
-        }
-        else {
-            $self->next_rec;
-        }
-    };
-
-    return $class->SUPER::new($self);
+    $self->{filehandle} = $fh;
+    $self->{filename}   = $file;
+    return $self;
 }
 
+sub next_val {
+    shift->next_rec;
+}
 
-sub filehandle { $_[0]->("filehandle") }
+sub filehandle { $_[0]->{"filehandle"} }
 
-sub filename { $_[0]->("filename") }
+sub filename { $_[0]->{"filename"} }
 
 sub aln_iterator { $_[0] }
 
