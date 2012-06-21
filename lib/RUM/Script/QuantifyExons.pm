@@ -175,7 +175,6 @@ my %CHRS;
                     $end = $1;
                     $SPANS = $b[2] . ", " . $a[2];
                 }
-                #	    my $SPANS = &union($a[2], $b[2]);
                 @B = split(/[^\d]+/,$SPANS);
             } else {
                 $a[2] =~ /-(\d+)$/;
@@ -233,45 +232,7 @@ if ($countsonly) {
 
 }
 
-
-sub union () {
-    my ($spans1_u, $spans2_u) = @_;
-    
-    my %chash;
-    my @a = split(/, /,$spans1_u);
-    for (my $i=0;$i<@a;$i++) {
-        my @b = split(/-/,$a[$i]);
-        for (my $j=$b[0];$j<=$b[1];$j++) {
-            $chash{$j}++;
-        }
-    }
-    @a = split(/, /,$spans2_u);
-    for (my $i=0;$i<@a;$i++) {
-        my @b = split(/-/,$a[$i]);
-        for (my $j=$b[0];$j<=$b[1];$j++) {
-            $chash{$j}++;
-        }
-    }
-    my $first = 1;
-    my $spans_union;
-    my $pos_prev;
-    foreach my $pos (sort {$a<=>$b} keys %chash) {
-        if ($first == 1) {
-            $spans_union = $pos;
-            $first = 0;
-        } else {
-            if ($pos > $pos_prev + 1) {
-                $spans_union = $spans_union . "-$pos_prev, $pos";
-            }
-        }
-        $pos_prev = $pos;
-    }
-    $spans_union = $spans_union . "-$pos_prev";
-    return $spans_union;
-}
-
-
-sub do_they_overlap() {
+sub do_they_overlap {
 
     my ($A, $B) = @_;
 
