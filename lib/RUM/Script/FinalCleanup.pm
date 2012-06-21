@@ -21,6 +21,7 @@ our $match_length_cutoff;
 our %CHR2SEQ;
 our %samheader;
 our %chrsize;
+our $MAX_CHR_SIZE = 1_000_000_000;
 
 sub main {
 
@@ -115,7 +116,7 @@ sub main {
                 $chrsize{$chr} = length($ref_seq);
                 $CHR2SEQ{$chr} = $ref_seq;
                 $totalsize = $totalsize + length($ref_seq);
-                if ($totalsize > 1000000000) { # don't store more than 1 gb of sequence in memory at once...
+                if ($totalsize > $MAX_CHR_SIZE) { # don't store more than 1 gb of sequence in memory at once...
                     $sizeflag = 1;
                 }
             }
