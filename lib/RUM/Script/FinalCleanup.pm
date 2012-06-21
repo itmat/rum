@@ -1,5 +1,7 @@
 package RUM::Script::FinalCleanup;
 
+
+
 use strict;
 no warnings;
 
@@ -309,7 +311,7 @@ sub trimright {
     }
 }
 
-sub addJunctionsToSeq () {
+sub addJunctionsToSeq {
     my ($seq_in, $spans_in) = @_;
     my @spans = @{ $spans_in };
     my $seq_out = "";
@@ -329,3 +331,49 @@ sub addJunctionsToSeq () {
 }
 
 1;
+
+
+__END__
+
+=head1 NAME
+
+RUM::FinalCleanup - Clean up mappings
+
+=head1 SUBROUTINES
+
+=over 4
+
+=item clean($in, $out)
+
+Clean all the reads read from the file called $in and append them to
+the file called $out.
+
+=item trimleft($genome, $read, $spans)
+
+=item trimright($genome, $read, $spans)
+
+Trim any mismatching characters off the left or right end of the
+alignment. Return a list consisting of the resulting spans (as a
+string) and modified read sequence.
+
+=cut
+
+=item removefirst($n, $spans, $seq)
+
+=item removelast($n, $spans, $seq)
+
+Remove the first or last $n bases from the given $seq, adjusting
+$spans accordingly. Note that this might cause a span to get deleted
+if it is shorter than $n.
+
+=item addJunctionsToSeq($seq, $spans)
+
+Insert ':' into $seq at the points between adjacent spans.
+
+=cut
+
+=item main
+
+The main program.
+
+=back
