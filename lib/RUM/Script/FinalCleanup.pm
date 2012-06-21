@@ -136,29 +136,29 @@ sub clean {
     my ($infilename, $outfilename) = @_;
     my $iter = RUM::RUMIO->new(-file => $infilename,
                                strand_last => 1);
-    open my $infile, "<", $infilename;
+
     open my $outfile, ">>", $outfilename;
     
+    my $out = RUM::RUMIO->new(-fh => $outfile);
+
     while (my $aln = $iter->next_val) {
         my $line = $aln->raw;
 	my $flag = 0;
-	my @a = split(/\t/,$line);
 	my $chr = $aln->chromosome;
-	my @spans = split(/, /,$a[2]);
-        print "Seq is $a[3] or " . $aln->seq;
-        my $seq_in = $a[3];
+        my $seq_in = $aln->seq;
 	$seq_in =~ s/://g;
-	my $strand = $a[4];
+
 	my $seq_temp = $seq_in;
 	$seq_temp =~ s/\+//g;
 
 	if (length($seq_temp) < $match_length_cutoff) {
 	    next;
 	}
+        my $span_str = RUM::RUMIO->format_locs($aln);
 
         local $_;
-	for (@spans) {
-	    my ($start, $end) = split /-/;
+	for my $span (@{ $aln->locs }) {
+	    my ($start, $end) = @{ $span };
 	    if ($end < $start) {
 		$flag = 1;
 	    }
@@ -171,23 +171,16 @@ sub clean {
             # insertions will break things, have to fix this, for now
             # not just cleaning these lines
 	    if ($seq_in =~ /\+/) {
-		my @LINE = split(/\t/,$line);
-		print $outfile join("\t", @LINE[0,1,2,4,3]), "\n";
+		$out->write_aln($aln);
 	    } else {
 		my $SEQ = "";
-		for (@spans) {
- 		    my ($start, $end) = split /-/;
+		for my $span (@{ $aln->locs }) {
+ 		    my ($start, $end) = @{ $span };
 		    my $len = $end - $start + 1;
                     $start--;
 		    $SEQ .= substr($CHR2SEQ{$chr}, $start, $len);
 		}
-                my ($spans, $seq) = trimleft($SEQ, $a[3], $a[2]);
-
-                unless ($seq eq $SEQ) {
-                    print "Trimmed $SEQ\n";
-                    print "and     $a[3]\n";
-                    print "to      $seq\n";
-                }
+                my ($spans, $seq) = trimleft($SEQ, $aln->seq, $span_str);
 
                 $SEQ = substr $SEQ, length($SEQ) - length($seq);
 		$seq =~ s/://g;
@@ -199,7 +192,13 @@ sub clean {
 		$seq_temp = $seq;
 		$seq_temp =~ s/[:+]//g;
 		if (length($seq_temp) >= $match_length_cutoff) {
-		    print $outfile "$a[0]\t$chr\t$spans\t$strand\t$seq\n";
+
+                    my $new_aln = $aln->copy(
+                        locs => [ map { [ split /-/ ] } split(/, /, $spans) ],
+                        seq => $seq
+                    );
+
+                    $out->write_aln($new_aln);
 		}
 	    }
 	}

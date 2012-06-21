@@ -14,6 +14,12 @@ use Carp;
 
 our $log = RUM::Logging->get_logger;
 
+sub new {
+    my ($class, %options) = @_;
+    my $self = $class->SUPER::new(%options);
+    $self->{strand_last} = $options{strand_last};
+    return $self;
+}
 
 sub parse_aln {
     my $self = shift;
@@ -21,6 +27,8 @@ sub parse_aln {
 
     my ($readid, $chr, $locs, $strand, $seq) = split /\t/;
     $locs or confess "Got empty location: $_";
+
+    ($strand, $seq) = ($seq, $strand) if $self->{strand_last};
 
     my @locs = map { [split /-/] } split /,\s*/, $locs;
 
