@@ -2,12 +2,14 @@ package RUM::Script::QuantifyExons;
 
 use strict;
 no warnings;
+use autodie;
 
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
+use RUM::RUMIO;
 our $log = RUM::Logging->get_logger();
 
 
@@ -25,9 +27,6 @@ sub main {
     my %NUREADS;
     my $UREADS=0;
     
-    my $strand = "";
-    my $strandspecific;
-
     GetOptions(
         "exons-in=s"  => \(my $annotfile),    
         "unique-in=s" => \(my $U_readsfile),
@@ -51,20 +50,14 @@ sub main {
     $outfile1 or RUM::Usage->bad(
         "Please specify an output file with -o or --output");
 
-    if ($userstrand) {
-        $strand = $userstrand;
-        $strandspecific = 1;
-        $strand eq 'p' || $strand eq 'm' or RUM::Usage->bad(
-            "--strand must be p or m, not $strand");
-    }
-
+    !$userstrand or $userstrand eq 'p' or $userstrand eq 'm' or RUM::Usage->bad(
+        "--strand must be p or m, not $userstrand");
 
     # read in the info file, if given
 
     my %INFO;
     if ($infofile) {
-        open(INFILE, $infofile) 
-            or die "Can't open $infofile for reading: $!";
+        open INFILE, "<", $infofile;
         while (my $line = <INFILE>) {
             chomp($line);
             my @a = split(/\t/,$line);
@@ -73,9 +66,9 @@ sub main {
         close(INFILE);
     }
 
-# read in the transcript models
-
-    open(INFILE, $annotfile) or die "ERROR: in script rum2quantifications.pl: cannot open '$annotfile' for reading.\n\n";
+    # read in the transcript models
+    
+    open INFILE, "<", $annotfile;
     my %EXON;
     my %CHRS;
     while (my $line = <INFILE>) {
@@ -84,11 +77,11 @@ sub main {
         if ($novel && $a[1] eq "annotated") {
             next;
         } 
-        if ($strandspecific) {
-            if ($strand =~ /^p/ && $a[1] eq '-') { # fix this when fix strand specific, strand is no longer a[1]
+        if ($userstrand) {
+            if ($userstrand =~ /^p/ && $a[1] eq '-') { # fix this when fix strand specific, strand is no longer a[1]
                 next;
             }
-            if ($strand =~ /^m/ && $a[1] eq '+') {
+            if ($userstrand =~ /^m/ && $a[1] eq '+') {
                 next;
             }
         }
@@ -107,99 +100,80 @@ sub main {
 
     my $readfile = sub {
         my ($filename, $type) = @_;
+
         open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
+
+        my $iter = RUM::RUMIO->new(-fh => \*INFILE)->peekable;
+
         my %HASH;
         my $counter=0;
         my $line;
-        my %indexstart_t;
         my %indexstart_e;
-        my %indexstart_i;
+
         foreach my $chr (keys %EXON) {
             $indexstart_e{$chr} = 0;
         }
-        while ($line = <INFILE>) {
+        while (my $aln = $iter->next_val) {
             $counter++;
             if ($counter % 100000 == 0 && !$countsonly) {
                 print "$type: counter=$counter\n";
             }
-            chomp($line);
-            if ($line eq '') {
-                last;
-            }
-            my @a = split(/\t/,$line);
-            my $STRAND = $a[3];
-            $a[0] =~ /(\d+)/;
-            my $seqnum1 = $1;
+
             if ($type eq "NUcount") {
-                $NUREADS{$seqnum1}=1;
+                $NUREADS{ $aln->order } = 1;
             } else {
                 $UREADS++;
             }
-            if ($strandspecific) {
-                if ($strand eq 'p' && $STRAND eq '-' && !$anti) {
-                    next;
-                }
-                if ($strand eq 'm' && $STRAND eq '+' && !$anti) {
-                    next;
-                }
-                if ($strand eq 'p' && $STRAND eq '+' && $anti) {
-                    next;
-                }
-                if ($strand eq 'm' && $STRAND eq '-' && $anti) {
-                    next;
-                }
+
+            # Skip if we're doing strand-specific and this strand
+            # doesn't match the combination of --strand and --anti
+            # given by the user.
+            if ($userstrand) {
+                my $aln_strand = $aln->strand;
+                next if $userstrand eq 'p' && $aln_strand eq '-' && !$anti;
+                next if $userstrand eq 'm' && $aln_strand eq '+' && !$anti;
+                next if $userstrand eq 'p' && $aln_strand eq '+' &&  $anti;
+                next if $userstrand eq 'm' && $aln_strand eq '-' &&  $anti;
             }
-            my $CHR = $a[1];
+
+            my $CHR = $aln->chromosome;
             $HASH{$CHR}++;
-            #	if($HASH{$CHR} == 1) {
-            #	    print "CHR: $CHR\n";
-            #	}
-            $a[2] =~ /^(\d+)-/;
-            my $start = $1;
-            my $end;
-            my $line2 = <INFILE>;
-            chomp($line2);
-            my @b = split(/\t/,$line2);
-            $b[0] =~ /(\d+)/;
-            my $seqnum2 = $1;
-            my $spans_union;
-	
-            if ($seqnum1 == $seqnum2 && $b[0] =~ /b/ && $a[0] =~ /a/) {
-                my $SPANS;
-                if ($a[3] eq "+") {
-                    $b[2] =~ /-(\d+)$/;
-                    $end = $1;
-                    $SPANS = $a[2] . ", " . $b[2];
+
+            my ($start, $end, @spans);
+
+            if ($aln->is_mate($iter->peek)) {
+
+                my $next_aln = $iter->next_val;
+
+                if ($aln->strand eq "+") {
+                    ($start, $end) = ($aln->start, $next_aln->end);
+                    @spans = (@{ $aln->locs }, 
+                              @{ $next_aln->locs });
                 } else {
-                    $b[2] =~ /^(\d+)-/;
-                    $start = $1;
-                    $a[2] =~ /-(\d+)$/;
-                    $end = $1;
-                    $SPANS = $b[2] . ", " . $a[2];
+                    ($start, $end) = ($next_aln->start, $aln->end);
+                    @spans = (@{ $next_aln->locs }, 
+                              @{ $aln->locs });
                 }
-                @B = split(/[^\d]+/,$SPANS);
             } else {
-                $a[2] =~ /-(\d+)$/;
-                $end = $1;
-                # reset the file handle so the last line read will be read again
-                my $len = -1 * (1 + length($line2));
-                seek(INFILE, $len, 1);
-                @B = split(/[^\d]+/,$a[2]);
+                ($start, $end) = ($aln->start, $aln->end);
+                @spans = @{ $aln->locs };
             }
-            while ($EXON{$CHR}[$indexstart_e{$CHR}]{end} < $start && $indexstart_e{$CHR} <= $ecnt{$CHR}) {
+
+            my @flattened_spans = map { @$_ } @spans;
+            
+            while ($EXON{$CHR}[$indexstart_e{$CHR}]{end} < $start 
+                   && $indexstart_e{$CHR} <= $ecnt{$CHR}) {
                 $indexstart_e{$CHR}++;	
             }
+
             my $i = $indexstart_e{$CHR};
-            my $flag = 0;
-            while ($flag == 0) {
-                $ecnt{$CHR} = $ecnt{$CHR}+0;
-                if ($end < $EXON{$CHR}[$i]{start} || $i >= $ecnt{$CHR}) {
-                    last;
-                }
+            until ($end < $EXON{$CHR}[$i]{start} 
+                   || $i >= ($ecnt{$CHR} || 0)) {
+                
                 my @A = ( $EXON{ $CHR }[ $i ]{ start },
                           $EXON{ $CHR }[ $i ]{ end   } );
 
-                if (do_they_overlap(\@A, \@B)) {
+                if (do_they_overlap(\@A, \@flattened_spans)) {
                     $EXON{$CHR}[$i]{$type}++;
                 }
                 $i++;
@@ -215,7 +189,7 @@ sub main {
     open(OUTFILE1, ">$outfile1") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile1' for writing.\n\n";
     my $num_reads = $UREADS;
     $num_reads = $num_reads + (scalar keys %NUREADS);
-if ($countsonly) {
+    if ($countsonly) {
         print OUTFILE1 "num_reads = $num_reads\n";
     }
     foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
@@ -270,8 +244,6 @@ sub do_they_overlap {
 # 
 # 
 # chr1    -       3195981 3206425 2       3195981,3203689,        3197398,3206425,        OTTMUST00000086625(vega)
-
-
 
 
 1;

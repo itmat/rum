@@ -57,6 +57,7 @@ sub is_same_read {
 sub is_mate {
 
     my ($self, $other) = @_;
+    return unless $other;
     local $_ = $self->readid;
     /(seq\.\d+)(a|b)/ or return 0;
     my ($num, $dir) = ($1, $2);
