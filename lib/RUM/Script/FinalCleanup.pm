@@ -1,5 +1,6 @@
 package RUM::Script::FinalCleanup;
 
+use strict;
 no warnings;
 
 use Getopt::Long;
@@ -58,8 +59,8 @@ sub main {
                                  DIR => $dir);
 
         open(INFILE, $genome);
-        $flag = 0;
-        while ($line = <INFILE>) {
+        my $flag = 0;
+        while (my $line = <INFILE>) {
             if ($line =~ />/) {
                 if ($flag == 0) {
                     print $fh $line;
@@ -88,25 +89,25 @@ sub main {
     open(OUTFILE, ">$non_unique_out");
     close(OUTFILE);
 
-    $FLAG = 0;
+    my $FLAG = 0;
 
     $log->info("Cleaning mappers");
     while ($FLAG == 0) {
         undef %CHR2SEQ;
-        $sizeflag = 0;
-        $totalsize = 0;
+        my $sizeflag = 0;
+        my $totalsize = 0;
         while ($sizeflag == 0) {
-            $line = <GENOMESEQ>;
+            my $line = <GENOMESEQ>;
             if ($line eq '') {
                 $FLAG = 1;
                 $sizeflag = 1;
             } else {
                 chomp($line);
                 $line =~ />(.*)/;
-                $chr = $1;
+                my $chr = $1;
                 $log->debug("Working on chromosome $chr");
                 $chr =~ s/:[^:]*$//;
-                $ref_seq = <GENOMESEQ>;
+                my $ref_seq = <GENOMESEQ>;
                 chomp($ref_seq);
                 $chrsize{$chr} = length($ref_seq);
                 $CHR2SEQ{$chr} = $ref_seq;
@@ -123,16 +124,14 @@ sub main {
 
     $log->info("Writing sam header");
     open(SAMHEADER, ">$sam_header_out");
-    foreach $chr (sort {cmpChrs($a,$b)} keys %samheader) {
-        $outstr = $samheader{$chr};
-        print SAMHEADER $outstr;
+    for my $chr (sort {cmpChrs($a,$b)} keys %samheader) {
+        print SAMHEADER $samheader{$chr};
     }
     close(SAMHEADER);
 
 }
 
 sub clean {
-    use strict;
     my ($infilename, $outfilename) = @_;
     open my $infile, "<", $infilename;
     open my $outfile, ">>", $outfilename;
@@ -205,7 +204,6 @@ sub clean {
 }
 
 sub removefirst {
-    use strict;
     my ($n_1, $spans_1, $seq_1) = @_;
     $seq_1 =~ s/://g;
     my @spans = split(/, /, $spans_1);
@@ -232,7 +230,6 @@ sub removefirst {
 }
 
 sub removelast {
-    use strict;
     my ($n, $spans, $seq) = @_;
     $seq =~ s/://g;
     my @spans = split /, /, $spans;
@@ -256,7 +253,6 @@ sub removelast {
 }
 
 sub trimleft {
-    use strict;
     my ($genome, $read, $spans) = @_;
     # seq2_2 is the one that gets modified and returned
 
@@ -282,7 +278,6 @@ sub trimleft {
 }
 
 sub trimright {
-    use strict;
     my ($genome, $read, $spans) = @_;
     # seq2_2 is the one that gets modified and returned
 
@@ -309,7 +304,6 @@ sub trimright {
 }
 
 sub addJunctionsToSeq () {
-    use strict;
     my ($seq_in, $spans_in) = @_;
     my @spans = split(/, /,$spans_in);
     my $seq_out = "";
