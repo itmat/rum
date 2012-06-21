@@ -143,7 +143,6 @@ sub clean {
 
     while (my $aln = $iter->next_val) {
         my $line = $aln->raw;
-	my $flag = 0;
 	my $chr = $aln->chromosome;
         my $seq_in = $aln->seq;
 	$seq_in =~ s/://g;
@@ -157,34 +156,39 @@ sub clean {
         my $span_str = RUM::RUMIO->format_locs($aln);
 
         local $_;
+
+        my $has_bad_span;
+
 	for my $span (@{ $aln->locs }) {
 	    my ($start, $end) = @{ $span };
 	    if ($end < $start) {
-		$flag = 1;
+		$has_bad_span = 1;
 	    }
 	}
-        if (defined $CHR2SEQ{$chr} && !(defined $samheader{$chr})) {
+        if (defined($CHR2SEQ{$chr}) && !defined($samheader{$chr})) {
 	    my $CS = $chrsize{$chr};
 	    $samheader{$chr} = "\@SQ\tSN:$chr\tLN:$CS\n";
 	}
-	if (defined $CHR2SEQ{$chr} && $flag == 0) {
+	if (defined $CHR2SEQ{$chr} && !$has_bad_span) {
             # insertions will break things, have to fix this, for now
             # not just cleaning these lines
 	    if ($seq_in =~ /\+/) {
 		$out->write_aln($aln);
-	    } else {
-		my $SEQ = "";
+	    } 
+            else {
+		my $genome = "";
 		for my $span (@{ $aln->locs }) {
  		    my ($start, $end) = @{ $span };
 		    my $len = $end - $start + 1;
                     $start--;
-		    $SEQ .= substr($CHR2SEQ{$chr}, $start, $len);
+		    $genome .= substr($CHR2SEQ{$chr}, $start, $len);
 		}
-                my ($spans, $seq) = trimleft($SEQ, $aln->seq, $span_str);
+                my ($spans, $seq) = trimleft($genome, $aln->seq, $span_str);
 
-                $SEQ = substr $SEQ, length($SEQ) - length($seq);
+                $genome = substr $genome, length($genome) - length($genome);
 		$seq =~ s/://g;
-		my ($spans, $seq) = trimright($SEQ, $seq, $spans);
+		my ($spans, $seq) = trimright($genome, $seq, $spans);
+                $spans = [ map { [ split /-/ ] } split(/, /, $spans) ];
 		$seq = addJunctionsToSeq($seq, $spans);
 
 		# should fix the following so it doesn't repeat the operation unnecessarily
@@ -194,7 +198,7 @@ sub clean {
 		if (length($seq_temp) >= $match_length_cutoff) {
 
                     my $new_aln = $aln->copy(
-                        locs => [ map { [ split /-/ ] } split(/, /, $spans) ],
+                        locs => $spans,
                         seq => $seq
                     );
 
@@ -241,11 +245,10 @@ sub removelast {
     my $length_1 = $end - $start + 1;
 
     if ($length_1 <= $n) {
-	my $m_1 = $n - $length_1;
-	my $spans2_1 = $spans;
-	$spans2_1 =~ s/, \d+-\d+$//;
+	$n -= $length_1;
+	$spans =~ s/, \d+-\d+$//;
         $seq = substr $seq, 0, length($seq) - $length_1;
-	return removelast($m_1, $spans2_1, $seq);
+	return removelast($n, $spans, $seq);
     } else {
         $seq = substr $seq, 0, length($seq) - $n;
 	$spans =~ /-(\d+)$/;
@@ -308,13 +311,13 @@ sub trimright {
 
 sub addJunctionsToSeq () {
     my ($seq_in, $spans_in) = @_;
-    my @spans = split(/, /,$spans_in);
+    my @spans = @{ $spans_in };
     my $seq_out = "";
     my $place = 0;
 
     for my $span (@spans) {
 
-        my ($start, $end) = split /-/, $span;
+        my ($start, $end) = @$span;
 	my $len = $end - $start + 1;
 	if ($seq_out) {
             $seq_out .= ":";
