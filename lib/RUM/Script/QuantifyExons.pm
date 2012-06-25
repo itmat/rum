@@ -17,18 +17,18 @@ sub main {
     my %ecnt;
     
     GetOptions(
-        "exons-in=s"  => \(my $annotfile),    
-        "unique-in=s" => \(my $U_readsfile),
+        "exons-in=s"      => \(my $annotfile),    
+        "unique-in=s"     => \(my $U_readsfile),
         "non-unique-in=s" => \(my $NU_readsfile),
-        "output|o=s" => \(my $outfile1),
-        "info=s"   => \(my $infofile),
-        "strand=s" => \(my $userstrand),
-        "anti"     => \(my $anti),
-        "countsonly" => \(my $countsonly),
-        "novel"      => \(my $novel),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+        "output|o=s"      => \(my $outfile1),
+        "info=s"          => \(my $infofile),
+        "strand=s"        => \(my $userstrand = ""),
+        "anti"            => \(my $anti),
+        "countsonly"      => \(my $countsonly),
+        "novel"           => \(my $novel),
+        "help|h"          => sub { RUM::Usage->help },
+        "verbose|v"       => sub { $log->more_logging(1) },
+        "quiet|q"         => sub { $log->less_logging(1) });
     
     $annotfile or RUM::Usage->bad(
         "Please specify an exons file with --exons-in");
@@ -42,8 +42,9 @@ sub main {
     !$userstrand or $userstrand eq 'p' or $userstrand eq 'm' or RUM::Usage->bad(
         "--strand must be p or m, not $userstrand");
 
-    # read in the info file, if given
-
+    # read in the info file, if given TODO: We don't seem to do
+    # anything with this data, we just read it in and put it in the
+    # %INFO hash, but don't ever use it.
     my %INFO;
     if ($infofile) {
         open INFILE, "<", $infofile;
@@ -59,52 +60,41 @@ sub main {
     
     open INFILE, "<", $annotfile;
     my %EXON;
-    my %CHRS;
+
     while (my $line = <INFILE>) {
         chomp($line);
-        my @a = split(/\t/,$line);
-        if ($novel && $a[1] eq "annotated") {
-            next;
-        } 
-        if ($userstrand) {
-            if ($userstrand =~ /^p/ && $a[1] eq '-') { # fix this when fix strand specific, strand is no longer a[1]
-                next;
-            }
-            if ($userstrand =~ /^m/ && $a[1] eq '+') {
-                next;
-            }
-        }
-        $a[0] =~ /^(.*):(\d+)-(\d+)$/;
-        my $chr = $1;
-        my $start = $2;
-        my $end = $3;
-        if ($CHRS{$chr}+0==0) {
-            $ecnt{$chr} = 0;
-            $CHRS{$chr}=1;
-        }
-        $EXON{$chr}[$ecnt{$chr}]{start} = $start;
-        $EXON{$chr}[$ecnt{$chr}]{end} = $end;
-        $ecnt{$chr}++;
+        my @fields = split(/\t/,$line);
+        next if $novel && $fields[1] eq "annotated";
+        # fix this when fix strand specific, strand is no longer fields[1]
+        next if $userstrand =~ /^p/ && $fields[1] eq '-';
+        next if $userstrand =~ /^m/ && $fields[1] eq '+';
+
+        my ($chr, $start, $end) = $fields[0] =~ /^(.*):(\d+)-(\d+)$/g;
+
+        push @{ $EXON{$chr} } , { start => $start, end => $end };
     }
+
+    my %ecnt = map { ($_ => scalar(@{ $EXON{$_} })) } keys %EXON;
 
     my %nureads;
     my $ureads;
-    readfile($U_readsfile, "Ucount", sub { $ureads++ }, \%EXON, $userstrand, $anti, \%ecnt, $countsonly);
-    readfile($NU_readsfile, "NUcount", sub { $nureads{$_[0]->order} = 1 }, \%EXON, $userstrand, $anti, \%ecnt, $countsonly);
 
-    my %EXONhash;
+    readfile($U_readsfile, "Ucount", sub { $ureads++ }, \%EXON, $userstrand, $anti, $countsonly);
+    readfile($NU_readsfile, "NUcount", sub { $nureads{$_[0]->order} = 1 }, \%EXON, $userstrand, $anti, $countsonly);
+
     open OUTFILE1, ">", $outfile1;
     if ($countsonly) {
         printf OUTFILE1 "num_reads = %d\n", $ureads + keys(%nureads);
     }
-    foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
-        for (my $i=0; $i<$ecnt{$chr}; $i++) {
-            my $x1   = $EXON{$chr}[$i]{Ucount} || 0;
-            my $x2   = $EXON{$chr}[$i]{NUcount} || 0;
-            my $s    = $EXON{$chr}[$i]{start};
-            my $e    = $EXON{$chr}[$i]{end};
+    for my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
+        my $num_exons = $ecnt{$chr};
+        my $exons = $EXON{$chr};
+        for my $exon (@$exons[0..$num_exons-1]) {
+            my $x1   = $exon->{Ucount}  || 0;
+            my $x2   = $exon->{NUcount} || 0;
+            my $s    = $exon->{start};
+            my $e    = $exon->{end};
             my $elen = $e - $s + 1;
-            #	print OUTFILE1 "transcript\t$chr:$s-$e\t$x1\t$x2\t$elen\t+\t$chr:$s-$e\n";
             print OUTFILE1 "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
         }
     }
@@ -113,7 +103,7 @@ sub main {
 }
 
 sub readfile {
-    my ($filename, $type, $callback, $exon, $userstrand, $anti, $ecnt, $countsonly) = @_;
+    my ($filename, $type, $callback, $exon, $userstrand, $anti, $countsonly) = @_;
     
     my $iter = RUM::RUMIO->new(-file => $filename)->peekable;
     my $counter = 0;
@@ -162,27 +152,26 @@ sub readfile {
         
         my @flattened_spans = map { @$_ } @spans;
         
+        my $num_exons = @{ $exon->{$CHR} ||[]};
+
         while ($exon->{$CHR}[$indexstart_e{$CHR}]{end} < $start 
-               && $indexstart_e{$CHR} <= $ecnt->{$CHR}) {
+               && $indexstart_e{$CHR} <= $num_exons) {
             $indexstart_e{$CHR}++;	
         }
+
+        my $exons = $exon->{$CHR};
         
-        my $i = $indexstart_e{$CHR};
-        while ($end >= $exon->{$CHR}[$i]{start} 
-               && $i < ($ecnt->{$CHR} || 0)) {
-            
-            my @A = ( $exon->{ $CHR }[ $i ]{ start },
-                      $exon->{ $CHR }[ $i ]{ end   } );
-            
-            if (do_they_overlap(\@A, \@flattened_spans)) {
-                $exon->{$CHR}[$i]{$type}++;
+        for my $span (@$exons[$indexstart_e{$CHR} .. $num_exons - 1]) {
+
+            last if $end < $span->{start};
+            if (do_they_overlap([ $span->{ start }, $span->{ end } ],
+                                \@flattened_spans) ) {
+                $span->{$type}++;
             }
-            $i++;
         }
+
     }
 };
-
-
 
 
 sub do_they_overlap {
@@ -193,22 +182,19 @@ sub do_they_overlap {
     my $j=0;
     
     while (1) {
+
         until (($B->[$j] <  $A->[$i] && $i%2==0) ||
                ($B->[$j] <= $A->[$i] && $i%2==1)) {
             $i++;
             if ($i == @$A) {
-                if ($B->[$j] == $A->[@$A-1]) {
-                    return 1;
-                } else {
-                    return 0;
-                }
+                return $B->[$j] == $A->[@$A-1];
             }
         }
         if (($i-1) % 2 == 0) {
             return 1;
         } else {
             $j++;
-            if ($j%2==1 && $A->[$i] <= $B->[$j]) {
+            if ($j % 2 == 1 && $A->[$i] <= $B->[$j]) {
                 return 1;
             }
             if ($j >= @$B) {
