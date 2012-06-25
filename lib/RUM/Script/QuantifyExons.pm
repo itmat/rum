@@ -90,18 +90,10 @@ sub main {
     my $readfile = sub {
         my ($filename, $type, $callback) = @_;
 
-        open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
+        my $iter = RUM::RUMIO->new(-file => $filename)->peekable;
+        my $counter = 0;
+        my %indexstart_e = map { ($_ => 0) } keys %EXON;
 
-        my $iter = RUM::RUMIO->new(-fh => \*INFILE)->peekable;
-
-        my %HASH;
-        my $counter=0;
-        my $line;
-        my %indexstart_e;
-
-        foreach my $chr (keys %EXON) {
-            $indexstart_e{$chr} = 0;
-        }
         while (my $aln = $iter->next_val) {
             $counter++;
             if ($counter % 100000 == 0 && !$countsonly) {
@@ -122,7 +114,6 @@ sub main {
             }
 
             my $CHR = $aln->chromosome;
-            $HASH{$CHR}++;
 
             my ($start, $end, @spans);
 
@@ -152,8 +143,8 @@ sub main {
             }
 
             my $i = $indexstart_e{$CHR};
-            until ($end < $EXON{$CHR}[$i]{start} 
-                   || $i >= ($ecnt{$CHR} || 0)) {
+            while ($end >= $EXON{$CHR}[$i]{start} 
+                   && $i < ($ecnt{$CHR} || 0)) {
                 
                 my @A = ( $EXON{ $CHR }[ $i ]{ start },
                           $EXON{ $CHR }[ $i ]{ end   } );
@@ -174,7 +165,6 @@ sub main {
     my %EXONhash;
     open(OUTFILE1, ">$outfile1") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile1' for writing.\n\n";
     my $num_reads = $ureads + keys %nureads;
-
     if ($countsonly) {
         print OUTFILE1 "num_reads = $num_reads\n";
     }
