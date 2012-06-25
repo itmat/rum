@@ -45,16 +45,16 @@ sub main {
     # read in the info file, if given TODO: We don't seem to do
     # anything with this data, we just read it in and put it in the
     # %INFO hash, but don't ever use it.
-    my %INFO;
-    if ($infofile) {
-        open INFILE, "<", $infofile;
-        while (my $line = <INFILE>) {
-            chomp($line);
-            my @a = split(/\t/,$line);
-            $INFO{$a[0]} = $a[1];
-        }
-        close(INFILE);
-    }
+    # my %INFO;
+    # if ($infofile) {
+    #     open INFILE, "<", $infofile;
+    #     while (my $line = <INFILE>) {
+    #         chomp($line);
+    #         my @a = split(/\t/,$line);
+    #         $INFO{$a[0]} = $a[1];
+    #     }
+    #     close(INFILE);
+    # }
 
     # read in the transcript models
     
