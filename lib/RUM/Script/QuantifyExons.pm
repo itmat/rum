@@ -87,93 +87,22 @@ sub main {
         $ecnt{$chr}++;
     }
 
-    my $readfile = sub {
-        my ($filename, $type, $callback) = @_;
-
-        my $iter = RUM::RUMIO->new(-file => $filename)->peekable;
-        my $counter = 0;
-        my %indexstart_e = map { ($_ => 0) } keys %EXON;
-
-        while (my $aln = $iter->next_val) {
-            $counter++;
-            if ($counter % 100000 == 0 && !$countsonly) {
-                print "$type: counter=$counter\n";
-            }
-
-            $callback->($aln);
-
-            # Skip if we're doing strand-specific and this strand
-            # doesn't match the combination of --strand and --anti
-            # given by the user.
-            if ($userstrand) {
-                my $aln_strand = $aln->strand;
-                next if $userstrand eq 'p' && $aln_strand eq '-' && !$anti;
-                next if $userstrand eq 'm' && $aln_strand eq '+' && !$anti;
-                next if $userstrand eq 'p' && $aln_strand eq '+' &&  $anti;
-                next if $userstrand eq 'm' && $aln_strand eq '-' &&  $anti;
-            }
-
-            my $CHR = $aln->chromosome;
-
-            my ($start, $end, @spans);
-
-            if ($aln->is_mate($iter->peek)) {
-
-                my $next_aln = $iter->next_val;
-
-                if ($aln->strand eq "+") {
-                    ($start, $end) = ($aln->start, $next_aln->end);
-                    @spans = (@{ $aln->locs }, 
-                              @{ $next_aln->locs });
-                } else {
-                    ($start, $end) = ($next_aln->start, $aln->end);
-                    @spans = (@{ $next_aln->locs }, 
-                              @{ $aln->locs });
-                }
-            } else {
-                ($start, $end) = ($aln->start, $aln->end);
-                @spans = @{ $aln->locs };
-            }
-
-            my @flattened_spans = map { @$_ } @spans;
-            
-            while ($EXON{$CHR}[$indexstart_e{$CHR}]{end} < $start 
-                   && $indexstart_e{$CHR} <= $ecnt{$CHR}) {
-                $indexstart_e{$CHR}++;	
-            }
-
-            my $i = $indexstart_e{$CHR};
-            while ($end >= $EXON{$CHR}[$i]{start} 
-                   && $i < ($ecnt{$CHR} || 0)) {
-                
-                my @A = ( $EXON{ $CHR }[ $i ]{ start },
-                          $EXON{ $CHR }[ $i ]{ end   } );
-
-                if (do_they_overlap(\@A, \@flattened_spans)) {
-                    $EXON{$CHR}[$i]{$type}++;
-                }
-                $i++;
-            }
-        }
-    };
-
-    my $ureads = 0;
     my %nureads;
-    $readfile->($U_readsfile, "Ucount", sub { $ureads++ });
-    $readfile->($NU_readsfile, "NUcount", sub { $nureads{$_[0]->order} = 1 });
+    my $ureads;
+    readfile($U_readsfile, "Ucount", sub { $ureads++ }, \%EXON, $userstrand, $anti, \%ecnt, $countsonly);
+    readfile($NU_readsfile, "NUcount", sub { $nureads{$_[0]->order} = 1 }, \%EXON, $userstrand, $anti, \%ecnt, $countsonly);
 
     my %EXONhash;
-    open(OUTFILE1, ">$outfile1") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile1' for writing.\n\n";
-    my $num_reads = $ureads + keys %nureads;
+    open OUTFILE1, ">", $outfile1;
     if ($countsonly) {
-        print OUTFILE1 "num_reads = $num_reads\n";
+        printf OUTFILE1 "num_reads = %d\n", $ureads + keys(%nureads);
     }
     foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
         for (my $i=0; $i<$ecnt{$chr}; $i++) {
-            my $x1 = $EXON{$chr}[$i]{Ucount}+0;
-            my $x2 = $EXON{$chr}[$i]{NUcount}+0;
-            my $s = $EXON{$chr}[$i]{start};
-            my $e = $EXON{$chr}[$i]{end};
+            my $x1   = $EXON{$chr}[$i]{Ucount} || 0;
+            my $x2   = $EXON{$chr}[$i]{NUcount} || 0;
+            my $s    = $EXON{$chr}[$i]{start};
+            my $e    = $EXON{$chr}[$i]{end};
             my $elen = $e - $s + 1;
             #	print OUTFILE1 "transcript\t$chr:$s-$e\t$x1\t$x2\t$elen\t+\t$chr:$s-$e\n";
             print OUTFILE1 "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
@@ -182,6 +111,79 @@ sub main {
 
 
 }
+
+sub readfile {
+    my ($filename, $type, $callback, $exon, $userstrand, $anti, $ecnt, $countsonly) = @_;
+    
+    my $iter = RUM::RUMIO->new(-file => $filename)->peekable;
+    my $counter = 0;
+    my %indexstart_e = map { ($_ => 0) } keys %$exon;
+    
+    while (my $aln = $iter->next_val) {
+        $counter++;
+        if ($counter % 100000 == 0 && !$countsonly) {
+            print "$type: counter=$counter\n";
+        }
+        
+        $callback->($aln);
+        
+        # Skip if we're doing strand-specific and this strand
+        # doesn't match the combination of --strand and --anti
+        # given by the user.
+        if ($userstrand) {
+            my $aln_strand = $aln->strand;
+            next if $userstrand eq 'p' && $aln_strand eq '-' && !$anti;
+            next if $userstrand eq 'm' && $aln_strand eq '+' && !$anti;
+            next if $userstrand eq 'p' && $aln_strand eq '+' &&  $anti;
+            next if $userstrand eq 'm' && $aln_strand eq '-' &&  $anti;
+        }
+        
+        my $CHR = $aln->chromosome;
+        
+        my ($start, $end, @spans);
+        
+        if ($aln->is_mate($iter->peek)) {
+            
+            my $next_aln = $iter->next_val;
+            
+            if ($aln->strand eq "+") {
+                ($start, $end) = ($aln->start, $next_aln->end);
+                @spans = (@{ $aln->locs }, 
+                          @{ $next_aln->locs });
+            } else {
+                ($start, $end) = ($next_aln->start, $aln->end);
+                @spans = (@{ $next_aln->locs }, 
+                          @{ $aln->locs });
+            }
+        } else {
+            ($start, $end) = ($aln->start, $aln->end);
+            @spans = @{ $aln->locs };
+        }
+        
+        my @flattened_spans = map { @$_ } @spans;
+        
+        while ($exon->{$CHR}[$indexstart_e{$CHR}]{end} < $start 
+               && $indexstart_e{$CHR} <= $ecnt->{$CHR}) {
+            $indexstart_e{$CHR}++;	
+        }
+        
+        my $i = $indexstart_e{$CHR};
+        while ($end >= $exon->{$CHR}[$i]{start} 
+               && $i < ($ecnt->{$CHR} || 0)) {
+            
+            my @A = ( $exon->{ $CHR }[ $i ]{ start },
+                      $exon->{ $CHR }[ $i ]{ end   } );
+            
+            if (do_they_overlap(\@A, \@flattened_spans)) {
+                $exon->{$CHR}[$i]{$type}++;
+            }
+            $i++;
+        }
+    }
+};
+
+
+
 
 sub do_they_overlap {
 
