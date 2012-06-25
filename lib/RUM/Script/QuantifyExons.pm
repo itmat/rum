@@ -12,20 +12,9 @@ use RUM::Sort qw(cmpChrs);
 use RUM::RUMIO;
 our $log = RUM::Logging->get_logger();
 
-
-
 sub main {
 
-
-    
-
-    my %EXON_temp;
-    my %cnt;
-    my @A;
-    my @B;
     my %ecnt;
-    my %NUREADS;
-    my $UREADS=0;
     
     GetOptions(
         "exons-in=s"  => \(my $annotfile),    
@@ -99,7 +88,7 @@ sub main {
     }
 
     my $readfile = sub {
-        my ($filename, $type) = @_;
+        my ($filename, $type, $callback) = @_;
 
         open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
 
@@ -119,11 +108,7 @@ sub main {
                 print "$type: counter=$counter\n";
             }
 
-            if ($type eq "NUcount") {
-                $NUREADS{ $aln->order } = 1;
-            } else {
-                $UREADS++;
-            }
+            $callback->($aln);
 
             # Skip if we're doing strand-specific and this strand
             # doesn't match the combination of --strand and --anti
@@ -181,14 +166,15 @@ sub main {
         }
     };
 
-
-    $readfile->($U_readsfile, "Ucount");
-    $readfile->($NU_readsfile, "NUcount");
+    my $ureads = 0;
+    my %nureads;
+    $readfile->($U_readsfile, "Ucount", sub { $ureads++ });
+    $readfile->($NU_readsfile, "NUcount", sub { $nureads{$_[0]->order} = 1 });
 
     my %EXONhash;
     open(OUTFILE1, ">$outfile1") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile1' for writing.\n\n";
-    my $num_reads = $UREADS;
-    $num_reads = $num_reads + (scalar keys %NUREADS);
+    my $num_reads = $ureads + keys %nureads;
+
     if ($countsonly) {
         print OUTFILE1 "num_reads = $num_reads\n";
     }
