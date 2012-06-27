@@ -583,12 +583,8 @@ sub readfile () {
 	my $flag = 0;
 	while ($flag == 0) {
 	    $tcnt{$CHR} = $tcnt{$CHR}+0;
-	    if ($end < $TRANSCRIPT{$CHR}[$i]{start} || $i >= $tcnt{$CHR}) {
-		last;
-	    }
-	    @A = @{$TRANSCRIPT{$CHR}[$i]{coords}};
-	    my $b = RUM::Script::QuantifyExons::do_they_overlap(\@A, \@B);
-	    if ($b == 1) {
+	    last if $end < $TRANSCRIPT{$CHR}[$i]{start} || $i >= $tcnt{$CHR};
+	    if (RUM::Script::QuantifyExons::do_they_overlap($TRANSCRIPT{$CHR}[$i]{coords}, \@B)) {
 		$TRANSCRIPT{$CHR}[$i]{$type}++;
 	    }
 	    $i++;
@@ -597,14 +593,8 @@ sub readfile () {
 	$flag = 0;
 	while ($flag == 0) {
 	    $ecnt{$CHR} = $ecnt{$CHR}+0;
-	    if ($end < $EXON{$CHR}[$i]{start} || $i >= $ecnt{$CHR}) {
-		last;
-	    }
-	    undef @A;
-	    $A[0] = $EXON{$CHR}[$i]{start};
-	    $A[1] = $EXON{$CHR}[$i]{end};
-	    my $b = RUM::Script::QuantifyExons::do_they_overlap(\@A, \@B);
-	    if ($b == 1) {
+	    last if $end < $EXON{$CHR}[$i]{start} || $i >= $ecnt{$CHR};
+	    if (RUM::Script::QuantifyExons::do_they_overlap([$EXON{$CHR}[$i]{start}, $EXON{$CHR}[$i]{end}], \@B)) {
 		$EXON{$CHR}[$i]{$type}++;
 	    }
 	    $i++;
@@ -613,14 +603,8 @@ sub readfile () {
 	$flag = 0;
 	while ($flag == 0) {
 	    $icnt{$CHR} = $icnt{$CHR}+0;
-	    if ($end < $INTRON{$CHR}[$i]{start} || $i >= $icnt{$CHR}) {
-		last;
-	    }
-	    undef @A;
-	    $A[0] = $INTRON{$CHR}[$i]{start};
-	    $A[1] = $INTRON{$CHR}[$i]{end};
-	    my $b = RUM::Script::QuantifyExons::do_they_overlap(\@A, \@B);
-	    if ($b == 1) {
+	    last if $end < $INTRON{$CHR}[$i]{start} || $i >= $icnt{$CHR};
+	    if (RUM::Script::QuantifyExons::do_they_overlap([$INTRON{$CHR}[$i]{start}, $INTRON{$CHR}[$i]{end}], \@B)) {
 		$INTRON{$CHR}[$i]{$type}++;
 	    }
 	    $i++;
