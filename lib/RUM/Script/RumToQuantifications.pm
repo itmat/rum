@@ -1,6 +1,7 @@
 package RUM::Script::RumToQuantifications;
 
 use strict;
+use autodie;
 no warnings;
 
 use RUM::Usage;
@@ -23,7 +24,6 @@ my %TRANSCRIPT;
 my %EXON_temp;
 my %INTRON_temp;
 my %cnt;
-my @B;
 my %tcnt;
 my %ecnt;
 my %icnt;
@@ -56,7 +56,6 @@ sub main {
     undef %EXON_temp;
     undef %INTRON_temp;
     undef %cnt;
-    undef @B;
     undef %tcnt;
     undef %ecnt;
     undef %icnt;
@@ -114,7 +113,7 @@ sub main {
 
     my %INFO;
     if ($infofile) {
-        open(INFILE, $infofile) or die "Can't open $infofile for reading";
+        open INFILE, "<", $infofile;
         while (my $line = <INFILE>) {
             chomp($line);
             my @a = split(/\t/,$line);
@@ -125,7 +124,7 @@ sub main {
 
     # read in the transcript models
 
-    open(INFILE, $annotfile) or die "Can't open $annotfile for reading";
+    open INFILE, "<", $annotfile;
     while (my $line = <INFILE>) {
         chomp($line);
         my @a = split(/\t/,$line);
@@ -217,9 +216,9 @@ sub main {
         }
     }
 
-    open(OUTFILE1, ">$outfile1") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile1' for writing.\n\n";
+    open OUTFILE1, ">", $outfile1;
     if ($sepout eq "true") {
-        open(OUTFILE2, ">$outfile2") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile2' for writing.\n\n";
+        open OUTFILE2, ">", $outfile2;
     }
 
     my $num_reads = $UREADS;
@@ -486,8 +485,7 @@ sub main {
 
 sub readfile {
     my ($filename, $type, $strand) = @_;
-    open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
-    my $iter = RUM::RUMIO->new(-fh => \*INFILE)->peekable;
+    my $iter = RUM::RUMIO->new(-file => $filename)->peekable;
 
     my %indexstart_t = map { ($_ => 0) } keys %TRANSCRIPT;
     my %indexstart_e = map { ($_ => 0) } keys %TRANSCRIPT;
