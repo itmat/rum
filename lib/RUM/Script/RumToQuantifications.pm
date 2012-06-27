@@ -9,6 +9,7 @@ use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
 use RUM::Script::QuantifyExons;
+use RUM::RUMIO;
 
 our $log = RUM::Logging->get_logger();
 
@@ -483,25 +484,22 @@ sub main {
 }
 
 
-sub readfile () {
+sub readfile {
     my ($filename, $type, $strand) = @_;
     open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
-    my %HASH;
+    my $iter = RUM::RUMIO->new(-fh => \*INFILE)->peekable;
 
     my %indexstart_t = map { ($_ => 0) } keys %TRANSCRIPT;
     my %indexstart_e = map { ($_ => 0) } keys %TRANSCRIPT;
     my %indexstart_i = map { ($_ => 0) } keys %TRANSCRIPT;
 
-    while (defined(my $line = <INFILE>)) {
+    while (my $aln = $iter->next_val) {
 
-	chomp($line);
+	my $CHR     = $aln->chromosome;
+        my $STRAND  = $aln->strand;
 
-	my @a = split(/\t/,$line);
-	my $STRAND = $a[3];
-	$a[0] =~ /(\d+)/;
-	my $seqnum1 = $1;
 	if ($type eq "NUcount") {
-	    $NUREADS{$seqnum1}=1;
+	    $NUREADS{$aln->order}=1;
 	} else {
 	    $UREADS++;
 	}
@@ -509,44 +507,28 @@ sub readfile () {
             next if $strand eq $STRAND &&  $anti;
             next if $strand ne $STRAND && !$anti;
 	}
-	my $CHR = $a[1];
-	$HASH{$CHR}++;
-        #	if($HASH{$CHR} == 1) {
-        #	    print "CHR: $CHR\n";
-        #	}
-	$a[2] =~ /^(\d+)-/;
-	my $start = $1;
-	my $end;
-	my $line2 = <INFILE>;
-	chomp($line2);
-	my @b = split(/\t/,$line2);
-	$b[0] =~ /(\d+)/;
-	my $seqnum2 = $1;
-	my $spans_union;
-	
-	if ($seqnum1 == $seqnum2 && $b[0] =~ /b/ && $a[0] =~ /a/) {
-	    my $SPANS;
-	    if ($a[3] eq "+") {
-		$b[2] =~ /-(\d+)$/;
-		$end = $1;
-		$SPANS = $a[2] . ", " . $b[2];
-	    } else {
-		$b[2] =~ /^(\d+)-/;
-		$start = $1;
-		$a[2] =~ /-(\d+)$/;
-		$end = $1;
-		$SPANS = $b[2] . ", " . $a[2];
-	    }
-            #	    my $SPANS = &union($a[2], $b[2]);
-	    @B = split(/[^\d]+/,$SPANS);
-	} else {
-	    $a[2] =~ /-(\d+)$/;
-	    $end = $1;
-	    # reset the file handle so the last line read will be read again
-	    my $len = -1 * (1 + length($line2));
-	    seek(INFILE, $len, 1);
-	    @B = split(/[^\d]+/,$a[2]);
-	}
+
+        my ($start, $end, @spans);
+        
+        if ($aln->is_mate($iter->peek)) {
+            
+            my $next_aln = $iter->next_val;
+            
+            if ($aln->strand eq "+") {
+                ($start, $end) = ($aln->start, $next_aln->end);
+                @spans = (@{ $aln->locs }, 
+                          @{ $next_aln->locs });
+            } else {
+                ($start, $end) = ($next_aln->start, $aln->end);
+                @spans = (@{ $next_aln->locs }, 
+                          @{ $aln->locs });
+            }
+        } else {
+            ($start, $end) = ($aln->start, $aln->end);
+            @spans = @{ $aln->locs };
+        }
+        my @flattened_spans = map { @$_ } @spans;
+
 	while ($TRANSCRIPT{$CHR}[$indexstart_t{$CHR}]{end} < $start && $indexstart_t{$CHR} <= $tcnt{$CHR}) {
 	    $indexstart_t{$CHR}++;	
 	}
@@ -561,7 +543,7 @@ sub readfile () {
 	while ($flag == 0) {
 	    $tcnt{$CHR} = $tcnt{$CHR}+0;
 	    last if $end < $TRANSCRIPT{$CHR}[$i]{start} || $i >= $tcnt{$CHR};
-	    if (RUM::Script::QuantifyExons::do_they_overlap($TRANSCRIPT{$CHR}[$i]{coords}, \@B)) {
+	    if (RUM::Script::QuantifyExons::do_they_overlap($TRANSCRIPT{$CHR}[$i]{coords}, \@flattened_spans)) {
 		$TRANSCRIPT{$CHR}[$i]{$type}++;
 	    }
 	    $i++;
@@ -571,7 +553,7 @@ sub readfile () {
 	while ($flag == 0) {
 	    $ecnt{$CHR} = $ecnt{$CHR}+0;
 	    last if $end < $EXON{$CHR}[$i]{start} || $i >= $ecnt{$CHR};
-	    if (RUM::Script::QuantifyExons::do_they_overlap([$EXON{$CHR}[$i]{start}, $EXON{$CHR}[$i]{end}], \@B)) {
+	    if (RUM::Script::QuantifyExons::do_they_overlap([$EXON{$CHR}[$i]{start}, $EXON{$CHR}[$i]{end}], \@flattened_spans)) {
 		$EXON{$CHR}[$i]{$type}++;
 	    }
 	    $i++;
@@ -581,7 +563,7 @@ sub readfile () {
 	while ($flag == 0) {
 	    $icnt{$CHR} = $icnt{$CHR}+0;
 	    last if $end < $INTRON{$CHR}[$i]{start} || $i >= $icnt{$CHR};
-	    if (RUM::Script::QuantifyExons::do_they_overlap([$INTRON{$CHR}[$i]{start}, $INTRON{$CHR}[$i]{end}], \@B)) {
+	    if (RUM::Script::QuantifyExons::do_they_overlap([$INTRON{$CHR}[$i]{start}, $INTRON{$CHR}[$i]{end}], \@flattened_spans)) {
 		$INTRON{$CHR}[$i]{$type}++;
 	    }
 	    $i++;
