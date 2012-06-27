@@ -8,6 +8,7 @@ use RUM::Logging;
 use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
+use RUM::Script::QuantifyExons;
 
 our $log = RUM::Logging->get_logger();
 
@@ -586,7 +587,7 @@ sub readfile () {
 		last;
 	    }
 	    @A = @{$TRANSCRIPT{$CHR}[$i]{coords}};
-	    my $b = &do_they_overlap();
+	    my $b = RUM::Script::QuantifyExons::do_they_overlap(\@A, \@B);
 	    if ($b == 1) {
 		$TRANSCRIPT{$CHR}[$i]{$type}++;
 	    }
@@ -602,7 +603,7 @@ sub readfile () {
 	    undef @A;
 	    $A[0] = $EXON{$CHR}[$i]{start};
 	    $A[1] = $EXON{$CHR}[$i]{end};
-	    my $b = &do_they_overlap();
+	    my $b = RUM::Script::QuantifyExons::do_they_overlap(\@A, \@B);
 	    if ($b == 1) {
 		$EXON{$CHR}[$i]{$type}++;
 	    }
@@ -618,7 +619,7 @@ sub readfile () {
 	    undef @A;
 	    $A[0] = $INTRON{$CHR}[$i]{start};
 	    $A[1] = $INTRON{$CHR}[$i]{end};
-	    my $b = &do_they_overlap();
+	    my $b = RUM::Script::QuantifyExons::do_they_overlap(\@A, \@B);
 	    if ($b == 1) {
 		$INTRON{$CHR}[$i]{$type}++;
 	    }
@@ -627,75 +628,41 @@ sub readfile () {
     }
 }
 
-sub do_they_overlap {
-    # going to pass in two arrays as global vars, because don't want them
-    # to be copied every time, this function is going to be called a lot.
-    # the global vars @A and @B
+# sub  union () {
+#     my ($spans1_u, $spans2_u) = @_;
 
-    my $i=0;
-    my $j=0;
-
-    while (1==1) {
-	until (($B[$j] < $A[$i] && $i%2==0) || ($B[$j] <= $A[$i] && $i%2==1)) {
-	    $i++;
-	    if ($i == @A) {
-		if ($B[$j] == $A[@A-1]) {
-		    return 1;
-		} else {
-		    return 0;
-		}
-	    }
-	}
-	if (($i-1) % 2 == 0) {
-	    return 1;
-	} else {
-	    $j++;
-	    if ($j%2==1 && $A[$i] <= $B[$j]) {
-		return 1;
-	    }
-	    if ($j >= @B) {
-		return 0;
-	    }
-	}
-    }
-}
-
-
-sub union () {
-    my ($spans1_u, $spans2_u) = @_;
-
-    my %chash;
-    my @a = split(/, /,$spans1_u);
-    for (my $i=0;$i<@a;$i++) {
-	my @b = split(/-/,$a[$i]);
-	for (my $j=$b[0];$j<=$b[1];$j++) {
-	    $chash{$j}++;
-	}
-    }
-    @a = split(/, /,$spans2_u);
-    for (my $i=0;$i<@a;$i++) {
-	my @b = split(/-/,$a[$i]);
-	for (my $j=$b[0];$j<=$b[1];$j++) {
-	    $chash{$j}++;
-	}
-    }
-    my $first = 1;
-    my $spans_union;
-    my $pos_prev;
-    foreach my $pos (sort {$a<=>$b} keys %chash) {
-	if ($first == 1) {
-	    $spans_union = $pos;
-	    $first = 0;
-	} else {
-	    if ($pos > $pos_prev + 1) {
-		$spans_union = $spans_union . "-$pos_prev, $pos";
-	    }
-	}
-	$pos_prev = $pos;
-    }
-    $spans_union = $spans_union . "-$pos_prev";
-    return $spans_union;
-}
+#     my %chash;
+#     my @a = split(/, /,$spans1_u);
+#     for (my $i=0;$i<@a;$i++) {
+# 	my @b = split(/-/,$a[$i]);
+# 	for (my $j=$b[0];$j<=$b[1];$j++) {
+# 	    $chash{$j}++;
+# 	}
+#     }
+#     @a = split(/, /,$spans2_u);
+#     for (my $i=0;$i<@a;$i++) {
+# 	my @b = split(/-/,$a[$i]);
+# 	for (my $j=$b[0];$j<=$b[1];$j++) {
+# 	    $chash{$j}++;
+# 	}
+#     }
+#     my $first = 1;
+#     my $spans_union;
+#     my $pos_prev;
+#     foreach my $pos (sort {$a<=>$b} keys %chash) {
+# 	if ($first == 1) {
+# 	    $spans_union = $pos;
+# 	    $first = 0;
+# 	} else {
+# 	    if ($pos > $pos_prev + 1) {
+# 		$spans_union = $spans_union . "-$pos_prev, $pos";
+# 	    }
+# 	}
+# 	$pos_prev = $pos;
+#     }
+#     $spans_union = $spans_union . "-$pos_prev";
+#     return $spans_union;
+# }
 
 # seq.35669       chr1    3206742-3206966 -       GCCCACCACCATGTCAAACACAATCTCTTCCCATTTGGTGATACAGAATTCTGTCTCACAGTGGACAATCCAGAAAGTCATGATGCACCAATGGAGGACAATAAATATCCCAAAATACAGCTGGAAAACCGAGGCAAAGAGGGCGAATGTGATGACCCTGGCAGCGATGGTGAAGAAATGCCAGCAGAACTGAATGATGACAGCCATTTAGCTGATGGGCTTTTT
 # 
