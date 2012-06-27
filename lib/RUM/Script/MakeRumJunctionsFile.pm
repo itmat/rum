@@ -1,5 +1,6 @@
 package RUM::Script::MakeRumJunctionsFile;
 
+use autodie;
 no warnings;
 use RUM::Usage;
 use RUM::Logging;
@@ -125,14 +126,9 @@ sub main {
         "Please specify a bed output file for high-quality junctions ".
             "with --high-bed-out");
 
-    open(OUTFILE1, ">$outfile1") or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$outfile1' for writing\n\n";
-
-    open(OUTFILE2, ">$outfile2") or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$outfile2' for writing\n\n";
-
-    open(OUTFILE3, ">$outfile3") or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$outfile3' for writing\n\n";
-
-
-
+    open OUTFILE1, ">", $outfile1;
+    open OUTFILE2, ">", $outfile2;
+    open OUTFILE3, ">", $outfile3;
 
     if ($userstrand) {
         $strandspecified = "true";
@@ -169,11 +165,11 @@ sub main {
 
     $minintron =~ /^\d+$/ && $minintron > 0 or RUM::Usage->bad(
         "--minintron must be an integer greater than zero, ".
-            "you gave '$minintron'");
+        "you gave '$minintron'");
 
     $allowable_overlap =~ /^\d+$/ && $allowable_overlap > 0 or RUM::Usage->bad(
         "--overlap must be an integer greater than zero, ".
-            "you gave '$allowable_overlap'");
+        "you gave '$allowable_overlap'");
 
     if ($strandspecified eq 'true') {
         print OUTFILE1 "intron\tstrand\tscore\tknown\tstandard_splice_signal\tsignal_not_canonical\tambiguous\tlong_overlap_unique_reads\tshort_overlap_unique_reads\tlong_overlap_nu_reads\tshort_overlap_nu_reads\n";
@@ -195,7 +191,7 @@ sub main {
     # read in known junctions to color them green in the hq track:
 
     if ($gene_annot ne "none") {
-        open(INFILE, $gene_annot) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$gene_annot' for reading\n\n";
+        open INFILE, "<", $gene_annot;
         while ($line = <INFILE>) {
             @a = split(/\t/, $line);
             if ($strand eq "-" && $a[1] eq "+") {
@@ -226,9 +222,9 @@ sub main {
         $r = int(rand(1000));
         $f = "temp_" . $r . ".fa";
         `perl modify_fa_to_have_seq_on_one_line.pl $genome_sequence > $f`;
-        open(GENOMESEQ, $f) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$f' for reading\n\n";
+        open GENOMESEQ, "<", $f;
     } else {
-        open(GENOMESEQ, $genome_sequence) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$genome_sequence' for reading\n\n";
+        open GENOMESEQ, "<", $genome_sequence;
     }
 
     # DEBUG
@@ -385,7 +381,7 @@ sub main {
         undef %goodoverlapNU;
         undef %knownintron;
             
-        open(INFILE, $rumU) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$rumU' for reading\n\n";
+        open INFILE, "<", $rumU;
         #    print "please wait...\n";
         while ($line = <INFILE>) {
             if (!($line =~ /, /)) {
@@ -481,7 +477,7 @@ sub main {
         close(INFILE);
         #    print STDERR "finished Unique\n";
         #    print "please wait some more...\n";
-        open(INFILE, $rumNU) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$rumNU' for reading\n\n";
+        open INFILE, "<", $rumNU;
         while ($line = <INFILE>) {
             if (!($line =~ /, /)) {
                 next;
