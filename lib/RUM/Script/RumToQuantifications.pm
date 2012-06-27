@@ -15,7 +15,6 @@ our $log = RUM::Logging->get_logger();
 my $sepout = "false";
 my $posonly;
 my $countsonly;
-my $strand;
 my $anti;
 my $infofile;
 
@@ -23,7 +22,6 @@ my %TRANSCRIPT;
 my %EXON_temp;
 my %INTRON_temp;
 my %cnt;
-my @A;
 my @B;
 my %tcnt;
 my %ecnt;
@@ -39,6 +37,11 @@ sub new {
     
 }
 
+my %strand_for_user_strand = (
+    p => '+',
+    m => '-',
+    '' => undef);
+
 sub main {
 
     my $outfile2;
@@ -52,7 +55,6 @@ sub main {
     undef %EXON_temp;
     undef %INTRON_temp;
     undef %cnt;
-    undef @A;
     undef @B;
     undef %tcnt;
     undef %ecnt;
@@ -70,7 +72,6 @@ sub main {
     $sepout = "false";
     undef $posonly;
     undef $countsonly;
-    undef $strand;
     undef $anti;
 
     GetOptions(
@@ -79,7 +80,7 @@ sub main {
         "non-unique-in=s" => \$NU_readsfile,
         "output|o=s"      => \$outfile1,
         "sepout=s"        => \$outfile2,
-        "strand=s"        => \$strand,
+        "strand=s"        => \(my $strand),
         "posonly"         => \$posonly,
         "countsonly"      => \$countsonly,
         "anti"            => \$anti,
@@ -102,8 +103,11 @@ sub main {
         $sepout = "true";
     }
 
-    !$strand || $strand eq 'p' || $strand eq 'm' or RUM::Usage->bad(
-        "--strand must be either 'p' or 'm', not '$strand'");
+
+    if ($strand) {
+        $strand = $strand_for_user_strand{$strand} or RUM::Usage->bad(
+            "--strand must be either 'p' or 'm', not '$strand'");
+    }
 
     # read in the info file, if given
 
@@ -126,14 +130,7 @@ sub main {
         my @a = split(/\t/,$line);
 
         my $STRAND = $a[1];
-        if ($strand) {
-            if ($strand =~ /^p/ && $a[1] eq '-') {
-                next;
-            }
-            if ($strand =~ /^m/ && $a[1] eq '+') {
-                next;
-            }
-        }
+        next if $strand && $strand ne $STRAND;
 
         $a[5] =~ s/\s*,\s*$//;
         $a[6] =~ s/\s*,\s*$//;
@@ -189,8 +186,8 @@ sub main {
         }
     }
 
-    &readfile($U_readsfile, "Ucount");
-    &readfile($NU_readsfile, "NUcount");
+    &readfile($U_readsfile, "Ucount", $strand);
+    &readfile($NU_readsfile, "NUcount", $strand);
 
     my %EXONhash;
     foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
@@ -487,28 +484,18 @@ sub main {
 
 
 sub readfile () {
-    my ($filename, $type) = @_;
+    my ($filename, $type, $strand) = @_;
     open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
     my %HASH;
-    my $counter=0;
-    my $line;
-    my %indexstart_t;
-    my %indexstart_e;
-    my %indexstart_i;
-    foreach my $chr (keys %TRANSCRIPT) {
-	$indexstart_t{$chr} = 0;
-	$indexstart_e{$chr} = 0;
-	$indexstart_i{$chr} = 0;
-    }
-    while ($line = <INFILE>) {
-	$counter++;
-        #	if($counter % 100000 == 0 && $countsonly eq "false") {
-        #	    print "$type: counter=$counter\n";
-        #	}
+
+    my %indexstart_t = map { ($_ => 0) } keys %TRANSCRIPT;
+    my %indexstart_e = map { ($_ => 0) } keys %TRANSCRIPT;
+    my %indexstart_i = map { ($_ => 0) } keys %TRANSCRIPT;
+
+    while (defined(my $line = <INFILE>)) {
+
 	chomp($line);
-	if ($line eq '') {
-	    last;
-	}
+
 	my @a = split(/\t/,$line);
 	my $STRAND = $a[3];
 	$a[0] =~ /(\d+)/;
@@ -519,18 +506,8 @@ sub readfile () {
 	    $UREADS++;
 	}
 	if ($strand) {
-	    if ($strand eq 'p' && $STRAND eq '-' && !$anti) {
-		next;
-	    }
-	    if ($strand eq 'm' && $STRAND eq '+' && !$anti) {
-		next;
-	    }
-	    if ($strand eq 'p' && $STRAND eq '+' && $anti) {
-		next;
-	    }
-	    if ($strand eq 'm' && $STRAND eq '-' && $anti) {
-		next;
-	    }
+            next if $strand eq $STRAND &&  $anti;
+            next if $strand ne $STRAND && !$anti;
 	}
 	my $CHR = $a[1];
 	$HASH{$CHR}++;
