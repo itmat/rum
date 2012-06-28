@@ -664,27 +664,13 @@ sub main {
             raw => $output
         );
 
-        
-
         if ($aln->is_forward) {
-            $isnew = 1;
-            for my $mapping (@a_read_mapping_to_genome) {
-                if ($mapping eq $output) {
-                    $isnew = 0;
-                }
-            }
-            if ($isnew) {
+            if ( ! grep { $_ eq $output } @a_read_mapping_to_genome) {
                 push @a_read_mapping_to_genome, $output;
             }
         }
         if ($aln->is_reverse) {
-            $isnew = 1;
-            for my $mapping (@b_read_mapping_to_genome) {
-                if ($mapping eq $output) {
-                    $isnew = 0;
-                }
-            }
-            if ($isnew) {
+            if ( ! grep { $_ eq $output } @b_read_mapping_to_genome ) {
                 push @b_read_mapping_to_genome, $output;
             }
         }
