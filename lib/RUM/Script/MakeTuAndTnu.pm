@@ -29,6 +29,26 @@ sub read_annot_file {
     
 }
 
+sub mapping_to_aln {
+    my $mapping = shift;
+    my $readid = shift || "junk";
+    my ($chr, $locs, $strand, $seq) =  split /\t/, $mapping;
+    return RUM::Alignment->new(
+        readid => $readid,
+        chr => $chr,
+        locs => RUM::RUMIO->parse_locs($locs),
+        seq => $seq,
+        strand => $strand);
+}
+
+sub write_aln_with_new_id_and_junctions {
+    my ($io, $mapping, $readid) = @_;
+    my ($chr, $locs, $strand, $seq) =  split /\t/, $mapping;
+    my $aln =  mapping_to_aln($mapping, $readid);
+    $io->write_aln(
+        $aln->copy(seq => newAddJunctionsToSeq($aln)));    
+}
+
 sub main {
 
     GetOptions(
@@ -100,24 +120,10 @@ sub main {
             # not really ambiguous, blat might resolve it
 
             if ($numa == 1 && $numb == 0) { # unique forward match, no reverse, or single_end
-                my ($chr, $locs, $strand, $seq) =  split /\t/, $a_read_mapping_to_genome[0];
-                $unique_io->write_aln(
-                    RUM::Alignment->new(
-                        readid => "seq.${seqnum_prev}a",
-                        chr => $chr,
-                        locs => [map { [split /-/] } split(/, /, $locs)],
-                        seq => addJunctionsToSeq($seq, $locs),
-                        strand => $strand));
+                write_aln_with_new_id_and_junctions($unique_io, $a_read_mapping_to_genome[0], "seq.${seqnum_prev}a");
             }
             if ($numb == 1 && $numa == 0) { # unique reverse match, no forward
-                my ($chr, $locs, $strand, $seq) =  split /\t/, $b_read_mapping_to_genome[0];
-                $unique_io->write_aln(
-                    RUM::Alignment->new(
-                        readid => "seq.${seqnum_prev}b",
-                        chr => $chr,
-                        locs => [map { [split /-/] } split(/, /, $locs)],
-                        seq => addJunctionsToSeq($seq, $locs),
-                        strand => $strand));
+                write_aln_with_new_id_and_junctions($unique_io, $b_read_mapping_to_genome[0], "seq.${seqnum_prev}b");
             }
             if ($paired_end eq "false") { # write ambiguous mapper to NU file since there's no chance a later step
                 # will resolve this read, like it might if it was paired end
@@ -126,12 +132,11 @@ sub main {
                 my @spans_t;
                 my %CHRS;
                 if ($numa > 1) { 
-                    for ($ii=0; $ii<@a_read_mapping_to_genome; $ii++) {
-                        $str = $a_read_mapping_to_genome[$ii];
-                        @a = split(/\t/,$str);
-                        $spans_t[$ii] = $a[1];
-                        $CHRS{$a[0]}++;
-                        $seq_temp = $a[3];
+                    for my $str (@a_read_mapping_to_genome) {
+                        my $aln = mapping_to_aln($str);
+                        push @spans_t, RUM::RUMIO->format_locs($aln);
+                        $CHRS{$aln->chromosome}++;
+                        $seq_temp = $aln->seq;
                     }
                     $nchrs = 0;
                     foreach $ky (keys %CHRS) {
@@ -140,7 +145,7 @@ sub main {
                     }
                     $str = intersect(\@spans_t, $seq_temp);
                     $uflag = 1;
-                    if ($str eq "NONE" || $nchrs > 1) {
+                    if ((!$str) || $nchrs > 1) {
                         $uflag = 0;
                     } else { # significant overlap, report to "Unique" file, if it's long enough
                         @ss = split(/\t/,$str);
@@ -440,7 +445,7 @@ sub main {
                     if ($num_absingle == 0 && $num_absplit > 0 && $nchrs == 1 && $numstrands == 1) {
                         $str1 = intersect(\@spans1, $firstseq1);
                         $str2 = intersect(\@spans2, $firstseq2);
-                        if ($str1 ne "NONE" && $str2 ne "NONE") {
+                        if ($str1 && $str2) {
                             $str1 =~ s/^(\d+)\t/$CHR\t/;
                             $size1 = $1;
                             $str2 =~ s/^(\d+)\t/$CHR\t/;
@@ -474,7 +479,7 @@ sub main {
                     }
                     if ($num_absingle > 0 && $num_absplit == 0 && $nchrs == 1 && $numstrands == 1) {
                         $str = intersect(\@spans1, $firstseq);
-                        if ($str ne "NONE") {
+                        if ($str) {
                             $str =~ s/^(\d+)\t/$CHR\t/;
                             $size = $1;
                             if ($size >= $min_overlap_a && $size >= $min_overlap_b) {
@@ -688,6 +693,12 @@ sub main {
         }
     }
 
+    sub newAddJunctionsToSeq {
+        my ($aln) = @_;
+        addJunctionsToSeq($aln->seq, 
+                          RUM::RUMIO->format_locs($aln));
+    }
+
     sub addJunctionsToSeq () {
         ($seq, $spans) = @_;
         @s_j = split(//,$seq);
@@ -794,7 +805,7 @@ sub main {
             }
             return "$maxspanlength\t$newspans\t$newseq";
         } else {
-            return "NONE";
+            return;
         }
     }
 }

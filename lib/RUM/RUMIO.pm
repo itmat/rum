@@ -21,6 +21,11 @@ sub new {
     return $self;
 }
 
+sub parse_locs {
+    my ($self, $locs) = @_;
+    [ map { [split /-/] } split /,\s*/, $locs ];
+}
+
 sub parse_aln {
     my $self = shift;
     local $_ = shift;
@@ -30,11 +35,9 @@ sub parse_aln {
 
     ($strand, $seq) = ($seq, $strand) if $self->{strand_last};
 
-    my @locs = map { [split /-/] } split /,\s*/, $locs;
-
     return RUM::Alignment->new(readid => $readid,
                                chr => $chr,
-                               locs => \@locs,
+                               locs => $self->parse_locs($locs),
                                strand => $strand,
                                seq => $seq,
                                raw => $_);
