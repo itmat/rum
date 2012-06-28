@@ -41,10 +41,15 @@ sub mapping_to_aln {
         strand => $strand);
 }
 
-sub write_aln_with_new_id_and_junctions {
+sub write_mapping_with_new_id_and_junctions {
     my ($io, $mapping, $readid) = @_;
     my ($chr, $locs, $strand, $seq) =  split /\t/, $mapping;
     my $aln =  mapping_to_aln($mapping, $readid);
+    write_aln_with_junctions($io, $aln);
+}
+
+sub write_aln_with_junctions {
+    my ($io, $aln) = @_;
     $io->write_aln(
         $aln->copy(seq => newAddJunctionsToSeq($aln)));    
 }
@@ -121,10 +126,10 @@ sub main {
             # not really ambiguous, blat might resolve it
 
             if (@a_read_mapping_to_genome == 1 && ! @b_read_mapping_to_genome) { # unique forward match, no reverse, or single_end
-                write_aln_with_new_id_and_junctions($unique_io, $a_read_mapping_to_genome[0], "seq.${seqnum_prev}a");
+                write_mapping_with_new_id_and_junctions($unique_io, $a_read_mapping_to_genome[0], "seq.${seqnum_prev}a");
             }
             if (@b_read_mapping_to_genome == 1 && ! @a_read_mapping_to_genome) { # unique reverse match, no forward
-                write_aln_with_new_id_and_junctions($unique_io, $b_read_mapping_to_genome[0], "seq.${seqnum_prev}b");
+                write_mapping_with_new_id_and_junctions($unique_io, $b_read_mapping_to_genome[0], "seq.${seqnum_prev}b");
             }
             if ($paired_end eq "false") { # write ambiguous mapper to NU file since there's no chance a later step
                 # will resolve this read, like it might if it was paired end
@@ -160,7 +165,7 @@ sub main {
                     }
                     if ($uflag == 0) { # no significant overlap, report to "NU" file
                         for my $str (@a_read_mapping_to_genome) {
-                            write_aln_with_new_id_and_junctions($nu_io, $str, "seq.${seqnum_prev}a");
+                            write_mapping_with_new_id_and_junctions($nu_io, $str, "seq.${seqnum_prev}a");
                         }
                     }
                 }
@@ -248,28 +253,11 @@ sub main {
                                 $bseq = $cseq;
                             }
                             if (($astrand eq "+") && ($bstrand eq "+") && ($aend == $bstart-1)) {
-                                $num_exons_merged = @astarts + @bstarts - 1;
-                                undef @mergedstarts;
-                                undef @mergedends;
-                                $H=0;
-                                for ($e=0; $e<@astarts; $e++) {
-                                    $mergedstarts[$H] = @astarts[$e];
-                                    $H++;
-                                }
-                                for ($e=1; $e<@bstarts; $e++) {
-                                    $mergedstarts[$H] = @bstarts[$e];
-                                    $H++;
-                                }
-                                $H=0;
-                                for ($e=0; $e<@aends-1; $e++) {
-                                    $mergedends[$H] = @aends[$e];
-                                    $H++;
-                                }
-                                for ($e=0; $e<@bends; $e++) {
-                                    $mergedends[$H] = @bends[$e];
-                                    $H++;
-                                }
-                                $num_exons_merged = $H;
+
+                                @mergedstarts = ( @astarts,                 @bstarts[1..$#bstarts] );
+                                @mergedends   = ( @aends[0 .. $#aends - 1], @bends                 );
+
+                                $num_exons_merged = @mergedends;
                                 $merged_length = $mergedends[0]-$mergedstarts[0]+1;
                                 $merged_spans = "$mergedstarts[0]-$mergedends[0]";
                                 for ($e=1; $e<$num_exons_merged; $e++) {
@@ -370,21 +358,17 @@ sub main {
                         }
                     }
                 }
-                $num_consistent_mappers=0;
-                foreach $key (keys %consistent_mappers) {
-                    $num_consistent_mappers++;
-                }
 
-                if ($num_consistent_mappers == 1) {
+                if (keys(%consistent_mappers) == 1) {
                     foreach $key (keys %consistent_mappers) {
 
-                        my @mappers = split(/\n/,$key);
+                        my @mappers = split /\n/, $key;
                         my @directions = qw(a b);
 
                         for my $mapper (@mappers) {
                             my $direction = @mappers == 1 ? "" : shift(@directions);
                             my $readid = "seq.${seqnum_prev}$direction";
-                            write_aln_with_new_id_and_junctions($unique_io, $mapper, $readid);
+                            write_mapping_with_new_id_and_junctions($unique_io, $mapper, $readid);
                         }
                     }
                 } else {
@@ -449,7 +433,8 @@ sub main {
                                 $str2 =~ /^[^\t]+\t(\d+)[^\t+]-(\d+)\t/;
                                 $start2 = $1;
                                 $end2 = $2;
-                                if ((($start2 - $end1 > 0) && ($start2 - $end1 < $max_distance_between_paired_reads)) || (($start1 - $end2 > 0) && ($start1 - $end2 < $max_distance_between_paired_reads))) {
+                                if ((($start2 - $end1 > 0) && ($start2 - $end1 < $max_distance_between_paired_reads)) || 
+                                    (($start1 - $end2 > 0) && ($start1 - $end2 < $max_distance_between_paired_reads))) {
                                     @ss = split(/\t/,$str1);
                                     $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
                                     print $unique_fh "seq.$seqnum_prev";
@@ -486,22 +471,15 @@ sub main {
                         }
                     }
                     if (($nointersection == 1) || ($nchrs > 1) || ($num_absingle > 0 && $num_absplit > 0) || ($numstrands > 1)) {
-                        foreach $key (keys %consistent_mappers) {
-                            @A = split(/\n/,$key);
-                            for ($n=0; $n<@A; $n++) {
-                                @a = split(/\t/,$A[$n]);
-                                $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                                if (@A == 2 && $n == 0) {
-                                    print $nu_fh "seq.$seqnum_prev";
-                                    print $nu_fh "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                                }
-                                if (@A == 2 && $n == 1) {
-                                    print $nu_fh "seq.$seqnum_prev";
-                                    print $nu_fh "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                                }
-                                if (@A == 1) {
-                                    print $nu_fh "seq.$seqnum_prev\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                                }
+                        for my $key (keys %consistent_mappers) {
+
+                            my @mappers = split /\n/, $key;
+                            my @directions = qw(a b);
+
+                            for my $mapper (@mappers) {
+                                my $direction = @mappers == 1 ? "" : shift(@directions);
+                                my $readid = "seq.${seqnum_prev}$direction";
+                                write_mapping_with_new_id_and_junctions($nu_io, $mapper, $readid);
                             }
                         }
                     }
