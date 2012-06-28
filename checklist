@@ -3,13 +3,13 @@
     1058 MergeGuAndTu.pm
      922 MergeBowtieAndBlat.pm
      792 MakeTuAndTnu.pm
-     708 RumToQuantifications.pm
-     620 GetInferredInternalExons.pm
-     584 MakeRumJunctionsFile.pm
+*    708 RumToQuantifications.pm
+?    620 GetInferredInternalExons.pm
+?    584 MakeRumJunctionsFile.pm
 *    374 FinalCleanup.pm
 *    333 SortRumByLocation.pm
 *    318 CountReadsMapped.pm
-     314 QuantifyExons.pm
+*    314 QuantifyExons.pm
 *    291 MakeGuAndGnu.pm
 *    230 RumToCov.pm
 *    223 MergeJunctions.pm

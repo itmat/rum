@@ -43,13 +43,6 @@ sub main {
 
     open(INFILE, "<", $bowtie_output) 
         or die "Can't open $bowtie_output for reading: $!";
-    $line = <INFILE>;
-    close(INFILE);
-    chomp($line);
-    @a = split(/\t/,$line);
-
-    open(INFILE, "<", $bowtie_output) 
-        or die "Can't open $bowtie_output for reading: $!";
     open(ANNOTFILE, "<", $gene_annot_file) 
         or die "Can't open $gene_annot_file for reading: $!";
 
