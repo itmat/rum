@@ -377,21 +377,14 @@ sub main {
 
                 if ($num_consistent_mappers == 1) {
                     foreach $key (keys %consistent_mappers) {
-                        @A = split(/\n/,$key);
-                        for ($n=0; $n<@A; $n++) {
-                            @a = split(/\t/,$A[$n]);
-                            $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                            if (@A == 2 && $n == 0) {
-                                print $unique_fh "seq.$seqnum_prev";
-                                print $unique_fh "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                            }
-                            if (@A == 2 && $n == 1) {
-                                print $unique_fh "seq.$seqnum_prev";
-                                print $unique_fh "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                            }
-                            if (@A == 1) {
-                                print $unique_fh "seq.$seqnum_prev\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                            }
+
+                        my @mappers = split(/\n/,$key);
+                        my @directions = qw(a b);
+
+                        for my $mapper (@mappers) {
+                            my $direction = @mappers == 1 ? "" : shift(@directions);
+                            my $readid = "seq.${seqnum_prev}$direction";
+                            write_aln_with_new_id_and_junctions($unique_io, $mapper, $readid);
                         }
                     }
                 } else {
