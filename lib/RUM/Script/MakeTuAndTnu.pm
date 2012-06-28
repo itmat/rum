@@ -121,10 +121,10 @@ sub main {
             # NOTE: the following three if's cover all cases we care about, because if numa > 1 and numb = 0, then that's
             # not really ambiguous, blat might resolve it
 
-            if ($numa == 1 && $numb == 0) { # unique forward match, no reverse, or single_end
+            if (@a_read_mapping_to_genome == 1 && $numb == 0) { # unique forward match, no reverse, or single_end
                 write_aln_with_new_id_and_junctions($unique_io, $a_read_mapping_to_genome[0], "seq.${seqnum_prev}a");
             }
-            if ($numb == 1 && $numa == 0) { # unique reverse match, no forward
+            if ($numb == 1 && ! @a_read_mapping_to_genome) { # unique reverse match, no forward
                 write_aln_with_new_id_and_junctions($unique_io, $b_read_mapping_to_genome[0], "seq.${seqnum_prev}b");
             }
             if ($paired_end eq "false") { # write ambiguous mapper to NU file since there's no chance a later step
@@ -133,7 +133,7 @@ sub main {
                 #  otherwise report all alignments to the "NU" file
                 my @spans_t;
                 my %CHRS;
-                if ($numa > 1) { 
+                if (@a_read_mapping_to_genome > 1) {
                     for my $str (@a_read_mapping_to_genome) {
                         my $aln = mapping_to_aln($str);
                         push @spans_t, RUM::RUMIO->format_locs($aln);
@@ -168,8 +168,10 @@ sub main {
                 undef @spans_t;
             }
 
-            if ($numa > 0 && $numb > 0 && $numa * $numb < 1000000) {
-                for ($i=0; $i<$numa; $i++) {
+            if (@a_read_mapping_to_genome &&
+                @b_read_mapping_to_genome &&
+                scalar(@a_read_mapping_to_genome) * scalar(@b_read_mapping_to_genome) < 1000000) {
+                for ($i=0; $i<@a_read_mapping_to_genome; $i++) {
                     @B1 = split(/\t/, $a_read_mapping_to_genome[$i]);
                     $achr = $B1[0];
                     $astrand = $B1[2];
@@ -517,7 +519,6 @@ sub main {
             # exons, then those exons will still get reported
             undef @a_read_mapping_to_genome;
             undef @b_read_mapping_to_genome;
-            $numa=0;
             $numb=0;
             $min_overlap_a=0;
             $min_overlap_b=0;
@@ -667,14 +668,13 @@ sub main {
 
         if ($aln->is_forward) {
             $isnew = 1;
-            for ($i=0; $i<$numa; $i++) {
-                if ($a_read_mapping_to_genome[$i] eq $output) {
+            for my $mapping (@a_read_mapping_to_genome) {
+                if ($mapping eq $output) {
                     $isnew = 0;
                 }
             }
             if ($isnew) {
-                $a_read_mapping_to_genome[$numa] = $output;
-                $numa++;
+                push @a_read_mapping_to_genome, $output;
             }
         }
         if ($aln->is_reverse) {
