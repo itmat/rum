@@ -58,11 +58,10 @@ sub main {
 
     $paired_end = $paired ? "true" : "false";
 
-    open my $infile, "<", $bowtie_output;
-    open my $annot_fh, "<", $gene_annot_file;
-
+    open my $infile,    "<", $bowtie_output;
+    open my $annot_fh,  "<", $gene_annot_file;
     open my $unique_fh, ">", $unique_out;
-    open my $nu_fh, ">", $non_unique_out;
+    open my $nu_fh,     ">", $non_unique_out;
 
     my %geneID2coords = read_annot_file($annot_fh);
 
@@ -77,7 +76,7 @@ sub main {
     $numb=0;
     $firstflag_a = 1;
     $firstflag_b = 1;
-    while (1 == 1) {
+    while (1) {
         $line = <$infile>;
         $linecnt++;
         chomp($line);
@@ -96,22 +95,20 @@ sub main {
                 $str = $a_read_mapping_to_genome[0];
                 @a = split(/\t/,$str);
                 $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                print $unique_fh "seq.$seqnum_prev";
-                print $unique_fh "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
+                print $unique_fh "seq.${seqnum_prev}a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
             }
             if ($numb == 1 && $numa == 0) { # unique reverse match, no forward
                 $str = $b_read_mapping_to_genome[0];
                 @a = split(/\t/,$str);
                 $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                print $unique_fh "seq.$seqnum_prev";
-                print $unique_fh "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
+                print $unique_fh "seq.${seqnum_prev}b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
             }
             if ($paired_end eq "false") { # write ambiguous mapper to NU file since there's no chance a later step
                 # will resolve this read, like it might if it was paired end
 		# BUT: first check for siginficant overlap, if so report the overlap to the "Unique" file,
                 #  otherwise report all alignments to the "NU" file
-                undef @spans_t;
-                undef %CHRS;
+                my @spans_t;
+                my %CHRS;
                 if ($numa > 1) { 
                     for ($ii=0; $ii<@a_read_mapping_to_genome; $ii++) {
                         $str = $a_read_mapping_to_genome[$ii];
@@ -150,7 +147,6 @@ sub main {
                     }
                 }
                 undef @spans_t;
-                undef %CHRS;
             }
 
             if ($numa > 0 && $numb > 0 && $numa * $numb < 1000000) {
@@ -384,7 +380,7 @@ sub main {
                     $num_absingle = 0;
                     undef @spans1;
                     undef @spans2;
-                    undef %CHRS;
+                    my %CHRS;
                     undef %STRANDhash;
                     $numstrands = 0;
                     foreach $key (keys %consistent_mappers) {
