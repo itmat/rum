@@ -87,6 +87,8 @@ sub main {
 
     my $unique_io = RUM::RUMIO->new(-fh => $unique_fh,
                                     strand_last => 1);
+    my $nu_io = RUM::RUMIO->new(-fh => $nu_fh,
+                                strand_last => 1);
     my $iter = RUM::BowtieIO->new(-fh => $infile);
     my %geneID2coords = read_annot_file($annot_fh);
 
@@ -158,12 +160,8 @@ sub main {
                         }
                     }
                     if ($uflag == 0) { # no significant overlap, report to "NU" file
-                        for ($ii=0; $ii<@a_read_mapping_to_genome; $ii++) {
-                            $str = $a_read_mapping_to_genome[$ii];
-                            @a = split(/\t/,$str);
-                            $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                            print $nu_fh "seq.$seqnum_prev";
-                            print $nu_fh "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
+                        for my $str (@a_read_mapping_to_genome) {
+                            write_aln_with_new_id_and_junctions($nu_io, $str, "seq.${seqnum_prev}a");
                         }
                     }
                 }
