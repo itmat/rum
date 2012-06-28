@@ -28,6 +28,7 @@ SKIP: {
         
         RUM::Script::MakeTuAndTnu->main();
 
+        system "cat $u > u";
         no_diffs($u, "$EXPECTED_DIR/transcriptome-$type-unique",
                  "$type unique");
         no_diffs($nu, "$EXPECTED_DIR/transcriptome-$type-non-unique",

@@ -5,6 +5,8 @@ no warnings;
 
 use RUM::Logging;
 use RUM::Usage;
+use RUM::BowtieIO;
+use RUM::RUMIO;
 use Getopt::Long;
 
 $|=1;
@@ -63,6 +65,9 @@ sub main {
     open my $unique_fh, ">", $unique_out;
     open my $nu_fh,     ">", $non_unique_out;
 
+    my $unique_io = RUM::RUMIO->new(-fh => $unique_fh,
+                                    strand_last => 1);
+    my $iter = RUM::BowtieIO->new(-fh => $infile);
     my %geneID2coords = read_annot_file($annot_fh);
 
     $log->info("Parsing bowtie output");
@@ -76,32 +81,43 @@ sub main {
     $numb=0;
     $firstflag_a = 1;
     $firstflag_b = 1;
+
     while (1) {
-        $line = <$infile>;
+        my $aln = $iter->next_val;
         $linecnt++;
-        chomp($line);
-        $seqnum_prev = $seqnum + 0;
-        $line =~ /^seq\.(\d+)(a|b)/;
-        $seqnum = $1;
-        $type = $2;
+        $seqnum_prev = $seqnum || 0;
+        $seqnum = $aln ? $aln->order : undef;
+
+        $type = $aln && $aln->is_forward ? 'a'
+              : $aln && $aln->is_reverse ? 'b' 
+              :                            '' ;
+
         if ($seqnum != $seqnum_prev && $seqnum_prev >= 0) {
             $firstflag_a = 1;
             $firstflag_b = 1;
-            undef %consistent_mappers;
+            my %consistent_mappers;
             # NOTE: the following three if's cover all cases we care about, because if numa > 1 and numb = 0, then that's
             # not really ambiguous, blat might resolve it
 
             if ($numa == 1 && $numb == 0) { # unique forward match, no reverse, or single_end
-                $str = $a_read_mapping_to_genome[0];
-                @a = split(/\t/,$str);
-                $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                print $unique_fh "seq.${seqnum_prev}a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
+                my ($chr, $locs, $strand, $seq) =  split /\t/, $a_read_mapping_to_genome[0];
+                $unique_io->write_aln(
+                    RUM::Alignment->new(
+                        readid => "seq.${seqnum_prev}a",
+                        chr => $chr,
+                        locs => [map { [split /-/] } split(/, /, $locs)],
+                        seq => addJunctionsToSeq($seq, $locs),
+                        strand => $strand));
             }
             if ($numb == 1 && $numa == 0) { # unique reverse match, no forward
-                $str = $b_read_mapping_to_genome[0];
-                @a = split(/\t/,$str);
-                $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                print $unique_fh "seq.${seqnum_prev}b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
+                my ($chr, $locs, $strand, $seq) =  split /\t/, $b_read_mapping_to_genome[0];
+                $unique_io->write_aln(
+                    RUM::Alignment->new(
+                        readid => "seq.${seqnum_prev}b",
+                        chr => $chr,
+                        locs => [map { [split /-/] } split(/, /, $locs)],
+                        seq => addJunctionsToSeq($seq, $locs),
+                        strand => $strand));
             }
             if ($paired_end eq "false") { # write ambiguous mapper to NU file since there's no chance a later step
                 # will resolve this read, like it might if it was paired end
@@ -503,12 +519,12 @@ sub main {
             $min_overlap_a=0;
             $min_overlap_b=0;
         }
-        last if $line !~ /\S/;
-        @a = split(/\t/,$line);
+        last if ! $aln;
+        @a = split /\t/, $aln->raw;
     
-        if ($a[0] =~ /a/) {
+        if ($aln->is_forward) {
             if ($firstflag_a == 1) {
-                $readlength_a = length($a[4]);
+                $readlength_a = length($aln->seq);
                 if ($readlength_a < 80) {
                     $min_overlap_a = 35;
                 } else {
@@ -520,9 +536,9 @@ sub main {
                 $firstflag_a = 0;
             }
         }
-        if ($a[0] =~ /b/) {
+        if ($aln->is_reverse) {
             if ($firstflag_b == 1) {
-                $readlength_b = length($a[4]);
+                $readlength_b = length($aln->seq);
                 if ($readlength_b < 80) {
                     $min_overlap_b = 35;
                 } else {
@@ -540,6 +556,7 @@ sub main {
         # $a[2] looks like this: uc002bea.2:chr15:78885397-78913322_-
         #       or like this: PF08_tmp1:rRNA:Pf3D7_08:1285649-1288826_+
         $a[2] =~ /^(.*):([^:]+):[^:]+(.)$/;
+
         $geneid = $1;
         $chr = $2;
         $tstrand = $3;
@@ -605,7 +622,6 @@ sub main {
             $s[$i] = $s[$i-1] + $ends[$i-1] - $starts[$i-1];
             if ($i > 100000) {
                 die "Something is wrong, probably with the gene annotation file: $ARGV[1].  Are you sure it is zero-based, half-open?  Script make_TU_and_TNU is exiting due to this error.";
-                exit(1);
             }
         }
         $readstart[0] = $starts[$i-1] + $displacement - $s[$i-1] + 1;
@@ -618,7 +634,6 @@ sub main {
             $readstart[$cnt] = $starts[$i-1] + 1;
             if ($i > 100000) {
                 die "Something is wrong, probably with the gene annotation file: $ARGV[1].  Are you sure it is zero-based, half-open?  Script make_TU_and_TNU is exiting due to this error.";
-                exit(1);
             }
         }
         $readsend[$cnt] = $starts[$i-1] + $displacement + $seq_length - $s[$i-1];
@@ -628,39 +643,45 @@ sub main {
         for ($i=1; $i<$cnt+1; $i++) {
             $output = $output . ", $readstart[$i]-$readsend[$i]";
         }
+
+        my $new_strand;
+
         if ($qstrand eq $tstrand) {
-            if ($type eq "a") {
-                $output = $output . "\t+\t$seq";
-            } else {
-                $output = $output . "\t-\t$seq";
-            }
+            $new_strand = $aln->is_forward ? '+' : '-';
         } else {
-            if ($type eq "a") {
-                $output = $output . "\t-\t$seq";
-            } else {
-                $output = $output . "\t+\t$seq";
-            }
+            $new_strand = $aln->is_forward ? '-' : '+';
         }
-        if ($type eq "a") {
+        $output .= "\t$new_strand\t$seq";
+
+        my $aln_out = RUM::Alignment->new(
+            chr => $chr,
+            locs => [ map { [ $readstart[$_], $readsend[$_] ] } (0 .. $#readstart) ],
+            strand => $new_strand,
+            seq => $seq,
+            readid => "junk",
+            raw => $output
+        );
+
+        if ($aln->is_forward) {
             $isnew = 1;
             for ($i=0; $i<$numa; $i++) {
                 if ($a_read_mapping_to_genome[$i] eq $output) {
                     $isnew = 0;
                 }
             }
-            if ($isnew == 1) {
+            if ($isnew) {
                 $a_read_mapping_to_genome[$numa] = $output;
                 $numa++;
             }
         }
-        if ($type eq "b") {
+        if ($aln->is_reverse) {
             $isnew = 1;
             for ($i=0; $i<$numb; $i++) {
                 if ($b_read_mapping_to_genome[$i] eq $output) {
                     $isnew = 0;
                 }
             }
-            if ($isnew == 1) {
+            if ($isnew) {
                 $b_read_mapping_to_genome[$numb] = $output;
                 $numb++;
             }

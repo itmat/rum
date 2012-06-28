@@ -8,16 +8,15 @@ use base 'RUM::AlignIO';
 use RUM::Alignment;
 
 sub parse_aln {
-    my $self = shift;
-    local $_ = shift;
+    my ($self, $line) = @_;
 
-    my ($readid, $strand, $chr, $loc, $seq) = split /\t/;
-
+    my ($readid, $strand, $chr, $loc, $seq) = split /\t/, $line;
     return RUM::Alignment->new(readid => $readid,
                                chr => $chr,
-                               loc => $loc,
+                               locs => $loc,
                                strand => $strand,
-                               seq => $seq);  
+                               seq => $seq,
+                               raw => $line);  
 }
 
 sub format_aln {

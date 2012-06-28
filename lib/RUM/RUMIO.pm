@@ -50,6 +50,7 @@ sub format_aln {
     my ($self, $aln) = @_;
     my ($readid, $chr, $locs, $strand, $seq) = 
         @$aln{qw(readid chr locs strand seq)};
+    ($strand, $seq) = ($seq, $strand) if $self->{strand_last};
     $locs = join(", ", map("$_->[0]-$_->[1]", @$locs));
     return join("\t", $readid, $chr, $locs, $strand, $seq);
 }
