@@ -67,6 +67,9 @@ our $SHARED_INPUT_DIR = "$RUM_HOME/t/data/shared";
 our $INPUT_DIR        = "$RUM_HOME/t/data/$PROGRAM_NAME";
 our $EXPECTED_DIR      = "$RUM_HOME/t/expected/$PROGRAM_NAME";
 
+our $PFAL_INDEX_DIR = "$RUM_INDEXES/pfalciparum";
+our $PFAL_GENE_INFO      = "$PFAL_INDEX_DIR/pfal_gene_info.txt";
+
 =item no_diffs(FILE1, FILE2, NAME)
 
 Uses Test::More to assert that there are no differences between the
