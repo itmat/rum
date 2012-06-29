@@ -138,8 +138,11 @@ sub main {
                 my @spans_t;
                 my %CHRS;
                 if (@a_read_mapping_to_genome > 1) {
+                    my $strand;
+                
                     for my $str (@a_read_mapping_to_genome) {
                         my $aln = mapping_to_aln($str);
+                        $strand = $aln->strand;
                         push @spans_t, RUM::RUMIO->format_locs($aln);
                         $CHRS{$aln->chromosome}++;
                         $seq_temp = $aln->seq;
@@ -158,7 +161,7 @@ sub main {
                         if ($ss[0] >= $min_overlap_a) {
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
                             print $unique_fh "seq.$seqnum_prev";
-                            print $unique_fh "a\t$CHR\t$ss[1]\t$seq_new\t$a[2]\n";
+                            print $unique_fh "a\t$CHR\t$ss[1]\t$seq_new\t$strand\n";
                         } else {
                             $uflag = 0;
                         }
