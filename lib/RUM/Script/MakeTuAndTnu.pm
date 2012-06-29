@@ -54,11 +54,10 @@ sub write_aln_with_junctions {
         $aln->copy(seq => newAddJunctionsToSeq($aln)));    
 }
 
-sub write_aln_with_intersection {
+sub make_aln_with_intersection {
     my (%options) = @_;
     my        ($io, $locs, $seq, $readid, $strand, $chr) = 
     @options{qw(io  locs    seq   readid   strand   chr)};
-
 
     my $aln = RUM::Alignment->new(
         readid => $readid,
@@ -67,7 +66,7 @@ sub write_aln_with_intersection {
         strand => $strand,
         locs   => RUM::RUMIO->parse_locs($locs));
 
-    $io->write_aln($aln->copy(seq => newAddJunctionsToSeq($aln)));
+    return $aln->copy(seq => newAddJunctionsToSeq($aln));
 }
 
 sub main {
@@ -175,14 +174,14 @@ sub main {
                     } else { # significant overlap, report to "Unique" file, if it's long enough
                         my ($max_span_length, $new_spans, $new_seq) = split(/\t/,$str);
                         if ($max_span_length >= $min_overlap_a) {
-                            write_aln_with_intersection(
-                                io     => $unique_io,
+                            my $aln = make_aln_with_intersection(
                                 readid => "seq.${seqnum_prev}a",
                                 chr    => $CHR,
                                 seq    => $new_seq,
                                 strand => $strand,
                                 locs   => $new_spans
                             );
+                            $unique_io->write_aln($aln);
                         } else {
                             $uflag = 0;
                         }
@@ -460,18 +459,18 @@ sub main {
                                 if ((($start2 - $end1 > 0) && ($start2 - $end1 < $max_distance_between_paired_reads)) || 
                                     (($start1 - $end2 > 0) && ($start1 - $end2 < $max_distance_between_paired_reads))) {
 
-                                    my @directions = qw(a b);
                                     for my $str ($str1, $str2) {
                                         my ($chr, $locs, $seq) = split /\t/, $str;
-                                        my $dir = shift @directions;
-                                        write_aln_with_intersection(
-                                            io     => $unique_io,
-                                            readid => "seq.${seqnum_prev}$dir",
+                                        push @alns, make_aln_with_intersection(
+                                            readid => "seq.${seqnum_prev}",
                                             chr    => $chr,
                                             locs   => $locs,
                                             seq    => $seq,
                                             strand => $STRAND);
                                     }
+                                    $unique_io->write_aln($alns[0]->as_forward);
+                                    $unique_io->write_aln($alns[1]->as_reverse);
+
                                 } else {
                                     $nointersection = 1;
                                 }
@@ -489,13 +488,13 @@ sub main {
                             $size = $1;
                             if ($size >= $min_overlap_a && $size >= $min_overlap_b) {
                                 my ($chr, $locs, $seq) = split /\t/, $str;
-                                write_aln_with_intersection(
-                                    io     => $unique_io,
+                                my $aln = make_aln_with_intersection(
                                     readid => "seq.${seqnum_prev}",
                                     chr    => $chr,
                                     locs   => $locs,
                                     seq    => $seq,
                                     strand => $STRAND);
+                                $unique_io->write_aln($aln);
                             } else {
                                 $nointersection = 1;
                             }

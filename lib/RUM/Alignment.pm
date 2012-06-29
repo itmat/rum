@@ -53,4 +53,25 @@ sub order {
     $self->readid =~ /seq.(\d+)/ and return $1;
 }
 
+sub as_forward {
+    my ($self) = @_;
+    my $readid = $self->readid;
+    $readid =~ s/(a|b)$//;
+    return $self->copy(readid => $readid . "a");
+}
+
+sub as_reverse {
+    my ($self) = @_;
+    my $readid = $self->readid;
+    $readid =~ s/(a|b)$//;
+    return $self->copy(readid => $readid . "b");
+}
+
+sub as_unified {
+    my ($self) = @_;
+    my $readid = $self->readid;
+    $readid =~ s/(a|b)$//;
+    return $self->copy(readid => $readid);
+}
+
 1;
