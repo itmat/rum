@@ -45,13 +45,19 @@ sub write_mapping_with_new_id_and_junctions {
     my ($io, $mapping, $readid) = @_;
     my ($chr, $locs, $strand, $seq) =  split /\t/, $mapping;
     my $aln =  mapping_to_aln($mapping, $readid);
-    write_aln_with_junctions($io, $aln);
+    $io->write_aln(aln_with_junctions($aln));
 }
 
-sub write_aln_with_junctions {
-    my ($io, $aln) = @_;
-    $io->write_aln(
-        $aln->copy(seq => newAddJunctionsToSeq($aln)));    
+sub make_mapping_with_new_id_and_junctions {
+    my ($mapping, $readid) = @_;
+    my ($chr, $locs, $strand, $seq) =  split /\t/, $mapping;
+    my $aln =  mapping_to_aln($mapping, $readid);
+    aln_with_junctions($aln);
+}
+
+sub aln_with_junctions {
+    my ($aln) = @_;
+    $aln->copy(seq => newAddJunctionsToSeq($aln));    
 }
 
 sub make_aln_with_intersection {
@@ -118,22 +124,22 @@ sub main {
     # seq.1308a       -       mm9_NM_153168:chr9:123276058-123371782_+        3181    TAACTGTCTTGTGGCGGCCAAGCGTTCATAGCGACGTCTCTTTTTGATCCTTCGATGTCTGCTCTTCCTATCATTGTGAAGCAGAATTCACCAAGCGTTGGATTGTTC
 
     $linecnt = 0;
-    $seqnum = -1;
 
     $firstflag_a = 1;
     $firstflag_b = 1;
 
+    my ($aln, $aln_prev);
+
     while (1) {
-        my $aln = $iter->next_val;
+        $aln_prev = $aln;
+        $aln = $iter->next_val;
         $linecnt++;
-        $seqnum_prev = $seqnum || 0;
-        $seqnum = $aln ? $aln->order : undef;
 
         $type = $aln && $aln->is_forward ? 'a'
               : $aln && $aln->is_reverse ? 'b' 
               :                            '' ;
 
-        if ($seqnum != $seqnum_prev && $seqnum_prev >= 0) {
+        if ($aln_prev && ( ! $aln || $aln->order != $aln_prev->order)) {
             $firstflag_a = 1;
             $firstflag_b = 1;
             my %consistent_mappers;
@@ -141,10 +147,12 @@ sub main {
             # not really ambiguous, blat might resolve it
 
             if (@a_read_mapping_to_genome == 1 && ! @b_read_mapping_to_genome) { # unique forward match, no reverse, or single_end
-                write_mapping_with_new_id_and_junctions($unique_io, $a_read_mapping_to_genome[0], "seq.${seqnum_prev}a");
+                my $aln = make_mapping_with_new_id_and_junctions($a_read_mapping_to_genome[0], $aln_prev->readid);
+                $unique_io->write_aln($aln->as_forward);
             }
             if (@b_read_mapping_to_genome == 1 && ! @a_read_mapping_to_genome) { # unique reverse match, no forward
-                write_mapping_with_new_id_and_junctions($unique_io, $b_read_mapping_to_genome[0], "seq.${seqnum_prev}b");
+                my $aln = make_mapping_with_new_id_and_junctions( $b_read_mapping_to_genome[0], $aln_prev->readid);
+                $unique_io->write_aln($aln->as_reverse);
             }
             if ($paired_end eq "false") { # write ambiguous mapper to NU file since there's no chance a later step
                 # will resolve this read, like it might if it was paired end
@@ -175,12 +183,12 @@ sub main {
                         my ($max_span_length, $new_spans, $new_seq) = split(/\t/,$str);
                         if ($max_span_length >= $min_overlap_a) {
                             my $aln = make_aln_with_intersection(
-                                readid => "seq.${seqnum_prev}a",
+                                readid => $aln_prev->readid,
                                 chr    => $CHR,
                                 seq    => $new_seq,
                                 strand => $strand,
                                 locs   => $new_spans
-                            );
+                            )->as_forward;
                             $unique_io->write_aln($aln);
                         } else {
                             $uflag = 0;
@@ -188,7 +196,8 @@ sub main {
                     }
                     if ($uflag == 0) { # no significant overlap, report to "NU" file
                         for my $str (@a_read_mapping_to_genome) {
-                            write_mapping_with_new_id_and_junctions($nu_io, $str, "seq.${seqnum_prev}a");
+                            my $aln = make_mapping_with_new_id_and_junctions($str, $aln_prev->readid);
+                            $nu_io->write_aln($aln->as_forward);
                         }
                     }
                 }
@@ -386,12 +395,18 @@ sub main {
                     foreach $key (keys %consistent_mappers) {
 
                         my @mappers = split /\n/, $key;
-                        my @directions = qw(a b);
 
+                        my @alns;
                         for my $mapper (@mappers) {
-                            my $direction = @mappers == 1 ? "" : shift(@directions);
-                            my $readid = "seq.${seqnum_prev}$direction";
-                            write_mapping_with_new_id_and_junctions($unique_io, $mapper, $readid);
+                            push @alns, make_mapping_with_new_id_and_junctions($mapper, $aln_prev->readid);
+                        }
+
+                        if (@alns == 2) {
+                            $unique_io->write_aln($alns[0]->as_forward);
+                            $unique_io->write_aln($alns[1]->as_reverse);                            
+                        }
+                        else {
+                            $unique_io->write_aln($alns[0]->as_unified);
                         }
                     }
                 } else {
@@ -462,7 +477,7 @@ sub main {
                                     for my $str ($str1, $str2) {
                                         my ($chr, $locs, $seq) = split /\t/, $str;
                                         push @alns, make_aln_with_intersection(
-                                            readid => "seq.${seqnum_prev}",
+                                            readid => $aln_prev->readid,
                                             chr    => $chr,
                                             locs   => $locs,
                                             seq    => $seq,
@@ -489,7 +504,7 @@ sub main {
                             if ($size >= $min_overlap_a && $size >= $min_overlap_b) {
                                 my ($chr, $locs, $seq) = split /\t/, $str;
                                 my $aln = make_aln_with_intersection(
-                                    readid => "seq.${seqnum_prev}",
+                                    readid => $aln_prev->readid,
                                     chr    => $chr,
                                     locs   => $locs,
                                     seq    => $seq,
@@ -504,14 +519,13 @@ sub main {
                     }
                     if (($nointersection == 1) || ($nchrs > 1) || ($num_absingle > 0 && $num_absplit > 0) || ($numstrands > 1)) {
                         for my $key (keys %consistent_mappers) {
-
-                            my @mappers = split /\n/, $key;
-                            my @directions = qw(a b);
-
-                            for my $mapper (@mappers) {
-                                my $direction = @mappers == 1 ? "" : shift(@directions);
-                                my $readid = "seq.${seqnum_prev}$direction";
-                                write_mapping_with_new_id_and_junctions($nu_io, $mapper, $readid);
+                            my @alns = map { make_mapping_with_new_id_and_junctions($_, $aln_prev->readid) } split /\n/, $key;
+                            if (@alns == 1) {
+                                $nu_io->write_aln($alns[0]->as_unified);
+                            }
+                            else {
+                                $nu_io->write_aln($alns[0]->as_forward);
+                                $nu_io->write_aln($alns[1]->as_reverse);
                             }
                         }
                     }
