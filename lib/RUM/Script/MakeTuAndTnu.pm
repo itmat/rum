@@ -54,6 +54,22 @@ sub write_aln_with_junctions {
         $aln->copy(seq => newAddJunctionsToSeq($aln)));    
 }
 
+sub write_aln_with_intersection {
+    my (%options) = @_;
+    my        ($io, $locs, $seq, $readid, $strand, $chr) = 
+    @options{qw(io  locs    seq   readid   strand   chr)};
+
+
+    my $aln = RUM::Alignment->new(
+        readid => $readid,
+        chr    => $chr,
+        seq    => $seq,
+        strand => $strand,
+        locs   => RUM::RUMIO->parse_locs($locs));
+
+    $io->write_aln($aln->copy(seq => newAddJunctionsToSeq($aln)));
+}
+
 sub main {
 
     GetOptions(
@@ -157,11 +173,16 @@ sub main {
                     if ((!$str) || $nchrs > 1) {
                         $uflag = 0;
                     } else { # significant overlap, report to "Unique" file, if it's long enough
-                        @ss = split(/\t/,$str);
-                        if ($ss[0] >= $min_overlap_a) {
-                            $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print $unique_fh "seq.$seqnum_prev";
-                            print $unique_fh "a\t$CHR\t$ss[1]\t$seq_new\t$strand\n";
+                        my ($max_span_length, $new_spans, $new_seq) = split(/\t/,$str);
+                        if ($max_span_length >= $min_overlap_a) {
+                            write_aln_with_intersection(
+                                io     => $unique_io,
+                                readid => "seq.${seqnum_prev}a",
+                                chr    => $CHR,
+                                seq    => $new_seq,
+                                strand => $strand,
+                                locs   => $new_spans
+                            );
                         } else {
                             $uflag = 0;
                         }
@@ -438,15 +459,19 @@ sub main {
                                 $end2 = $2;
                                 if ((($start2 - $end1 > 0) && ($start2 - $end1 < $max_distance_between_paired_reads)) || 
                                     (($start1 - $end2 > 0) && ($start1 - $end2 < $max_distance_between_paired_reads))) {
-                                    @ss = split(/\t/,$str1);
-                                    $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                    print $unique_fh "seq.$seqnum_prev";
-                                    print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
 
-                                    @ss = split(/\t/,$str2);
-                                    $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                    print $unique_fh "seq.$seqnum_prev";
-                                    print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                    my @directions = qw(a b);
+                                    for my $str ($str1, $str2) {
+                                        my ($chr, $locs, $seq) = split /\t/, $str;
+                                        my $dir = shift @directions;
+                                        write_aln_with_intersection(
+                                            io     => $unique_io,
+                                            readid => "seq.${seqnum_prev}$dir",
+                                            chr    => $chr,
+                                            locs   => $locs,
+                                            seq    => $seq,
+                                            strand => $STRAND);
+                                    }
                                 } else {
                                     $nointersection = 1;
                                 }
@@ -463,9 +488,14 @@ sub main {
                             $str =~ s/^(\d+)\t/$CHR\t/;
                             $size = $1;
                             if ($size >= $min_overlap_a && $size >= $min_overlap_b) {
-                                @ss = split(/\t/,$str);
-                                $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                print $unique_fh "seq.$seqnum_prev\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                my ($chr, $locs, $seq) = split /\t/, $str;
+                                write_aln_with_intersection(
+                                    io     => $unique_io,
+                                    readid => "seq.${seqnum_prev}",
+                                    chr    => $chr,
+                                    locs   => $locs,
+                                    seq    => $seq,
+                                    strand => $STRAND);
                             } else {
                                 $nointersection = 1;
                             }
