@@ -76,6 +76,12 @@ sub is_paired {
     return $read && $read->is_reverse;
 }
 
+sub read_length {
+    my ($filename) = @_;
+    return length(RUM::SeqIO->new(-file => $filename)->next_seq->seq);
+}
+
+
 sub main {
 
     my $map_names = "false";
@@ -130,11 +136,7 @@ sub main {
 
 
     $firstseqnum = first_read_number($reads_file);
-    open my $reads_in, "<", $reads_file;
-    <$reads_in>;
-    $line = <$reads_in>;
-    chomp($line);
-    $readlength = length($line);
+    $readlength = read_length($reads_file);
     unless ($qual_file) {
         $QUAL{$readlength} = $DEFAULT_QUAL || ("I" x $readlength);
     }
@@ -162,6 +164,7 @@ sub main {
         open $rumnu, "<", $rum_nu_file;
     }
     open my $reads_in, "<", $reads_file;
+    my $reads_iter = RUM::SeqIO->new(-fh => $reads_in);
 
     # checking that the first line in $rumu really looks like it should:
 
@@ -228,18 +231,15 @@ sub main {
 	$MMf = 0;
 	$MMr = 0;
 
-        $forward_read = <$reads_in>;
-        $forward_read = <$reads_in>;
-        chomp($forward_read);
+        $forward_read = $reads_iter->next_seq->seq;
+
         $forward_read_hold = $forward_read;
         $readlength_forward = length($forward_read);
         if ((!$qual_file) && !($QUAL{$readlength_forward} =~ /\S/)) {
             $QUAL{$readlength_forward} = $DEFAULT_QUAL || ("I" x $readlength);
         }
         if ($paired eq "true") {
-            $reverse_read = <$reads_in>;
-            $reverse_read = <$reads_in>;
-            chomp($reverse_read);
+            $reverse_read = $reads_iter->next_seq->seq;
             $reverse_read_hold = $reverse_read;
             $readlength_reverse = length($reverse_read);
             if ((!$qual_file) && !($QUAL{$readlength_reverse} =~ /\S/)) {
