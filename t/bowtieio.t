@@ -32,8 +32,7 @@ is $first->strand, '-', "strand";
 is $first->readid, "seq.591b", "read id";
 is $first->chromosome, 2, "chromosome";
 
-is_deeply $first->loc, 3626971, "loc";
-
+is_deeply $first->start, 3626971, "loc";
 
 is $first->seq, 'AACCTTCTTCTTGCTTCTTAAAGCTTTCATGGTGTATCCAAAGTCCATATGAGTCTTTGGCTTTGTGTCTTCTAA', "seq";
 ok $first->is_reverse, "reverse";

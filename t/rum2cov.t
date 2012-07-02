@@ -44,7 +44,7 @@ if (1) {
     
     open my $stats, "<", $got_nu_stats;
     my $line = <$stats>;
-    like $line, qr/footprint for .* : 68957/, "NU stats";
+    like $line, qr/footprint for .* : 289965387/, "NU stats";
 }
 
 if (1) {
@@ -65,5 +65,5 @@ if (1) {
     system("cat $got_cov > u_cov");
     open my $stats, "<", $got_stats;
     my $line = <$stats>;
-    like $line, qr/footprint for .* : 72603/, "Unique stats";
+    like $line, qr/footprint for .* : 322398/, "Unique stats";
 }

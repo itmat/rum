@@ -1,5 +1,6 @@
 package RUM::Script::RumToSam;
 
+use autodie;
 no warnings;
 
 use File::Copy;
@@ -94,37 +95,37 @@ sub main {
     my %namemapping;
     if ($name_mapping_file) {
         $map_names = "true";
-        open(NAMEMAPPING, $name_mapping_file) or die "ERROR: in script parsefastq.pl, cannot open \"$name_mapping_file\" for reading.\n\n";
-        while (my $line = <NAMEMAPPING>) {
+        open my $name_mapping, "<", $name_mapping_file;
+        while (my $line = <$name_mapping>) {
             chomp($line);
             @a = split(/\t/,$line);
             $namemapping{$a[0]} = $a[1];
         }
-        close(NAMEMAPPING);
     }
 
-    open(INFILE, $genome_infile);
-    while(my $line = <INFILE>) {
-        chomp($line);
-        $line =~ s/^>//;
-        $line2 = <INFILE>;
-        chomp($line2);
-        $GENOMESEQ{$line} = $line2;
+    if ($genome_infile) {
+        open my $genome_in, "<", $genome_infile;
+        while(my $line = <$genome_in>) {
+            chomp($line);
+            $line =~ s/^>//;
+            $line2 = <$genome_in>;
+            chomp($line2);
+            $GENOMESEQ{$line} = $line2;
+        }
     }
-    close(INFILE);
 
-    open(INFILE, $reads_file);
-    $line = <INFILE>;
+    open my $reads_in, "<", $reads_file;
+    $line = <$reads_in>;
     chomp($line);
     $line =~ /seq.(\d+)/;
     $firstseqnum = $1;
-    $line = <INFILE>;
+    $line = <$reads_in>;
     chomp($line);
     $readlength = length($line);
     unless ($qual_file) {
         $QUAL{$readlength} = $DEFAULT_QUAL || ("I" x $readlength);
     }
-    $line = <INFILE>;
+    $line = <$reads_in>;
     chomp($line);
     $line =~ /seq.\d+(.)/;
     $type = $1;
@@ -134,7 +135,7 @@ sub main {
     } else {
         $paired = "false";
     }
-    close(INFILE);
+
     $x = `tail -2 $reads_file | head -1`;
     $x =~ /seq.(\d+)/;
     $lastseqnum = $1;
@@ -151,19 +152,20 @@ sub main {
     $bitflag[9] = "the read fails platform/vendor quality checks";
     $bitflag[10] = "the read is either a PCR duplicate or an optical duplicate";
 
+    my ($rumu, $rumnu);
     if ($rum_unique_file) {
-        open(RUMU, $rum_unique_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_unique_file' for reading\n\n";
+        open $rumu, "<", $rum_unique_file;
     }
     if ($rum_nu_file) {
-        open(RUMNU, $rum_nu_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_nu_file' for reading\n\n";
+        open $rumnu, "<", $rum_nu_file;
     }
-    open(READS, $reads_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$reads_file' for reading\n\n";
+    open my $reads_in, "<", $reads_file;
 
-    # checking that the first line in RUMU really looks like it should:
+    # checking that the first line in $rumu really looks like it should:
 
     if ($rum_unique_file) {
-        $line = <RUMU>;
-        close(RUMU);
+        $line = <$rumu>;
+        close($rumu);
         @a = split(/\t/,$line);
         $flag = 0;
         if (!($a[0] =~ /^seq.\d+[ab]?/)) {
@@ -181,11 +183,11 @@ sub main {
         if ($flag && $line) {
             die "\nERROR: in script rum2sam.pl: the first line of the file '$rum_unique_file' is misformatted,\nit does not look like a RUM output file.\n";
         }
-        open(RUMU, $rum_unique_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_unique_file' for reading\n\n";
+        open $rumu, "<", $rum_unique_file;
     }
     if ($rum_nu_file) {
-        $line = <RUMNU>;
-        close(RUMNU);
+        $line = <$rumnu>;
+        close($rumnu);
         @a = split(/\t/,$line);
         $flag = 0;
         if (!($a[0] =~ /^seq.\d+[ab]?/)) {
@@ -203,14 +205,14 @@ sub main {
         if ($flag && $line) {
             die "\nERROR: in script rum2sam.pl: the first line of the file '$rum_nu_file' is misformatted,\nit does not look like a RUM output file.\n";
         }
-        open(RUMNU, $rum_nu_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_nu_file' for reading\n\n";
+        open $rumnu, "<", $rum_nu_file;
     }
 
     if ($qual_file) {
         open(QUALS, $qual_file);
     }
 
-    open(my $sam_out, ">", $sam_outfile);
+    open my $sam_out, ">", $sam_outfile;
     my $sam = RUM::SamIO->new(-fh => $sam_out);
 
     for (my $seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
@@ -224,8 +226,8 @@ sub main {
 	$MMf = 0;
 	$MMr = 0;
 
-        $forward_read = <READS>;
-        $forward_read = <READS>;
+        $forward_read = <$reads_in>;
+        $forward_read = <$reads_in>;
         chomp($forward_read);
         $forward_read_hold = $forward_read;
         $readlength_forward = length($forward_read);
@@ -233,8 +235,8 @@ sub main {
             $QUAL{$readlength_forward} = $DEFAULT_QUAL || ("I" x $readlength);
         }
         if ($paired eq "true") {
-            $reverse_read = <READS>;
-            $reverse_read = <READS>;
+            $reverse_read = <$reads_in>;
+            $reverse_read = <$reads_in>;
             chomp($reverse_read);
             $reverse_read_hold = $reverse_read;
             $readlength_reverse = length($reverse_read);
@@ -271,7 +273,7 @@ sub main {
             $flag = 1;
         }
         while ($flag == 0) {
-            $line = <RUMU>;
+            $line = <$rumu>;
             chomp($line);
             $type = "";
             if ($line =~ /seq.(\d+)(.)/) {
@@ -298,7 +300,7 @@ sub main {
             }
             if ($sn > $seqnum) {
                 $len = -1 * (1 + length($line));
-                seek(RUMU, $len, 1);
+                seek($rumu, $len, 1);
                 $flag = 1;
             }
             if ($line eq '') {
@@ -310,7 +312,7 @@ sub main {
             $num_mappers = 0;
             $last_type_found = "";
             while ($flag == 0) {
-                $line = <RUMNU>;
+                $line = <$rumnu>;
                 chomp($line);
                 $type = "";
                 if ($line =~ /seq.(\d+)(.)/) {
@@ -351,7 +353,7 @@ sub main {
                         $num_mappers++;
                     }
                     $len = -1 * (1 + length($line));
-                    seek(RUMNU, $len, 1);
+                    seek($rumnu, $len, 1);
                     $flag = 1;
                 }
                 if ($line eq '') {
