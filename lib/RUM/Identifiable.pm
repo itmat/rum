@@ -15,6 +15,11 @@ sub new {
 
 sub readid     { $_[0]->{readid} }
 
+sub order {
+    my ($self) = @_;
+    $self->readid =~ /seq.(\d+)/ and return $1;
+}
+
 sub is_forward { 
     shift->_direction eq 'a';
 }

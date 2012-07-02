@@ -9,6 +9,7 @@ use RUM::Logging;
 use Getopt::Long;
 use RUM::Common qw(addJunctionsToSeq reversecomplement spansTotalLength);
 use RUM::SamIO qw(:flags);
+use RUM::SeqIO;
 
 our $log = RUM::Logging->get_logger();
 $|=1;
@@ -56,6 +57,25 @@ sub both_segments_mapped {
     return ! ( $rec->[$FLAG] & $mask );
 }
 
+sub first_read_number {
+    my ($filename) = @_;
+    return RUM::SeqIO->new(-file => $filename)->next_seq->order;
+}
+
+sub last_read_number {
+    my ($filename) = @_;
+    open my $in, '-|', "tail -2 $filename";
+    return RUM::SeqIO->new(-fh => $in)->next_seq->order;
+}
+
+sub is_paired {
+    my ($filename) = @_;
+    my $in = RUM::SeqIO->new(-file => $filename);
+    $in->next_seq;
+    my $read = $in->next_seq;
+    return $read && $read->is_reverse;
+}
+
 sub main {
 
     my $map_names = "false";
@@ -80,17 +100,11 @@ sub main {
     $reads_file or RUM::Usage->bad(
         "Please specify a reads file with --reads-in");
 
-    my $allow = sub { 1 };
-    if ($suppress1) {
-        $allow = \&some_segment_mapped;
-    }
-    elsif ($suppress2) {
-        $allow = \&this_segment_mapped;
-    }
-    elsif ($suppress3) {
-        $allow = \&both_segments_mapped;
-    }
-
+    my $allow 
+    = $suppress1 ? \&some_segment_mapped
+    : $suppress2 ? \&this_segment_mapped
+    : $suppress3 ? \&both_segments_mapped
+    :              sub { 1 };
     
     my %namemapping;
     if ($name_mapping_file) {
@@ -114,31 +128,19 @@ sub main {
         }
     }
 
+
+    $firstseqnum = first_read_number($reads_file);
     open my $reads_in, "<", $reads_file;
-    $line = <$reads_in>;
-    chomp($line);
-    $line =~ /seq.(\d+)/;
-    $firstseqnum = $1;
+    <$reads_in>;
     $line = <$reads_in>;
     chomp($line);
     $readlength = length($line);
     unless ($qual_file) {
         $QUAL{$readlength} = $DEFAULT_QUAL || ("I" x $readlength);
     }
-    $line = <$reads_in>;
-    chomp($line);
-    $line =~ /seq.\d+(.)/;
-    $type = $1;
-    my $paired;
-    if ($type eq 'b') {
-        $paired = "true";
-    } else {
-        $paired = "false";
-    }
 
-    $x = `tail -2 $reads_file | head -1`;
-    $x =~ /seq.(\d+)/;
-    $lastseqnum = $1;
+    my $paired = is_paired($reads_file) ? 'true' : 'false';
+    my $lastseqnum = last_read_number($reads_file);
 
     $bitflag[0] = "the read is paired in sequencing";
     $bitflag[1] = "the read is mapped in a proper pair";
