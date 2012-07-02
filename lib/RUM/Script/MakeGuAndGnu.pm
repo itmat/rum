@@ -90,7 +90,7 @@ sub clean_alignment {
     my ($class, $aln) = @_;
     
     local $_   = $aln->seq;
-    my $start  = $aln->loc + 1;
+    my $start  = $aln->start + 1;
     my $chr    = $aln->chromosome;
     return undef if /^N+$/;
         

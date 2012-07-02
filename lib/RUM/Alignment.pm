@@ -11,15 +11,27 @@ sub new {
     my ($class, %params) = @_;
     my $self = {};
 
-    local $_;
-    for (qw(readid chr strand seq)) {
-        defined($self->{$_} = delete $params{$_}) or croak "Need $_";
+    for my $field (qw(readid chr strand seq)) {
+        defined($self->{$field} = delete $params{$field}) 
+        or croak "Need $_";
     }
     $self->{raw} = delete $params{raw};
 
-    defined($self->{locs}   = delete $params{locs})
-    or defined($self->{loc}   = delete $params{loc})
-    or croak "Need locs or loc";
+
+    my $locs = delete $params{locs};
+    my $loc  = delete $params{loc};
+
+    if ($loc) {
+        croak q{Please provide either 'loc' or 'locs'} if $locs;
+        $locs = [[$loc, undef]];
+    }
+
+    if ($locs) {
+        $self->{locs} = $locs;
+    }
+    else {
+        croak q{Please provide either 'loc' or 'locs'} if $locs;
+    }
 
     return bless $self, $class;
 }
