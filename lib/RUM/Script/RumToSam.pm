@@ -182,7 +182,7 @@ sub main {
     $bitflag[10] = "the read is either a PCR duplicate or an optical duplicate";
 
     my ($rumu, $rumnu);
-
+    my ($rumu_iter);
     open my $reads_in, "<", $reads_file;
     my $reads_iter = RUM::SeqIO->new(-fh => $reads_in);
 
@@ -191,6 +191,7 @@ sub main {
     if ($rum_unique_file) {
         check_rum_input($rum_unique_file);
         open $rumu, "<", $rum_unique_file;
+        $rumu_iter = RUM::RUMIO->new(-fh => $rumu)->peekable;
     }
     if ($rum_nu_file) {
         check_rum_input($rum_nu_file);
@@ -252,44 +253,26 @@ sub main {
         $FORWARD[0] = "";
         $REVERSE[0] = "";
         $JOINED[0] = "";
-        if ($rum_unique_file) {
-            $flag = 0;
-        } else {
-            $flag = 1;
-        }
-        while ($flag == 0) {
-            $line = <$rumu>;
-            chomp($line);
-            $type = "";
-            if ($line =~ /seq.(\d+)(.)/) {
-                $sn = $1;
-                $type = $2;
-            }
-            if ($sn == $seqnum && $type eq "a") {
-                $rum_u_forward = $line;
+
+        if ($rumu_iter) {
+          MAPPER: while (1) {
+
+                my $aln = $rumu_iter->peek;
+                last MAPPER unless $aln && $aln->order == $seqnum;
+
+                $rumu_iter->next_val;
                 $unique_mapper_found = "true";
-                $FORWARD[0] = $rum_u_forward;
                 $num_mappers = 1;
-            }
-            if ($sn == $seqnum && $type eq "b") {
-                $rum_u_reverse = $line;
-                $unique_mapper_found = "true";
-                $REVERSE[0] = $rum_u_reverse;
-                $num_mappers = 1;
-            }
-            if ($sn == $seqnum && $type eq "\t") {
-                $rum_u_joined = $line;
-                $unique_mapper_found = "true";
-                $JOINED[0] = $rum_u_joined;
-                $num_mappers = 1;
-            }
-            if ($sn > $seqnum) {
-                $len = -1 * (1 + length($line));
-                seek($rumu, $len, 1);
-                $flag = 1;
-            }
-            if ($line eq '') {
-                $flag = 1;
+                
+                if ($aln->is_forward) {
+                    $FORWARD[0] = $rum_u_forward = $aln->raw;
+                }
+                elsif ($aln->is_reverse) {
+                    $REVERSE[0] = $rum_u_reverse = $aln->raw;
+                }
+                else {
+                    $JOINED[0]  = $rum_u_joined = $aln->raw;
+                }
             }
         }
         if ($unique_mapper_found eq "false" && $rum_nu_file) {
