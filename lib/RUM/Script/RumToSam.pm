@@ -10,6 +10,7 @@ use Getopt::Long;
 use RUM::Common qw(addJunctionsToSeq reversecomplement spansTotalLength);
 use RUM::SamIO qw(:flags);
 use RUM::SeqIO;
+use RUM::RUMIO;
 
 our $log = RUM::Logging->get_logger();
 $|=1;
@@ -81,6 +82,30 @@ sub read_length {
     return length(RUM::SeqIO->new(-file => $filename)->next_seq->seq);
 }
 
+sub check_rum_input {
+    my ($filename) = @_;
+    my $rum_unique_iter = RUM::RUMIO->new(-file => $filename)->peekable;
+    
+    my $aln = $rum_unique_iter->next_val;
+
+    $flag = 0;
+    if (!$aln->readid) {
+        $flag = 1;
+    }
+    if (ref($aln->locs) !~ /^ARRAY/ || ! @{ $aln->locs }) {
+        $flag = 1;
+    }
+    if ($aln->strand !~ /^[+-]$/) {
+        $flag = 1;
+    }
+    if ($aln->seq !~ /^[ACGTN:+]+$/) {
+        $flag = 1;
+    }
+    if ($flag && $line) {
+        die("The first line of the file '$filename' is "
+            . "misformatted; it does not look like a RUM output file.");
+    }
+}
 
 sub main {
 
@@ -157,62 +182,20 @@ sub main {
     $bitflag[10] = "the read is either a PCR duplicate or an optical duplicate";
 
     my ($rumu, $rumnu);
-    if ($rum_unique_file) {
-        open $rumu, "<", $rum_unique_file;
-    }
-    if ($rum_nu_file) {
-        open $rumnu, "<", $rum_nu_file;
-    }
+
     open my $reads_in, "<", $reads_file;
     my $reads_iter = RUM::SeqIO->new(-fh => $reads_in);
 
     # checking that the first line in $rumu really looks like it should:
 
     if ($rum_unique_file) {
-        $line = <$rumu>;
-        close($rumu);
-        @a = split(/\t/,$line);
-        $flag = 0;
-        if (!($a[0] =~ /^seq.\d+[ab]?/)) {
-            $flag = 1;
-        }
-        if ($a[2] =~ /[^\d-, ]/) {
-            $flag = 1;
-        }
-        if (!($a[3] eq "+" || $a[3] eq "-")) {
-            $flag = 1;
-        }
-        if (!($a[4] =~ /^[ACGTN:+]+$/)) {
-            $flag = 1;
-        }
-        if ($flag && $line) {
-            die "\nERROR: in script rum2sam.pl: the first line of the file '$rum_unique_file' is misformatted,\nit does not look like a RUM output file.\n";
-        }
+        check_rum_input($rum_unique_file);
         open $rumu, "<", $rum_unique_file;
     }
     if ($rum_nu_file) {
-        $line = <$rumnu>;
-        close($rumnu);
-        @a = split(/\t/,$line);
-        $flag = 0;
-        if (!($a[0] =~ /^seq.\d+[ab]?/)) {
-            $flag = 1;
-        }
-        if ($a[2] =~ /[^\d-, ]/) {
-            $flag = 1;
-        }
-        if (!($a[3] eq "+" || $a[3] eq "-")) {
-            $flag = 1;
-        }
-        if (!($a[4] =~ /^[ACGTN:+]+$/)) {
-            $flag = 1;
-        }
-        if ($flag && $line) {
-            die "\nERROR: in script rum2sam.pl: the first line of the file '$rum_nu_file' is misformatted,\nit does not look like a RUM output file.\n";
-        }
+        check_rum_input($rum_nu_file);
         open $rumnu, "<", $rum_nu_file;
     }
-
     if ($qual_file) {
         open(QUALS, $qual_file);
     }
