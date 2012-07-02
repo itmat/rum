@@ -245,7 +245,7 @@ sub main {
             $reverse_qual = $QUAL{$readlength_reverse};
         }
 
-        $unique_mapper_found = "false";
+        $unique_mapper_found = 0;
         $non_unique_mappers_found = "false";
         $rum_u_forward = "";
         $rum_u_reverse = "";
@@ -261,7 +261,7 @@ sub main {
                 last MAPPER unless $aln && $aln->order == $seqnum;
 
                 $rumu_iter->next_val;
-                $unique_mapper_found = "true";
+                $unique_mapper_found = 1;
                 $num_mappers = 1;
                 
                 if ($aln->is_forward) {
@@ -275,7 +275,7 @@ sub main {
                 }
             }
         }
-        if ($unique_mapper_found eq "false" && $rum_nu_file) {
+        if ( !$unique_mapper_found && $rum_nu_file) {
             $flag = 0;
             $num_mappers = 0;
             $last_type_found = "";
@@ -335,7 +335,7 @@ sub main {
             }
         }
 
-        if ($unique_mapper_found eq "true" || $non_unique_mappers_found eq "true") {
+        if ($unique_mapper_found || $non_unique_mappers_found eq "true") {
             for ($mapper=0; $mapper<$num_mappers; $mapper++) {
 		$MDf = "";
 		$MDr = "";
@@ -1031,7 +1031,7 @@ sub main {
             }
         }
 
-        if ($unique_mapper_found eq "false" && $non_unique_mappers_found eq "false") {
+        if ( ! $unique_mapper_found && $non_unique_mappers_found eq "false") {
             # neither forward nor reverse map
             
             if ($paired eq "false") {
