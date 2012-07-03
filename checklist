@@ -1,8 +1,8 @@
     1430 ParseBlatOut.pm
-    1275 RumToSam.pm
+*   1275 RumToSam.pm
     1058 MergeGuAndTu.pm
      922 MergeBowtieAndBlat.pm
-     792 MakeTuAndTnu.pm
+*    792 MakeTuAndTnu.pm
 *    708 RumToQuantifications.pm
 ?    620 GetInferredInternalExons.pm
 ?    584 MakeRumJunctionsFile.pm
