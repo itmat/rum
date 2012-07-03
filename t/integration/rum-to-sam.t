@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 10;
+use Test::More tests => 9;
 use FindBin qw($Bin);
 use File::Copy;
 use lib "$Bin/../../lib";
@@ -56,17 +56,3 @@ for my $suppress (1, 2, 3) {
     no_diffs($out, "$EXPECTED_DIR/$name.sam", $name, "-I '^\@'");
 }
 
-{
-    my $name = "name-mapping";
-    my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
-    @ARGV = ("--unique", $unique_in, 
-             "--non-unique", $non_unique_in,
-             "--reads-in", $reads_in,
-             "--sam-out", $out, 
-             "--quals-in", $quals_in,
-             "--name-mapping", $name_map);
-    RUM::Script::RumToSam->main();
-    open my $in, "<", $out;
-    my @lines = grep { /(second|third)-(a|b)/ } (<$in>);
-    is(scalar(@lines), 4, "Name mapping");
-}

@@ -121,7 +121,6 @@ sub main {
         "reads-in=s" => \(my $reads_file),
         "non-unique-in=s" => \(my $rum_nu_file),
         "unique-in=s" => \(my $rum_unique_file),
-        "name-mapping=s" => \(my $name_mapping_file),
         "help|h"    => sub { RUM::Usage->help },
         "verbose|v" => sub { $log->more_logging(1) },
         "quiet|q"   => sub { $log->less_logging(1) });
@@ -137,17 +136,6 @@ sub main {
     : $suppress3 ? \&both_segments_mapped
     :              sub { 1 };
     
-    my %namemapping;
-    if ($name_mapping_file) {
-        $map_names = "true";
-        open my $name_mapping, "<", $name_mapping_file;
-        while (my $line = <$name_mapping>) {
-            chomp($line);
-            @a = split(/\t/,$line);
-            $namemapping{$a[0]} = $a[1];
-        }
-    }
-
     if ($genome_infile) {
         open my $genome_in, "<", $genome_infile;
         while(my $line = <$genome_in>) {
@@ -913,12 +901,7 @@ sub main {
                 my @forward_record = map "", (1 .. $N_REQUIRED_FIELDS);
                 my $forward_record;
 
-                if ($map_names eq "true") {
-                    my $tmp = "seq.${seqnum}a";
-                    $forward_record[$QNAME] = $namemapping{$tmp};
-                } else {
-                    $forward_record[$QNAME] = "seq.$seqnum";
-                }
+                $forward_record[$QNAME] = "seq.$seqnum";
                 $forward_record[$FLAG] = $bitscore_f;
 	    
                 if (!($rum_u_forward =~ /\S/) && $rum_u_reverse =~ /\S/) { # forward unmapped, reverse mapped
@@ -977,12 +960,7 @@ sub main {
 	    
                 if ($paired eq "true") {
                     my @reverse_record = map "", (1 .. $N_REQUIRED_FIELDS);
-                    if ($map_names eq "true") {
-                        $$tmp = "seq.$seqnum" . "b";
-                        $reverse_record[$QNAME] = $namemapping{$tmp};
-                    } else {
-                        $reverse_record[$QNAME] = "seq.$seqnum";
-                    }
+                    $reverse_record[$QNAME] = "seq.$seqnum";
                     $reverse_record[$FLAG] = $bitscore_r;
 
                     if (!($rum_u_reverse =~ /\S/) && $rum_u_forward =~ /\S/) { # reverse unmapped, forward mapped
@@ -1036,13 +1014,7 @@ sub main {
             
             if ($paired eq "false") {
                 my @rec = map "", (1 .. $N_REQUIRED_FIELDS);
-
-                if ($map_names eq "true") {
-                    my $tmp = "seq.$seqnum" . "a";
-                    $rec[$QNAME] = $namemapping{$tmp};
-                } else {
-                    $rec[$QNAME] = "seq.$seqnum";
-                }
+                $rec[$QNAME] = "seq.$seqnum";
                 $rec[$FLAG] = $FLAG_SEGMENT_UNMAPPED;
                 $rec[$RNAME] = $DEFAULT_RNAME;
                 $rec[$POS]   = $DEFAULT_POS;
@@ -1057,13 +1029,7 @@ sub main {
                 $sam->write_rec(\@rec)
             } else {
                 my @fwd = map "", (1 .. $N_REQUIRED_FIELDS);
-                if ($map_names eq "true") {
-                    my $tmp = "seq.$seqnum" . "a";
-                    $fwd[$QNAME] = $namemapping{$tmp};
-                } else {
-                    $fwd[$QNAME] = "seq.$seqnum";
-                }
-
+                $fwd[$QNAME] = "seq.$seqnum";
                 
                 $fwd[$FLAG]  = $FLAG_MULTIPLE_SEGMENTS;
                 $fwd[$FLAG] |= $FLAG_SEGMENT_UNMAPPED;
@@ -1081,12 +1047,7 @@ sub main {
                 $fwd[$QUAL]  = $forward_qual || $DEFAULT_QUAL;
 
                 my @rev = map "", (1 .. $N_REQUIRED_FIELDS);
-                if ($map_names eq "true") {
-                    my $tmp = "seq.$seqnum" . "b";
-                    $rev[$QNAME] = $namemapping{$tmp};
-                } else {
-                    $rev[$QNAME] = "seq.$seqnum";
-                }
+                $rev[$QNAME] = "seq.$seqnum";
 
                 $rev[$FLAG] |= $FLAG_MULTIPLE_SEGMENTS;
                 $rev[$FLAG] |= $FLAG_SEGMENT_UNMAPPED;
