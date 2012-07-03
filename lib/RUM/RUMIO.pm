@@ -27,20 +27,20 @@ sub parse_locs {
 }
 
 sub parse_aln {
-    my $self = shift;
-    local $_ = shift;
-
-    my ($readid, $chr, $locs, $strand, $seq) = split /\t/;
-    $locs or confess "Got empty location: $_";
+    my ($self, $line) = @_;
+    
+    my ($readid, $chr, $locs, $strand, $seq) = split /\t/, $line;
+    $locs or croak "Got empty location in line '$line' (line number " 
+    . $self->filehandle->input_line_number . ")";
 
     ($strand, $seq) = ($seq, $strand) if $self->{strand_last};
 
     return RUM::Alignment->new(readid => $readid,
-                               chr => $chr,
-                               locs => $self->parse_locs($locs),
+                               chr    => $chr,
+                               locs   => $self->parse_locs($locs),
                                strand => $strand,
-                               seq => $seq,
-                               raw => $_);
+                               seq    => $seq,
+                               raw    => $line);
 }
 
 sub format_locs {

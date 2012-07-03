@@ -17,10 +17,10 @@ sub next_rec {
 sub next_aln {
     my ($self) = @_;
     my $fh = $self->filehandle;
-    local $_ = <$fh>;
-    defined or return;
-    chomp;
-    return $self->parse_aln($_);            
+    my $line = <$fh>;
+    return unless defined $line;
+    chomp $line;
+    return $self->parse_aln($line);
 }
 
 sub write_aln {

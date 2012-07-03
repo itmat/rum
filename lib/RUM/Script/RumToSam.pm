@@ -159,7 +159,6 @@ sub main {
         }
     }
 
-
     $firstseqnum = first_read_number($reads_file);
     $readlength = read_length($reads_file);
     unless ($qual_file) {
@@ -182,7 +181,7 @@ sub main {
     $bitflag[10] = "the read is either a PCR duplicate or an optical duplicate";
 
     my ($rumu, $rumnu);
-    my ($rumu_iter);
+    my ($rumu_iter, $rumnu_iter);
     open my $reads_in, "<", $reads_file;
     my $reads_iter = RUM::SeqIO->new(-fh => $reads_in);
 
@@ -196,6 +195,7 @@ sub main {
     if ($rum_nu_file) {
         check_rum_input($rum_nu_file);
         open $rumnu, "<", $rum_nu_file;
+        $rumnu_iter = RUM::RUMIO->new(-fh => $rumnu)->peekable;
     }
     if ($qual_file) {
         open(QUALS, $qual_file);
@@ -246,7 +246,7 @@ sub main {
         }
 
         $unique_mapper_found = 0;
-        $non_unique_mappers_found = "false";
+        $non_unique_mappers_found = 0;
         $rum_u_forward = "";
         $rum_u_reverse = "";
         $rum_u_joined = "";
@@ -276,66 +276,66 @@ sub main {
             }
         }
         if ( !$unique_mapper_found && $rum_nu_file) {
-            $flag = 0;
+
             $num_mappers = 0;
             $last_type_found = "";
-            while ($flag == 0) {
-                $line = <$rumnu>;
-                chomp($line);
-                $type = "";
-                if ($line =~ /seq.(\d+)(.)/) {
-                    $sn = $1;
-                    $type = $2;
-                }
-                if ($sn == $seqnum && $type eq "a") {
+            my $last_aln;
+          NU_MAPPER: while (1) {
+                my $aln = $rumnu_iter->peek;
+                if ( ! $aln ) {
                     if ($last_type_found eq "a") {
                         $REVERSE[$num_mappers] = "";
+                        $JOINED[$num_mappers] = "";
                         $num_mappers++;
                     }
-                    $JOINED[$num_mappers] = "";
-                    $non_unique_mappers_found = "true";
-                    $FORWARD[$num_mappers] = $line;
-                    $last_type_found = "a";
+                    last NU_MAPPER;
                 }
-                if ($sn == $seqnum && $type eq "b") {
-                    if ($last_type_found eq "b") {
+
+
+                $line = $aln->raw;
+
+                if ($aln->order > $seqnum) {
+                    if ($last_type_found eq "a") {
+                        $REVERSE[$num_mappers] = "";
+                        $JOINED[$num_mappers] = "";
+                        $num_mappers++;
+                    }
+                    last NU_MAPPER;
+                }
+                else {
+                    $rumnu_iter->next_val;
+                    $non_unique_mappers_found = 1;
+                    
+                    if ($aln->is_forward) {
+                        if ($last_type_found eq "a") {
+                            $REVERSE[$num_mappers] = "";
+                            $num_mappers++;
+                        }
+                        $JOINED[$num_mappers] = "";
+                        $FORWARD[$num_mappers] = $line;
+                        $last_type_found = "a";
+                    }
+                    elsif ($aln->is_reverse) {
+                        if ($last_type_found eq "b") {
+                            $FORWARD[$num_mappers] = "";
+                        }
+                        $JOINED[$num_mappers] = "";
+                        $REVERSE[$num_mappers] = $line;
+                        $last_type_found = "b";
+                        $num_mappers++;
+                    }
+                    else {
+                        $JOINED[$num_mappers] = $line;
                         $FORWARD[$num_mappers] = "";
-                    }
-                    $JOINED[$num_mappers] = "";
-                    $non_unique_mappers_found = "true";
-                    $REVERSE[$num_mappers] = $line;
-                    $last_type_found = "b";
-                    $num_mappers++;
-                }
-                if ($sn == $seqnum && $type eq "\t") {
-                    $non_unique_mappers_found = "true";
-                    $JOINED[$num_mappers] = $line;
-                    $FORWARD[$num_mappers] = "";
-                    $REVERSE[$num_mappers] = "";
-                    $num_mappers++;
-                }
-                if ($sn > $seqnum) {
-                    if ($last_type_found eq "a") {
                         $REVERSE[$num_mappers] = "";
-                        $JOINED[$num_mappers] = "";
                         $num_mappers++;
                     }
-                    $len = -1 * (1 + length($line));
-                    seek($rumnu, $len, 1);
-                    $flag = 1;
                 }
-                if ($line eq '') {
-                    if ($last_type_found eq "a") {
-                        $REVERSE[$num_mappers] = "";
-                        $JOINED[$num_mappers] = "";
-                        $num_mappers++;
-                    }
-                    $flag = 1;
-                }
+
             }
         }
 
-        if ($unique_mapper_found || $non_unique_mappers_found eq "true") {
+        if ($unique_mapper_found || $non_unique_mappers_found) {
             for ($mapper=0; $mapper<$num_mappers; $mapper++) {
 		$MDf = "";
 		$MDr = "";
@@ -1031,7 +1031,7 @@ sub main {
             }
         }
 
-        if ( ! $unique_mapper_found && $non_unique_mappers_found eq "false") {
+        if ( ! ($unique_mapper_found || $non_unique_mappers_found) ) {
             # neither forward nor reverse map
             
             if ($paired eq "false") {
