@@ -9,6 +9,10 @@ use RUM::Sequence;
 
 use base 'RUM::BaseIO';
 
+sub next_rec {
+    return shift->next_seq;
+}
+
 sub next_seq {
 
     my ($self) = @_;

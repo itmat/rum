@@ -193,7 +193,7 @@ sub main {
     my $sam = RUM::SamIO->new(-fh => $sam_out);
 
     for (my $seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
-
+    
         undef @FORWARD;
         undef @REVERSE;
         undef @JOINED;
@@ -203,7 +203,11 @@ sub main {
 	$MMf = 0;
 	$MMr = 0;
 
-        $forward_read = $reads_iter->next_seq->seq;
+        my $forward_seq = $reads_iter->next_seq;
+
+        $forward_read = $forward_seq->seq;
+
+        my $readid = $forward_seq->readid_directionless;
 
         $forward_read_hold = $forward_read;
         $readlength_forward = length($forward_read);
@@ -238,7 +242,7 @@ sub main {
         $rum_u_forward = "";
         $rum_u_reverse = "";
         $rum_u_joined = "";
-        $FORWARD[0] = "";
+        $FORWARD[0] = undef;
         $REVERSE[0] = "";
         $JOINED[0] = "";
 
@@ -293,7 +297,6 @@ sub main {
                 else {
                     $rumnu_iter->next_val;
                     $non_unique_mappers_found = 1;
-                    
                     if ($aln->is_forward) {
                         if ($last_type_found eq "a") {
                             $REVERSE[$num_mappers] = "";
@@ -901,7 +904,7 @@ sub main {
                 my @forward_record = map "", (1 .. $N_REQUIRED_FIELDS);
                 my $forward_record;
 
-                $forward_record[$QNAME] = "seq.$seqnum";
+                $forward_record[$QNAME] = $readid;
                 $forward_record[$FLAG] = $bitscore_f;
 	    
                 if (!($rum_u_forward =~ /\S/) && $rum_u_reverse =~ /\S/) { # forward unmapped, reverse mapped
@@ -960,7 +963,7 @@ sub main {
 	    
                 if ($paired eq "true") {
                     my @reverse_record = map "", (1 .. $N_REQUIRED_FIELDS);
-                    $reverse_record[$QNAME] = "seq.$seqnum";
+                    $reverse_record[$QNAME] = $readid;
                     $reverse_record[$FLAG] = $bitscore_r;
 
                     if (!($rum_u_reverse =~ /\S/) && $rum_u_forward =~ /\S/) { # reverse unmapped, forward mapped
@@ -1014,7 +1017,7 @@ sub main {
             
             if ($paired eq "false") {
                 my @rec = map "", (1 .. $N_REQUIRED_FIELDS);
-                $rec[$QNAME] = "seq.$seqnum";
+                $rec[$QNAME] = $readid;
                 $rec[$FLAG] = $FLAG_SEGMENT_UNMAPPED;
                 $rec[$RNAME] = $DEFAULT_RNAME;
                 $rec[$POS]   = $DEFAULT_POS;
@@ -1029,7 +1032,7 @@ sub main {
                 $sam->write_rec(\@rec)
             } else {
                 my @fwd = map "", (1 .. $N_REQUIRED_FIELDS);
-                $fwd[$QNAME] = "seq.$seqnum";
+                $fwd[$QNAME] = $readid;
                 
                 $fwd[$FLAG]  = $FLAG_MULTIPLE_SEGMENTS;
                 $fwd[$FLAG] |= $FLAG_SEGMENT_UNMAPPED;
@@ -1047,7 +1050,7 @@ sub main {
                 $fwd[$QUAL]  = $forward_qual || $DEFAULT_QUAL;
 
                 my @rev = map "", (1 .. $N_REQUIRED_FIELDS);
-                $rev[$QNAME] = "seq.$seqnum";
+                $rev[$QNAME] = $readid;
 
                 $rev[$FLAG] |= $FLAG_MULTIPLE_SEGMENTS;
                 $rev[$FLAG] |= $FLAG_SEGMENT_UNMAPPED;
