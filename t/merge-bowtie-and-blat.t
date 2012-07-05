@@ -24,7 +24,7 @@ for my $program (qw(Bowtie Blat)) {
                       . '-'
                       . ($mapper_type eq 'Unique' ? 'unique' : 'non-unique')
                       . '-in');
-        $options{$option} = temp_filename(TEMPLATE => '${program}{$mapper_type}.XXXXXX')->filename;
+        $options{$option} = temp_filename(TEMPLATE => "${program}{$mapper_type}.XXXXXX")->filename;
         copy($raw_input, $options{$option});
     }
 }
