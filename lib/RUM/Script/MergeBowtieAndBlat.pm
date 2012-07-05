@@ -1,6 +1,7 @@
 package RUM::Script::MergeBowtieAndBlat;
 
 no warnings;
+use autodie;
 
 use RUM::Usage;
 use RUM::Logging;
@@ -23,7 +24,7 @@ sub main {
         "single"                 => \(my $single),
         "paired"                 => \(my $paired),
         "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "read-length"     => \(my $readlength = 0),
+        "read-length=s"     => \(my $readlength = 0),
         "min-overlap"     => \(my $user_min_overlap),
         "help|h"    => sub { RUM::Usage->help },
         "verbose|v" => sub { $log->more_logging(1) },
@@ -63,10 +64,8 @@ sub main {
     # get readlength from bowtie unique/nu, if both empty then get max
     # in blat unique/nu
 
-    open(INFILE, $bowtie_unique_in) 
-        or die "Can't open $bowtie_unique_in for reading: $!";
+    open INFILE, "<", $bowtie_unique_in;
 
-    
     if ($readlength == 0) {
         $log->info("Trying to figure out read length");
         $cnt = 0;
@@ -86,16 +85,19 @@ sub main {
                     $readlength = $length;
                     $cnt = 0;
                 }
-                if ($cnt > 50000) { # it checked 50,000 lines without finding anything larger than the last time
-                    # readlength was changed, so it's most certainly found the max.
-                    # Went through this to avoid the user having to input the readlength.
+                if ($cnt > 50000) { 
+                    # it checked 50,000 lines without finding anything
+                    # larger than the last time readlength was
+                    # changed, so it's most certainly found the max.
+                    # Went through this to avoid the user having to
+                    # input the readlength.
                     last;
                 }
             }
         }
+
         close(INFILE);
-        open(INFILE, $blat_unique_in) 
-            or die "Can't open $blat_unique_in for reading: $!";
+        open INFILE, "<", $blat_unique_in;
         $cnt = 0;
         while ($line = <INFILE>) {
             $length = 0;
@@ -120,8 +122,7 @@ sub main {
         }
         close(INFILE);
     
-        open(INFILE, $bowtie_non_unique_in) 
-            or die "Can't open $bowtie_non_unique_in for reading: $!";
+        open INFILE, "<", $bowtie_non_unique_in;
         $cnt = 0;
         while ($line = <INFILE>) {
             $length = 0;
@@ -144,9 +145,9 @@ sub main {
                 }
             }
         }
+
         close(INFILE);
-        open(INFILE, $blat_non_unique_in) 
-            or die "Can't open $blat_non_unique_in for reading: $!";
+        open INFILE, "<", $blat_non_unique_in;
         $cnt = 0;
         while ($line = <INFILE>) {
             $length = 0;
@@ -169,8 +170,8 @@ sub main {
                 }
             }
         }
-        close(INFILE);
     }
+    close(INFILE);
 
     if ($readlength == 0) { # Couldn't determine the read length so going to fall back
         # on the strategy used for variable length reads.
@@ -191,8 +192,7 @@ sub main {
     }
 
     $f0 = $blat_non_unique_in;
-    open(INFILE, $f0)
-        or die "Can't open $f0 for reading: $!";
+    open INFILE, "<", $f0;
 
     $log->info("Reading blat non-unique mappers");
     while ($line = <INFILE>) {
@@ -211,16 +211,14 @@ sub main {
     }
     close(INFILE);
 
-    open(OUTFILE2, ">>$f0") 
-        or die "Can't open $f0 for appending: $!";
+    open OUTFILE2, ">>", $f0;
 
     # The only things we're going to add to BlatNU.chunk are the reads that
     # are single direction only mappers in BowtieUnique that are also single
     # direction only mappers in BlatNU, but the two mappings disagree.
     # Also, do not write these to RUM_Unique.
     $f1 = $bowtie_non_unique_in;
-    open(INFILE, $f1) 
-        or die "Can't open $1 for reading";
+    open INFILE, "<", $f1;
     while ($line = <INFILE>) {
         if ($line =~ /^seq.(\d+)/) {
             $bowtie_ambiguous_mappers{$1}++;
@@ -228,14 +226,11 @@ sub main {
     }
     close(INFILE);
     $f2 = $bowtie_unique_in;
-    open(INFILE1, $f2) 
-        or die "Can't open $f2 for reading: $!";
+    open INFILE1, "<", $f2;
     $f3 = $blat_unique_in;
-    open(INFILE2, $f3) 
-        or die "Can't open $f3 for reading: $!";
+    open INFILE2, "<", $f3;
     $f4 = $unique_out;
-    open(OUTFILE1, ">$f4") 
-        or die "Can't open $f4 for writing: $!";
+    open OUTFILE1, ">", $f4;
 
     $max_distance_between_paired_reads = 500000;
     $num_lines_at_once = 10000;
@@ -325,6 +320,7 @@ sub main {
         # now parse for this bunch of ids:
 
         foreach $id (sort {$a <=> $b} keys %allids) {
+
             if ($bowtie_ambiguous_mappers{$id}+0 > 0) {
                 next;
             }
@@ -406,7 +402,10 @@ sub main {
             # case  2: both forward and reverse reads mapped, consistently, but did not overlap so were not joined
 
             # THREE CASES:
+
             if ($hash1{$id}[0] == 0) {
+
+                # Sequence is joined in unique blat read
                 if ($hash2{$id}[0] == -1) {
                     print OUTFILE1 "$hash2{$id}[1]\n";
                 } else {
@@ -622,6 +621,7 @@ sub main {
                             if ($a_insertion =~ /\S/) { # put back the insertions, if any...
                                 $seq_merged =~ s/$apost$/$a_insertion$apost/;
                             }
+
                             if ($b_insertion =~ /\S/) {
                                 $str_temp = $b_insertion;
                                 $str_temp =~ s/\+/\\+/g;
@@ -668,6 +668,7 @@ sub main {
             # ALL FIFTEEN CASES DONE
         }
     }
+
     close(INFILE1);
     close(INFILE2);
     close(OUTFILE1);
@@ -675,10 +676,8 @@ sub main {
 
     # now need to remove the stuff in %remove_from_BlatNU from BlatNU
     $filename = $non_unique_out;
-    open(INFILE, $f0)
-        or die "Can't open $f0 for reading: $!";
-    open(OUTFILE, ">$filename") 
-        or die "Can't open $filename for writing: $!";
+    open INFILE, '<', $f0;
+    open OUTFILE, '>', $filename;
     while ($line = <INFILE>) {
         $line =~ /seq.(\d+)/;
         if ($remove_from_BlatNU{$1}+0==0) {
@@ -686,7 +685,7 @@ sub main {
         }
     }
     close(INFILE);
-    open(INFILE, $f1) or die "\nError: in script merge_Bowtie_and_Blat.pl: unable to open file '$f1' for reading\n\n";
+    open INFILE, '<', $f1;
     # now append BowtieNU to get the full NU file
     while ($line = <INFILE>) {
         print OUTFILE $line;
@@ -917,6 +916,7 @@ sub intersect () {
     } else {
 	return "0";
     }
+
 }
 
 
