@@ -180,8 +180,7 @@ sub main {
     $last_seq_num = $a[9];
     $last_seq_num =~ s/[^\d]//g;
 
-    open(BLATHITS, "<", $blatfile)
-        or die "Can't open $blatfile for reading: $!";
+    open my $blat_hits, "<", $blatfile;
     open(SEQFILE, "<", $seqfile) 
         or die "Can't open $seqfile for rading: $!";
     open(MDUST, "<", $mdustfile) 
@@ -199,8 +198,8 @@ sub main {
     for ($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
         if ($seq_count == $first_seq_num) {
 
-            skip_headers(\*BLATHITS);
-            $line = <BLATHITS>;
+            skip_headers($blat_hits);
+            $line = <$blat_hits>;
             chomp $line;
             @a = split(/\t/,$line);
             $readlength = $a[10];
@@ -445,8 +444,8 @@ sub main {
                     }
                 }
             }
-            skip_headers(\*BLATHITS);
-            $line = <BLATHITS>;
+            skip_headers($blat_hits);
+            $line = <$blat_hits>;
             chomp $line;
             @a = split(/\t/,$line);
             @a_x = split(/\t/,$line);
@@ -1226,7 +1225,6 @@ sub main {
         undef @read_mapping_to_genome_pairing_candidate;
     }
 
-    close(BLATHITS);
     close(RESULTS);
     #close(INSERTIONFILE);
     
