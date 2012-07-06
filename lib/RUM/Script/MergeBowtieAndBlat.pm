@@ -15,10 +15,11 @@ our $log = RUM::Logging->get_logger();
 
 $|=1;
 
+# These are used by both main and joinifpossible. It would be nice to
+# refactor in some way so that they don't need to be global variables.
 my ($astem, $a_insertion, $aseq_p, $apost);
 my ($bstem, $b_insertion, $bseq_p, $bpost);
 my $dflag;
-
 
 sub longest_read {
     use strict;
@@ -269,7 +270,25 @@ sub main {
             $hash1{$id}[0] ||= 0;
             $hash2{$id}[0] ||= 0;
 
-            if (($blat_ambiguous_mappers_a{$id}+0 > 0) && ($hash1{$id}[0]+0 == 1) && ($hash1{$id}[1] =~ /seq.\d+b/)) {
+            my $bowtie_joined_mapper = $hash1{$id}[0] == -1 ? $hash1{$id}[1] : undef;
+            my $blat_joined_mapper   = $hash2{$id}[0] == -1 ? $hash2{$id}[1] : undef;
+
+            my $bowtie_mapper_is_single = $hash1{$id}[0] == 1;
+            my $blat_mapper_is_single   = $hash2{$id}[0] == 1;
+
+            my $bowtie_mapper_is_paired = $hash1{$id}[0] == 2;
+            my $blat_mapper_is_paired   = $hash2{$id}[0] == 2;
+            
+            my $bowtie_single_mapper_is_reverse = $bowtie_mapper_is_single && $hash1{$id}[1] =~ /seq.\d+b/;
+            my $bowtie_single_mapper_is_forward = $bowtie_mapper_is_single && $hash1{$id}[1] =~ /seq.\d+a/;
+
+            my $blat_single_mapper_is_reverse = $blat_mapper_is_single && $hash2{$id}[1] =~ /seq.\d+b/;
+            my $blat_single_mapper_is_forward = $blat_mapper_is_single && $hash2{$id}[1] =~ /seq.\d+a/;
+            
+            my $bowtie_mapped = $hash1{$id}[0];
+
+            warn "Is joined is $bowtie_joined_mapper\n";
+            if (($blat_ambiguous_mappers_a{$id}+0 > 0) && $bowtie_single_mapper_is_reverse) {
                 # ambiguous forward in in BlatNU, single reverse in BowtieUnique.  See if there is
                 # a consistent pairing so we can keep the pair, otherwise this read is considered unmappable
                 # (not to be confused with ambiguous)
@@ -285,10 +304,8 @@ sub main {
                     if ($line1 =~ /\-$/) { # check the strand
                         $joined = joinifpossible($line1, $line2, $max_distance_between_paired_reads); # this is not backwards, line1 is the reverse read
                     } else {
-                        warn "Joining $line2, $line1\n";
                         $joined = joinifpossible($line2, $line1, $max_distance_between_paired_reads);
                     }
-                    warn "I joined $id to $joined\n";
                     if ($joined =~ /\S/) {
                         $numjoined++;
                         $joinedsave = $joined;
@@ -296,13 +313,12 @@ sub main {
                 }
                 if ($numjoined == 1) { # if numjoined > 1 should probably intersect them to see if there's a 
                     # salvagable intersection
-                    warn "Will print $joinedsave\n";
                     print OUTFILE1 "$joinedsave";
                 }
                 $remove_from_BlatNU{$id}++;
                 next;
             }
-            if (($blat_ambiguous_mappers_b{$id}+0 > 0) && ($hash1{$id}[0]+0 == 1) && ($hash1{$id}[1] =~ /seq.\d+a/)) {
+            if (($blat_ambiguous_mappers_b{$id}+0 > 0) && $bowtie_single_mapper_is_forward) {
                 # ambiguous reverse in in BlatNU, single forward in BowtieUnique.  See if there is
                 # a consistent pairing so we can keep the pair, otherwise this read is considered unmappable
                 # (not to be confused with ambiguous)
@@ -347,11 +363,11 @@ sub main {
 
             # THREE CASES:
 
-            if ($hash1{$id}[0] == 0) {
+            if ( ! $bowtie_mapped ) {
 
                 # Sequence is joined in unique blat read
-                if ($hash2{$id}[0] == -1) {
-                    print OUTFILE1 "$hash2{$id}[1]\n";
+                if ($blat_joined_mapper) {
+                    print OUTFILE1 "$blat_joined_mapper\n";
                 } else {
                     for ($i=0; $i<$hash2{$id}[0]; $i++) { # this is in BlatUnique and not in BowtieUnique
                         # don't need to check if this is in BlatNU since
@@ -362,33 +378,38 @@ sub main {
             }
             # THREE CASES:
             if ($hash2{$id}[0] == 0) {
-                if ($hash1{$id}[0] == -1) {
-                    print OUTFILE1 "$hash1{$id}[1]\n";
+                if ($bowtie_joined_mapper) {
+                    print OUTFILE1 "$bowtie_joined_mapper\n";
                 }
-                if ($hash1{$id}[0] == 2) {
-                    for ($i=0; $i<$hash1{$id}[0]; $i++) {
-                        print OUTFILE1 "$hash1{$id}[$i+1]\n";
+                if ($bowtie_mapper_is_paired) {
+                    my @mappers = @{ $hash1{$id} };
+                    for my $mapper (@mappers[1..$#mappers]) {
+                        print OUTFILE1 "$mapper\n";
                     }
                 }
-                if ($hash1{$id}[0] == 1) { # this is a one-direction only mapper in BowtieUnique and
-                    # nothing in BlatUnique, so much check it's not in BlatNU
-                    if ($blat_ambiguous_mappers_a{$id}+0 == 0 && $hash1{$id}[1] =~ /seq.\d+a/) {
+                if ($bowtie_mapper_is_single) {
+                    # this is a one-direction only mapper in
+                    # BowtieUnique and nothing in BlatUnique, so must
+                    # check it's not in BlatNU
+                    if ($blat_ambiguous_mappers_a{$id}+0 == 0 && $bowtie_single_mapper_is_forward) {
                         print OUTFILE1 "$hash1{$id}[1]\n";
                     }
-                    if ($blat_ambiguous_mappers_b{$id}+0 == 0 && $hash1{$id}[1] =~ /seq.\d+b/) {
+                    if ($blat_ambiguous_mappers_b{$id}+0 == 0 && $bowtie_single_mapper_is_reverse) {
                         print OUTFILE1 "$hash1{$id}[1]\n";
                     }
                 }
             }
             # ONE CASE:
-            if ($hash1{$id}[0] == -1 && $hash2{$id}[0] == -1) { # Preference the bowtie mapping.
-                print OUTFILE1 "$hash1{$id}[1]\n"; # This case should actually not happen because we
-                # should only send to blat those things which didn't
-                # have consistent bowtie maps.
+            if ($bowtie_joined_mapper && $blat_joined_mapper) { 
+                # Prefer the bowtie mapping. This case should actually
+                # not happen because we should only send to blat those
+                # things which didn't have consistent bowtie maps.
+                print OUTFILE1 "$bowtie_joined_mapper\n";
             }
             # ONE CASE:
-            if ($hash1{$id}[0] == 1 && $hash2{$id}[0] == 1) {
-                if ((($hash1{$id}[1] =~ /seq.\d+a/) && ($hash2{$id}[1] =~ /seq.\d+a/)) || (($hash1{$id}[1] =~ /seq.\d+b/) && ($hash2{$id}[1] =~ /seq.\d+b/))) {
+            if ($bowtie_mapper_is_single && $blat_mapper_is_single) {
+                if (($bowtie_single_mapper_is_forward && $blat_single_mapper_is_forward) ||
+                    ($bowtie_single_mapper_is_reverse && $blat_single_mapper_is_reverse)) {
                     # If single-end then this is the only case where $hash1{$id}[0] != 0 and $hash2{$id}[0] != 0
                     undef @spans;
                     @a1 = split(/\t/,$hash1{$id}[1]);
@@ -441,8 +462,10 @@ sub main {
                     }
                 }
                 if ((($hash1{$id}[1] =~ /seq.\d+a/) && ($hash2{$id}[1] =~ /seq.\d+b/)) || (($hash1{$id}[1] =~ /seq.\d+b/) && ($hash2{$id}[1] =~ /seq.\d+a/))) {
-                    # This is the tricky case where there's a unique forward bowtie mapper and a unique reverse
-                    # blat mapper, or convsersely.  Must check for consistency.  This cannot be in BlatNU so don't
+                    # This is the tricky case where there's a unique
+                    # forward bowtie mapper and a unique reverse blat
+                    # mapper, or conversely.  Must check for
+                    # consistency.  This cannot be in BlatNU so don't
                     # have to worry about that here.
                     if ($hash1{$id}[1] =~ /seq.\d+a/) {
                         $atype = "a";
@@ -586,28 +609,28 @@ sub main {
             }	
             # NINE CASES DONE
             # ONE CASE
-            if ($hash1{$id}[0] == -1 && $hash2{$id}[0] == 2) { # preference bowtie
-                print OUTFILE1 "$hash1{$id}[1]\n";
+            if ($bowtie_joined_mapper && $hash2{$id}[0] == 2) { # preference bowtie
+                print OUTFILE1 "$bowtie_joined_mapper\n";
             }
             # ONE CASE
-            if ($hash1{$id}[0] == 2 && $hash2{$id}[0] == -1) { # preference bowtie
+            if ($hash1{$id}[0] == 2 && $blat_joined_mapper) { # preference bowtie
                 print OUTFILE1 "$hash1{$id}[1]\n";
                 print OUTFILE1 "$hash1{$id}[2]\n";
             }
             # ELEVEN CASES DONE
-            if ($hash1{$id}[0] == 1 && $hash2{$id}[0] == 2) {
+            if ($bowtie_mapper_is_single && $hash2{$id}[0] == 2) {
                 print OUTFILE1 "$hash2{$id}[1]\n";
                 print OUTFILE1 "$hash2{$id}[2]\n";
             }	
-            if ($hash1{$id}[0] == 2 && $hash2{$id}[0] == 1) {
+            if ($hash1{$id}[0] == 2 && $blat_mapper_is_single) {
                 print OUTFILE1 "$hash1{$id}[1]\n";
                 print OUTFILE1 "$hash1{$id}[2]\n";
             }	
-            if ($hash1{$id}[0] == -1 && $hash2{$id}[0] == 1) {
-                print OUTFILE1 "$hash1{$id}[1]\n";
+            if ($bowtie_joined_mapper && $blat_mapper_is_single) {
+                print OUTFILE1 "$bowtie_joined_mapper\n";
             }
-            if ($hash1{$id}[0] == 1 && $hash2{$id}[0] == -1) {
-                print OUTFILE1 "$hash2{$id}[1]\n";
+            if ($bowtie_mapper_is_single && $blat_joined_mapper) {
+                print OUTFILE1 "$blat_joined_mapper\n";
             }
             # ALL FIFTEEN CASES DONE
         }
@@ -666,7 +689,6 @@ sub joinifpossible () {
 	return "";
     }
 
-    printf STDERR "Difference is %d, max is %d\n", $bstart_p - $aend_p, $max_distance_between_paired_reads;
     if (   ($chra_p eq $chrb_p)
         && ($astrand_p eq $bstrand_p)
         && ($aend_p < $bstart_p-1)
