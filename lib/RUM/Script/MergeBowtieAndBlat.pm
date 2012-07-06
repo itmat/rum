@@ -734,38 +734,41 @@ sub joinifpossible () {
 }
 
 sub merge () {
-    ($aspans2, $bspans2) = @_;
-    undef @astarts2;
-    undef @aends2;
-    undef @bstarts2;
-    undef @bends2;
-    @a = split(/, /, $aspans2);
-    for ($i=0; $i<@a; $i++) {
-	@b = split(/-/,$a[$i]);
-	$astarts2[$i] = $b[0];
-	$aends2[$i] = $b[1];
+    my ($aspans2, $bspans2) = @_;
+    use strict;
+    my @astarts2;
+    my @aends2;
+    my @bstarts2;
+    my @bends2;
+    my $merged_spans;
+
+    for my $span (split /, /, $aspans2) {
+	my ($start, $end) = split /-/, $span;
+	push @astarts2, $start;
+	push @aends2,   $end;
     }
-    @a = split(/, /, $bspans2);
-    for ($i=0; $i<@a; $i++) {
-	@b = split(/-/,$a[$i]);
-	$bstarts2[$i] = $b[0];
-	$bends2[$i] = $b[1];
+
+    for my $span (split /, /, $bspans2) {
+	my ($start, $end) = split /-/, $span;
+	push @bstarts2, $start;
+	push @bends2,   $end;
     }
-    if ($aends2[@aends2-1] + 1 < $bstarts2[0]) {
+
+    if ($aends2[-1] + 1 < $bstarts2[0]) {
 	$merged_spans = $aspans2 . ", " . $bspans2;
     }
-    if ($aends2[@aends2-1] + 1 == $bstarts2[0]) {
+    if ($aends2[-1] + 1 == $bstarts2[0]) {
 	$aspans2 =~ s/-\d+$//;
 	$bspans2 =~ s/^\d+-//;
 	$merged_spans = $aspans2 . "-" . $bspans2;
     }
-    if ($aends2[@aends2-1] + 1 > $bstarts2[0]) {
+    if ($aends2[-1] + 1 > $bstarts2[0]) {
 	$merged_spans = $aspans2;
-	for ($i=0; $i<@bstarts2; $i++) {
-	    if ($aends2[@aends2-1] >= $bstarts2[$i] && ($aends2[@aends2-1] <= $bstarts2[$i+1] || $i == @bstarts2-1)) {
+	for (my $i=0; $i<@bstarts2; $i++) {
+	    if ($aends2[-1] >= $bstarts2[$i] && ($aends2[-1] <= $bstarts2[$i+1] || $i == $#bstarts2)) {
 		$merged_spans =~ s/-\d+$//;
 		$merged_spans = $merged_spans . "-" . $bends2[$i];
-		for ($j=$i+1; $j<@bstarts2; $j++) {
+		for (my $j=$i+1; $j<@bstarts2; $j++) {
 		    $merged_spans = $merged_spans . ", $bstarts2[$j]-$bends2[$j]";
 		}
 	    }
