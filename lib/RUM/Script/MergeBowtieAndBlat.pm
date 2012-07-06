@@ -15,6 +15,11 @@ our $log = RUM::Logging->get_logger();
 
 $|=1;
 
+my ($astem, $a_insertion, $aseq_p, $apost);
+my ($bstem, $b_insertion, $bseq_p, $bpost);
+my $dflag;
+
+
 sub longest_read {
     use strict;
     my ($iter) = @_;
@@ -633,48 +638,47 @@ sub main {
 }
 
 sub joinifpossible () {
+    use strict;
     my ($LINE1, $LINE2, $max_distance_between_paired_reads) = @_;
-    @a_p = split(/\t/,$LINE1);
-    $aspans_p = $a_p[2];
+    my @a_p = split(/\t/,$LINE1);
+    my $aspans_p = $a_p[2];
     $a_p[2] =~ /^(\d+)[^\d]/;
-    $astart_p = $1;
+    my $astart_p = $1;
     $a_p[2] =~ /[^\d](\d+)$/;
-    $aend_p = $1;
-    $chra_p = $a_p[1];
-    $aseq_p = $a_p[3];
-    $astrand_p = $a_p[4];
-    $seqnum_p = $a_p[0];
+    my $aend_p = $1;
+    my $chra_p = $a_p[1];
+    my $aseq_p = $a_p[3];
+    my $astrand_p = $a_p[4];
+    my $seqnum_p = $a_p[0];
     $seqnum_p =~ s/a$//;
     $seqnum_p =~ s/b$//;
-    @a_p = split(/\t/,$LINE2);
-    $bspans_p = $a_p[2];
+    my @a_p = split(/\t/,$LINE2);
+    my $bspans_p = $a_p[2];
     $a_p[2] =~ /^(\d+)[^\d]/;
-    $bstart_p = $1;
+    my $bstart_p = $1;
     $a_p[2] =~ /[^\d](\d+)$/;
-    $bend_p = $1;
-    $chrb_p = $a_p[1];
-    $bseq_p = $a_p[3];
-    $bstrand_p = $a_p[4];
-    $returnstring = "";
+    my $bend_p = $1;
+    my $chrb_p = $a_p[1];
+    my $bseq_p = $a_p[3];
+    my $bstrand_p = $a_p[4];
+    my $returnstring = "";
     if ($astrand_p ne $bstrand_p) {
 	return "";
     }
 
-    warn "$chra_p, $chrb_p, $astrand_p, $bstrand_p, $aend_p to $bstart_p";
-    warn sprintf "Condition is %d", $aend_p < $bstart_p-1;
     printf STDERR "Difference is %d, max is %d\n", $bstart_p - $aend_p, $max_distance_between_paired_reads;
     if (   ($chra_p eq $chrb_p)
         && ($astrand_p eq $bstrand_p)
         && ($aend_p < $bstart_p-1)
         && ($bstart_p - $aend_p < $max_distance_between_paired_reads)) {
 
-        warn "  Got in here!\n";
 	if ($LINE1 =~ /a\t/) {
 	    $returnstring = $returnstring . "$LINE1\n$LINE2\n";
 	} else {
 	    $returnstring = $returnstring . "$LINE2\n$LINE1\n";
 	}
     }
+
     # if they overlap, can't merge properly if there's an insertion, so chop it out,
     # save it and put it back in before printing the next two if's do the chopping...
     $aseq_p =~ s/://g;
@@ -702,16 +706,16 @@ sub joinifpossible () {
     $dflag = 0;
     if (($chra_p eq $chrb_p) && ($aend_p >= $bstart_p-1) && ($astart_p <= $bstart_p) && ($aend_p <= $bend_p) && ($astrand_p eq $bstrand_p)) {
 	# they overlap
-	$spans_merged_p = merge($aspans_p,$bspans_p);
-	$merged_length = spansTotalLength($spans_merged_p);
+	my $spans_merged_p = merge($aspans_p,$bspans_p);
+	my $merged_length = spansTotalLength($spans_merged_p);
 	$aseq_p =~ s/://g;
-	$seq_merged_p = $aseq_p;
-	@s = split(//,$aseq_p);
-	$bsize = $merged_length - @s;
+	my $seq_merged_p = $aseq_p;
+	my @s = split(//,$aseq_p);
+	my $bsize = $merged_length - @s;
 	$bseq_p =~ s/://g;
 	@s = split(//,$bseq_p);
-	$add = "";
-	for ($i=@s-1; $i>=@s-$bsize; $i--) {
+	my $add = "";
+	for (my $i=@s-1; $i>=@s-$bsize; $i--) {
 	    $add = $s[$i] . $add;
 	}
 	$seq_merged_p = $seq_merged_p . $add;
@@ -719,13 +723,13 @@ sub joinifpossible () {
 	    $seq_merged_p =~ s/^$astem/$astem$a_insertion/;
 	}
 	if ($b_insertion =~ /\S/) {
-	    $str_temp = $b_insertion;
+	    my $str_temp = $b_insertion;
 	    $str_temp =~ s/\+/\\+/g;
 	    if (!($seq_merged_p =~ /$str_temp$bpost$/)) {
 		$seq_merged_p =~ s/$bpost$/$b_insertion$bpost/;
 	    }
 	}
-	$seq_p = addJunctionsToSeq($seq_merged_p, $spans_merged_p);
+	my $seq_p = addJunctionsToSeq($seq_merged_p, $spans_merged_p);
 	$returnstring = $returnstring . "$seqnum_p\t$chra_p\t$spans_merged_p\t$seq_p\t$astrand_p\n";
 	$dflag = 1;
     }
@@ -866,4 +870,5 @@ sub intersect () {
 
 }
 
+1;
 
