@@ -3,14 +3,47 @@ package RUM::Script::MergeBowtieAndBlat;
 no warnings;
 use autodie;
 
+use List::Util qw(max);
+
 use RUM::Usage;
 use RUM::Logging;
 use RUM::Common qw(addJunctionsToSeq spansTotalLength);
+use RUM::BowtieIO;
 use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
 
 $|=1;
+
+sub longest_read {
+    use strict;
+    my ($iter) = @_;
+    my $count = 0;
+    my $readlength = 0;
+    while (my $aln = $iter->next_val) {
+        my $length = 0;
+        my $locs = $aln->locs;
+        
+        $count++;
+        for my $span ( @{ $locs } ) {
+            my ($start, $end) = @{ $span };
+            $length += $end - $start + 1;
+        }
+        if ($length > $readlength) {
+            $readlength = $length;
+            $count = 0;
+        }
+        if ($count > 50000) { 
+            # it checked 50,000 lines without finding anything
+            # larger than the last time readlength was
+            # changed, so it's most certainly found the max.
+            # Went through this to avoid the user having to
+            # input the readlength.
+            last;
+        }
+    }    
+    return $readlength;
+}
 
 sub main {
 
@@ -23,12 +56,12 @@ sub main {
         "non-unique-out=s"       => \(my $non_unique_out),
         "single"                 => \(my $single),
         "paired"                 => \(my $paired),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "read-length=s"     => \(my $readlength = 0),
-        "min-overlap"     => \(my $user_min_overlap),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) }
+        "max-pair-dist=s"        => \(my $max_distance_between_paired_reads = 500000),
+        "read-length=s"          => \(my $readlength = 0),
+        "min-overlap"            => \(my $user_min_overlap),
+        "help|h"                 => sub { RUM::Usage->help },
+        "verbose|v"              => sub { $log->more_logging(1) },
+        "quiet|q"                => sub { $log->less_logging(1) }
     );
 
     # Input files
@@ -64,120 +97,21 @@ sub main {
     # get readlength from bowtie unique/nu, if both empty then get max
     # in blat unique/nu
 
-    open INFILE, "<", $bowtie_unique_in;
-
     if ($readlength == 0) {
-        $log->info("Trying to figure out read length");
-        $cnt = 0;
-        while ($line = <INFILE>) {
-            $length = 0;
-            if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                chomp($line);
-                @a = split(/\t/,$line);
-                $span = $a[2];
-                @SPANS = split(/, /, $span);
-                $cnt++;
-                for ($i=0; $i<@SPANS; $i++) {
-                    @b = split(/-/,$SPANS[$i]);
-                    $length = $length + $b[1] - $b[0] + 1;
-                }
-                if ($length > $readlength) {
-                    $readlength = $length;
-                    $cnt = 0;
-                }
-                if ($cnt > 50000) { 
-                    # it checked 50,000 lines without finding anything
-                    # larger than the last time readlength was
-                    # changed, so it's most certainly found the max.
-                    # Went through this to avoid the user having to
-                    # input the readlength.
-                    last;
-                }
-            }
-        }
-
-        close(INFILE);
-        open INFILE, "<", $blat_unique_in;
-        $cnt = 0;
-        while ($line = <INFILE>) {
-            $length = 0;
-            if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                chomp($line);
-                @a = split(/\t/,$line);
-                $span = $a[2];
-                @SPANS = split(/, /, $span);
-                $cnt++;
-                for ($i=0; $i<@SPANS; $i++) {
-                    @b = split(/-/,$SPANS[$i]);
-                    $length = $length + $b[1] - $b[0] + 1;
-                }
-                if ($length > $readlength) {
-                    $readlength = $length;
-                    $cnt = 0;
-                }
-                if ($cnt > 50000) {
-                    last;
-                }
-            }
-        }
-        close(INFILE);
-    
-        open INFILE, "<", $bowtie_non_unique_in;
-        $cnt = 0;
-        while ($line = <INFILE>) {
-            $length = 0;
-            if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                chomp($line);
-                @a = split(/\t/,$line);
-                $span = $a[2];
-                @SPANS = split(/, /, $span);
-                $cnt++;
-                for ($i=0; $i<@SPANS; $i++) {
-                    @b = split(/-/,$SPANS[$i]);
-                    $length = $length + $b[1] - $b[0] + 1;
-                }
-                if ($length > $readlength) {
-                    $readlength = $length;
-                    $cnt = 0;
-                }
-                if ($cnt > 50000) {
-                    last;
-                }
-            }
-        }
-
-        close(INFILE);
-        open INFILE, "<", $blat_non_unique_in;
-        $cnt = 0;
-        while ($line = <INFILE>) {
-            $length = 0;
-            if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                chomp($line);
-                @a = split(/\t/,$line);
-                $span = $a[2];
-                @SPANS = split(/, /, $span);
-                $cnt++;
-                for ($i=0; $i<@SPANS; $i++) {
-                    @b = split(/-/,$SPANS[$i]);
-                    $length = $length + $b[1] - $b[0] + 1;
-                }
-                if ($length > $readlength) {
-                    $readlength = $length;
-                    $cnt = 0;
-                }
-                if ($cnt > 50000) {
-                    last;
-                }
-            }
-        }
+        my @files = ($bowtie_unique_in,
+                     $bowtie_non_unique_in,
+                     $blat_unique_in,
+                     $blat_non_unique_in);
+        my @iters   = map { RUM::BowtieIO->new(-file => $_) } @files;
+        my @lengths = map { longest_read($_) } @iters;
+        $readlength = max(@lengths);
     }
-    close(INFILE);
-
+    
     if ($readlength == 0) { # Couldn't determine the read length so going to fall back
         # on the strategy used for variable length reads.
         $readlength = "v";
     }
-    if (!($readlength eq "v")) {
+    if ($readlength ne "v") {
         if ($readlength < 80) {
             $min_overlap = 35;
         } else {
@@ -191,45 +125,48 @@ sub main {
         $min_overlap = $user_min_overlap;
     }
 
-    $f0 = $blat_non_unique_in;
-    open INFILE, "<", $f0;
+    my (%blat_ambiguous_mappers_a,
+        %blat_ambiguous_mappers_b);
 
-    $log->info("Reading blat non-unique mappers");
-    while ($line = <INFILE>) {
-        $line =~ /^seq.(\d+)/;
-        $id = $1;
-        if ($line =~ /seq.\d+a/) {
-            $blat_ambiguous_mappers_a{$id}++;
+    $f0 = $blat_non_unique_in;
+
+    {
+        my $blat_nu_iter = RUM::BowtieIO->new(-file => $blat_non_unique_in);
+        $log->info("Reading blat non-unique mappers");
+        while (my $aln = $blat_nu_iter->next_val) {
+            $id = $aln->order;
+            if ($aln->contains_forward) {
+                $blat_ambiguous_mappers_a{$id}++;
+            }
+            if ($aln->contains_reverse) {
+                $blat_ambiguous_mappers_b{$id}++;
+            }
         }
-        if ($line =~ /seq.\d+b/) {
-            $blat_ambiguous_mappers_b{$id}++;
-        }
-        if (!($line =~ /(seq.\d+a|seq.\d+b)/)) {
-            $blat_ambiguous_mappers_a{$id}++;
-            $blat_ambiguous_mappers_b{$id}++;
-        }
-    }
-    close(INFILE);
+    };
+
+
 
     open OUTFILE2, ">>", $f0;
 
-    # The only things we're going to add to BlatNU.chunk are the reads that
-    # are single direction only mappers in BowtieUnique that are also single
-    # direction only mappers in BlatNU, but the two mappings disagree.
-    # Also, do not write these to RUM_Unique.
+    # The only things we're going to add to BlatNU.chunk are the reads
+    # that are single direction only mappers in BowtieUnique that are
+    # also single direction only mappers in BlatNU, but the two
+    # mappings disagree.  Also, do not write these to RUM_Unique.
     $f1 = $bowtie_non_unique_in;
-    open INFILE, "<", $f1;
-    while ($line = <INFILE>) {
-        if ($line =~ /^seq.(\d+)/) {
-            $bowtie_ambiguous_mappers{$1}++;
+
+    {
+        my $bowtie_nu_iter = RUM::BowtieIO->new(-file => $bowtie_non_unique_in);
+        while (my $aln = $bowtie_nu_iter->next_val) {
+            $bowtie_ambiguous_mappers{$aln->order}++;
         }
-    }
-    close(INFILE);
+    };
+
     $f2 = $bowtie_unique_in;
-    open INFILE1, "<", $f2;
     $f3 = $blat_unique_in;
-    open INFILE2, "<", $f3;
     $f4 = $unique_out;
+
+    open INFILE1,  "<", $f2;
+    open INFILE2,  "<", $f3;
     open OUTFILE1, ">", $f4;
 
     $max_distance_between_paired_reads = 500000;
@@ -243,7 +180,7 @@ sub main {
     while ($FLAG == 1 || $FLAG2 == 1) {
         undef %hash1;
         undef %hash2;
-        undef %allids;
+        my %allids;
         $linecount = 0;
         # get the bowtie output into hash1 for a bunch of ids
         until ($linecount == $num_lines_at_once) {
@@ -339,6 +276,7 @@ sub main {
                 chomp($x);
                 @a3 = split(/\n/,$x);
                 $numjoined=0;
+                warn "In here with id $id, str is $str, f0 is $f0, a3 is @a3\n";
                 for ($ii=0; $ii<@a3; $ii++) {
                     $line2 = $a3[$ii];
                     if ($line1 =~ /\-$/) { # check the strand
@@ -805,6 +743,8 @@ sub merge () {
 	$bstarts2[$i] = $b[0];
 	$bends2[$i] = $b[1];
     }
+    warn "Merging $id;  $aspans2, $bspans2";
+    warn "$aends2[@aends2-1], $bstarts2[0]\n";
     if ($aends2[@aends2-1] + 1 < $bstarts2[0]) {
 	$merged_spans = $aspans2 . ", " . $bspans2;
     }
