@@ -144,8 +144,6 @@ sub main {
         }
     };
 
-
-
     open OUTFILE2, ">>", $f0;
 
     # The only things we're going to add to BlatNU.chunk are the reads
@@ -161,12 +159,10 @@ sub main {
         }
     };
 
-    $f2 = $bowtie_unique_in;
-    $f3 = $blat_unique_in;
     $f4 = $unique_out;
 
-    open INFILE1,  "<", $f2;
-    open INFILE2,  "<", $f3;
+    my $bowtie_unique_iter = RUM::BowtieIO->new(-file => $bowtie_unique_in);
+    my $blat_unique_in     = RUM::BowtieIO->new(-file => $blat_unique_in);
     open OUTFILE1, ">", $f4;
 
     $max_distance_between_paired_reads = 500000;
@@ -174,7 +170,8 @@ sub main {
     $linecount = 0;
     $FLAG = 1;
     $FLAG2 = 1;
-    $line_prev = <INFILE2>;
+    my $aln_prev = $blat_unique_in->next_val;
+    my $line_prev = $aln_prev ? $aln_prev->raw : undef;
     chomp($line_prev);
     $last_id = 10**14;
     while ($FLAG == 1 || $FLAG2 == 1) {
@@ -183,29 +180,31 @@ sub main {
         my %allids;
         $linecount = 0;
         # get the bowtie output into hash1 for a bunch of ids
-        until ($linecount == $num_lines_at_once) {
-            $line=<INFILE1>;
-            if (!($line =~ /\S/)) {
+        while ($linecount < $num_lines_at_once) {
+
+            my $aln = $bowtie_unique_iter->next_val;
+            my $line = $aln ? $aln->raw : undef;
+
+            if (!$aln) {
                 $FLAG = 0;
                 $linecount = $num_lines_at_once;
             } else {
                 chomp($line);
-                @a = split(/\t/,$line);
-                $a[0] =~ /seq.(\d+)/;
-                $id = $1;
+                $id = $aln->order;
                 $last_id = $id;
                 $allids{$id}++;
-                if ($a[0] =~ /a$/ || $a[0] =~ /b$/) {
-                    $hash1{$id}[0]++;
-                    $hash1{$id}[$hash1{$id}[0]]=$line;
+                if ($aln->is_forward || $aln->is_reverse) {
+                    $hash1{$id}[ 0 ]++;
+                    $hash1{$id}[ $hash1{$id}[0] ] = $line;
                 } else {
-                    $hash1{$id}[0]=-1;
-                    $hash1{$id}[1]=$line;
+                    $hash1{$id}[0] = -1;
+                    $hash1{$id}[1] = $line;
                 }
                 if ($paired) {
                     # this makes sure we have read in both a and b reads, this approach might cause a problem
                     # if no, or very few, b reads mapped at all.
-                    if ( (($linecount == ($num_lines_at_once - 1)) && !($a[0] =~ /a$/)) || ($linecount < ($num_lines_at_once - 1)) ) {
+                    if ( (($linecount == ($num_lines_at_once - 1)) && !$aln->is_forward) ||
+                         ($linecount < ($num_lines_at_once - 1)) ) {
                         $linecount++;
                     }
                 } else {
@@ -216,39 +215,40 @@ sub main {
             }
         }
         $line = $line_prev;
-        @a = split(/\t/,$line);
-        $a[0] =~ /seq.(\d+)/;
+        @a = split /\t/, $line;
         $prev_id = $id;
-        $id = $1;
+        $id      = $aln_prev->order;
         if ($prev_id eq $id) {
             $FLAG3++;
             if ($FLAG3 > 1) {
                 $FLAG2=0;
             }
         }
+
+        my $blat_aln = RUM::BowtieIO->parse_aln($line);
+
         # now get the blat output for this bunch of ids, that goes in hash2
-        until ($id > $last_id || $FLAG3 > 1 || $id eq '') {
+        while ($id && $id <= $last_id && $FLAG3 <= 1) {
             $allids{$id}++;
-            if ($a[0] =~ /a$/ || $a[0] =~ /b$/) {
+            if ($blat_aln->is_forward || $blat_aln->is_reverse) {
                 $hash2{$id}[0]++;
-                $hash2{$id}[$hash2{$id}[0]]=$line;
+                $hash2{$id}[ $hash2{$id}[0] ] = $blat_aln->raw;
             } else {
-                $hash2{$id}[0]=-1;
-                $hash2{$id}[1]=$line;
+                $hash2{$id}[0] = -1;
+                $hash2{$id}[1] = $blat_aln->raw;
             }
-            $line=<INFILE2>;
-            chomp($line);
-            if (!($line =~ /\S/)) {
+            $blat_aln = $blat_unique_in->next_val;
+
+            if ($blat_aln) {
+                $id = $blat_aln->order;
+            } else {
                 $FLAG2 = 0;
                 $FLAG3 = 2;
-            } else {
-                @a = split(/\t/,$line);
-                $a[0] =~ /seq.(\d+)/;
-                $id = $1;
             }
         }
+
         if ($FLAG2 == 1) {
-            $line_prev = $line;
+            $line_prev = $blat_aln->raw;
         }
         if ($FLAG2 == 0) {
             $line_prev = "";
@@ -256,16 +256,14 @@ sub main {
 
         # now parse for this bunch of ids:
 
-        foreach $id (sort {$a <=> $b} keys %allids) {
+      ID: foreach $id (sort {$a <=> $b} keys %allids) {
 
-            if ($bowtie_ambiguous_mappers{$id}+0 > 0) {
-                next;
-            }
-            if ($blat_ambiguous_mappers_a{$id}+0 > 0 && $blat_ambiguous_mappers_b{$id}+0 > 0) {
-                next;
-            }
-            $hash1{$id}[0] = $hash1{$id}[0] + 0;
-            $hash2{$id}[0] = $hash2{$id}[0] + 0;
+            next ID if $bowtie_ambiguous_mappers{$id};
+            next ID if $blat_ambiguous_mappers_a{$id} && $blat_ambiguous_mappers_b{$id};
+
+            $hash1{$id}[0] ||= 0;
+            $hash2{$id}[0] ||= 0;
+
             if (($blat_ambiguous_mappers_a{$id}+0 > 0) && ($hash1{$id}[0]+0 == 1) && ($hash1{$id}[1] =~ /seq.\d+b/)) {
                 # ambiguous forward in in BlatNU, single reverse in BowtieUnique.  See if there is
                 # a consistent pairing so we can keep the pair, otherwise this read is considered unmappable
@@ -276,14 +274,16 @@ sub main {
                 chomp($x);
                 @a3 = split(/\n/,$x);
                 $numjoined=0;
-                warn "In here with id $id, str is $str, f0 is $f0, a3 is @a3\n";
+
                 for ($ii=0; $ii<@a3; $ii++) {
                     $line2 = $a3[$ii];
                     if ($line1 =~ /\-$/) { # check the strand
-                        $joined = joinifpossible($line1, $line2); # this is not backwards, line1 is the reverse read
+                        $joined = joinifpossible($line1, $line2, $max_distance_between_paired_reads); # this is not backwards, line1 is the reverse read
                     } else {
-                        $joined = joinifpossible($line2, $line1);
+                        warn "Joining $line2, $line1\n";
+                        $joined = joinifpossible($line2, $line1, $max_distance_between_paired_reads);
                     }
+                    warn "I joined $id to $joined\n";
                     if ($joined =~ /\S/) {
                         $numjoined++;
                         $joinedsave = $joined;
@@ -291,6 +291,7 @@ sub main {
                 }
                 if ($numjoined == 1) { # if numjoined > 1 should probably intersect them to see if there's a 
                     # salvagable intersection
+                    warn "Will print $joinedsave\n";
                     print OUTFILE1 "$joinedsave";
                 }
                 $remove_from_BlatNU{$id}++;
@@ -309,9 +310,9 @@ sub main {
                 for ($ii=0; $ii<@a3; $ii++) {
                     $line2 = $a3[$ii];
                     if ($line1 =~ /-$/) {
-                        $joined = joinifpossible($line2, $line1);
+                        $joined = joinifpossible($line2, $line1, $max_distance_between_paired_reads);
                     } else {
-                        $joined = joinifpossible($line1, $line2);
+                        $joined = joinifpossible($line1, $line2, $max_distance_between_paired_reads);
                     }
                     if ($joined =~ /\S/) {
                         $numjoined++;
@@ -607,8 +608,6 @@ sub main {
         }
     }
 
-    close(INFILE1);
-    close(INFILE2);
     close(OUTFILE1);
     close(OUTFILE2);
 
@@ -634,7 +633,7 @@ sub main {
 }
 
 sub joinifpossible () {
-    ($LINE1, $LINE2) = @_;
+    my ($LINE1, $LINE2, $max_distance_between_paired_reads) = @_;
     @a_p = split(/\t/,$LINE1);
     $aspans_p = $a_p[2];
     $a_p[2] =~ /^(\d+)[^\d]/;
@@ -660,7 +659,16 @@ sub joinifpossible () {
     if ($astrand_p ne $bstrand_p) {
 	return "";
     }
-    if (($chra_p eq $chrb_p) && ($astrand_p eq $bstrand_p) && ($aend_p < $bstart_p-1) && ($bstart_p - $aend_p < $max_distance_between_paired_reads)) {
+
+    warn "$chra_p, $chrb_p, $astrand_p, $bstrand_p, $aend_p to $bstart_p";
+    warn sprintf "Condition is %d", $aend_p < $bstart_p-1;
+    printf STDERR "Difference is %d, max is %d\n", $bstart_p - $aend_p, $max_distance_between_paired_reads;
+    if (   ($chra_p eq $chrb_p)
+        && ($astrand_p eq $bstrand_p)
+        && ($aend_p < $bstart_p-1)
+        && ($bstart_p - $aend_p < $max_distance_between_paired_reads)) {
+
+        warn "  Got in here!\n";
 	if ($LINE1 =~ /a\t/) {
 	    $returnstring = $returnstring . "$LINE1\n$LINE2\n";
 	} else {
@@ -743,8 +751,6 @@ sub merge () {
 	$bstarts2[$i] = $b[0];
 	$bends2[$i] = $b[1];
     }
-    warn "Merging $id;  $aspans2, $bspans2";
-    warn "$aends2[@aends2-1], $bstarts2[0]\n";
     if ($aends2[@aends2-1] + 1 < $bstarts2[0]) {
 	$merged_spans = $aspans2 . ", " . $bspans2;
     }
