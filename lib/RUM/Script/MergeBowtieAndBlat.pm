@@ -775,26 +775,28 @@ sub merge () {
 }
 
 sub intersect () {
-    ($spans_ref, $seq) = @_;
-    @spans = @{$spans_ref};
-    $num_i = @spans;
-    undef %chash;
-    for ($s_i=0; $s_i<$num_i; $s_i++) {
-	@a_i = split(/, /,$spans[$s_i]);
-	for ($i_i=0;$i_i<@a_i;$i_i++) {
-	    @b_i = split(/-/,$a_i[$i_i]);
-	    for ($j_i=$b_i[0];$j_i<=$b_i[1];$j_i++) {
+    use strict;
+    my ($spans_ref, $seq) = @_;
+    my @spans = @{$spans_ref};
+    my $num_i = @spans;
+    my %chash;
+    for (my $s_i=0; $s_i<$num_i; $s_i++) {
+	my @a_i = split(/, /,$spans[$s_i]);
+	for (my $i_i=0;$i_i<@a_i;$i_i++) {
+	    my @b_i = split(/-/,$a_i[$i_i]);
+	    for (my $j_i=$b_i[0];$j_i<=$b_i[1];$j_i++) {
 		$chash{$j_i}++;
 	    }
 	}
     }
-    $spanlength = 0;
-    $flag_i = 0;
-    $maxspanlength = 0;
-    $maxspan_start = 0;
-    $maxspan_end = 0;
-    $prevkey = 0;
-    for $key_i (sort {$a <=> $b} keys %chash) {
+    my $spanlength = 0;
+    my $flag_i = 0;
+    my $maxspanlength = 0;
+    my $maxspan_start = 0;
+    my $maxspan_end = 0;
+    my $prevkey = 0;
+    my $span_start;
+    for my $key_i (sort {$a <=> $b} keys %chash) {
 	if ($chash{$key_i} == $num_i) {
 	    if ($flag_i == 0) {
 		$flag_i = 1;
@@ -822,20 +824,20 @@ sub intersect () {
 	}
     }
     if ($maxspanlength > 0) {
-	@a_i = split(/, /,$spans[0]);
-	@b_i = split(/-/,$a_i[0]);
-	$i_i=0;
+	my @a_i = split(/, /,$spans[0]);
+	my @b_i = split(/-/,$a_i[0]);
+	my $i_i=0;
 	until ($b_i[1] >= $maxspan_start) {
 	    $i_i++;
 	    @b_i = split(/-/,$a_i[$i_i]);
 	}
-	$prefix_size = $maxspan_start - $b_i[0]; # the size of the part removed from spans[0]
-	for ($j_i=0; $j_i<$i_i; $j_i++) {
+	my $prefix_size = $maxspan_start - $b_i[0]; # the size of the part removed from spans[0]
+	for (my $j_i=0; $j_i<$i_i; $j_i++) {
 	    @b_i = split(/-/,$a_i[$j_i]);
 	    $prefix_size = $prefix_size + $b_i[1] - $b_i[0] + 1;
 	}
-	@s_i = split(//,$seq);
-	$newseq = "";
+	my @s_i = split(//,$seq);
+	my $newseq = "";
 	for ($i_i=$prefix_size; $i_i<$prefix_size + $maxspanlength; $i_i++) {
 	    $newseq = $newseq . $s_i[$i_i];
 	}
@@ -846,7 +848,7 @@ sub intersect () {
 	    $i_i++;
 	    @b_i = split(/-/,$a_i[$i_i]);
 	}
-	$newspans = $maxspan_start;
+	my $newspans = $maxspan_start;
 	until ($b_i[1] >= $maxspan_end) {
 	    $newspans = $newspans . "-$b_i[1]";
 	    $i_i++;
@@ -854,10 +856,6 @@ sub intersect () {
 	    $newspans = $newspans . ", $b_i[0]";
 	}
 	$newspans = $newspans . "-$maxspan_end";
-	$off = "";
-	for ($i_i=0; $i_i<$prefix_size; $i_i++) {
-	    $off = $off . " ";
-	}
 	return "$maxspanlength\t$newspans\t$newseq";
     } else {
 	return "0";
