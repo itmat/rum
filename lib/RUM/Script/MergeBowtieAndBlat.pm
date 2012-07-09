@@ -134,8 +134,6 @@ sub main {
     my (%blat_ambiguous_mappers_a,
         %blat_ambiguous_mappers_b);
 
-    $f0 = $blat_non_unique_in;
-
     {
         my $blat_nu_iter = RUM::BowtieIO->new(-file => $blat_non_unique_in);
         $log->info("Reading blat non-unique mappers");
@@ -150,7 +148,7 @@ sub main {
         }
     };
 
-    open OUTFILE2, ">>", $f0;
+    open OUTFILE2, ">>", $blat_non_unique_in;
 
     # The only things we're going to add to BlatNU.chunk are the reads
     # that are single direction only mappers in BowtieUnique that are
@@ -294,7 +292,7 @@ sub main {
                 # (not to be confused with ambiguous)
                 $line1 = $hash1{$id}[1];
                 $str = $id . "a";
-                $x = `grep $str $f0`;
+                $x = `grep $str $blat_non_unique_in`;
                 chomp($x);
                 @a3 = split(/\n/,$x);
                 $numjoined=0;
@@ -324,7 +322,7 @@ sub main {
                 # (not to be confused with ambiguous)
                 $line1 = $hash1{$id}[1];
                 $str = $id . "b";
-                $x = `grep $str $f0`;
+                $x = `grep $str $blat_non_unique_in`;
                 chomp($x);
                 @a3 = split(/\n/,$x);
                 $numjoined=0;
@@ -641,7 +639,7 @@ sub main {
 
     # now need to remove the stuff in %remove_from_BlatNU from BlatNU
     $filename = $non_unique_out;
-    open INFILE, '<', $f0;
+    open INFILE, '<', $blat_non_unique_in;
     open OUTFILE, '>', $filename;
     while ($line = <INFILE>) {
         $line =~ /seq.(\d+)/;
