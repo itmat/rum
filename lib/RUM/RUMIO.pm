@@ -5,6 +5,8 @@ use warnings;
 
 use base 'RUM::AlignIO';
 
+use Data::Dumper;
+
 use RUM::Logging;
 use RUM::Sort qw(by_chromosome);
 use RUM::Heap;
@@ -55,7 +57,8 @@ sub format_aln {
         @$aln{qw(readid chr locs strand seq)};
     ($strand, $seq) = ($seq, $strand) if $self->{strand_last};
     $locs = join(", ", map("$_->[0]-$_->[1]", @$locs));
-    return join("\t", $readid, $chr, $locs, $strand, $seq);
+    my $result = join("\t", $readid, $chr, $locs, $strand, $seq);
+    return $result;
 }
 
 sub pair_range {

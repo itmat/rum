@@ -33,8 +33,16 @@ sub parse_aln { croak "Not implemented" }
 
 sub write_alns {
     my ($self, $iter) = @_;
-    while (my $aln = $iter->next_val) {
-        $self->write_aln($aln);
+
+    if (ref($iter) =~ /^ARRAY/) {
+        for my $aln (@{ $iter }) {
+            $self->write_aln($aln);            
+        }
+    }
+    else {
+        while (my $aln = $iter->next_val) {
+            $self->write_aln($aln);
+        }
     }
 }
 

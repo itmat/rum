@@ -23,7 +23,17 @@ sub parse_aln {
     if ($self->{strand_last}) {
         ($readid, $chr, $loc, $seq, $strand) = @fields;
     }
-    
+
+    if ($loc =~ /-/) {
+        my $locs = [ map { [split /-/] } split /,\s*/, $loc ];
+        return RUM::Alignment->new(readid => $readid,
+                                   chr => $chr,
+                                   locs  => $locs,
+                                   strand => $strand,
+                                   seq => $seq,
+                                   raw => $line);  
+    }
+
     return RUM::Alignment->new(readid => $readid,
                                chr => $chr,
                                loc  => $loc,
