@@ -349,12 +349,14 @@ sub main {
 
             # THREE CASES:
 
-            # If there's no bowtie mapper, 
+            # If there's no bowtie mapper, then there must be a blat mapper
             if ( ! @bowtie ) {
                 $unique_io->write_alns(\@blat);
             }
+
+            
             # THREE CASES:
-            if ( ! @blat ) {
+            elsif ( ! @blat ) {
                 if ($bowtie_joined_mapper) {
                     $unique_io->write_aln($bowtie_joined_mapper);
                 }
@@ -365,10 +367,8 @@ sub main {
                     # this is a one-direction only mapper in
                     # BowtieUnique and nothing in BlatUnique, so must
                     # check it's not in BlatNU
-                    if ( ! $blat_ambiguous_mappers_a{$id} && $bowtie_single_mapper->is_forward) {
-                        $unique_io->write_aln($bowtie_single_mapper);
-                    }
-                    if ( ! $blat_ambiguous_mappers_b{$id} && $bowtie_single_mapper->is_reverse) {
+                    if ( (!$blat_ambiguous_mappers_a{$id} && $bowtie_single_mapper->is_forward) ||
+                         (!$blat_ambiguous_mappers_b{$id} && $bowtie_single_mapper->is_reverse)) {
                         $unique_io->write_aln($bowtie_single_mapper);
                     }
                 }
