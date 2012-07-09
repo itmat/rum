@@ -5,11 +5,11 @@ use warnings;
 
 use Test::More;
 use FindBin qw($Bin);
-use lib "$Bin/../lib";
+use lib ("$Bin/../lib", "$Bin/../../lib");
 
 use RUM::TestUtils;
 
-my $unique_in = "$SHARED_INPUT_DIR/RUM_Unique.sorted.1";
+my $unique_in     = "$SHARED_INPUT_DIR/RUM_Unique.sorted.1";
 my $non_unique_in = "$SHARED_INPUT_DIR/RUM_NU.sorted.1";
 
 my @files = ($unique_in, $non_unique_in);
@@ -45,6 +45,6 @@ for my $test (@tests) {
     RUM::Script::RumToCov->main();
     no_diffs($cov_out, $expected_cov, "Coverage diffs: $expected_cov");
     open my $in, "<", $stats_out;
-    $_ = <$in>;    
-    ok(/$expected_footprint/, "Footprint");
+    my $footprint = <$in>;    
+    like $footprint, qr/$expected_footprint/, "Footprint";
 }
