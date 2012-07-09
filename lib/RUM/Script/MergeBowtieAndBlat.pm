@@ -154,7 +154,6 @@ sub main {
     # that are single direction only mappers in BowtieUnique that are
     # also single direction only mappers in BlatNU, but the two
     # mappings disagree.  Also, do not write these to RUM_Unique.
-    $f1 = $bowtie_non_unique_in;
 
     {
         my $bowtie_nu_iter = RUM::BowtieIO->new(-file => $bowtie_non_unique_in);
@@ -648,7 +647,7 @@ sub main {
         }
     }
     close(INFILE);
-    open INFILE, '<', $f1;
+    open INFILE, '<', $bowtie_non_unique_in;
     # now append BowtieNU to get the full NU file
     while ($line = <INFILE>) {
         print OUTFILE $line;
