@@ -161,9 +161,11 @@ sub main {
         }
     };
 
-    my $bowtie_unique_iter = RUM::BowtieIO->new(-file => $bowtie_unique_in);
-    my $blat_unique_in     = RUM::BowtieIO->new(-file => $blat_unique_in);
-    open OUTFILE1, ">", $unique_out;
+    my $bowtie_unique_iter = RUM::BowtieIO->new(-file => $bowtie_unique_in,
+                                                strand_last => 1);
+    my $blat_unique_in     = RUM::BowtieIO->new(-file => $blat_unique_in,
+                                                strand_last => 1);
+    open my $outfile1, ">", $unique_out;
 
     $max_distance_between_paired_reads = 500000;
     $num_lines_at_once = 10000;
@@ -175,6 +177,9 @@ sub main {
     chomp($line_prev);
     $last_id = 10**14;
     while ($FLAG == 1 || $FLAG2 == 1) {
+
+        my (%bowtie_mappers_for, %blat_mappers_for);
+
         undef %hash1;
         undef %hash2;
         my %allids;
@@ -196,9 +201,11 @@ sub main {
                 if ($aln->is_forward || $aln->is_reverse) {
                     $hash1{$id}[ 0 ]++;
                     $hash1{$id}[ $hash1{$id}[0] ] = $line;
+                    push @{ $bowtie_mappers_for{$id} }, $aln;
                 } else {
                     $hash1{$id}[0] = -1;
                     $hash1{$id}[1] = $line;
+                    push @{ $bowtie_mappers_for{$id} }, $aln;
                 }
                 if ($paired) {
                     # this makes sure we have read in both a and b reads, this approach might cause a problem
@@ -224,8 +231,7 @@ sub main {
                 $FLAG2=0;
             }
         }
-
-        my $blat_aln = RUM::BowtieIO->parse_aln($line);
+        my $blat_aln = RUM::BowtieIO->new(-fh => 1)->parse_aln($line);
 
         # now get the blat output for this bunch of ids, that goes in hash2
         while ($id && $id <= $last_id && $FLAG3 <= 1) {
@@ -233,9 +239,11 @@ sub main {
             if ($blat_aln->is_forward || $blat_aln->is_reverse) {
                 $hash2{$id}[0]++;
                 $hash2{$id}[ $hash2{$id}[0] ] = $blat_aln->raw;
+                push @{ $blat_mappers_for{$id} }, $blat_aln;
             } else {
                 $hash2{$id}[0] = -1;
                 $hash2{$id}[1] = $blat_aln->raw;
+                push @{ $blat_mappers_for{$id} }, $blat_aln;
             }
             $blat_aln = $blat_unique_in->next_val;
 
@@ -258,6 +266,9 @@ sub main {
 
       ID: foreach $id (sort {$a <=> $b} keys %allids) {
 
+            my @bowtie = @{ $bowtie_mappers_for{$id} || [] };
+            my @blat   = @{   $blat_mappers_for{$id} || [] };
+
             next ID if $bowtie_ambiguous_mappers{$id};
             next ID if $blat_ambiguous_mappers_a{$id} && $blat_ambiguous_mappers_b{$id};
 
@@ -270,8 +281,8 @@ sub main {
             my $bowtie_joined_mapper = $bowtie_mapper[0] == -1 ? $bowtie_mapper[1] : undef;
             my $blat_joined_mapper   =   $blat_mapper[0] == -1 ?   $blat_mapper[1] : undef;
 
-            my $bowtie_single_mapper = $bowtie_mapper[0] == 1 ? $bowtie_mapper[1] : undef;
-            my $blat_single_mapper   =   $blat_mapper[0] == 1 ?   $blat_mapper[1] : undef;
+            my $bowtie_single_mapper = $bowtie_mapper[0] == 1 ? @bowtie[0]->raw : undef;
+            my $blat_single_mapper   =   $blat_mapper[0] == 1 ? $blat_mapper[1] : undef;
 
             my (@blat_pair, @bowtie_pair);
 
@@ -291,9 +302,7 @@ sub main {
             my $bowtie_mapped = $hash1{$id}[0];
             my $blat_mapped = $hash2{$id}[0];
 
-            warn "My id is $id. Blat ambig is $blat_ambiguous_mappers_a{$id} and $blat_ambiguous_mappers_b{$id}\n";
-
-            if (($blat_ambiguous_mappers_a{$id}+0 > 0) && $bowtie_single_mapper_is_reverse) {
+            if (($blat_ambiguous_mappers_a{$id}+0 > 0) && @bowtie == 1 && $bowtie[0]->is_reverse) {
                 # ambiguous forward in in BlatNU, single reverse in BowtieUnique.  See if there is
                 # a consistent pairing so we can keep the pair, otherwise this read is considered unmappable
                 # (not to be confused with ambiguous)
@@ -303,25 +312,24 @@ sub main {
                 $numjoined=0;
 
                 for my $line2 (@a3) {
-                    if ($line1 =~ /\-$/) { # check the strand
-                        $joined = joinifpossible($line1, $line2, $max_distance_between_paired_reads); # this is not backwards, line1 is the reverse read
+                    if ($bowtie[0]->strand eq '-') { # check the strand
+                        $joined = joinifpossible($bowtie[0]->raw, $line2, $max_distance_between_paired_reads); # this is not backwards, line1 is the reverse read
                     } else {
-                        $joined = joinifpossible($line2, $line1, $max_distance_between_paired_reads);
+                        $joined = joinifpossible($line2, $bowtie[0]->raw, $max_distance_between_paired_reads);
                     }
                     if ($joined =~ /\S/) {
                         $numjoined++;
                         $joinedsave = $joined;
                     }
                 }
-                warn "Joined save is $joinedsave\n";
                 if ($numjoined == 1) { # if numjoined > 1 should probably intersect them to see if there's a 
                     # salvagable intersection
-                    print OUTFILE1 "$joinedsave";
+                    print $outfile1 "$joinedsave";
                 }
                 $remove_from_BlatNU{$id}++;
                 next;
             }
-            if (($blat_ambiguous_mappers_b{$id}+0 > 0) && $bowtie_single_mapper_is_forward) {
+            if (($blat_ambiguous_mappers_b{$id}+0 > 0) && @bowtie == 1 && $bowtie[0]->is_forward) {
                 # ambiguous reverse in in BlatNU, single forward in BowtieUnique.  See if there is
                 # a consistent pairing so we can keep the pair, otherwise this read is considered unmappable
                 # (not to be confused with ambiguous)
@@ -331,7 +339,6 @@ sub main {
                 $numjoined=0;
                 for my $line2 (@a3) {
                     if ($bowtie_single_mapper =~ /-$/) {
-                        warn "Looking at $bowtie_single_mapper\n";
                         $joined = joinifpossible($line2, $bowtie_single_mapper, $max_distance_between_paired_reads);
                     } else {
                         $joined = joinifpossible($bowtie_single_mapper, $line2, $max_distance_between_paired_reads);
@@ -341,10 +348,9 @@ sub main {
                         $joinedsave = $joined;
                     }
                 }
-                warn "Joinedsave is $joinedsave\n";
                 if ($numjoined == 1) { # if numjoined > 1 should probably intersect them to see if there's a 
                     # salvagable intersection
-                    print OUTFILE1 "$joinedsave";
+                    print $outfile1 "$joinedsave";
                 }
                 $remove_from_BlatNU{$id}++;
                 next;
@@ -369,23 +375,23 @@ sub main {
 
                 # Sequence is joined in unique blat read
                 if ($blat_joined_mapper) {
-                    print OUTFILE1 "$blat_joined_mapper\n";
+                    print $outfile1 "$blat_joined_mapper\n";
                 } else {
                     for my $line (@blat_mapper[1..$#blat_mapper]) {
                         # don't need to check if this is in BlatNU since
                         # it can't be in both BlatNU and BlatUnique
-                        print OUTFILE1 "$line\n";
+                        print $outfile1 "$line\n";
                     }
                 }
             }
             # THREE CASES:
             if ( ! $blat_mapped ) {
                 if ($bowtie_joined_mapper) {
-                    print OUTFILE1 "$bowtie_joined_mapper\n";
+                    print $outfile1 "$bowtie_joined_mapper\n";
                 }
                 if (@bowtie_pair) {
-                    for my $mapper (@bowtie_pair) {
-                        print OUTFILE1 "$mapper\n";
+                    for my $mapper (@bowtie) {
+                        print $outfile1 $mapper->raw . "\n";
                     }
                 }
                 if ($bowtie_single_mapper) {
@@ -393,10 +399,10 @@ sub main {
                     # BowtieUnique and nothing in BlatUnique, so must
                     # check it's not in BlatNU
                     if ( ! $blat_ambiguous_mappers_a{$id} && $bowtie_single_mapper_is_forward) {
-                        print OUTFILE1 "$bowtie_single_mapper\n";
+                        print $outfile1 "$bowtie_single_mapper\n";
                     }
                     if ( ! $blat_ambiguous_mappers_b{$id} && $bowtie_single_mapper_is_reverse) {
-                        print OUTFILE1 "$bowtie_single_mapper\n";
+                        print $outfile1 "$bowtie_single_mapper\n";
                     }
                 }
             }
@@ -405,7 +411,7 @@ sub main {
                 # Prefer the bowtie mapping. This case should actually
                 # not happen because we should only send to blat those
                 # things which didn't have consistent bowtie maps.
-                print OUTFILE1 "$bowtie_joined_mapper\n";
+                print $outfile1 "$bowtie_joined_mapper\n";
             }
             # ONE CASE:
             if ($bowtie_single_mapper && $blat_single_mapper) {
@@ -421,11 +427,11 @@ sub main {
                     $l2 = spansTotalLength($spans[1]);
                     $F=0;
                     if ($l1 > $l2+3) {
-                        print OUTFILE1 "$bowtie_single_mapper\n"; # preference bowtie
+                        print $outfile1 $bowtie[0]->raw . "\n"; # preference bowtie
                         $F=1;
                     }
                     if ($l2 > $l1+3) {
-                        print OUTFILE1 "$blat_single_mapper\n"; # preference blat
+                        print $outfile1 "$blat_single_mapper\n"; # preference blat
                         $F=1;
                     }
                     $str = intersect(\@spans, $a1[3]);
@@ -452,7 +458,7 @@ sub main {
                         }
 
                         if (($length_overlap > $min_overlap) && ($a1[1] eq $a2[1])) {
-                            print OUTFILE1 "$bowtie_single_mapper\n"; # preference bowtie (so no worries about insertions)
+                            print $outfile1 "$bowtie_single_mapper\n"; # preference bowtie (so no worries about insertions)
                         } else {
                             # AMBIGUOUS, OUTPUT TO NU FILE
                             if (($bowtie_single_mapper =~ /\S/) && $blat_single_mapper =~ /\S/) {
@@ -498,18 +504,18 @@ sub main {
                     if ( (($atype eq "a") && ($Astrand eq "+")) || ((($atype eq "b") && ($Astrand eq "-"))) ) {
                         if (($Astrand eq $Bstrand) && ($chra eq $chrb) && ($aend < $bstart-1) && ($bstart - $aend < $max_distance_between_paired_reads)) {
                             if ($bowtie_single_mapper_is_forward) {
-                                print OUTFILE1 "$bowtie_single_mapper\n$blat_single_mapper\n";
+                                print $outfile1 "$bowtie_single_mapper\n$blat_single_mapper\n";
                             } else {
-                                print OUTFILE1 "$blat_single_mapper\n$bowtie_single_mapper\n";
+                                print $outfile1 "$blat_single_mapper\n$bowtie_single_mapper\n";
                             }
                         }
                     }
                     if ( (($atype eq "a") && ($Astrand eq "-")) || ((($atype eq "b") && ($Astrand eq "+"))) ) {
                         if (($Astrand eq $Bstrand) && ($chra eq $chrb) && ($bend < $astart-1) && ($astart - $bend < $max_distance_between_paired_reads)) {
                             if ($bowtie_single_mapper_is_forward) {
-                                print OUTFILE1 "$bowtie_single_mapper\n$blat_single_mapper\n";
+                                print $outfile1 "$bowtie_single_mapper\n$blat_single_mapper\n";
                             } else {
-                                print OUTFILE1 "$blat_single_mapper\n$bowtie_single_mapper\n";
+                                print $outfile1 "$blat_single_mapper\n$bowtie_single_mapper\n";
                             }
                         }
                     }
@@ -567,7 +573,7 @@ sub main {
                                 }
                             }
                             $seq_j = addJunctionsToSeq($seq_merged, $spans_merged);
-                            print OUTFILE1 "$seqnum\t$chra\t$spans_merged\t$seq_j\t$Astrand\n";
+                            print $outfile1 "$seqnum\t$chra\t$spans_merged\t$seq_j\t$Astrand\n";
                             $dflag = 1;
                         }
                     }
@@ -599,46 +605,46 @@ sub main {
                                 }
                             }
                             $seq_j = addJunctionsToSeq($seq_merged, $spans_merged);
-                            print OUTFILE1 "$seqnum\t$chra\t$spans_merged\t$seq_j\t$Astrand\n";
+                            print $outfile1 "$seqnum\t$chra\t$spans_merged\t$seq_j\t$Astrand\n";
                         }
                     }
                 }
             }
             # ONE CASE
             if (@bowtie_pair && @blat_pair == 2) { # preference bowtie
-                print OUTFILE1 "$bowtie_pair[0]\n";
-                print OUTFILE1 "$bowtie_pair[1]\n";
+                print $outfile1 "$bowtie_pair[0]\n";
+                print $outfile1 "$bowtie_pair[1]\n";
             }	
             # NINE CASES DONE
             # ONE CASE
             if ($bowtie_joined_mapper && @blat_pair == 2) { # preference bowtie
-                print OUTFILE1 "$bowtie_joined_mapper\n";
+                print $outfile1 "$bowtie_joined_mapper\n";
             }
             # ONE CASE
             if (@bowtie_pair && $blat_joined_mapper) { # preference bowtie
-                print OUTFILE1 "$bowtie_pair[0]\n";
-                print OUTFILE1 "$bowtie_pair[1]\n";
+                print $outfile1 "$bowtie_pair[0]\n";
+                print $outfile1 "$bowtie_pair[1]\n";
             }
             # ELEVEN CASES DONE
             if ($bowtie_single_mapper && @blat_pair == 2) {
-                print OUTFILE1 "$blat_pair[0]\n";
-                print OUTFILE1 "$blat_pair[1]\n";
+                print $outfile1 "$blat_pair[0]\n";
+                print $outfile1 "$blat_pair[1]\n";
             }	
             if (@bowtie_pair && $blat_single_mapper) {
-                print OUTFILE1 "$bowtie_pair[0]\n";
-                print OUTFILE1 "$bowtie_pair[1]\n";
+                print $outfile1 "$bowtie_pair[0]\n";
+                print $outfile1 "$bowtie_pair[1]\n";
             }	
             if ($bowtie_joined_mapper && $blat_single_mapper) {
-                print OUTFILE1 "$bowtie_joined_mapper\n";
+                print $outfile1 "$bowtie_joined_mapper\n";
             }
             if ($bowtie_single_mapper && $blat_joined_mapper) {
-                print OUTFILE1 "$blat_joined_mapper\n";
+                print $outfile1 "$blat_joined_mapper\n";
             }
             # ALL FIFTEEN CASES DONE
         }
     }
 
-    close(OUTFILE1);
+    close($outfile1);
     close(OUTFILE2);
 
     # now need to remove the stuff in %remove_from_BlatNU from BlatNU

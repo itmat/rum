@@ -7,10 +7,23 @@ use base 'RUM::AlignIO';
 
 use RUM::Alignment;
 
+sub new {
+    my ($class, %options) = @_;
+    my $self = $class->SUPER::new(%options);
+    $self->{strand_last} = $options{strand_last};
+    return $self;
+}
+
 sub parse_aln {
     my ($self, $line) = @_;
 
-    my ($readid, $strand, $chr, $loc, $seq) = split /\t/, $line;
+    my @fields = split /\t/, $line;
+    my ($readid, $strand, $chr, $loc, $seq) = @fields;
+
+    if ($self->{strand_last}) {
+        ($readid, $chr, $loc, $seq, $strand) = @fields;
+    }
+    
     return RUM::Alignment->new(readid => $readid,
                                chr => $chr,
                                loc  => $loc,
