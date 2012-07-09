@@ -162,11 +162,9 @@ sub main {
         }
     };
 
-    $f4 = $unique_out;
-
     my $bowtie_unique_iter = RUM::BowtieIO->new(-file => $bowtie_unique_in);
     my $blat_unique_in     = RUM::BowtieIO->new(-file => $blat_unique_in);
-    open OUTFILE1, ">", $f4;
+    open OUTFILE1, ">", $unique_out;
 
     $max_distance_between_paired_reads = 500000;
     $num_lines_at_once = 10000;
