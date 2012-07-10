@@ -86,4 +86,15 @@ sub as_unified {
     return $self->copy(readid => $readid);
 }
 
+sub same_direction {
+    my ($self, $other) = @_;
+    return (($self->is_forward && $other->is_forward) ||
+            ($self->is_reverse && $other->is_reverse));
+}
+
+sub opposite_direction {
+    my ($self, $other) = @_;
+    return (($self->is_forward && $other->is_reverse) ||
+            ($self->is_reverse && $other->is_forward));
+}
 1;
