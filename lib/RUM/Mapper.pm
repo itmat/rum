@@ -16,23 +16,42 @@ sub alignments {
     return $self->{alignments};
 }
 
-sub is_single {
+sub single {
     my ($self) = @_;
     return unless @{ $self->{alignments} } == 1;
     my $aln = $self->{alignments}[0];
-    return $aln->is_forward || $aln->is_reverse;
+    return unless $aln->is_forward || $aln->is_reverse;
+    return $aln;
 }
 
-sub is_joined {
+sub single_forward {
     my ($self) = @_;
     return unless @{ $self->{alignments} } == 1;
     my $aln = $self->{alignments}[0];
-    return ! ( $aln->is_forward || $aln->is_reverse );
+    return unless $aln->is_forward;
+    return $aln;
 }
 
-sub is_unjoined {
+sub single_reverse {
     my ($self) = @_;
-    return @{ $self->{alignments} } == 2;
+    return unless @{ $self->{alignments} } == 1;
+    my $aln = $self->{alignments}[0];
+    return unless $aln->is_reverse;
+    return $aln;
+}
+
+sub joined {
+    my ($self) = @_;
+    return unless @{ $self->{alignments} } == 1;
+    my $aln = $self->{alignments}[0];
+    return $aln if ! ( $aln->is_forward || $aln->is_reverse );
+    return;
+}
+
+sub unjoined {
+    my ($self) = @_;
+    return unless @{ $self->{alignments} } == 2;
+    return $self->{alignments};
 }
 
 sub is_empty {

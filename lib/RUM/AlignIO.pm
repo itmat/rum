@@ -3,7 +3,7 @@ package RUM::AlignIO;
 use strict;
 use warnings;
 use autodie;
-
+use Scalar::Util qw(blessed);
 use Carp;
 
 use RUM::Alignment;
@@ -38,6 +38,9 @@ sub write_alns {
         for my $aln (@{ $iter }) {
             $self->write_aln($aln);            
         }
+    }
+    elsif (blessed($iter) && $iter->isa('RUM::Mapper')) {
+        $self->write_alns($iter->alignments);
     }
     else {
         while (my $aln = $iter->next_val) {

@@ -13,7 +13,7 @@ sub new {
 
     for my $field (qw(readid chr strand seq)) {
         defined($self->{$field} = delete $params{$field}) 
-        or croak "Need $_";
+        or croak "Need $field";
     }
     $self->{raw} = delete $params{raw};
 
@@ -96,5 +96,10 @@ sub opposite_direction {
     my ($self, $other) = @_;
     return (($self->is_forward && $other->is_reverse) ||
             ($self->is_reverse && $other->is_forward));
+}
+
+sub is_single {
+    my @alns = @_;
+    return @alns == 1 && ($alns[0]->is_forward || $alns[0]->is_reverse);
 }
 1;

@@ -10,6 +10,7 @@ use RUM::Logging;
 use RUM::Common qw(addJunctionsToSeq spansTotalLength min_overlap_for_read_length);
 use RUM::BowtieIO;
 use RUM::RUMIO;
+use RUM::Mapper;
 use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
@@ -253,54 +254,27 @@ sub main {
             next ID if $bowtie_ambiguous_mappers{$id};
             next ID if $blat_ambiguous_mappers_a{$id} && $blat_ambiguous_mappers_b{$id};
 
-            my @bowtie = @{ $bowtie_mappers_for{$id} || [] };
-            my @blat   = @{   $blat_mappers_for{$id} || [] };
+            my $bowtie = RUM::Mapper->new(alignments => $bowtie_mappers_for{$id});
+            my $blat   = RUM::Mapper->new(alignments => $blat_mappers_for{$id});
 
-            my ($bowtie_joined,   $blat_joined,
-                $bowtie_single,   $blat_single,
-                @bowtie_unjoined, @blat_unjoined);
-
-            if (@bowtie == 1) {
-                if ($bowtie[0]->is_forward || $bowtie[0]->is_reverse) {
-                    $bowtie_single = $bowtie[0];
-                }
-                else {
-                    $bowtie_joined = $bowtie[0];
-                }
-            }
-            elsif (@bowtie == 2) {
-                @bowtie_unjoined = @bowtie;
-            }
-            if (@blat == 1) {
-                if ($blat[0]->is_forward || $blat[0]->is_reverse) {
-                    $blat_single = $blat[0];
-                }
-                else {
-                    $blat_joined = $blat[0];
-                }
-            }
-            elsif (@blat == 2) {
-                @blat_unjoined = @blat;
-            }
-
-            if ( $blat_ambiguous_mappers_a{$id} && $bowtie_single && $bowtie_single->is_reverse) {
+            if ( $blat_ambiguous_mappers_a{$id} && $bowtie->single_reverse ) {
                 # ambiguous forward in in BlatNU, single reverse in BowtieUnique.  See if there is
                 # a consistent pairing so we can keep the pair, otherwise this read is considered unmappable
                 # (not to be confused with ambiguous)
 
                 my $blat_nu_iter = blat_nu_iter_for_readid(
-                    $blat_non_unique_in, $bowtie_single->as_forward->readid);
+                    $blat_non_unique_in, $bowtie->single->as_forward->readid);
                 $numjoined=0;
 
                 while (my $aln = $blat_nu_iter->next_val) {
                     my @joined;
                     # check the strand
-                    if ($bowtie_single->strand eq '-') {
+                    if ($bowtie->single->strand eq '-') {
                         # this is not backwards, line1 is the reverse read
-                        @joined = joinifpossible($bowtie_single, $aln,
+                        @joined = joinifpossible($bowtie->single, $aln,
                                                  $max_distance_between_paired_reads);
                     } else {
-                        @joined = joinifpossible($aln, $bowtie_single, $max_distance_between_paired_reads);
+                        @joined = joinifpossible($aln, $bowtie->single, $max_distance_between_paired_reads);
                     }
                     if (@joined) {
                         $numjoined++;
@@ -314,19 +288,19 @@ sub main {
                 $remove_from_BlatNU{$id}++;
                 next;
             }
-            if ($blat_ambiguous_mappers_b{$id} && $bowtie_single && $bowtie_single->is_forward) {
+            if ($blat_ambiguous_mappers_b{$id} && $bowtie->single_forward) {
                 # ambiguous reverse in in BlatNU, single forward in BowtieUnique.  See if there is
                 # a consistent pairing so we can keep the pair, otherwise this read is considered unmappable
                 # (not to be confused with ambiguous)
                 $numjoined=0;
                 my @joined;
                 my $blat_nu_iter = blat_nu_iter_for_readid(
-                    $blat_non_unique_in, $bowtie_single->as_reverse->readid);
+                    $blat_non_unique_in, $bowtie->single->as_reverse->readid);
                 while (my $aln = $blat_nu_iter->next_val) {
-                    if ($bowtie_single->strand eq '-') {
-                        @joined = joinifpossible($aln, $bowtie_single, $max_distance_between_paired_reads);
+                    if ($bowtie->single->strand eq '-') {
+                        @joined = joinifpossible($aln, $bowtie->single, $max_distance_between_paired_reads);
                     } else {
-                        @joined = joinifpossible($bowtie_single, $aln, $max_distance_between_paired_reads);
+                        @joined = joinifpossible($bowtie->single, $aln, $max_distance_between_paired_reads);
                     }
                     if ($joined =~ /\S/) {
                         $numjoined++;
@@ -355,38 +329,40 @@ sub main {
             # THREE CASES:
 
             # If there's no bowtie mapper, then there must be a blat mapper
-            if ( ! @bowtie ) {
-                $unique_io->write_alns(\@blat);
+            if ( $bowtie->is_empty ) {
+                $unique_io->write_alns($blat);
             }
 
             
             # THREE CASES:
-            elsif ( ! @blat ) {
-                if ($bowtie_joined) {
-                    $unique_io->write_aln($bowtie_joined);
+            elsif ( $blat->is_empty ) {
+                if ($bowtie->joined) {
+                    $unique_io->write_alns($bowtie);
                 }
-                if (@bowtie_unjoined) {
-                    $unique_io->write_alns(\@bowtie_unjoined);
+                if ($bowtie->unjoined) {
+                    $unique_io->write_alns($bowtie);
                 }
-                if ($bowtie_single) {
+                if ($bowtie->single) {
                     # this is a one-direction only mapper in
                     # BowtieUnique and nothing in BlatUnique, so must
                     # check it's not in BlatNU
-                    if ( (!$blat_ambiguous_mappers_a{$id} && $bowtie_single->is_forward) ||
-                         (!$blat_ambiguous_mappers_b{$id} && $bowtie_single->is_reverse)) {
-                        $unique_io->write_aln($bowtie_single);
+                    if ( (!$blat_ambiguous_mappers_a{$id} && $bowtie->single_forward) ||
+                         (!$blat_ambiguous_mappers_b{$id} && $bowtie->single_reverse)) {
+                        $unique_io->write_alns($bowtie);
                     }
                 }
             }
             # ONE CASE:
-            if ($bowtie_joined && $blat_joined) { 
+            if ( $bowtie->joined && $blat->joined) { 
                 # Prefer the bowtie mapping. This case should actually
                 # not happen because we should only send to blat those
                 # things which didn't have consistent bowtie maps.
-                $unique_io->write_aln($bowtie[0]);
+                $unique_io->write_alns($bowtie);
             }
             # ONE CASE:
-            if ($bowtie_single && $blat_single) {
+            if ($bowtie->single && $blat->single) {
+                my $bowtie_single = $bowtie->single;
+                my $blat_single   = $blat->single;
                 if ($bowtie_single->same_direction($blat_single)) {
                     # If single-end then this is the only case where $hash1{$id}[0] != 0 and $hash2{$id}[0] != 0
 
@@ -578,36 +554,42 @@ sub main {
                                 }
                             }
                             $seq_j = addJunctionsToSeq($seq_merged, $spans_merged);
-                            print $outfile1 "$seqnum\t$chra\t$spans_merged\t$seq_j\t$Astrand\n";
+                            my $aln = RUM::Alignment->new(
+                                readid => $seqnum,
+                                chr => $chra,
+                                locs => RUM::RUMIO->parse_locs($spans_merged),
+                                seq => $seq_j,
+                                strand => $Astrand);
+                            $unique_io->write_aln($aln);
                         }
                     }
                 }
             }
             # ONE CASE
-            if (@bowtie_unjoined && @blat_unjoined) { # preference bowtie
-                $unique_io->write_alns(\@bowtie);
+            if ($bowtie->unjoined && $blat->unjoined) { # preference bowtie
+                $unique_io->write_alns($bowtie);
             }	
             # NINE CASES DONE
             # ONE CASE
-            if ($bowtie_joined && @blat_unjoined) { # preference bowtie
-                $unique_io->write_aln($bowtie_joined);
+            if ($bowtie->joined && $blat->unjoined) { # preference bowtie
+                $unique_io->write_alns($bowtie);
             }
             # ONE CASE
-            if (@bowtie_unjoined && $blat_joined) { # preference bowtie
-                $unique_io->write_alns(\@bowtie);
+            if ($bowtie->unjoined && $blat->joined) { # preference bowtie
+                $unique_io->write_alns($bowtie);
             }
             # ELEVEN CASES DONE
-            if ($bowtie_single && @blat_unjoined) {
-                $unique_io->write_alns(\@blat_unjoined);
+            if ($bowtie->single && $blat->unjoined) {
+                $unique_io->write_alns($blat);
             }	
-            if (@bowtie_unjoined && $blat_single) {
-                $unique_io->write_alns(\@bowtie_unjoined);
+            if ($bowtie->unjoined && $blat->single) {
+                $unique_io->write_alns($bowtie);
             }	
-            if ($bowtie_joined && $blat_single) {
-                $unique_io->write_aln($bowtie_joined);
+            if ($bowtie->joined && $blat->single) {
+                $unique_io->write_alns($bowtie);
             }
-            if ($bowtie_single && $blat_joined) {
-                $unique_io->write_aln($blat_joined);
+            if ($bowtie->single && $blat->joined) {
+                $unique_io->write_alns($blat);
             }
             # ALL FIFTEEN CASES DONE
         }
@@ -616,24 +598,23 @@ sub main {
     close($outfile2);
 
     # now need to remove the stuff in %remove_from_BlatNU from BlatNU
-    $filename = $non_unique_out;
-    open INFILE, '<', $blat_non_unique_in;
-    open OUTFILE, '>', $filename;
-    while ($line = <INFILE>) {
-        $line =~ /seq.(\d+)/;
-        if ($remove_from_BlatNU{$1}+0==0) {
-            print OUTFILE $line;
+
+    my $blat_nu = RUM::RUMIO->new(
+        -file => $blat_non_unique_in,
+        strand_last => 1);
+
+    open my $rum_nu, '>', $non_unique_out;
+    while (my $aln = $blat_nu->next_val) {
+        if ( ! $remove_from_BlatNU{$aln->order} ) {
+            print $rum_nu $aln->raw . "\n";
         }
     }
-    close(INFILE);
-    open INFILE, '<', $bowtie_non_unique_in;
-    # now append BowtieNU to get the full NU file
-    while ($line = <INFILE>) {
-        print OUTFILE $line;
-    }
-    close(INFILE);
-    close(OUTFILE);
 
+    open $infile, '<', $bowtie_non_unique_in;
+    # now append BowtieNU to get the full NU file
+    while ($line = <$infile>) {
+        print $rum_nu $line;
+    }
 }
 
 sub joinifpossible () {

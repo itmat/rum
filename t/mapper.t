@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 16;
+use Test::More tests => 20;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::Alignment;
@@ -20,9 +20,11 @@ my $single_forward = RUM::Mapper->new(
     ]
 );
 
-ok   $single_forward->is_single;
-ok ! $single_forward->is_joined;
-ok ! $single_forward->is_unjoined;
+ok   $single_forward->single;
+ok    $single_forward->single_forward;
+ok !  $single_forward->single_reverse;
+ok ! $single_forward->joined;
+ok ! $single_forward->unjoined;
 ok ! $single_forward->is_empty;
 
 my $joined = RUM::Mapper->new(
@@ -36,9 +38,11 @@ my $joined = RUM::Mapper->new(
     ]
 );
 
-ok ! $joined->is_single;
-ok   $joined->is_joined;
-ok ! $joined->is_unjoined;
+ok ! $joined->single;
+ok ! $joined->single_forward;
+ok ! $joined->single_reverse;
+ok   $joined->joined;
+ok ! $joined->unjoined;
 ok ! $joined->is_empty;
 
 my $unjoined = RUM::Mapper->new(
@@ -58,14 +62,14 @@ my $unjoined = RUM::Mapper->new(
     ]
 );
 
-ok ! $unjoined->is_single;
-ok ! $unjoined->is_joined;
-ok   $unjoined->is_unjoined;
+ok ! $unjoined->single;
+ok ! $unjoined->joined;
+ok   $unjoined->unjoined;
 ok ! $unjoined->is_empty;
 
 my $empty = RUM::Mapper->new();
 
-ok ! $empty->is_single;
-ok ! $empty->is_joined;
-ok ! $empty->is_unjoined;
+ok ! $empty->single;
+ok ! $empty->joined;
+ok ! $empty->unjoined;
 ok   $empty->is_empty;
