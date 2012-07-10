@@ -13,7 +13,7 @@ use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
                     reversecomplement format_large_int spansTotalLength
                     reversesignal read_chunk_id_mapping is_fasta is_fastq head
-                    num_digits shell is_on_cluster);
+                    num_digits shell is_on_cluster min_overlap_for_read_length);
 
 =head1 FUNCTIONS
 
@@ -430,5 +430,13 @@ sub is_executable_in_path {
     return -x;
 }
 
+sub min_overlap_for_read_length {
+    my ($read_length) = @_;
+    my $min_overlap = $read_length < 80 ? 35 : 45;
+    if ($min_overlap >= .8 * $read_length) {
+        $min_overlap = int(.6 * $read_length);
+    }
+    return $min_overlap;
+}
 
 1;

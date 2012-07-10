@@ -7,7 +7,7 @@ use List::Util qw(max);
 use Data::Dumper;
 use RUM::Usage;
 use RUM::Logging;
-use RUM::Common qw(addJunctionsToSeq spansTotalLength);
+use RUM::Common qw(addJunctionsToSeq spansTotalLength min_overlap_for_read_length);
 use RUM::BowtieIO;
 use RUM::RUMIO;
 use Getopt::Long;
@@ -124,14 +124,7 @@ sub main {
         $readlength = "v";
     }
     if ($readlength ne "v") {
-        if ($readlength < 80) {
-            $min_overlap = 35;
-        } else {
-            $min_overlap = 45;
-        }
-        if ($min_overlap >= .8 * $readlength) {
-            $min_overlap = int(.6 * $readlength);
-        }
+        $min_overlap = min_overlap_for_read_length($readlength);
     }
     if ($user_min_overlap > 0) {
         $min_overlap = $user_min_overlap;
@@ -421,14 +414,7 @@ sub main {
                             if (length($blat_single->seq) < $readlength_temp) {
                                 $readlength_temp = length($blat_single->seq);
                             }
-                            if ($readlength_temp < 80) {
-                                $min_overlap = 35;
-                            } else {
-                                $min_overlap = 45;
-                            }
-                            if ($min_overlap >= .8 * $readlength_temp) {
-                                $min_overlap = int(.6 * $readlength_temp);
-                            }
+                            $min_overlap = min_overlap_for_read_length($readlength_temp);
                         }
                         if ($user_min_overlap > 0) {
                             $min_overlap = $user_min_overlap;
