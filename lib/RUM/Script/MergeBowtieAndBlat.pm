@@ -258,9 +258,11 @@ sub main {
             my $blat   = RUM::Mapper->new(alignments => $blat_mappers_for{$id});
 
             if ( $blat_ambiguous_mappers_a{$id} && $bowtie->single_reverse ) {
-                # ambiguous forward in in BlatNU, single reverse in BowtieUnique.  See if there is
-                # a consistent pairing so we can keep the pair, otherwise this read is considered unmappable
-                # (not to be confused with ambiguous)
+                # ambiguous forward in in BlatNU, single reverse in
+                # BowtieUnique.  See if there is a consistent pairing
+                # so we can keep the pair, otherwise this read is
+                # considered unmappable (not to be confused with
+                # ambiguous)
 
                 my $blat_nu_iter = blat_nu_iter_for_readid(
                     $blat_non_unique_in, $bowtie->single->as_forward->readid);
@@ -286,7 +288,7 @@ sub main {
                     $unique_io->write_alns(\@joinedsave);
                 }
                 $remove_from_BlatNU{$id}++;
-                next;
+                next ID;
             }
             if ($blat_ambiguous_mappers_b{$id} && $bowtie->single_forward) {
                 # ambiguous reverse in in BlatNU, single forward in BowtieUnique.  See if there is
@@ -312,7 +314,7 @@ sub main {
                     $unique_io->write_alns(\@joinedsave);
                 }
                 $remove_from_BlatNU{$id}++;
-                next;
+                next ID;
             }
 
             # Kept for debugging
@@ -328,21 +330,13 @@ sub main {
 
             # THREE CASES:
 
-            # If there's no bowtie mapper, then there must be a blat mapper
+            # Cases 0, 1, 2, 3
             if ( $bowtie->is_empty ) {
                 $unique_io->write_alns($blat);
             }
 
-            
-            # THREE CASES:
-            elsif ( $blat->is_empty ) {
-                if ($bowtie->joined) {
-                    $unique_io->write_alns($bowtie);
-                }
-                if ($bowtie->unjoined) {
-                    $unique_io->write_alns($bowtie);
-                }
-                if ($bowtie->single) {
+            elsif ($bowtie->single) {
+                if ($blat->is_empty) {
                     # this is a one-direction only mapper in
                     # BowtieUnique and nothing in BlatUnique, so must
                     # check it's not in BlatNU
@@ -351,246 +345,53 @@ sub main {
                         $unique_io->write_alns($bowtie);
                     }
                 }
-            }
-            # ONE CASE:
-            if ( $bowtie->joined && $blat->joined) { 
-                # Prefer the bowtie mapping. This case should actually
-                # not happen because we should only send to blat those
-                # things which didn't have consistent bowtie maps.
-                $unique_io->write_alns($bowtie);
-            }
-            # ONE CASE:
-            if ($bowtie->single && $blat->single) {
-                my $bowtie_single = $bowtie->single;
-                my $blat_single   = $blat->single;
-                if ($bowtie_single->same_direction($blat_single)) {
-                    # If single-end then this is the only case where $hash1{$id}[0] != 0 and $hash2{$id}[0] != 0
 
-                    @a1 = split /\t/, $bowtie_single->raw;
-                    @a2 = split /\t/, $blat_single->raw;
-                    $spans[0] = RUM::RUMIO->format_locs($bowtie_single);
-                    $spans[1] = RUM::RUMIO->format_locs($blat_single);
-                    $l1 = spansTotalLength($spans[0]);
-                    $l2 = spansTotalLength($spans[1]);
-                    $F=0;
-                    if ($l1 > $l2+3) {
-                        $unique_io->write_aln($bowtie_single);
-                        $F=1;
-                    }
-                    if ($l2 > $l1+3) {
-                        $unique_io->write_aln($blat_single); # preference blat
-                        $F=1;
-                    }
-                    ($length_overlap, undef, undef) = intersect(\@spans, $bowtie_single->seq);
-
-                    if ( ! $F ) {
-
-                        if ($readlength eq "v") {
-                            $readlength_temp = length($bowtie_single->seq);
-                            if (length($blat_single->seq) < $readlength_temp) {
-                                $readlength_temp = length($blat_single->seq);
-                            }
-                            $min_overlap = min_overlap_for_read_length($readlength_temp);
-                        }
-                        if ($user_min_overlap > 0) {
-                            $min_overlap = $user_min_overlap;
-                        }
-
-                        if (($length_overlap > $min_overlap) && 
-                            ($bowtie_single->chromosome eq $blat_single->chromosome)) {
-                            # preference bowtie (so no worries about insertions)
-                            $unique_io->write_aln($bowtie_single);
-                        } else {
-                            # AMBIGUOUS, OUTPUT TO NU FILE
-                            if ($bowtie_single && $blat_single) {
-                                $nu_io->write_alns([$bowtie_single,
-                                                    $blat_single]);
-                            }
-                        }
-                    }
+                elsif ($blat->single) {
+                    handle_both_single($bowtie, $blat, $unique_io, $nu_io,
+                                       $readlength, $user_min_overlap,
+                                       $max_distance_between_paired_reads);
                 }
-                if ($bowtie_single->opposite_direction($blat_single)) {
-                    # This is the tricky case where there's a unique
-                    # forward bowtie mapper and a unique reverse blat
-                    # mapper, or conversely.  Must check for
-                    # consistency.  This cannot be in BlatNU so don't
-                    # have to worry about that here.
-
-                    $aspans  = RUM::RUMIO->format_locs($bowtie_single);
-                    $astart  = $bowtie_single->start;
-                    $aend    = $bowtie_single->end;
-                    $chra    = $bowtie_single->chromosome;
-                    $aseq    = $bowtie_single->seq;
-                    $Astrand = $bowtie_single->strand;
-                    $seqnum  = $bowtie_single->readid_directionless;
-
-                    $bspans  = RUM::RUMIO->format_locs($blat_single);
-                    $bstart  = $blat_single->start;
-                    $bend    = $blat_single->end;
-                    $chrb    = $blat_single->chromosome;
-                    $bseq    = $blat_single->seq;
-                    $Bstrand = $blat_single->strand;
-
-                    if ( ($bowtie_single->is_forward && $Astrand eq "+") || 
-                         ($bowtie_single->is_reverse && $Astrand eq '-')) {
-                        if ($bowtie_single->strand eq $blat_single->strand && 
-                            ($chra eq $chrb) && 
-                            ($aend < $bstart-1) && 
-                            ($bstart - $aend < $max_distance_between_paired_reads)) {
-                            if ($bowtie_single->is_forward) {
-                                $unique_io->write_alns([$bowtie_single, $blat_single]);
-                            } else {
-                                $unique_io->write_alns([$blat_single, $bowtie_single]);
-                            }
-                        }
-                    }
-                    if ( ($bowtie_single->is_forward && $Astrand eq "-") || 
-                         ($bowtie_single->is_reverse && $Astrand eq "+") ) {
-                        if (($Astrand eq $Bstrand) && 
-                            ($chra eq $chrb) && 
-                            ($bend < $astart-1) &&
-                            ($astart - $bend < $max_distance_between_paired_reads)) {
-                            if ($bowtie_single->is_forward) {
-                                $unique_io->write_alns([$bowtie_single, $blat_single]);
-                            } else {
-                                $unique_io->write_alns([$blat_single, $bowtie_single]);
-                            }
-                        }
-                    }
-                    # if they overlap, can't merge properly if there's
-                    # an insertion, so chop it out, save it and put it
-                    # back in before printing the next two if's do the
-                    # chopping...
-                    $aseq=~ s/://g;
-                    if ($aseq =~ /\+/) {
-                        $aseq =~ /(.*)(\+.*\+)(.*)/; # THIS IS ONLY GOING TO WORK IF THERE IS ONE INSERTION
-                        # as is guaranteed, seach for "comment.1" in parse_blat_out.pl
-                        # This limitation should probably be fixed at some point...
-                        $astem = $1;
-                        $a_insertion = $2;
-                        $apost = $3;
-                        $aseq =~ s/\+.*\+//;
-                        if (!($a_insertion =~ /\S/)) {
-                            print STDERR "ERROR: in script merge_Bowtie_and_Blat.pl: Something is wrong here, possible bug: code_id 0001\n";
-                        }
-                    }
-                    $bseq=~ s/://g;
-                    if ($bseq =~ /\+/) {
-                        $bseq =~ /(.*)(\+.*\+)(.*)/; # SAME COMMENT AS ABOVE
-                        $bstem = $1;
-                        $b_insertion = $2;
-                        $bpost = $3;
-                        $bseq =~ s/\+.*\+//;
-                        if (!($b_insertion =~ /\S/)) {
-                            print STDERR "ERROR: in script merge_Bowtie_and_Blat.pl: Something is wrong here, possible bug: code_id 0002\n";
-                        }
-                    }
-                    $dflag = 0;
-                    if ( ($bowtie_single->is_forward && $Astrand eq "+") || 
-                         ($bowtie_single->is_reverse && $Astrand eq "-") ) {
-                        if (($Astrand eq $Bstrand) && 
-                            ($chra eq $chrb) &&
-                            ($aend >= $bstart-1) && 
-                            ($astart <= $bstart) && 
-                            ($aend <= $bend)) {
-                            # they overlap
-                            $spans_merged = merge($aspans,$bspans);
-                            $merged_length = spansTotalLength($spans_merged);
-                            $aseq =~ s/://g;
-                            $seq_merged = $aseq;
-                            $bsize = $merged_length - length($aseq);
-                            $bseq =~ s/://g;
-                            @s = split(//,$bseq);
-                            $add = "";
-                            for ($i=@s-1; $i>=@s-$bsize; $i--) {
-                                $add = $s[$i] . $add;
-                            }
-                            $seq_merged = $seq_merged . $add;
-                            if ($a_insertion =~ /\S/) { # put back the insertions, if any...
-                                $seq_merged =~ s/^$astem/$astem$a_insertion/;
-                            }
-                            if ($b_insertion =~ /\S/) {
-                                $str_temp = $b_insertion;
-                                $str_temp =~ s/\+/\\+/g;
-                                if (!($seq_merged =~ /$str_temp$bpost$/)) {
-                                    $seq_merged =~ s/$bpost$/$b_insertion$bpost/;
-                                }
-                            }
-                            $seq_j = addJunctionsToSeq($seq_merged, $spans_merged);
-                            $unique_io->write_aln(RUM::Alignment->new(
-                                readid => $seqnum,
-                                chr    => $chra,
-                                locs   => RUM::RUMIO->parse_locs($spans_merged),
-                                seq    => $seq_j,
-                                strand => $Astrand));
-                            $dflag = 1;
-                        }
-                    }
-                    if ( (($bowtie_single->is_forward) && ($Astrand eq "-")) || ((($bowtie_single->is_reverse) && ($Astrand eq "+"))) ) {
-                        if (($Astrand eq $Bstrand) && ($chra eq $chrb) && ($bend >= $astart-1) && ($bstart <= $astart) && ($bend <= $aend) && ($dflag == 0)) {
-                            # they overlap
-                            $spans_merged = merge($bspans,$aspans);
-                            $merged_length = spansTotalLength($spans_merged);
-                            $bseq =~ s/://g;
-                            $seq_merged = $bseq;
-                            @s = split(//,$bseq);
-                            $asize = $merged_length - @s;
-                            $aseq =~ s/://g;
-                            @s = split(//,$aseq);
-                            $add = "";
-                            for ($i=@s-1; $i>=@s-$asize; $i--) {
-                                $add = $s[$i] . $add;
-                            }
-                            $seq_merged = $seq_merged . $add;
-                            if ($a_insertion =~ /\S/) { # put back the insertions, if any...
-                                $seq_merged =~ s/$apost$/$a_insertion$apost/;
-                            }
-
-                            if ($b_insertion =~ /\S/) {
-                                $str_temp = $b_insertion;
-                                $str_temp =~ s/\+/\\+/g;
-                                if (!($seq_merged =~ /^$bstem$str_temp/)) {
-                                    $seq_merged =~ s/^$bstem/$bstem$b_insertion/;
-                                }
-                            }
-                            $seq_j = addJunctionsToSeq($seq_merged, $spans_merged);
-                            my $aln = RUM::Alignment->new(
-                                readid => $seqnum,
-                                chr => $chra,
-                                locs => RUM::RUMIO->parse_locs($spans_merged),
-                                seq => $seq_j,
-                                strand => $Astrand);
-                            $unique_io->write_aln($aln);
-                        }
-                    }
+                elsif ($blat->unjoined) {
+                    $unique_io->write_alns($blat);
+                }     
+                elsif ($blat->joined) {
+                    $unique_io->write_alns($blat);
                 }
             }
-            # ONE CASE
-            if ($bowtie->unjoined && $blat->unjoined) { # preference bowtie
-                $unique_io->write_alns($bowtie);
-            }	
-            # NINE CASES DONE
-            # ONE CASE
-            if ($bowtie->joined && $blat->unjoined) { # preference bowtie
-                $unique_io->write_alns($bowtie);
+            
+            elsif ($bowtie->unjoined) {
+                if ($blat->is_empty) {
+                    $unique_io->write_alns($bowtie);
+                }
+                elsif ($blat->single) {
+                    $unique_io->write_alns($bowtie);
+                }	
+                if ($blat->unjoined) { # preference bowtie
+                    $unique_io->write_alns($bowtie);
+                }	
+                if ($blat->joined) { # preference bowtie
+                    $unique_io->write_alns($bowtie);
+                }
             }
-            # ONE CASE
-            if ($bowtie->unjoined && $blat->joined) { # preference bowtie
-                $unique_io->write_alns($bowtie);
+
+            elsif ($bowtie->joined) {
+                if    ($blat->is_empty) {
+                    $unique_io->write_alns($bowtie);
+                }
+                elsif ($blat->single) {
+                    $unique_io->write_alns($bowtie);
+                }
+                elsif ($blat->unjoined) {
+                    $unique_io->write_alns($bowtie);
+                }
+                elsif ($blat->joined) { 
+                    # Prefer the bowtie mapping. This case should actually
+                    # not happen because we should only send to blat those
+                    # things which didn't have consistent bowtie maps.
+                    $unique_io->write_alns($bowtie);
+                }
             }
-            # ELEVEN CASES DONE
-            if ($bowtie->single && $blat->unjoined) {
-                $unique_io->write_alns($blat);
-            }	
-            if ($bowtie->unjoined && $blat->single) {
-                $unique_io->write_alns($bowtie);
-            }	
-            if ($bowtie->joined && $blat->single) {
-                $unique_io->write_alns($bowtie);
-            }
-            if ($bowtie->single && $blat->joined) {
-                $unique_io->write_alns($blat);
-            }
+            
             # ALL FIFTEEN CASES DONE
         }
     }
@@ -718,7 +519,7 @@ sub joinifpossible () {
     return @result;
 }
 
-sub merge () {
+sub merge  {
     my ($aspans2, $bspans2) = @_;
     use strict;
     my @astarts2;
@@ -762,7 +563,7 @@ sub merge () {
     return $merged_spans;
 }
 
-sub intersect () {
+sub intersect {
     use strict;
     my ($spans_ref, $seq) = @_;
     my @spans = @{$spans_ref};
@@ -849,6 +650,215 @@ sub intersect () {
 	return;
     }
 
+}
+
+sub handle_both_single {
+    use strict;
+    my ($bowtie, $blat, $unique_io, $nu_io, $readlength,
+        $user_min_overlap, $max_distance_between_paired_reads) = @_;
+    my $bowtie_single = $bowtie->single;
+    my $blat_single   = $blat->single;
+    if ($bowtie_single->same_direction($blat_single)) {
+        # If single-end then this is the only case where $hash1{$id}[0] != 0 and $hash2{$id}[0] != 0
+        
+        my @a1 = split /\t/, $bowtie_single->raw;
+        my @a2 = split /\t/, $blat_single->raw;
+        my @spans = (RUM::RUMIO->format_locs($bowtie_single),
+                     RUM::RUMIO->format_locs($blat_single));
+        my $l1 = spansTotalLength($spans[0]);
+        my $l2 = spansTotalLength($spans[1]);
+        my $F=0;
+        if ($l1 > $l2+3) {
+            $unique_io->write_aln($bowtie_single);
+            $F=1;
+        }
+        if ($l2 > $l1+3) {
+            $unique_io->write_aln($blat_single); # preference blat
+            $F=1;
+        }
+        my ($length_overlap, undef, undef) = intersect(\@spans, $bowtie_single->seq);
+        
+        if ( ! $F ) {
+            my $min_overlap;
+            if ($readlength eq "v") {
+                my $readlength_temp = length($bowtie_single->seq);
+                if (length($blat_single->seq) < $readlength_temp) {
+                    $readlength_temp = length($blat_single->seq);
+                }
+                $min_overlap = min_overlap_for_read_length($readlength_temp);
+            }
+            if ($user_min_overlap > 0) {
+                $min_overlap = $user_min_overlap;
+            }
+            
+            if (($length_overlap > $min_overlap) && 
+                ($bowtie_single->chromosome eq $blat_single->chromosome)) {
+                # preference bowtie (so no worries about insertions)
+                $unique_io->write_aln($bowtie_single);
+            } else {
+                # AMBIGUOUS, OUTPUT TO NU FILE
+                if ($bowtie_single && $blat_single) {
+                    $nu_io->write_alns([$bowtie_single,
+                                        $blat_single]);
+                }
+            }
+        }
+    }
+    if ($bowtie_single->opposite_direction($blat_single)) {
+        # This is the tricky case where there's a unique
+        # forward bowtie mapper and a unique reverse blat
+        # mapper, or conversely.  Must check for
+        # consistency.  This cannot be in BlatNU so don't
+        # have to worry about that here.
+        
+        my $aspans  = RUM::RUMIO->format_locs($bowtie_single);
+        my $astart  = $bowtie_single->start;
+        my $aend    = $bowtie_single->end;
+        my $chra    = $bowtie_single->chromosome;
+        my $aseq    = $bowtie_single->seq;
+        my $Astrand = $bowtie_single->strand;
+        my $seqnum  = $bowtie_single->readid_directionless;
+        
+        my $bspans  = RUM::RUMIO->format_locs($blat_single);
+        my $bstart  = $blat_single->start;
+        my $bend    = $blat_single->end;
+        my $chrb    = $blat_single->chromosome;
+        my $bseq    = $blat_single->seq;
+        my $Bstrand = $blat_single->strand;
+        
+        if ( ($bowtie_single->is_forward && $Astrand eq "+") || 
+             ($bowtie_single->is_reverse && $Astrand eq '-')) {
+            if ($bowtie_single->strand eq $blat_single->strand && 
+                ($chra eq $chrb) && 
+                ($aend < $bstart-1) && 
+                ($bstart - $aend < $max_distance_between_paired_reads)) {
+                if ($bowtie_single->is_forward) {
+                    $unique_io->write_alns([$bowtie_single, $blat_single]);
+                } else {
+                    $unique_io->write_alns([$blat_single, $bowtie_single]);
+                }
+            }
+        }
+        if ( ($bowtie_single->is_forward && $Astrand eq "-") || 
+             ($bowtie_single->is_reverse && $Astrand eq "+") ) {
+            if (($Astrand eq $Bstrand) && 
+                ($chra eq $chrb) && 
+                ($bend < $astart-1) &&
+                ($astart - $bend < $max_distance_between_paired_reads)) {
+                if ($bowtie_single->is_forward) {
+                    $unique_io->write_alns([$bowtie_single, $blat_single]);
+                } else {
+                    $unique_io->write_alns([$blat_single, $bowtie_single]);
+                }
+            }
+        }
+        # if they overlap, can't merge properly if there's
+        # an insertion, so chop it out, save it and put it
+        # back in before printing the next two if's do the
+        # chopping...
+        $aseq=~ s/://g;
+        if ($aseq =~ /\+/) {
+            $aseq =~ /(.*)(\+.*\+)(.*)/; # THIS IS ONLY GOING TO WORK IF THERE IS ONE INSERTION
+            # as is guaranteed, seach for "comment.1" in parse_blat_out.pl
+            # This limitation should probably be fixed at some point...
+            $astem = $1;
+            $a_insertion = $2;
+            $apost = $3;
+            $aseq =~ s/\+.*\+//;
+            if (!($a_insertion =~ /\S/)) {
+                print STDERR "ERROR: in script merge_Bowtie_and_Blat.pl: Something is wrong here, possible bug: code_id 0001\n";
+            }
+        }
+        $bseq=~ s/://g;
+        if ($bseq =~ /\+/) {
+            $bseq =~ /(.*)(\+.*\+)(.*)/; # SAME COMMENT AS ABOVE
+            $bstem = $1;
+            $b_insertion = $2;
+            $bpost = $3;
+            $bseq =~ s/\+.*\+//;
+            if (!($b_insertion =~ /\S/)) {
+                print STDERR "ERROR: in script merge_Bowtie_and_Blat.pl: Something is wrong here, possible bug: code_id 0002\n";
+            }
+        }
+        $dflag = 0;
+        if ( ($bowtie_single->is_forward && $Astrand eq "+") || 
+             ($bowtie_single->is_reverse && $Astrand eq "-") ) {
+            if (($Astrand eq $Bstrand) && 
+                ($chra eq $chrb) &&
+                ($aend >= $bstart-1) && 
+                ($astart <= $bstart) && 
+                ($aend <= $bend)) {
+                # they overlap
+                my $spans_merged = merge($aspans,$bspans);
+                my $merged_length = spansTotalLength($spans_merged);
+                $aseq =~ s/://g;
+                my $seq_merged = $aseq;
+                my $bsize = $merged_length - length($aseq);
+                $bseq =~ s/://g;
+                my @s = split(//,$bseq);
+                my $add = "";
+                for (my $i=@s-1; $i>=@s-$bsize; $i--) {
+                    $add = $s[$i] . $add;
+                }
+                $seq_merged = $seq_merged . $add;
+                if ($a_insertion =~ /\S/) { # put back the insertions, if any...
+                    $seq_merged =~ s/^$astem/$astem$a_insertion/;
+                }
+                if ($b_insertion =~ /\S/) {
+                    my $str_temp = $b_insertion;
+                    $str_temp =~ s/\+/\\+/g;
+                    if (!($seq_merged =~ /$str_temp$bpost$/)) {
+                        $seq_merged =~ s/$bpost$/$b_insertion$bpost/;
+                    }
+                }
+                my $seq_j = addJunctionsToSeq($seq_merged, $spans_merged);
+                $unique_io->write_aln(RUM::Alignment->new(
+                    readid => $seqnum,
+                    chr    => $chra,
+                    locs   => RUM::RUMIO->parse_locs($spans_merged),
+                    seq    => $seq_j,
+                    strand => $Astrand));
+                $dflag = 1;
+            }
+        }
+        if ( (($bowtie_single->is_forward) && ($Astrand eq "-")) || ((($bowtie_single->is_reverse) && ($Astrand eq "+"))) ) {
+            if (($Astrand eq $Bstrand) && ($chra eq $chrb) && ($bend >= $astart-1) && ($bstart <= $astart) && ($bend <= $aend) && ($dflag == 0)) {
+                # they overlap
+                my $spans_merged = merge($bspans,$aspans);
+                my $merged_length = spansTotalLength($spans_merged);
+                $bseq =~ s/://g;
+                my $seq_merged = $bseq;
+                my @s = split(//,$bseq);
+                my $asize = $merged_length - @s;
+                my $aseq =~ s/://g;
+                @s = split(//,$aseq);
+                my $add = "";
+                for (my $i=@s-1; $i>=@s-$asize; $i--) {
+                    $add = $s[$i] . $add;
+                }
+                my $seq_merged = $seq_merged . $add;
+                if ($a_insertion =~ /\S/) { # put back the insertions, if any...
+                    $seq_merged =~ s/$apost$/$a_insertion$apost/;
+                }
+                
+                if ($b_insertion =~ /\S/) {
+                    my $str_temp = $b_insertion;
+                    $str_temp =~ s/\+/\\+/g;
+                    if (!($seq_merged =~ /^$bstem$str_temp/)) {
+                        $seq_merged =~ s/^$bstem/$bstem$b_insertion/;
+                    }
+                }
+                my $seq_j = addJunctionsToSeq($seq_merged, $spans_merged);
+                my $aln = RUM::Alignment->new(
+                    readid => $seqnum,
+                    chr => $chra,
+                    locs => RUM::RUMIO->parse_locs($spans_merged),
+                    seq => $seq_j,
+                    strand => $Astrand);
+                $unique_io->write_aln($aln);
+            }
+        }
+    }
 }
 
 1;
