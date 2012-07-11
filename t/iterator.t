@@ -38,6 +38,16 @@ is_deeply $it->next_val->to_array, ['apple', 'aardvark', 'angus'], "First group"
 is_deeply $it->next_val->to_array, ['beagle', 'bear', 'banana'], "Second group";
 is_deeply $it->next_val->to_array, ['cat', 'cot', 'calm'], "Second group";
 
+$it = RUM::Iterator->new(['apple', 'aardvark', 'angus',
+                          'beagle', 'bear', 'banana',
+                          'cat', 'cot', 'calm'])->group_by(
+                              \&same_first_char,
+                              sub { shift });
+
+is_deeply $it->next_val, ['apple', 'aardvark', 'angus'], "First group";
+is_deeply $it->next_val, ['beagle', 'bear', 'banana'], "Second group";
+is_deeply $it->next_val, ['cat', 'cot', 'calm'], "Second group";
+
 $it = RUM::Iterator->new([3, 2, 1])->imap(sub { $_[0] * 2 });
 is $it->next_val, 6;
 is $it->next_val, 4;

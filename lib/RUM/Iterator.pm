@@ -27,7 +27,9 @@ sub new {
 }
 
 sub group_by {
-    my ($self, $group_fn) = @_;
+    my $self = shift;
+    my $group_fn = shift;
+    my $merge_fn = shift || sub { RUM::Iterator->new(shift) };
     
     my $val = $self->next_val;
     
@@ -40,7 +42,7 @@ sub group_by {
             last unless $group_fn->($group[0], $val);
             push @group, $val;
         }
-        return RUM::Iterator->new(\@group);
+        return $merge_fn->(\@group);
     };
 
     return RUM::Iterator->new($it);
