@@ -1,6 +1,7 @@
 package RUM::Script::RumToCov;
 
 no warnings;
+use autodie;
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
@@ -33,12 +34,10 @@ sub main {
 
     $name ||= $infile . " Coverage";
 
-    open(INFILE, $infile) 
-        or die "Can't open $infile for reading: $!";
-    open(OUTFILE, ">$outfile") 
-        or die "Can't open $outfile for writing: $!";
+    open $in_fh,  '<', $infile;
+    open $out_fh, '>', $outfile;
 
-    print OUTFILE "track type=bedGraph name=\"$name\" description=\"$name\" visibility=full color=255,0,0 priority=10\n";
+    print $out_fh "track type=bedGraph name=\"$name\" description=\"$name\" visibility=full color=255,0,0 priority=10\n";
 
     $flag = 0;
     &getStartEndandSpans_of_nextline();
@@ -75,16 +74,16 @@ sub main {
                     if ($position_coverage{$j}+0 != $current_cov) { # span ends here
                         if ($current_cov > 0) {
                             $k=$j-1;
-                            print OUTFILE "\t$k\t$current_cov\n"; # don't adjust the right point because half-open
+                            print $out_fh "\t$k\t$current_cov\n"; # don't adjust the right point because half-open
                             if ($statsfile) {
-                                $footprint = $footprint + $end_max - $span_start;
+                                $footprint = $footprint + $k - $span_start;
                             }
                             $span_ended = 1;
                         }
                         $current_cov = $position_coverage{$j}+0;
                         if ($current_cov > 0) { # start a new span
                             $k = $j-1; # so as to be half zero based
-                            print OUTFILE "$chr\t$k";
+                            print $out_fh "$chr\t$k";
                             $span_start = $k;
                             $span_ended = 0;
                         }
@@ -102,7 +101,7 @@ sub main {
                 if ($position_coverage{$j}+0 != $current_cov) { # span ends here
                     if ($current_cov > 0) {
                         $k=$j-1;
-                        print OUTFILE "\t$k\t$current_cov\n"; # don't adjust the right point because half-open
+                        print $out_fh "\t$k\t$current_cov\n"; # don't adjust the right point because half-open
                         $span_ended = 1;
                         if ($statsfile) {
                             $footprint = $footprint + $k - $span_start;
@@ -111,14 +110,14 @@ sub main {
                     $current_cov = $position_coverage{$j}+0;
                     if ($current_cov > 0) { # start a new span
                         $k = $j-1; # so as to be half zero based
-                        print OUTFILE "$chr_prev\t$k";
+                        print $out_fh "$chr_prev\t$k";
                         $span_start = $k;
                         $span_ended = 0;
                     }
                 }
             }
             if ($span_ended == 0) {
-                print OUTFILE "\t$end_max\t$current_cov\n"; # don't adjust the right point because half-open
+                print $out_fh "\t$end_max\t$current_cov\n"; # don't adjust the right point because half-open
                 if ($statsfile) {
                     $footprint = $footprint + $k - $span_start;
                 }
@@ -157,7 +156,7 @@ sub main {
     $log->info("It took $elapsed to create the coverage file $outfile.");
 
     sub getStartEndandSpans_of_nextline () {
-        $line = <INFILE>;
+        $line = <$in_fh>;
         chomp($line);
         if ($end > $end_max) {
             $end_max = $end;
@@ -169,7 +168,7 @@ sub main {
 
             $flag ||= 1;
             for ($tryagain=0; $tryagain<10; $tryagain++) {
-                $line = <INFILE>;
+                $line = <$in_fh>;
                 chomp($line);
                 if ($line) {
                     $tryagain = 10;
@@ -189,7 +188,7 @@ sub main {
         if ($a_g[0] =~ /a/) {
             $a_g[0] =~ /(\d+)/;
             $seqnum1 = $1;
-            $line2 = <INFILE>;
+            $line2 = <$in_fh>;
             chomp($line2);
             @b_g = split(/\t/,$line2);
             $b_g[0] =~ /(\d+)/;
@@ -211,7 +210,7 @@ sub main {
                 $end = $1;
                 # reset the file handle so the last line read will be read again
                 $len_g = -1 * (1 + length($line2));
-                seek(INFILE, $len_g, 1);
+                seek($in_fh, $len_g, 1);
             }
         } else {
             $a_g[2] =~ /-(\d+)$/;
