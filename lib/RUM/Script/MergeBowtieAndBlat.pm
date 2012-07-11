@@ -1,6 +1,8 @@
 package RUM::Script::MergeBowtieAndBlat;
 
-no warnings;
+
+use strict;
+use warnings;
 use autodie;
 
 use List::Util qw(max);
@@ -14,6 +16,22 @@ use RUM::Mapper;
 use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
+
+my $NUM_LINES_AT_ONCE = 10000;
+my $MIN_OVERLAP;
+
+# TODO: don't use global 
+my $FLAG3 = 0;
+
+sub set_num_lines_at_once {
+    my ($class, $val) = @_;
+    $NUM_LINES_AT_ONCE = $val;
+}
+
+sub set_min_overlap {
+    my ($class, $val) = @_;
+    $MIN_OVERLAP = $val;
+}
 
 $|=1;
 
@@ -97,6 +115,7 @@ sub main {
     ($single xor $paired) or RUM::Usage->bad(
         "Please specify exactly one of --single or --paired");
 
+
     if (defined($user_min_overlap)) {
         if (!($user_min_overlap =~ /^\d+$/) || $user_min_overlap < 5) {
             RUM::Usage->bad(
@@ -115,7 +134,9 @@ sub main {
                      $bowtie_non_unique_in,
                      $blat_unique_in,
                      $blat_non_unique_in);
-        my @iters   = map { RUM::BowtieIO->new(-file => $_) } @files;
+        my @iters   = map { RUM::BowtieIO->new(
+            -file => $_, strand_last => 1
+                                           ) } @files;
         my @lengths = map { longest_read($_) } @iters;
         $readlength = max(@lengths);
     }
@@ -125,24 +146,24 @@ sub main {
         $readlength = "v";
     }
     if ($readlength ne "v") {
-        $min_overlap = min_overlap_for_read_length($readlength);
+        $MIN_OVERLAP = min_overlap_for_read_length($readlength);
     }
     if ($user_min_overlap > 0) {
-        $min_overlap = $user_min_overlap;
+        $MIN_OVERLAP = $user_min_overlap;
     }
 
     my (%blat_ambiguous_mappers_a, %blat_ambiguous_mappers_b);
+    my %remove_from_BlatNU;
 
     {
         my $blat_nu_iter = RUM::BowtieIO->new(-file => $blat_non_unique_in);
         $log->info("Reading blat non-unique mappers");
         while (my $aln = $blat_nu_iter->next_val) {
-            $id = $aln->order;
             if ($aln->contains_forward) {
-                $blat_ambiguous_mappers_a{$id}++;
+                $blat_ambiguous_mappers_a{$aln->order}++;
             }
             if ($aln->contains_reverse) {
-                $blat_ambiguous_mappers_b{$id}++;
+                $blat_ambiguous_mappers_b{$aln->order}++;
             }
         }
     };
@@ -155,6 +176,7 @@ sub main {
     # also single direction only mappers in BlatNU, but the two
     # mappings disagree.  Also, do not write these to RUM_Unique.
 
+    my %bowtie_ambiguous_mappers;
     {
         my $bowtie_nu_iter = RUM::BowtieIO->new(-file => $bowtie_non_unique_in);
         while (my $aln = $bowtie_nu_iter->next_val) {
@@ -164,35 +186,38 @@ sub main {
 
     my $bowtie_unique_iter = RUM::BowtieIO->new(-file => $bowtie_unique_in,
                                                 strand_last => 1);
-    my $blat_unique_in     = RUM::BowtieIO->new(-file => $blat_unique_in,
+    $blat_unique_in     = RUM::BowtieIO->new(-file => $blat_unique_in,
                                                 strand_last => 1);
     open my $outfile1, ">", $unique_out;
     my $unique_io = RUM::RUMIO->new(-fh => $outfile1,
                                     strand_last => 1);
 
     $max_distance_between_paired_reads = 500000;
-    $num_lines_at_once = 10000;
-    $linecount = 0;
-    $FLAG = 1;
-    $FLAG2 = 1;
+    my $line;
+    my $linecount = 0;
+    my $FLAG = 1;
+    my $FLAG2 = 1;
     my $aln_prev = $blat_unique_in->next_val;
     my $line_prev = $aln_prev ? $aln_prev->raw : undef;
     chomp($line_prev);
-    $last_id = 10**14;
+    my $last_id = 10**14;
+    my $id;
+    my $prev_id;
+
     while ($FLAG == 1 || $FLAG2 == 1) {
 
         my (%bowtie_mappers_for, %blat_mappers_for, %allids);
 
         $linecount = 0;
         # get the bowtie output into hash1 for a bunch of ids
-        while ($linecount < $num_lines_at_once) {
+        while ($linecount < $NUM_LINES_AT_ONCE) {
 
             my $aln = $bowtie_unique_iter->next_val;
             my $line = $aln ? $aln->raw : undef;
 
             if (!$aln) {
                 $FLAG = 0;
-                $linecount = $num_lines_at_once;
+                $linecount = $NUM_LINES_AT_ONCE;
             } else {
                 chomp($line);
                 $id = $aln->order;
@@ -203,12 +228,12 @@ sub main {
                 if ($paired) {
                     # this makes sure we have read in both a and b reads, this approach might cause a problem
                     # if no, or very few, b reads mapped at all.
-                    if ( (($linecount == ($num_lines_at_once - 1)) && !$aln->is_forward) ||
-                         ($linecount < ($num_lines_at_once - 1)) ) {
+                    if ( (($linecount == ($NUM_LINES_AT_ONCE - 1)) && !$aln->is_forward) ||
+                         ($linecount < ($NUM_LINES_AT_ONCE - 1)) ) {
                         $linecount++;
                     }
                 } else {
-                    if ( ($linecount == ($num_lines_at_once - 1)) || ($linecount < ($num_lines_at_once - 1)) ) {
+                    if ( ($linecount == ($NUM_LINES_AT_ONCE - 1)) || ($linecount < ($NUM_LINES_AT_ONCE - 1)) ) {
                         $linecount++;
                     }
                 }
@@ -266,8 +291,8 @@ sub main {
 
                 my $blat_nu_iter = blat_nu_iter_for_readid(
                     $blat_non_unique_in, $bowtie->single->as_forward->readid);
-                $numjoined=0;
-
+                my $numjoined=0;
+                my @joinedsave;
                 while (my $aln = $blat_nu_iter->next_val) {
                     my @joined;
                     # check the strand
@@ -294,7 +319,8 @@ sub main {
                 # ambiguous reverse in in BlatNU, single forward in BowtieUnique.  See if there is
                 # a consistent pairing so we can keep the pair, otherwise this read is considered unmappable
                 # (not to be confused with ambiguous)
-                $numjoined=0;
+                my $numjoined=0;
+                my @joinedsave;
                 my @joined;
                 my $blat_nu_iter = blat_nu_iter_for_readid(
                     $blat_non_unique_in, $bowtie->single->as_reverse->readid);
@@ -304,7 +330,7 @@ sub main {
                     } else {
                         @joined = joinifpossible($bowtie->single, $aln, $max_distance_between_paired_reads);
                     }
-                    if ($joined =~ /\S/) {
+                    if (@joined) {
                         $numjoined++;
                         @joinedsave = @joined;
                     }
@@ -411,7 +437,7 @@ sub main {
         }
     }
 
-    open $infile, '<', $bowtie_non_unique_in;
+    open my $infile, '<', $bowtie_non_unique_in;
     # now append BowtieNU to get the full NU file
     while ($line = <$infile>) {
         print $rum_nu $line;
@@ -494,10 +520,10 @@ sub joinifpossible () {
 	    $add = $s[$i] . $add;
 	}
 	$seq_merged_p = $seq_merged_p . $add;
-	if ($a_insertion =~ /\S/) { # put back the insertions, if any...
+	if ($a_insertion) { # put back the insertions, if any...
 	    $seq_merged_p =~ s/^$astem/$astem$a_insertion/;
 	}
-	if ($b_insertion =~ /\S/) {
+	if ($b_insertion) {
 	    my $str_temp = $b_insertion;
 	    $str_temp =~ s/\+/\\+/g;
 	    if (!($seq_merged_p =~ /$str_temp$bpost$/)) {
@@ -521,41 +547,33 @@ sub joinifpossible () {
 
 sub merge  {
     my ($aspans2, $bspans2) = @_;
-    use strict;
-    my @astarts2;
-    my @aends2;
-    my @bstarts2;
-    my @bends2;
-    my $merged_spans;
 
-    for my $span (split /, /, $aspans2) {
-	my ($start, $end) = split /-/, $span;
-	push @astarts2, $start;
-	push @aends2,   $end;
-    }
+    my $merged_spans = '';
 
-    for my $span (split /, /, $bspans2) {
-	my ($start, $end) = split /-/, $span;
-	push @bstarts2, $start;
-	push @bends2,   $end;
-    }
+    my $aspans  = RUM::RUMIO->parse_locs($aspans2);
+    my @astarts = map { $_->[0] } @{ $aspans };
+    my @aends   = map { $_->[1] } @{ $aspans };
 
-    if ($aends2[-1] + 1 < $bstarts2[0]) {
+    my $bspans  = RUM::RUMIO->parse_locs($bspans2);
+    my @bstarts = map { $_->[0] } @{ $bspans };
+    my @bends   = map { $_->[1] } @{ $bspans };
+
+    if ($aends[-1] + 1 < $bstarts[0]) {
 	$merged_spans = $aspans2 . ", " . $bspans2;
     }
-    if ($aends2[-1] + 1 == $bstarts2[0]) {
+    if ($aends[-1] + 1 == $bstarts[0]) {
 	$aspans2 =~ s/-\d+$//;
 	$bspans2 =~ s/^\d+-//;
 	$merged_spans = $aspans2 . "-" . $bspans2;
     }
-    if ($aends2[-1] + 1 > $bstarts2[0]) {
+    if ($aends[-1] + 1 > $bstarts[0]) {
 	$merged_spans = $aspans2;
-	for (my $i=0; $i<@bstarts2; $i++) {
-	    if ($aends2[-1] >= $bstarts2[$i] && ($aends2[-1] <= $bstarts2[$i+1] || $i == $#bstarts2)) {
+	for (my $i=0; $i<@bstarts; $i++) {
+	    if ($aends[-1] >= $bstarts[$i] && ($i == $#bstarts || $aends[-1] <= $bstarts[$i+1])) {
 		$merged_spans =~ s/-\d+$//;
-		$merged_spans = $merged_spans . "-" . $bends2[$i];
-		for (my $j=$i+1; $j<@bstarts2; $j++) {
-		    $merged_spans = $merged_spans . ", $bstarts2[$j]-$bends2[$j]";
+		$merged_spans = $merged_spans . "-" . $bends[$i];
+		for (my $j=$i+1; $j<@bstarts; $j++) {
+		    $merged_spans = $merged_spans . ", $bstarts[$j]-$bends[$j]";
 		}
 	    }
 	}
@@ -667,32 +685,30 @@ sub handle_both_single {
                      RUM::RUMIO->format_locs($blat_single));
         my $l1 = spansTotalLength($spans[0]);
         my $l2 = spansTotalLength($spans[1]);
-        my $F=0;
+
         if ($l1 > $l2+3) {
             $unique_io->write_aln($bowtie_single);
-            $F=1;
         }
-        if ($l2 > $l1+3) {
+        elsif ($l2 > $l1+3) {
             $unique_io->write_aln($blat_single); # preference blat
-            $F=1;
         }
-        my ($length_overlap, undef, undef) = intersect(\@spans, $bowtie_single->seq);
-        
-        if ( ! $F ) {
-            my $min_overlap;
+        else {
+            my ($length_overlap, undef, undef) = intersect(\@spans, $bowtie_single->seq);
+
             if ($readlength eq "v") {
                 my $readlength_temp = length($bowtie_single->seq);
                 if (length($blat_single->seq) < $readlength_temp) {
                     $readlength_temp = length($blat_single->seq);
                 }
-                $min_overlap = min_overlap_for_read_length($readlength_temp);
+                $MIN_OVERLAP = min_overlap_for_read_length($readlength_temp);
             }
             if ($user_min_overlap > 0) {
-                $min_overlap = $user_min_overlap;
+                $MIN_OVERLAP = $user_min_overlap;
             }
             
-            if (($length_overlap > $min_overlap) && 
-                ($bowtie_single->chromosome eq $blat_single->chromosome)) {
+            if ($length_overlap &&
+                $length_overlap > $MIN_OVERLAP &&
+                $bowtie_single->chromosome eq $blat_single->chromosome) {
                 # preference bowtie (so no worries about insertions)
                 $unique_io->write_aln($bowtie_single);
             } else {
@@ -801,10 +817,10 @@ sub handle_both_single {
                     $add = $s[$i] . $add;
                 }
                 $seq_merged = $seq_merged . $add;
-                if ($a_insertion =~ /\S/) { # put back the insertions, if any...
+                if ($a_insertion) { # put back the insertions, if any...
                     $seq_merged =~ s/^$astem/$astem$a_insertion/;
                 }
-                if ($b_insertion =~ /\S/) {
+                if ($b_insertion) {
                     my $str_temp = $b_insertion;
                     $str_temp =~ s/\+/\\+/g;
                     if (!($seq_merged =~ /$str_temp$bpost$/)) {
@@ -830,18 +846,18 @@ sub handle_both_single {
                 my $seq_merged = $bseq;
                 my @s = split(//,$bseq);
                 my $asize = $merged_length - @s;
-                my $aseq =~ s/://g;
+                $aseq =~ s/://g;
                 @s = split(//,$aseq);
                 my $add = "";
                 for (my $i=@s-1; $i>=@s-$asize; $i--) {
                     $add = $s[$i] . $add;
                 }
-                my $seq_merged = $seq_merged . $add;
-                if ($a_insertion =~ /\S/) { # put back the insertions, if any...
+                $seq_merged = $seq_merged . $add;
+                if ($a_insertion) { # put back the insertions, if any...
                     $seq_merged =~ s/$apost$/$a_insertion$apost/;
                 }
                 
-                if ($b_insertion =~ /\S/) {
+                if ($b_insertion) {
                     my $str_temp = $b_insertion;
                     $str_temp =~ s/\+/\\+/g;
                     if (!($seq_merged =~ /^$bstem$str_temp/)) {

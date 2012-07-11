@@ -12,9 +12,6 @@ use RUM::TestUtils;
 
 use Getopt::Long;
 
-
-
-
 for my $type (qw(paired single)) {
     my %options;
     for my $program (qw(Bowtie Blat)) {
@@ -44,9 +41,7 @@ for my $type (qw(paired single)) {
              "--quiet",
              @{ $opts });
     
-    warn "Running with @ARGV\n";
     RUM::Script::MergeBowtieAndBlat->main();
     no_diffs($rum_unique, "$INPUT_DIR/out-$type/RUM_Unique_temp", "$type unique @$opts");
     no_diffs($rum_nu,     "$INPUT_DIR/out-$type/RUM_NU_temp",     "$type nu     @$opts");
-    
 }
