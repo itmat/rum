@@ -107,8 +107,6 @@ sub main {
         "blat-non-unique-in=s"   => \(my $blat_non_unique_in),
         "unique-out=s"           => \(my $unique_out),
         "non-unique-out=s"       => \(my $non_unique_out),
-        "single"                 => \(my $single),
-        "paired"                 => \(my $paired),
         "max-pair-dist=s"        => \(my $max_distance_between_paired_reads = 500000),
         "read-length=s"          => \(my $readlength = 0),
         "min-overlap"            => sub { __PACKAGE__->set_min_overlap(shift) },
@@ -133,14 +131,6 @@ sub main {
     $non_unique_out or RUM::Usage->bad(
         "Please specify output file for non-unique mappers with --non-unique-out");
     
-    ($single xor $paired) or RUM::Usage->bad(
-        "Please specify exactly one of --single or --paired");
-
-
-    if (defined($MIN_OVERLAP)) {
-
-    }
-
     # get readlength from bowtie unique/nu, if both empty then get max
     # in blat unique/nu
 

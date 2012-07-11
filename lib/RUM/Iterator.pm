@@ -206,15 +206,34 @@ sub peek {
 
 sub merge {
     my ($self, $cmp, $other, $handle_dup) = @_;
-
+    $handle_dup ||= sub { shift };
     if ( ! $other->can('peek')) {
         die "Can only merge with a peekable iterator";
     }
 
+    my @buffer;
+
     my $f = sub {
-        my $mine   = $self->peek  or return $other->next_val;
-        my $theirs = $other->peek or return $self->next_val;
-        my $val = $cmp->($mine, $theirs);
+        
+        if (@buffer) {
+            return shift @buffer;
+        }
+
+        my $mine   = $self->peek;
+        my $theirs = $other->peek;
+        
+        # If we've exhausted both lists, return undef to indicate that
+        # the merged iterator is exhausted.
+        return if ! ( $mine || $theirs );
+
+        # If we've exhausted my list, we need to pick the next item
+        # from the other list. If we've exhausted the other list, pick
+        # the next iterm from my list. Otherwise we'll need to compare
+        # the next item from both lists.
+        my $val = !$mine &&  $theirs ?  1
+        :          $mine && !$theirs ? -1
+        :                               $cmp->($mine, $theirs);
+
         my @group;
         
         if ($val <= 0) {
@@ -223,7 +242,8 @@ sub merge {
         if ($val >= 0) {
             push @group, $other->next_val;
         }
-        return $handle_dup->(\@group);
+        @buffer = $handle_dup->(\@group);
+        return shift @buffer;
     };
     return RUM::Iterator->new($f);
 }

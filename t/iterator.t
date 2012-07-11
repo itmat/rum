@@ -1,7 +1,7 @@
 #!perl
 # -*- cperl -*-
 
-use Test::More tests => 28;
+use Test::More tests => 31;
 use lib "lib";
 
 use strict;
@@ -77,6 +77,17 @@ is_deeply $it->to_array, [1,2,3,4,5,6,7,8,9], "append multi";
     is_deeply $merged->to_array, [[2],[3],[4],[6,6],[8],[9],[10],[12,12]], "merge";
 }
 
+
+{
+    my $twos   = RUM::Iterator->new([2,4,6,8,10,12])->peekable;
+    my $threes = RUM::Iterator->new([3,6,9,12])->peekable;
+    warn "Here I am\n";
+    my $merged = $twos->merge(
+        sub { $_[0] <=> $_[1] }, 
+        $threes,
+        sub { my $items = shift; warn "Iterms are @{ $items }\n"; return @{ $items }; });
+    is_deeply $merged->to_array, [2,3,4,6,6,8,9,10,12,12], "merge";
+}
 
 is 15, RUM::Iterator->new([1,2,3,4,5])->ireduce(sub { $a + $b });
 is 24, RUM::Iterator->new([2,3,4])->ireduce(sub { $a * $b }, 1);

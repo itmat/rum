@@ -102,7 +102,10 @@ sub merge {
     
     open my $out_fh, ">", $out;
 
-    while (my $aln = $merged->next_val) {
-        print $out_fh $aln->raw . "\n";
+    while (my $group = $merged->next_val) {
+        warn "Group is $group\n";
+        for my $aln ( @{ $group } ) {
+            print $out_fh $aln->raw . "\n";
+        }
     }
 }
