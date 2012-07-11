@@ -8,12 +8,18 @@ sub new {
 
     my $self = {};
     $self->{alignments} = delete $options{alignments} || [];
+    $self->{source}     = delete $options{source};
     return bless $self, $class;
 }
 
 sub alignments {
     my ($self) = @_;
     return $self->{alignments};
+}
+
+sub source {
+    my ($self) = @_;
+    return $self->{source};
 }
 
 sub single {

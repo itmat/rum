@@ -12,7 +12,7 @@ use RUM::TestUtils;
 
 use Getopt::Long;
 
-for my $type (qw(paired single)) {
+for my $type (qw(single)) {
     my %options;
     for my $program (qw(Bowtie Blat)) {
         for my $mapper_type (qw(Unique NU)) {
@@ -27,10 +27,10 @@ for my $type (qw(paired single)) {
         }
     }
     
-    my $rum_unique = temp_filename(TEMPLATE => 'unique.XXXXXX')->filename;
-    my $rum_nu     = temp_filename(TEMPLATE => 'non-unique.XXXXXX')->filename;
-    $rum_nu     = "$type-nu";
-    $rum_unique = "$type-u";
+    #   my $rum_unique = temp_filename(TEMPLATE => 'unique.XXXXXX')->filename;
+    #   my $rum_nu     = temp_filename(TEMPLATE => 'non-unique.XXXXXX')->filename;
+    my $rum_nu     = "$type-nu";
+    my $rum_unique = "$type-u";
     
     my $opts = [];
     

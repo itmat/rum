@@ -155,6 +155,7 @@ use warnings;
 
 use Carp;
 use Scalar::Util qw(blessed);
+use Data::Dumper;
 
 use base 'RUM::Iterator';
 
@@ -206,9 +207,7 @@ sub peek {
 sub merge {
     my ($self, $cmp, $other, $handle_dup) = @_;
 
-    $handle_dup ||= sub { shift->next_val };
-
-    unless ($other->can('peek')) {
+    if ( ! $other->can('peek')) {
         die "Can only merge with a peekable iterator";
     }
 
@@ -216,10 +215,15 @@ sub merge {
         my $mine   = $self->peek  or return $other->next_val;
         my $theirs = $other->peek or return $self->next_val;
         my $val = $cmp->($mine, $theirs);
-        return ($val < 0 ? $self->next_val :
-                $val > 0 ? $other->next_val :
-                $handle_dup->($self, $other));
-
+        my @group;
+        
+        if ($val <= 0) {
+            push @group, $self->next_val;
+        }
+        if ($val >= 0) {
+            push @group, $other->next_val;
+        }
+        return $handle_dup->(\@group);
     };
     return RUM::Iterator->new($f);
 }
