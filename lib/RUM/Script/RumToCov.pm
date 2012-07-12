@@ -44,18 +44,20 @@ sub main {
 
         my ($chr, $spans) = next_chr_and_span($in_fh);
         my @spans = @{ $spans };
-        my $cutoff = $chr eq $current_chr ? $spans[0][0] : undef;
 
-        my $purged = $covmap->purge_spans($cutoff);
-        $covmap->add_spans(\@spans);
-
-        for my $rec (@{ $purged }) {
-            my ($start, $end, $cov) = @{ $rec };
-            if ($cov) {
-                print $out_fh join("\t", $current_chr, $start, $end, $cov), "\n";
-                $footprint += $end - $start;
+        if ($chr ne $current_chr) {
+            my $purged = $covmap->purge_spans($cutoff);
+            for my $rec (@{ $purged }) {
+                my ($start, $end, $cov) = @{ $rec };
+                if ($cov) {
+                    print $out_fh join("\t", $current_chr, $start, $end, $cov), "\n";
+                    $footprint += $end - $start;
+                }
             }
         }
+
+        $covmap->add_spans(\@spans);
+
         $current_chr = $chr;
 
         last unless $chr;

@@ -151,9 +151,11 @@ sub count_coverage_in_span {
     return $self->{count_coverage_in_span_cache}{$key} = $num_below;
 }
 
-sub merge_spans {
+sub add_spans {
     my ($self, $spans) = @_;
-    
+
+    my $delta_for_pos = $self->{delta_for_pos} ||= {};
+
     my @result;
 
     # Each span is an array of [ start pos, end pos, coverage ].
@@ -162,18 +164,24 @@ sub merge_spans {
     # 8, 2 ] translates to [ [5, 2], [8, -2] ], meaning that at
     # position 5 we increase coverage by 2 and at position 8 we
     # decrease coverage by 2.
-    my %delta_for_pos;
+
     for my $span (@{ $spans }) {
         my ($start, $end, $cov) = @{ $span };
-        $delta_for_pos{$start}  ||= 0;
-        $delta_for_pos{$end}    ||= 0;
-        $delta_for_pos{$start}  += $cov;
-        $delta_for_pos{$end}    -= $cov;
+        $delta_for_pos->{$start}  += $cov;
+        $delta_for_pos->{$end}    -= $cov;
     }
 
+    $self->{map} = \@result;
+}
+
+sub purge_spans {
+    my ($self, $limit) = @_;
+
     my ($last_pos, $last_cov);
-    for my $pos (sort { $a <=> $b } keys %delta_for_pos) {
-        my $cov_delta = $delta_for_pos{$pos};
+    my $delta_for_pos = $self->{delta_for_pos} ||= {};
+    my @result;
+    for my $pos (sort { $a <=> $b } keys %{ $delta_for_pos }) {
+        my $cov_delta = $delta_for_pos->{$pos};
         next if ! $cov_delta;
         if (defined($last_pos)) {
             push @result, [ $last_pos, $pos, $last_cov ];
@@ -181,28 +189,7 @@ sub merge_spans {
         $last_pos = $pos;
         $last_cov += $cov_delta;
     }
-
-    return \@result;
-}
-
-sub add_spans {
-    my ($self, $spans) = @_;
-    my @map = (@{ $self->{map} }, @{ $spans });
-    $self->{map} = $self->merge_spans(\@map);
-}
-
-sub purge_spans {
-    my ($self, $limit) = @_;
-    my $map = $self->{map};
-    my @result;
-    my $last_idx = 0;
-    if ( ! defined $limit) {
-        $self->{map} = [];
-        return $map;
-    }
-    while (@{ $map } && $map->[0]->[1] < $limit) {
-        push @result, shift @{ $map };
-    }
+    $self->{delta_for_pos} = {};
     return \@result;
 }
 

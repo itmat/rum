@@ -112,28 +112,32 @@ ok($covmap->read_chromosome("chr1") && $covmap->read_chromosome("chr2"),
    "Don't report overlap on new chromosome");
 
 {
-    is_deeply(RUM::CoverageMap->merge_spans([ [5, 10, 1], 
-                                              [12, 15, 3] ]),
+    my $covmap = RUM::CoverageMap->new();
+    $covmap->add_spans([ [5, 10, 1], 
+                         [12, 15, 3] ]),
+    is_deeply($covmap->purge_spans,
               [ [ 5, 10, 1],
                 [ 10, 12, 0],
-                [ 12, 15, 3] ]);
+                [ 12, 15, 3] ],
+              'non-overlapping');
 
-    is_deeply(RUM::CoverageMap->merge_spans([ [5, 10, 1], 
-                                              [8, 15, 2] ]),
+    $covmap->add_spans([ [5, 10, 1], 
+                         [8, 15, 2] ]),
+    is_deeply($covmap->purge_spans,
               [[ 5, 8, 1 ],
                [ 8, 10, 3 ],
-               [ 10, 15, 2 ]]);
+               [ 10, 15, 2 ]],
+              'overlapping');
 
-    my $covmap = RUM::CoverageMap->new();
     $covmap->add_spans([[5, 10, 1]]);
     $covmap->add_spans([[8, 15, 2], [14, 19, 7]]);
-    is_deeply($covmap->purge_spans(12),
-              [[5, 8, 1],
-               [8, 10, 3]]);
     is_deeply($covmap->purge_spans(),
-              [[10, 14, 2],
+              [[5, 8, 1],
+               [8, 10, 3],
+               [10, 14, 2],
                [14, 15, 9],
                [15, 19, 7]]);
+
 
     $covmap->add_spans([[5, 10, 1], [10, 15, 1]]);
     is_deeply($covmap->purge_spans(), [[5, 15, 1]]);
