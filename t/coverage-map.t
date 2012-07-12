@@ -12,7 +12,7 @@ use RUM::CoverageMap;
 BEGIN { 
     eval "use Test::Exception";
     plan skip_all => "Test::Exception needed" if $@;
-    plan tests => 16;
+    plan tests => 20;
     use_ok('RUM::CoverageMap');
 }
 
@@ -95,6 +95,7 @@ track type=bedGraph name="A565_BC7 Unique Mappers" description="foo"
 chr1\t10\t20\t1
 chr1\t15\t25\t2
 EOF
+
     open my $in, "<", \$overlap;
     my $covmap = RUM::CoverageMap->new($in);
     $covmap->read_chromosome("chr1");
@@ -110,3 +111,31 @@ $covmap = RUM::CoverageMap->new($non_overlap_in);
 ok($covmap->read_chromosome("chr1") && $covmap->read_chromosome("chr2"),
    "Don't report overlap on new chromosome");
 
+{
+    is_deeply(RUM::CoverageMap->merge_spans([ [5, 10, 1], 
+                                              [12, 15, 3] ]),
+              [ [ 5, 10, 1],
+                [ 10, 12, 0],
+                [ 12, 15, 3] ]);
+
+    is_deeply(RUM::CoverageMap->merge_spans([ [5, 10, 1], 
+                                              [8, 15, 2] ]),
+              [[ 5, 8, 1 ],
+               [ 8, 10, 3 ],
+               [ 10, 15, 2 ]]);
+
+    my $covmap = RUM::CoverageMap->new();
+    $covmap->add_spans([[5, 10, 1]]);
+    $covmap->add_spans([[8, 15, 2], [14, 19, 7]]);
+    is_deeply($covmap->purge_spans(12),
+              [[5, 8, 1],
+               [8, 10, 3]]);
+    is_deeply($covmap->purge_spans(),
+              [[10, 14, 2],
+               [14, 15, 9],
+               [15, 19, 7]]);
+
+    $covmap->add_spans([[5, 10, 1], [10, 15, 1]]);
+    is_deeply($covmap->purge_spans(), [[5, 15, 1]]);
+
+}
