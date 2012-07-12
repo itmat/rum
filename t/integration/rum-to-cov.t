@@ -19,13 +19,13 @@ my @tests = (
         file => $unique_in,
         name => "test Unique Mappers",
         expected_cov => "RUM_Unique.cov",
-        expected_footprint => qr/73771/
+        expected_footprint => qr/74381/
     },
     {
         file => $non_unique_in,
         name => "test Non-Unique Mappers",
         expected_cov => "RUM_NU.cov",
-        expected_footprint => qr/66922/
+        expected_footprint => qr/67399/
     }
 );
 
