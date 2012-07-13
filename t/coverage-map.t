@@ -95,6 +95,7 @@ track type=bedGraph name="A565_BC7 Unique Mappers" description="foo"
 chr1\t10\t20\t1
 chr1\t15\t25\t2
 EOF
+
     open my $in, "<", \$overlap;
     my $covmap = RUM::CoverageMap->new($in);
     $covmap->read_chromosome("chr1");

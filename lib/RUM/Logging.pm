@@ -1,5 +1,143 @@
 package RUM::Logging;
 
+use strict;
+use warnings;
+use FindBin qw($Bin);
+use RUM::Logger;
+use File::Spec qw(splitpath);
+use File::Path qw(mkpath);
+use RUM::Lock;
+use Carp qw(cluck confess);
+
+FindBin->again();
+
+our $LOGGING_DIR;
+our $INITIALIZED;
+our $LOG4PERL = "Log::Log4perl";
+our $LOGGER_CLASS;
+our $LOG_FILE;
+our $ERROR_LOG_FILE;
+
+our $LOG4PERL_MISSING_MSG = <<EOF;
+You don't seem to have $LOG4PERL installed. You may want to install it
+via "cpan -i $LOG4PERL" so you can use advanced logging features.
+EOF
+
+our @LOG4PERL_CONFIGS = (
+        $ENV{RUM_LOG_CONFIG} || "",      # RUM_LOG_CONFIG environment variable
+        "rum_logging.conf",              # rum_logging.conf in current dir
+        "$ENV{HOME}/.rum_logging.conf",  # ~/.rum_logging.conf
+        "$Bin/../conf/rum_logging.conf",  # config file included in distribution
+    );
+
+push @LOG4PERL_CONFIGS, map { "$_/RUM/conf/rum_logging.conf" } @INC;
+
+
+sub init {
+    my ($class, $dir) = @_;
+
+    return if $INITIALIZED;
+    $INITIALIZED = 1;
+
+    if ($dir) {
+        $ENV{RUM_OUTPUT_DIR} = $dir;
+    }
+    if ($ENV{RUM_OUTPUT_DIR}) {
+        $LOGGING_DIR = File::Spec->catfile($ENV{RUM_OUTPUT_DIR}, "log");
+    }
+    else {
+        _init_rum_logger();
+        return;
+    }
+
+    mkpath($LOGGING_DIR);
+
+    $SIG{__DIE__} = sub {
+        if($^S) {
+            # We're in an eval {} and don't want log
+            # this message but catch it later
+            return;
+        }
+        RUM::Lock->release;
+        RUM::Logging->get_logger("RUM::Death")->logdie(@_);
+    };
+    
+    # TODO: Get SGE_TASK_ID out of here.
+    my $chunk = $ENV{RUM_CHUNK} || $ENV{SGE_TASK_ID};
+
+    # Sometimes SGE_TASK_ID is set to 'undefined'
+    undef $chunk if defined($chunk) && $chunk eq 'undefined';
+    $LOG_FILE       = $class->log_file($chunk);
+    $ERROR_LOG_FILE = $class->error_log_file($chunk);
+
+    $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
+}
+
+sub _init_log4perl {
+    # Try to load Log::Log4perl, and if we can't just return so we
+    # fall back to RUM::Logger.
+    eval {
+        require "Log/Log4perl.pm";
+        my $resp = "LOG::Log4perl"->import(qw(:no_extra_logdie_message));
+        # This prevents a duplicate die message from being printed
+        $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR = 0;
+        die if $ENV{RUM_HIDE_LOG4PERL};
+    };
+    if ($@) {
+        warn $LOG4PERL_MISSING_MSG unless $ENV{RUM_WARNED_LOG4PERL_MISSING}++;
+        return;
+    }
+
+    # Now try to initialize Log::Log4perl with a config file.
+    my @configs = grep { -r } @LOG4PERL_CONFIGS;
+    my $config = $configs[0];
+    eval {
+        Log::Log4perl->init($config);
+        my $log = Log::Log4perl->get_logger();
+        $log->debug("$0 initializing, dir is $LOGGING_DIR using log4perl config at $config");
+    };
+    if ($@) {
+        warn "Error initializing $LOG4PERL with $config: $@";
+    }
+    
+    $LOGGER_CLASS = $LOG4PERL;
+}
+
+sub _init_rum_logger {
+    $LOGGER_CLASS = "RUM::Logger";
+    $LOGGER_CLASS->init($LOG_FILE, $ERROR_LOG_FILE);
+}
+
+sub get_logger {
+    my ($self, $name) = @_;
+
+    $self->init;
+
+    unless (defined($name)) {
+        my ($package) = caller(0);
+        $name = $package;
+    }
+    return $LOGGER_CLASS->get_logger($name);
+}
+
+sub log_file {
+    my ($class, $chunk) = @_;
+    return unless $LOGGING_DIR;
+    my $file = $chunk ? sprintf("rum_%03d.log", $chunk) : "rum.log";
+    return "$LOGGING_DIR/$file";
+}
+
+sub error_log_file {
+    my ($class, $chunk) = @_;
+    return unless $LOGGING_DIR;
+    my $file = $chunk ? sprintf("rum_errors_%03d.log", $chunk) : "rum_errors.log";
+    return "$LOGGING_DIR/$file";
+}
+
+1;
+
+__END__
+
 =head1 NAME
 
 RUM::Logging - Common logging module
@@ -98,41 +236,6 @@ above for Log4perl. The main difference is that without Log4perl we
 will not attempt to read the F<rum_logging.conf> file, so the user
 won't have fine-grained control over logging.
 
-=cut
-
-use strict;
-use warnings;
-use FindBin qw($Bin);
-use RUM::Logger;
-use File::Spec qw(splitpath);
-use File::Path qw(mkpath);
-use RUM::Lock;
-use Carp qw(cluck);
-
-FindBin->again();
-
-our $LOGGING_DIR;
-our $INITIALIZED;
-our $LOG4PERL = "Log::Log4perl";
-our $LOGGER_CLASS;
-our $LOG_FILE;
-our $ERROR_LOG_FILE;
-
-our $LOG4PERL_MISSING_MSG = <<EOF;
-You don't seem to have $LOG4PERL installed. You may want to install it
-via "cpan -i $LOG4PERL" so you can use advanced logging features.
-EOF
-
-our @LOG4PERL_CONFIGS = (
-        $ENV{RUM_LOG_CONFIG} || "",      # RUM_LOG_CONFIG environment variable
-        "rum_logging.conf",              # rum_logging.conf in current dir
-        "$ENV{HOME}/.rum_logging.conf",  # ~/.rum_logging.conf
-        "$Bin/../conf/rum_logging.conf",  # config file included in distribution
-    );
-
-push @LOG4PERL_CONFIGS, map { "$_/RUM/conf/rum_logging.conf" } @INC;
-
-
 =head1 CLASS METHODS
 
 =over 4
@@ -146,82 +249,6 @@ root. Otherwise, no logging will be performed.
 
 Only the first call to this method counts; all subsequent calls will
 return immediately.
-
-=cut
-
-sub init {
-    my ($class, $dir) = @_;
-    return if $INITIALIZED;
-    $INITIALIZED = 1;
-
-    if ($dir) {
-        $ENV{RUM_OUTPUT_DIR} = $dir;
-    }
-    if ($ENV{RUM_OUTPUT_DIR}) {
-        $LOGGING_DIR = File::Spec->catfile($ENV{RUM_OUTPUT_DIR}, "log");
-    }
-    else {
-        _init_rum_logger();
-        return;
-    }
-
-    mkpath($LOGGING_DIR);
-
-    $SIG{__DIE__} = sub {
-        if($^S) {
-            # We're in an eval {} and don't want log
-            # this message but catch it later
-            return;
-        }
-        RUM::Lock->release;
-        RUM::Logging->get_logger("RUM::Death")->logdie(@_);
-    };
-    
-    # TODO: Get SGE_TASK_ID out of here.
-    my $chunk = $ENV{RUM_CHUNK} || $ENV{SGE_TASK_ID};
-
-    # Sometimes SGE_TASK_ID is set to 'undefined'
-    undef $chunk if defined($chunk) && $chunk eq 'undefined';
-    $LOG_FILE       = $class->log_file($chunk);
-    $ERROR_LOG_FILE = $class->error_log_file($chunk);
-
-    $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
-}
-
-sub _init_log4perl {
-    # Try to load Log::Log4perl, and if we can't just return so we
-    # fall back to RUM::Logger.
-    eval {
-        require "Log/Log4perl.pm"; ## no critic
-        my $resp = "LOG::Log4perl"->import(qw(:no_extra_logdie_message));
-        # This prevents a duplicate die message from being printed
-        $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR = 0;
-        die if $ENV{RUM_HIDE_LOG4PERL};
-    };
-    if ($@) {
-        warn $LOG4PERL_MISSING_MSG unless $ENV{RUM_WARNED_LOG4PERL_MISSING}++;
-        return;
-    }
-
-    # Now try to initialize Log::Log4perl with a config file.
-    my @configs = grep { -r } @LOG4PERL_CONFIGS;
-    my $config = $configs[0];
-    eval {
-        Log::Log4perl->init($config);
-        my $log = Log::Log4perl->get_logger();
-        $log->debug("$0 initializing, dir is $LOGGING_DIR using log4perl config at $config");
-    };
-    if ($@) {
-        warn "Error initializing $LOG4PERL with $config: $@";
-    }
-    
-    $LOGGER_CLASS = $LOG4PERL;
-}
-
-sub _init_rum_logger {
-    $LOGGER_CLASS = "RUM::Logger";
-    $LOGGER_CLASS->init($LOG_FILE, $ERROR_LOG_FILE);
-}
 
 =item RUM::Logging->get_logger
 
@@ -238,47 +265,15 @@ $name, uses the package name of the caller as the name. For example:
 
   # $log's name will be "Foo::Bar"
 
-=cut
-
-sub get_logger {
-    my ($self, $name) = @_;
-
-    $self->init;
-
-    unless (defined($name)) {
-        my ($package) = caller(0);
-        $name = $package;
-    }
-    return $LOGGER_CLASS->get_logger($name);
-}
-
 =item RUM::Logging->log_file($chunk)
 
 Return the log file name for the given chunk, or the master log file
 name if chunk is not a positive number.
 
-=cut
-
-sub log_file {
-    my ($class, $chunk) = @_;
-    return unless $LOGGING_DIR;
-    my $file = $chunk ? sprintf("rum_%03d.log", $chunk) : "rum.log";
-    return "$LOGGING_DIR/$file";
-}
-
 =item RUM::Logging->error_log_file($chunk)
 
 Return the error log file name for the given chunk, or the master
 error log file name if chunk is not a positive number.
-
-=cut
-
-sub error_log_file {
-    my ($class, $chunk) = @_;
-    return unless $LOGGING_DIR;
-    my $file = $chunk ? sprintf("rum_errors_%03d.log", $chunk) : "rum_errors.log";
-    return "$LOGGING_DIR/$file";
-}
 
 =back
 
@@ -292,4 +287,3 @@ Copyright 2012 University of Pennsylvania
 
 =cut
 
-1;

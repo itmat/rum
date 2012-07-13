@@ -4,30 +4,7 @@ use strict;
 use warnings;
 
 use Carp;
-
-=head1 NAME
-
-RUM::CoverageMap - Map a coordinate to its coverage
-
-=head1 CONSTRUCTORS
-
-=over 4
-
-=item new
-
-Create a new RUM::CoverageMap that reads from the given $filehandle,
-which must point to a file formatted like RUM_Unique.cov. Records must
-be tab-delimited with four columns: I<chromosome>, I<start>, I<end>,
-and I<coverage>. Records must be sorted by I<chromosome> first and
-then by I<start>. I<start> must be less than I<end>, and there must
-not be any overlapping spans in the same chromosome.
-
-TODO: We can probably change the data structure to relax some of these
-restrictions if that turns out to be useful.
-
-=back
-
-=cut
+use Data::Dumper;
 
 sub new {
     my ($class, $fh) = @_;
@@ -39,17 +16,7 @@ sub new {
     }, $class;
 }
 
-=head1 METHODS
 
-=over 4
-
-=item read_chromosome($filehandle, $chromosome)
-
-Reads the coverage information for the given $chromosome from the
-given $filehandle. Reads lines until we find one that doesn't match
-$chromosome. Returns the number of lines read in.
-
-=cut
 
 sub read_chromosome {
     my ($self, $wanted_chr) = @_;
@@ -92,27 +59,6 @@ sub read_chromosome {
     $self->{count_coverage_in_span_cache} = {};
     return scalar(@map);
 }
-
-=item coverage_span($start, $end)
-
-Query the coverage map for coverage information within the given
-[$start, $end] range. The results are returned as an array ref of
-array refs, each representing a sub-span of bases that have the same
-coverage. Each sub-span is reported as a tuple of the number of bases
-it contains and the coverage for those bases. For example, suppose
-
-  $cm->coverage_span(1000, 1017);
-
-returns
-
-  [[10, 0],
-   [5,  1],
-   [3,  2]]
-
-This means that the range [1000, 1017] contains 10 bases with 0
-coverage followed by 5 with coverage 1, followed by 3 with coverage 2.
-
-=cut
 
 sub coverage_span {
     my ($self, $start, $end) = @_;
@@ -183,13 +129,6 @@ sub coverage_span {
     return \@result;
 }
 
-=item count_coverage_in_span($start, $end, $cutoff)
-
-Return the number of bases in the span that have coverage no more than
-$coverage_cutoff.
-
-=cut
-
 sub count_coverage_in_span {
 
     my ($self, $start, $end, $coverage_cutoff) = @_;
@@ -214,60 +153,63 @@ sub count_coverage_in_span {
 
 1;
 
+__END__
+
+=head1 NAME
+
+RUM::CoverageMap - Map a coordinate to its coverage
+
+=head1 CONSTRUCTORS
+
+=over 4
+
+=item new
+
+Create a new RUM::CoverageMap that reads from the given $filehandle,
+which must point to a file formatted like RUM_Unique.cov. Records must
+be tab-delimited with four columns: I<chromosome>, I<start>, I<end>,
+and I<coverage>. Records must be sorted by I<chromosome> first and
+then by I<start>. I<start> must be less than I<end>, and there must
+not be any overlapping spans in the same chromosome.
+
+TODO: We can probably change the data structure to relax some of these
+restrictions if that turns out to be useful.
+
 =back
 
+=head1 METHODS
+
+=over 4
+
+=item read_chromosome($filehandle, $chromosome)
+
+Reads the coverage information for the given $chromosome from the
+given $filehandle. Reads lines until we find one that doesn't match
+$chromosome. Returns the number of lines read in.
+
+=item coverage_span($start, $end)
+
+Query the coverage map for coverage information within the given
+[$start, $end] range. The results are returned as an array ref of
+array refs, each representing a sub-span of bases that have the same
+coverage. Each sub-span is reported as a tuple of the number of bases
+it contains and the coverage for those bases. For example, suppose
+
+  $cm->coverage_span(1000, 1017);
+
+returns
+
+  [[10, 0],
+   [5,  1],
+   [3,  2]]
+
+This means that the range [1000, 1017] contains 10 bases with 0
+coverage followed by 5 with coverage 1, followed by 3 with coverage 2.
+
+=item count_coverage_in_span($start, $end, $cutoff)
+
+Return the number of bases in the span that have coverage no more than
+$coverage_cutoff.
+
 =cut
-
-# This existed in get_inferred_internal_exons, but it's not used.
-#
-# sub ave_coverage_in_span {
-#     # This will return the number of bases in the span that
-#     # have coverage no more than $coverage_cutoff
-#     my ($self, $start, $end, $coverage_cutoff) = @_;
-#     my $key = $start . ":" . $end . ":" . $coverage_cutoff;
-
-#     if(defined(my $val = $self->{ave_coverage_in_span_cache}{$key})) {
-# 	return $val;
-#     }
-
-#     my $sum = 0;
-
-#     my $span = $self->coverage_span($start, $end);
-    
-#     for my $rec (@$span) {
-#         my ($n, $cov) = @$rec;
-#         $sum += $n * $cov;
-#     }
-#     my $ave = $sum / ($end - $start + 1);
-#     return $self->{ave_coverage_in_span_cache}{$key} = $ave;
-# }
-
-
-# I wrote this method initially, but then replaced ith with span_coverage
-#
-# sub coverage {
-#     my ($self, $pos) = @_;
-#     my $map = $self->{map};
-
-#     my $p = 0;
-#     my $q = @$map - 1;
-
-#     while ($p <= $q) {
-
-#         my $i = int(($q - $p) / 2);
-#         my ($start, $end, $cov) = @{ $map->[$i] };
-
-#         if ($pos < $start) {
-#             $q = $i - 1;
-#         }
-#         elsif ($end < $pos) {
-#             $p = $i + 1;
-#         }
-#         else {
-#             return wantarray ? ($cov, $i) : $cov;
-#         }
-#     }
-#     return wantarray ? (0, undef) : 0;
-# }
-
 

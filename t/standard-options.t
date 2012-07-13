@@ -28,6 +28,9 @@ our $LAST_HELPED = "";
    
     *RUM::Usage::help = sub {
         ($LAST_HELPED) = caller();
+        if ($LAST_HELPED eq 'RUM::Script::Base') {
+            ($LAST_HELPED) = caller(4);
+        }
     };
 
     # After RUM::Usage::help is called, the script will probably call
@@ -48,6 +51,7 @@ find sub {
     # --help, because it delegates to other classes for command-line
     # parsing.
     return if m{Main.pm};
+    return if m{Base.pm};
     push @libs, ["RUM/Script/$_", "RUM::Script::$1"];
 }, "$Bin/../lib/RUM/Script";
 
