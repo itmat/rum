@@ -17,7 +17,7 @@ sub get_options {
     my ($self, %options) = @_;
 
     $options{'q|quiet'}   = sub { $self->logger->less_logging };
-    $options{'q|verbose'} = sub { $self->logger->more_logging };
+    $options{'v|verbose'} = sub { $self->logger->more_logging };
     $options{'h|help'}    = sub { RUM::Usage->help };
     GetOptions(%options);
 }
