@@ -2,7 +2,6 @@ package RUM::Script::MergeGuAndTu;
 
 no warnings;
 
-use RUM::Logging;
 use RUM::Usage;
 
 use base 'RUM::Script::Base';
@@ -12,59 +11,57 @@ $|=1;
 sub main {
 
     my $self = __PACKAGE__->new;
-
+    $self->{max_pair_dist} = 500000;
     $self->get_options(
-        "gu-in=s"            => \(my $infile3),
-        "tu-in=s"            => \(my $infile4),
-        "gnu-in=s"           => \(my $infile1),
-        "tnu-in=s"           => \(my $infile2),
-        "bowtie-unique-out=s" => \(my $outfile1),
-        "cnu-out=s"           => \(my $outfile2),
-        "paired"          => \(my $paired),
-        "single"          => \(my $single),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "read-length=s"   => \(my $readlength),
-        "min-overlap=s"   => \(my $user_min_overlap));
+        "gu-in=s"             => \$self->{gu_in},
+        "tu-in=s"             => \$self->{tu_in},
+        "gnu-in=s"            => \$self->{gnu_in},
+        "tnu-in=s"            => \$self->{tnu_in},
+        "bowtie-unique-out=s" => \$self->{bowtie_unique_out},
+        "cnu-out=s"           => \$self->{cnu_out},
+        "paired"              => \$self->{paired},
+        "single"              => \(my $single),
+        "max-pair-dist=s"     => \$self->{max_pair_dist},
+        "read-length=s"       => \$self->{read_length},
+        "min-overlap=s"       => \$self->{user_min_overlap});
 
-    $infile3 or RUM::Usage->bad(
+    $self->{gu_in} or RUM::Usage->bad(
         "Please specify a genome unique input file with --gu");
-    $infile4 or RUM::Usage->bad(
+    $self->{tu_in} or RUM::Usage->bad(
         "Please specify a transcriptome unique input file with --tu");
-    $infile1 or RUM::Usage->bad(
+    $self->{gnu_in} or RUM::Usage->bad(
         "Please specify a genome non-unique input file with --gnu");
-    $infile2 or RUM::Usage->bad(
+    $self->{tnu_in} or RUM::Usage->bad(
         "Please specify a transcriptome non-unique input file with --tnu");
-    $outfile1 or RUM::Usage->bad(
+    $self->{bowtie_unique_out} or RUM::Usage->bad(
         "Please specify the bowtie-unique output file with --bowtie-unique");
-    $outfile2 or RUM::Usage->bad(
+    $self->{cnu_out} or RUM::Usage->bad(
         "Please specify the cnu output file with --cnu");
-    ($paired xor $single) or RUM::Usage->bad(
+    ($self->{paired} xor $single) or RUM::Usage->bad(
         "Please specify exactly one type with either --single or --paired");
-
-    $paired_end = $paired ? "true" : "false";
     
-    if ($readlength) {
-        if ($readlength =~ /^\d+$/) {
-            if ($readlength < 5) {
+    if ($self->{read_length}) {
+        if ($self->{read_length} =~ /^\d+$/) {
+            if ($self->{read_length} < 5) {
                 RUM::Usage->bad("--read-length cannot be that small, ".
                                     "must be at least 5, or 'v'");
             }
         }
 
-        elsif ($readlength ne 'v') {
+        elsif ($self->{read_length} ne 'v') {
             RUM::Usage->bad("--read-length must be an integer > 4, or 'v'");
         }
     }
 
-    if ($user_min_overlap) {
-        unless ($user_min_overlap =~ /^\d+$/ && $user_min_overlap >= 5) {
+    if ($self->{user_min_overlap}) {
+        unless ($self->{user_min_overlap} =~ /^\d+$/ && $self->{user_min_overlap} >= 5) {
             RUM::Usage->bad("--min-overlap must be an integer > 4");
         }
     }
     
-    open(INFILE, "<", $infile4) or die "Can't open $infile4 for reading: $!";
+    open(INFILE, "<", $self->{tu_in}) or die "Can't open $self->{tu_in} for reading: $!";
 
-    if ($readlength == 0) {
+    if ($self->{read_length} == 0) {
         $cnt = 0;
         while ($line = <INFILE>) {
             $length = 0;
@@ -78,8 +75,8 @@ sub main {
                     @b = split(/-/,$SPANS[$i]);
                     $length = $length + $b[1] - $b[0] + 1;
                 }
-                if ($length > $readlength) {
-                    $readlength = $length;
+                if ($length > $self->{read_length}) {
+                    $self->{read_length} = $length;
                     $cnt = 0;
                 }
                 if ($cnt > 50000) {
@@ -88,8 +85,8 @@ sub main {
             }
         }
         close(INFILE);
-        open(INFILE, "<", $infile3) 
-            or die "Can't open $infile3 for reading: $!";
+        open(INFILE, "<", $self->{gu_in}) 
+            or die "Can't open $self->{gu_in} for reading: $!";
 
         $cnt = 0;
         while ($line = <INFILE>) {
@@ -104,8 +101,8 @@ sub main {
                     @b = split(/-/,$SPANS[$i]);
                     $length = $length + $b[1] - $b[0] + 1;
                 }
-                if ($length > $readlength) {
-                    $readlength = $length;
+                if ($length > $self->{read_length}) {
+                    $self->{read_length} = $length;
                     $cnt = 0;
                 }
                 if ($cnt > 50000) {
@@ -115,8 +112,8 @@ sub main {
         }
         close(INFILE);
         $cnt = 0;
-        open(INFILE, "<", $infile1) 
-            or die "Can't open $infile1 for reading: $!";
+        open(INFILE, "<", $self->{gnu_in}) 
+            or die "Can't open $self->{gnu_in} for reading: $!";
         while ($line = <INFILE>) {
             if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
                 chomp($line);
@@ -126,8 +123,8 @@ sub main {
                     $cnt++;
                     @b = split(/-/,$span);
                     $length = $b[1] - $b[0] + 1;
-                    if ($length > $readlength) {
-                        $readlength = $length;
+                    if ($length > $self->{read_length}) {
+                        $self->{read_length} = $length;
                         $cnt = 0;
                     }
                     if ($cnt > 50000) { # it checked 50,000 lines without finding anything larger than the last time
@@ -140,8 +137,8 @@ sub main {
         }
         close(INFILE);
         $cnt = 0;
-        open(INFILE, $infile2) 
-            or die "Can't open $infile2 for reading: $!";
+        open(INFILE, $self->{tnu_in}) 
+            or die "Can't open $self->{tnu_in} for reading: $!";
         while ($line = <INFILE>) {
             if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
                 chomp($line);
@@ -151,8 +148,8 @@ sub main {
                     $cnt++;
                     @b = split(/-/,$span);
                     $length = $b[1] - $b[0] + 1;
-                    if ($length > $readlength) {
-                        $readlength = $length;
+                    if ($length > $self->{read_length}) {
+                        $self->{read_length} = $length;
                         $cnt = 0;
                     }
                     if ($cnt > 50000) { # it checked 50,000 lines without finding anything larger than the last time
@@ -165,51 +162,51 @@ sub main {
         }
         close(INFILE);
     }
-    if ($readlength == 0) { # Couldn't determine the read length so going to fall back
+    if ($self->{read_length} == 0) { # Couldn't determine the read length so going to fall back
         # on the strategy used for variable length reads.
-        $readlength = "v";
+        $self->{read_length} = "v";
     }
 
-    if (!($readlength eq "v")) {
-        if ($readlength < 80) {
+    if (!($self->{read_length} eq "v")) {
+        if ($self->{read_length} < 80) {
             $min_overlap = 35;
         } else {
             $min_overlap = 45;
         }
-        if ($min_overlap >= .8 * $readlength) {
-            $min_overlap = int(.6 * $readlength);
+        if ($min_overlap >= .8 * $self->{read_length}) {
+            $min_overlap = int(.6 * $self->{read_length});
         }
         $min_overlap1 = $min_overlap;
         $min_overlap2 = $min_overlap;
     }
-    if ($user_min_overlap > 0) {
-        $min_overlap = $user_min_overlap;
-        $min_overlap1 = $user_min_overlap;
-        $min_overlap2 = $user_min_overlap;
+    if ($self->{user_min_overlap} > 0) {
+        $min_overlap = $self->{user_min_overlap};
+        $min_overlap1 = $self->{user_min_overlap};
+        $min_overlap2 = $self->{user_min_overlap};
     }
-    open(INFILE, $infile1) 
-        or die "Can't open $infile1 for reading: $!";
+    open(INFILE, $self->{gnu_in}) 
+        or die "Can't open $self->{gnu_in} for reading: $!";
 
     while ($line = <INFILE>) {
         $line =~ /^seq.(\d+)/;
         $ambiguous_mappers{$1}++;
     }
     close(INFILE);
-    open(INFILE, $infile2) 
-        or die "Can't open $infile2 for reading: $!";
+    open(INFILE, $self->{tnu_in}) 
+        or die "Can't open $self->{tnu_in} for reading: $!";
     while ($line = <INFILE>) {
         $line =~ /^seq.(\d+)/;
         $ambiguous_mappers{$1}++;
     }
     close(INFILE);
-    open(INFILE1, $infile3)
-        or die "Can't open $infile3 for reading: $!";
-    open(INFILE2, $infile4) 
-        or die "Can't open $infile4 for reading: $!";
-    open(OUTFILE1, ">", $outfile1) 
-        or die "Can't open $outfile1 for writing: $!";
-    open(OUTFILE2, ">", $outfile2) 
-        or die "Can't open $outfile2 for writing: $!";
+    open(INFILE1, $self->{gu_in})
+        or die "Can't open $self->{gu_in} for reading: $!";
+    open(INFILE2, $self->{tu_in}) 
+        or die "Can't open $self->{tu_in} for reading: $!";
+    open(OUTFILE1, ">", $self->{bowtie_unique_out}) 
+        or die "Can't open $self->{bowtie_unique_out} for writing: $!";
+    open(OUTFILE2, ">", $self->{cnu_out}) 
+        or die "Can't open $self->{cnu_out} for writing: $!";
 
     $num_lines_at_once = 10000;
     $linecount = 0;
@@ -240,7 +237,7 @@ sub main {
                     $hash1{$id}[0]=-1;
                     $hash1{$id}[1]=$line;
                 }
-                if ($paired_end eq "true") {
+                if ($self->{paired}) {
                     # this makes sure we have read in both a and b reads, this approach might cause a problem
                     # for paired end data if no, or very few, b reads mapped at all.
                     if ( (($linecount == ($num_lines_at_once - 1)) && !($a[0] =~ /a$/)) || ($linecount < ($num_lines_at_once - 1)) ) {
@@ -325,7 +322,7 @@ sub main {
                 $str =~ /^(\d+)/;
                 $length_overlap = $1;
 
-                if ($readlength eq "v") {
+                if ($self->{read_length} eq "v") {
                     $readlength_temp = length($a1[3]);
                     if (length($a2[3]) < $readlength_temp) {
                         $readlength_temp = length($a2[3]);
@@ -339,8 +336,8 @@ sub main {
                         $min_overlap = int(.6 * $readlength_temp);
                     }
                 }
-                if ($user_min_overlap > 0) {
-                    $min_overlap = $user_min_overlap;
+                if ($self->{user_min_overlap} > 0) {
+                    $min_overlap = $self->{user_min_overlap};
                 }
                 if (($length_overlap > $min_overlap) && ($a1[1] eq $a2[1])) {
                     print OUTFILE1 "$hash2{$id}[1]\n";
@@ -364,7 +361,7 @@ sub main {
                     $str =~ /^(\d+)/;
                     $length_overlap = $1;
 
-                    if ($readlength eq "v") {
+                    if ($self->{read_length} eq "v") {
                         $readlength_temp = length($a1[3]);
                         if (length($a2[3]) < $readlength_temp) {
                             $readlength_temp = length($a2[3]);
@@ -378,15 +375,15 @@ sub main {
                             $min_overlap = int(.6 * $readlength_temp);
                         }
                     }
-                    if ($user_min_overlap > 0) {
-                        $min_overlap = $user_min_overlap;
+                    if ($self->{user_min_overlap} > 0) {
+                        $min_overlap = $self->{user_min_overlap};
                     }
 		
                     if (($length_overlap > $min_overlap) && ($a1[1] eq $a2[1])) {
                         # preference TU
                         print OUTFILE1 "$hash2{$id}[1]\n";
                     } else {
-                        if ($paired_end eq "false") {
+                        if (!$self->{paired}) {
                             print OUTFILE2 "$hash1{$id}[1]\n";			
                             print OUTFILE2 "$hash2{$id}[1]\n";			
                         }
@@ -462,14 +459,14 @@ sub main {
 
                     # the next two if's take care of the case that there is no overlap, one read lies entirely downstream of the other
 		
-                    if ((($astrand eq "+" && $bstrand eq "+" && $atype eq "forward" && $btype eq "reverse") || ($astrand eq "-" && $bstrand eq "-" && $atype eq "reverse" && $btype eq "forward")) && ($chra eq $chrb) && ($aend < $bstart-1) && ($bstart - $aend < $max_distance_between_paired_reads)) {
+                    if ((($astrand eq "+" && $bstrand eq "+" && $atype eq "forward" && $btype eq "reverse") || ($astrand eq "-" && $bstrand eq "-" && $atype eq "reverse" && $btype eq "forward")) && ($chra eq $chrb) && ($aend < $bstart-1) && ($bstart - $aend < $self->{max_pair_dist})) {
                         if ($hash1{$id}[1] =~ /a\t/) {
                             print OUTFILE1 "$hash1{$id}[1]\n$hash2{$id}[1]\n";
                         } else {
                             print OUTFILE1 "$hash2{$id}[1]\n$hash1{$id}[1]\n";
                         }
                     }
-                    if ((($astrand eq "-" && $bstrand eq "-" && $atype eq "forward" && $btype eq "reverse") || ($astrand eq "+" && $bstrand eq "+" && $atype eq "reverse" && $btype eq "forward")) && ($chra eq $chrb) && ($bend < $astart-1) && ($astart - $bend < $max_distance_between_paired_reads)) {
+                    if ((($astrand eq "-" && $bstrand eq "-" && $atype eq "forward" && $btype eq "reverse") || ($astrand eq "+" && $bstrand eq "+" && $atype eq "reverse" && $btype eq "forward")) && ($chra eq $chrb) && ($bend < $astart-1) && ($astart - $bend < $self->{max_pair_dist})) {
                         if ($hash1{$id}[1] =~ /a\t/) {
                             print OUTFILE1 "$hash1{$id}[1]\n$hash2{$id}[1]\n";
                         } else {
@@ -660,7 +657,7 @@ sub main {
                 $chr2 = $a[1];
                 $spansa[1] = $a[2];
 
-                if ($readlength eq "v") {
+                if ($self->{read_length} eq "v") {
                     $readlength_temp = length($seqa);
                     if (length($a[3]) < $readlength_temp) {
                         $readlength_temp = length($a[3]);
@@ -674,13 +671,13 @@ sub main {
                         $min_overlap1 = int(.6 * $readlength_temp);
                     }
                 }
-                if ($user_min_overlap > 0) {
-                    $min_overlap1 = $user_min_overlap;
+                if ($self->{user_min_overlap} > 0) {
+                    $min_overlap1 = $self->{user_min_overlap};
                 }
                 @a = split(/\t/,$hash2{$id}[2]);
                 $spansb[1] = $a[2];
 
-                if ($readlength eq "v") {
+                if ($self->{read_length} eq "v") {
                     $readlength_temp = length($seqb);
                     if (length($a[3]) < $readlength_temp) {
                         $readlength_temp = length($a[3]);
@@ -694,8 +691,8 @@ sub main {
                         $min_overlap2 = int(.6 * $readlength_temp);
                     }
                 }
-                if ($user_min_overlap > 0) {
-                    $min_overlap2 = $user_min_overlap;
+                if ($self->{user_min_overlap} > 0) {
+                    $min_overlap2 = $self->{user_min_overlap};
                 }
 
                 $str = intersect(\@spansa, $seqa);
@@ -732,7 +729,7 @@ sub main {
                 $chr2 = $a[1];
                 $spans[1] = $a[2];
                 if ($chr1 eq $chr2) {
-                    if ($readlength eq "v") {
+                    if ($self->{read_length} eq "v") {
                         $readlength_temp = length($seq);
                         if (length($a[3]) < $readlength_temp) {
                             $readlength_temp = length($a[3]);
@@ -746,15 +743,15 @@ sub main {
                             $min_overlap1 = int(.6 * $readlength_temp);
                         }
                     }
-                    if ($user_min_overlap > 0) {
-                        $min_overlap1 = $user_min_overlap;
+                    if ($self->{user_min_overlap} > 0) {
+                        $min_overlap1 = $self->{user_min_overlap};
                     }
 
                     $str = intersect(\@spans, $seq);
                     $str =~ /^(\d+)/;
                     $overlap1 = $1;
                     @a = split(/\t/,$hash1{$id}[2]);
-                    if ($readlength eq "v") {
+                    if ($self->{read_length} eq "v") {
                         $readlength_temp = length($seq);
                         if (length($a[3]) < $readlength_temp) {
                             $readlength_temp = length($a[3]);
@@ -768,8 +765,8 @@ sub main {
                             $min_overlap2 = int(.6 * $readlength_temp);
                         }
                     }
-                    if ($user_min_overlap > 0) {
-                        $min_overlap2 = $user_min_overlap;
+                    if ($self->{user_min_overlap} > 0) {
+                        $min_overlap2 = $self->{user_min_overlap};
                     }
                     $spans[0] = $a[2];
                     $str = intersect(\@spans, $seq);

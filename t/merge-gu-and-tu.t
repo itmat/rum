@@ -25,8 +25,7 @@ for my $type (qw(paired single)) {
              "--tnu", $tnu,
              "--bowtie-unique", $bowtie_unique, 
              "--cnu", $cnu, 
-             "--$type", 
-             "--read-length", 75);
+             "--$type");
     
     RUM::Script::MergeGuAndTu->main();
     no_diffs($bowtie_unique, "$EXPECTED_DIR/$type-bowtie-unique", 

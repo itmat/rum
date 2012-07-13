@@ -1,22 +1,18 @@
 package RUM::Script::MergeBowtieAndBlat;
 
-
 use strict;
 use warnings;
 use autodie;
 
+use base 'RUM::Script::Base';
+
 use List::Util qw(max first);
-use Data::Dumper;
+
 use RUM::Usage;
-use RUM::Logging;
 use RUM::Common qw(addJunctionsToSeq spansTotalLength min_overlap_for_read_length);
 use RUM::BowtieIO;
 use RUM::RUMIO;
 use RUM::Mapper;
-
-use Getopt::Long;
-
-our $log = RUM::Logging->get_logger();
 
 my $MIN_OVERLAP = 0;
 
@@ -100,7 +96,9 @@ sub unique_iter {
 
 sub main {
 
-    GetOptions(
+    my $self = __PACKAGE__->new;
+
+    $self->get_options(
         "bowtie-unique-in=s"     => \(my $bowtie_unique_in),
         "blat-unique-in=s"       => \(my $blat_unique_in),
         "bowtie-non-unique-in=s" => \(my $bowtie_non_unique_in),
@@ -109,11 +107,7 @@ sub main {
         "non-unique-out=s"       => \(my $non_unique_out),
         "max-pair-dist=s"        => \(my $max_distance_between_paired_reads = 500000),
         "read-length=s"          => \(my $readlength = 0),
-        "min-overlap"            => sub { __PACKAGE__->set_min_overlap(shift) },
-        "help|h"                 => sub { RUM::Usage->help },
-        "verbose|v"              => sub { $log->more_logging(1) },
-        "quiet|q"                => sub { $log->less_logging(1) }
-    );
+        "min-overlap"            => sub { __PACKAGE__->set_min_overlap(shift) });
 
     # Input files
     $bowtie_unique_in or RUM::Usage->bad(
@@ -159,7 +153,7 @@ sub main {
 
     {
         my $blat_nu_iter = RUM::BowtieIO->new(-file => $blat_non_unique_in);
-        $log->info("Reading blat non-unique mappers");
+        $self->logger->info("Reading blat non-unique mappers");
         while (my $aln = $blat_nu_iter->next_val) {
             if ($aln->contains_forward) {
                 $blat_ambiguous_mappers_a{$aln->order}++;
