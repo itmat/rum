@@ -29,9 +29,43 @@ my @tests = (
     }
 );
 
-plan tests => 1 + 2 * scalar(@tests);
+plan tests => 5 + 2 * scalar(@tests);
 
 use_ok("RUM::Script::RumToCov");
+
+{
+    my $rum2cov = RUM::Script::RumToCov->new();
+    $rum2cov->add_spans([ [5, 10, 1], 
+                         [12, 15, 3] ]),
+    is_deeply($rum2cov->purge_spans,
+              [ [ 5, 10, 1],
+                [ 10, 12, 0],
+                [ 12, 15, 3] ],
+              'non-overlapping');
+
+    $rum2cov->add_spans([ [5, 10, 1], 
+                         [8, 15, 2] ]),
+    is_deeply($rum2cov->purge_spans,
+              [[ 5, 8, 1 ],
+               [ 8, 10, 3 ],
+               [ 10, 15, 2 ]],
+              'overlapping');
+
+    $rum2cov->add_spans([[5, 10, 1]]);
+    $rum2cov->add_spans([[8, 15, 2], [14, 19, 7]]);
+    is_deeply($rum2cov->purge_spans(),
+              [[5, 8, 1],
+               [8, 10, 3],
+               [10, 14, 2],
+               [14, 15, 9],
+               [15, 19, 7]]);
+
+
+    $rum2cov->add_spans([[5, 10, 1], [10, 15, 1]]);
+    is_deeply($rum2cov->purge_spans(), [[5, 15, 1]]);
+
+}
+
 
 for my $test (@tests) {
     my $name = $test->{name};
@@ -49,3 +83,4 @@ for my $test (@tests) {
     my $footprint = <$in>;    
     like $footprint, qr/$expected_footprint/, "Footprint";
 }
+

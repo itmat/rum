@@ -1,13 +1,88 @@
 package RUM::Script::RumToCov;
 
-no warnings;
+use strict;
+use warnings;
 use autodie;
+
 use RUM::Usage;
-use RUM::Logging;
-use RUM::CoverageMap;
 use Getopt::Long;
-use Data::Dumper;
-our $log = RUM::Logging->get_logger();
+
+use base 'RUM::Script::Base';
+
+sub new {
+    my ($class, %self) = @_;
+    return bless \%self, $class;
+}
+
+sub run {
+    
+    my ($self) = @_;
+    
+    open my $in_fh,  '<', $self->{in_filename};
+    open my $out_fh, '>', $self->{out_filename};
+    my $name = $self->{name};
+
+    print $out_fh qq{track type=bedGraph name="$name" description="$name" visibility=full color=255,0,0 priority=10\n};
+
+    my $footprint = 0;
+    
+    my $last_chr = '';
+
+  LINE: while (1) {
+
+        my @spans;
+        my $chr = '';
+
+        # Read a line from the input and parse out the chromosome and
+        # spans.
+        if (defined(my $line = <$in_fh>)) {
+            chomp($line);
+            (my $readid, $chr, my $spans, my $strand) = split /\t/, $line;    
+
+            # Spans look like "start-end[, start-end]...
+            @spans = map { [split /-/] } split /, /, $spans;
+
+            # Create spans as a list of records of the format [ start,
+            # end, coverage ], representing a span where elements from
+            # start to end - 1 have the specified coverage. Since we
+            # are just processing one read, the coverage for each span
+            # is initially 1.
+            @spans = map { [ $_->[0] - 1, $_->[1], 1 ] } @spans;
+        }
+
+        # If we just finished a chromosome, print out the coverage
+        if ($chr ne $last_chr) {
+            if ($last_chr) {
+                $self->logger->info("Printing coverage for chromosome $last_chr\n");
+            }
+          COVERAGE: for my $rec (@{ $self->purge_spans() }) {
+                my ($start, $end, $cov) = @{ $rec };
+
+                # We will end up representing gaps with no coverage as
+                # a span with zero coverage. We don't want to print
+                # anything for these lines.
+                next COVERAGE if ! $cov;
+
+                print $out_fh join("\t", $last_chr, $start, $end, $cov), "\n";
+                $footprint += $end - $start;
+            }
+            if ($chr) {
+                $self->logger->info("Calculating coverage for $chr\n");
+            }
+            $last_chr = $chr;
+        }
+
+        last LINE unless @spans;
+
+        $self->add_spans(\@spans);
+    }
+
+    if (my $statsfile = $self->{stats_filename}) {
+        open my $stats_out, '>', $statsfile;
+        print $stats_out "footprint for $self->{in_filename} : $footprint\n";
+    }
+
+}
 
 sub main {
 
@@ -15,10 +90,9 @@ sub main {
         "output|o=s" => \(my $outfile = undef),
         "stats=s"    => \(my $statsfile = undef),
         "name=s"     => \(my $name = undef),
-        "help|h" => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
-
+        "help|h"     => sub { RUM::Usage->help },
+        "verbose|v"  => \(my $verbose),
+        "quiet|q"    => \(my $quiet));
 
     $outfile or RUM::Usage->bad(
         "Please specify an output file with -o or --output");
@@ -26,89 +100,60 @@ sub main {
     my $infile = $ARGV[0] or RUM::Usage->bad(
         "Please provide an input file on the command line");
 
-    $log->info("Making coverage plot $outfile...");
-
     $name ||= $infile . " Coverage";
 
-    open $in_fh,  '<', $infile;
-    open $out_fh, '>', $outfile;
+    my $self = __PACKAGE__->new(
+        in_filename    => $infile,
+        out_filename   => $outfile,
+        stats_filename => $statsfile,
+        name           => $name
+    );
 
-    print $out_fh qq{track type=bedGraph name="$name" description="$name" visibility=full color=255,0,0 priority=10\n};
-
-    my $footprint = 0;
-    
-    my $covmap = RUM::CoverageMap->new();
-
-    my @spans;
-    while (1) {
-
-        my ($chr, $spans) = next_chr_and_span($in_fh);
-        my @spans = @{ $spans };
-
-        if ($chr ne $current_chr) {
-            my $purged = $covmap->purge_spans($cutoff);
-            for my $rec (@{ $purged }) {
-                my ($start, $end, $cov) = @{ $rec };
-                if ($cov) {
-                    print $out_fh join("\t", $current_chr, $start, $end, $cov), "\n";
-                    $footprint += $end - $start;
-                }
-            }
-        }
-
-        $covmap->add_spans(\@spans);
-
-        $current_chr = $chr;
-
-        last unless $chr;
-    }
-
-    if ($statsfile) {
-        open my $stats_out, '>', $statsfile;
-        print $stats_out "footprint for $infile : $footprint\n";
-    }
+    $self->logger->info("Making coverage plot $outfile...");
+    $self->run;
 }
+
+sub add_spans {
+    my ($self, $spans) = @_;
+
+    my $delta_for_pos = $self->{delta_for_pos} ||= {};
+
+    my @result;
+
+    # Each span is an array of [ start pos, end pos, coverage ].
+    # Translate the spans into an array of events, where each event
+    # has a position and a coverage delta. For example the span [ 5,
+    # 8, 2 ] translates to [ [5, 2], [8, -2] ], meaning that at
+    # position 5 we increase coverage by 2 and at position 8 we
+    # decrease coverage by 2.
+
+    for my $span (@{ $spans }) {
+        my ($start, $end, $cov) = @{ $span };
+        $delta_for_pos->{$start}  += $cov;
+        $delta_for_pos->{$end}    -= $cov;
+    }
+
+    $self->{map} = \@result;
+}
+
+sub purge_spans {
+    my ($self, $limit) = @_;
+
+    my ($last_pos, $last_cov);
+    my $delta_for_pos = $self->{delta_for_pos} ||= {};
+    my @result;
+    for my $pos (sort { $a <=> $b } keys %{ $delta_for_pos }) {
+        my $cov_delta = $delta_for_pos->{$pos};
+        next if ! $cov_delta;
+        if (defined($last_pos)) {
+            push @result, [ $last_pos, $pos, $last_cov ];
+        }
+        $last_pos = $pos;
+        $last_cov += $cov_delta;
+    }
+    $self->{delta_for_pos} = {};
+    return \@result;
+}
+
 1;
 
-sub next_chr_and_span  {
-    my ($in_fh) = @_;
-    
-    my $line = <$in_fh>;
-
-    return unless defined $line;
-    
-    chomp($line);
-    
-    my ($readid, $chr, $spans, $strand) = split /\t/,$line;
-
-    if ($readid =~ /^seq.(\d+)a/) {
-        $seqnum1 = $1;
-
-        $line2 = <$in_fh>;
-        chomp($line2);
-
-        my ($b_readid, undef, $b_spans) = split(/\t/,$line2);
-
-        if ($b_readid eq "seq.${seqnum1}b") {
-            if ($strand eq '+') {
-                $spans = $spans . ", " . $b_spans;
-            } else {
-                $spans = $b_spans . ", " . $spans;
-            }
-        } else {
-            # reset the file handle so the last line read will be read again
-            seek $in_fh, -(1 + length($line2)), 1;
-        }
-    }
-
-    my @spans;
-
-    for my $span (split /, /, $spans) {
-        my ($start, $end) = split /-/, $span;
-        push @spans, [ int($start - 1), int($end), 1 ];
-    }
-
-    return ($chr, \@spans);
-}
-
-# 8:30 to 4:30
