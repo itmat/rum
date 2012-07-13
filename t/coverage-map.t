@@ -12,7 +12,7 @@ use RUM::CoverageMap;
 BEGIN { 
     eval "use Test::Exception";
     plan skip_all => "Test::Exception needed" if $@;
-    plan tests => 20;
+    plan tests => 16;
     use_ok('RUM::CoverageMap');
 }
 
