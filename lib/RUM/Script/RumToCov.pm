@@ -9,11 +9,6 @@ use Getopt::Long;
 
 use base 'RUM::Script::Base';
 
-sub new {
-    my ($class, %self) = @_;
-    return bless \%self, $class;
-}
-
 sub run {
     
     my ($self) = @_;
@@ -146,6 +141,39 @@ sub purge_spans {
     $self->{delta_for_pos} = {};
     return \@result;
 }
+
+1;
+
+=head1 NAME
+
+RUM::Script::RumToCov - Calculate coverage
+
+=head1 METHODS
+
+=over 4
+
+=item $rum2cov->main
+
+Main method, call without args
+
+=item $rum2cov->run
+
+Read in the RUM_* files and calculate coverage. Call after command
+line args are set.
+
+=item $rum2cov->add_spans($spans)
+
+$spans must be an array ref of array refs, where each array ref is of
+the format [ start, end, coverage ]. Adds the spans to an internal
+data structure used to track coverage.
+
+=item $rum2cov->purge_spans($spans)
+
+Clear the internal coverage data structure and return the accumulated
+coverage counts for all the spans, in the same format as the $spans
+argument to add_spans.
+
+=back
 
 1;
 

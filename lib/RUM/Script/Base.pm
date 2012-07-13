@@ -7,6 +7,11 @@ use Scalar::Util qw(blessed);
 
 use Getopt::Long;
 
+sub new {
+    my ($class, %self) = @_;
+    return bless \%self, $class;
+}
+
 sub logger {
     my ($self) = @_;
     my $package = blessed($self);
