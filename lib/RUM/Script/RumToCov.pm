@@ -86,30 +86,22 @@ sub run {
 
 sub main {
 
-    GetOptions(
-        "output|o=s" => \(my $outfile = undef),
-        "stats=s"    => \(my $statsfile = undef),
-        "name=s"     => \(my $name = undef),
-        "help|h"     => sub { RUM::Usage->help },
-        "verbose|v"  => \(my $verbose),
-        "quiet|q"    => \(my $quiet));
+    my $self = __PACKAGE__->new;
 
-    $outfile or RUM::Usage->bad(
+    $self->get_options(
+        "output|o=s" => \($self->{out_filename}   = undef),
+        "stats=s"    => \($self->{stats_filename} = undef),
+        "name=s"     => \($self->{name}           = undef));
+
+    $self->{out_filename} or RUM::Usage->bad(
         "Please specify an output file with -o or --output");
 
-    my $infile = $ARGV[0] or RUM::Usage->bad(
+    $self->{in_filename} = $ARGV[0] or RUM::Usage->bad(
         "Please provide an input file on the command line");
 
-    $name ||= $infile . " Coverage";
+    $self->{name} ||= $self->{in_filename} . " Coverage";
 
-    my $self = __PACKAGE__->new(
-        in_filename    => $infile,
-        out_filename   => $outfile,
-        stats_filename => $statsfile,
-        name           => $name
-    );
-
-    $self->logger->info("Making coverage plot $outfile...");
+    $self->logger->info("Making coverage plot $self->{out_filename}...");
     $self->run;
 }
 

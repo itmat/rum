@@ -134,18 +134,6 @@ sub error_log_file {
     return "$LOGGING_DIR/$file";
 }
 
-=back
-
-=head1 AUTHOR
-
-Mike DeLaurentis (delaurentis@gmail.com)
-
-=head1 COPYRIGHT
-
-Copyright 2012 University of Pennsylvania
-
-=cut
-
 1;
 
 __END__
@@ -248,8 +236,6 @@ above for Log4perl. The main difference is that without Log4perl we
 will not attempt to read the F<rum_logging.conf> file, so the user
 won't have fine-grained control over logging.
 
-=cut
-
 =head1 CLASS METHODS
 
 =over 4
@@ -263,8 +249,6 @@ root. Otherwise, no logging will be performed.
 
 Only the first call to this method counts; all subsequent calls will
 return immediately.
-
-=cut
 
 =item RUM::Logging->get_logger
 
@@ -281,19 +265,25 @@ $name, uses the package name of the caller as the name. For example:
 
   # $log's name will be "Foo::Bar"
 
-=cut
-
 =item RUM::Logging->log_file($chunk)
 
 Return the log file name for the given chunk, or the master log file
 name if chunk is not a positive number.
 
-=cut
-
 =item RUM::Logging->error_log_file($chunk)
 
 Return the error log file name for the given chunk, or the master
 error log file name if chunk is not a positive number.
+
+=back
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012 University of Pennsylvania
 
 =cut
 
