@@ -8,9 +8,9 @@ use base 'RUM::Script::Base';
 
 $|=1;
 
-sub main {
+sub parse_command_line {
+    my ($self) = @_;
 
-    my $self = __PACKAGE__->new;
     $self->{max_pair_dist} = 500000;
     $self->get_options(
         "gu-in=s"             => \$self->{gu_in},
@@ -58,110 +58,139 @@ sub main {
             RUM::Usage->bad("--min-overlap must be an integer > 4");
         }
     }
-    
-    open(INFILE, "<", $self->{tu_in}) or die "Can't open $self->{tu_in} for reading: $!";
 
-    if ($self->{read_length} == 0) {
-        $cnt = 0;
-        while ($line = <INFILE>) {
-            $length = 0;
-            if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                chomp($line);
-                @a = split(/\t/,$line);
-                $span = $a[2];
-                @SPANS = split(/, /, $span);
-                $cnt++;
-                for ($i=0; $i<@SPANS; $i++) {
-                    @b = split(/-/,$SPANS[$i]);
-                    $length = $length + $b[1] - $b[0] + 1;
-                }
-                if ($length > $self->{read_length}) {
-                    $self->{read_length} = $length;
-                    $cnt = 0;
-                }
-                if ($cnt > 50000) {
-                    last;
-                }
-            }
-        }
-        close(INFILE);
-        open(INFILE, "<", $self->{gu_in}) 
-            or die "Can't open $self->{gu_in} for reading: $!";
-
-        $cnt = 0;
-        while ($line = <INFILE>) {
-            $length = 0;
-            if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                chomp($line);
-                @a = split(/\t/,$line);
-                $span = $a[2];
-                @SPANS = split(/, /, $span);
-                $cnt++;
-                for ($i=0; $i<@SPANS; $i++) {
-                    @b = split(/-/,$SPANS[$i]);
-                    $length = $length + $b[1] - $b[0] + 1;
-                }
-                if ($length > $self->{read_length}) {
-                    $self->{read_length} = $length;
-                    $cnt = 0;
-                }
-                if ($cnt > 50000) {
-                    last;
-                }
-            }
-        }
-        close(INFILE);
-        $cnt = 0;
-        open(INFILE, "<", $self->{gnu_in}) 
-            or die "Can't open $self->{gnu_in} for reading: $!";
-        while ($line = <INFILE>) {
-            if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                chomp($line);
-                @a = split(/\t/,$line);
-                $span = $a[2];
-                if (!($span =~ /,/)) {
-                    $cnt++;
-                    @b = split(/-/,$span);
-                    $length = $b[1] - $b[0] + 1;
-                    if ($length > $self->{read_length}) {
-                        $self->{read_length} = $length;
-                        $cnt = 0;
-                    }
-                    if ($cnt > 50000) { # it checked 50,000 lines without finding anything larger than the last time
-                        # readlength was changed, so it's most certainly found the max.
-                        # Went through this to avoid the user having to input the readlength.
-                        last;
-                    }
-                }
-            }
-        }
-        close(INFILE);
-        $cnt = 0;
-        open(INFILE, $self->{tnu_in}) 
-            or die "Can't open $self->{tnu_in} for reading: $!";
-        while ($line = <INFILE>) {
-            if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                chomp($line);
-                @a = split(/\t/,$line);
-                $span = $a[2];
-                if (!($span =~ /,/)) {
-                    $cnt++;
-                    @b = split(/-/,$span);
-                    $length = $b[1] - $b[0] + 1;
-                    if ($length > $self->{read_length}) {
-                        $self->{read_length} = $length;
-                        $cnt = 0;
-                    }
-                    if ($cnt > 50000) { # it checked 50,000 lines without finding anything larger than the last time
-                        # readlength was changed, so it's most certainly found the max.
-                        # Went through this to avoid the user having to input the readlength.
-                        last;
-                    }
-                }
-            }
-        }
-        close(INFILE);
+    for my $in_name (qw(gu tu gnu tnu)) {
+        open my $fh, '<', $self->{"${in_name}_in"};
+        $self->{"${in_name}_in_fh"} = $fh;
     }
+
+    for my $out_name (qw(bowtie_unique cnu)) {
+        open my $fh, '>', $self->{"${out_name}_out"};
+        $self->{"${out_name}_out_fh"} = $fh;
+    }
+
+}
+
+sub main {
+
+    my $self = __PACKAGE__->new;
+    $self->parse_command_line;
+    
+    if ($self->{read_length} == 0) {
+        {
+            my $infile = $self->{tu_in_fh};
+            
+            $cnt = 0;
+            while ($line = <$infile>) {
+                $length = 0;
+                if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
+                    chomp($line);
+                    @a = split(/\t/,$line);
+                    $span = $a[2];
+                    @SPANS = split(/, /, $span);
+                    $cnt++;
+                    for ($i=0; $i<@SPANS; $i++) {
+                        @b = split(/-/,$SPANS[$i]);
+                        $length = $length + $b[1] - $b[0] + 1;
+                    }
+                    if ($length > $self->{read_length}) {
+                        $self->{read_length} = $length;
+                        $cnt = 0;
+                    }
+                    if ($cnt > 50000) {
+                        last;
+                    }
+                }
+            }
+            seek $infile, 0, 0;
+        }
+
+        {
+            my $infile = $self->{gu_in};
+            
+            $cnt = 0;
+            while ($line = <$infile>) {
+                $length = 0;
+                if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
+                    chomp($line);
+                    @a = split(/\t/,$line);
+                    $span = $a[2];
+                    @SPANS = split(/, /, $span);
+                    $cnt++;
+                    for ($i=0; $i<@SPANS; $i++) {
+                        @b = split(/-/,$SPANS[$i]);
+                        $length = $length + $b[1] - $b[0] + 1;
+                    }
+                    if ($length > $self->{read_length}) {
+                        $self->{read_length} = $length;
+                        $cnt = 0;
+                    }
+                    if ($cnt > 50000) {
+                        last;
+                    }
+                }
+            }
+            seek $infile, 0, 0;
+        }
+
+        {
+            $cnt = 0;
+            my $infile = $self->{gnu_in_fh};
+
+            while ($line = <$infile>) {
+                if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
+                    chomp($line);
+                    @a = split(/\t/,$line);
+                    $span = $a[2];
+                    if (!($span =~ /,/)) {
+                        $cnt++;
+                        @b = split(/-/,$span);
+                        $length = $b[1] - $b[0] + 1;
+                        if ($length > $self->{read_length}) {
+                            $self->{read_length} = $length;
+                            $cnt = 0;
+                        }
+                        if ($cnt > 50000) { # it checked 50,000 lines without finding anything larger than the last time
+                            # readlength was changed, so it's most certainly found the max.
+                            # Went through this to avoid the user having to input the readlength.
+                            last;
+                        }
+                    }
+                }
+            }
+            seek $infile, 0, 0;
+        }
+
+        {
+            $cnt = 0;
+            my $infile = $self->{tnu_in_fh};
+            
+            while ($line = <INFILE>) {
+                if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
+                    chomp($line);
+                    @a = split(/\t/,$line);
+                    $span = $a[2];
+                    if (!($span =~ /,/)) {
+                        $cnt++;
+                        @b = split(/-/,$span);
+                        $length = $b[1] - $b[0] + 1;
+                        if ($length > $self->{read_length}) {
+                            $self->{read_length} = $length;
+                            $cnt = 0;
+                        }
+                        if ($cnt > 50000) { # it checked 50,000 lines without finding anything larger than the last time
+                            # readlength was changed, so it's most certainly found the max.
+                            # Went through this to avoid the user having to input the readlength.
+                            last;
+                        }
+                    }
+                }
+            }
+            seek $infile, 0, 0;
+        }
+    }
+
+
     if ($self->{read_length} == 0) { # Couldn't determine the read length so going to fall back
         # on the strategy used for variable length reads.
         $self->{read_length} = "v";
@@ -184,34 +213,33 @@ sub main {
         $min_overlap1 = $self->{user_min_overlap};
         $min_overlap2 = $self->{user_min_overlap};
     }
-    open(INFILE, $self->{gnu_in}) 
-        or die "Can't open $self->{gnu_in} for reading: $!";
 
-    while ($line = <INFILE>) {
-        $line =~ /^seq.(\d+)/;
-        $ambiguous_mappers{$1}++;
+    {
+        my $gnu_in_fh = $self->{gnu_in_fh};
+        
+        while ($line = <$gnu_in_fh>) {
+            $line =~ /^seq.(\d+)/;
+            $ambiguous_mappers{$1}++;
+        }
     }
-    close(INFILE);
-    open(INFILE, $self->{tnu_in}) 
-        or die "Can't open $self->{tnu_in} for reading: $!";
-    while ($line = <INFILE>) {
-        $line =~ /^seq.(\d+)/;
-        $ambiguous_mappers{$1}++;
+    
+    {
+        my $tnu_in_fh = $self->{tnu_in};
+        while ($line = <INFILE>) {
+            $line =~ /^seq.(\d+)/;
+            $ambiguous_mappers{$1}++;
+        }
     }
-    close(INFILE);
-    open(INFILE1, $self->{gu_in})
-        or die "Can't open $self->{gu_in} for reading: $!";
-    open(INFILE2, $self->{tu_in}) 
-        or die "Can't open $self->{tu_in} for reading: $!";
-    open(OUTFILE1, ">", $self->{bowtie_unique_out}) 
-        or die "Can't open $self->{bowtie_unique_out} for writing: $!";
-    open(OUTFILE2, ">", $self->{cnu_out}) 
-        or die "Can't open $self->{cnu_out} for writing: $!";
+    
+    my $gu_in_fh             = $self->{gu_in_fh};
+    my $tu_in_fh             = $self->{tu_in_fh};
+    my $bowtie_unique_out_fh = $self->{bowtie_unique_out_fh};
+    my $cnu_out_fh           = $self->{cnu_out};
 
     $num_lines_at_once = 10000;
     $linecount = 0;
     $FLAG = 1;
-    $line_prev = <INFILE2>;
+    $line_prev = <$tu_in_fh>;
     chomp($line_prev);
     while ($FLAG == 1) {
         undef %hash1;
@@ -219,7 +247,7 @@ sub main {
         undef %allids;
         $linecount = 0;
         until ($linecount == $num_lines_at_once) {
-            $line=<INFILE1>;
+            $line=<$gu_in_fh>;
             if (!($line =~ /\S/)) {
                 $FLAG = 0;
                 $linecount = $num_lines_at_once;
@@ -268,7 +296,7 @@ sub main {
                 $hash2{$id}[0]=-1;
                 $hash2{$id}[1]=$line;
             }
-            $line=<INFILE2>;
+            $line=<$tu_in_fh>;
             chomp($line);
             if (!($line =~ /\S/)) {
                 $FLAG2 = 0;
@@ -292,10 +320,10 @@ sub main {
             if ($hash1{$id}[0] == 0) {
                 # no genome mapper, so there must be a transcriptome mapper
                 if ($hash2{$id}[0] == -1) {
-                    print OUTFILE1 "$hash2{$id}[1]\n";
+                    print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
                 } else {
                     for ($i=0; $i<$hash2{$id}[0]; $i++) {
-                        print OUTFILE1 "$hash2{$id}[$i+1]\n";
+                        print $bowtie_unique_out_fh "$hash2{$id}[$i+1]\n";
                     }
                 }
             }
@@ -303,10 +331,10 @@ sub main {
             if ($hash2{$id}[0] == 0) {
                 # no transcriptome mapper, so there must be a genome mapper
                 if ($hash1{$id}[0] == -1) {
-                    print OUTFILE1 "$hash1{$id}[1]\n";
+                    print $bowtie_unique_out_fh "$hash1{$id}[1]\n";
                 } else {
                     for ($i=0; $i<$hash1{$id}[0]; $i++) {
-                        print OUTFILE1 "$hash1{$id}[$i+1]\n";
+                        print $bowtie_unique_out_fh "$hash1{$id}[$i+1]\n";
                     }
                 }
             }
@@ -340,10 +368,10 @@ sub main {
                     $min_overlap = $self->{user_min_overlap};
                 }
                 if (($length_overlap > $min_overlap) && ($a1[1] eq $a2[1])) {
-                    print OUTFILE1 "$hash2{$id}[1]\n";
+                    print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
                 } else {
-                    print OUTFILE2 "$hash1{$id}[1]\n";
-                    print OUTFILE2 "$hash2{$id}[1]\n";
+                    print $cnu_out_fh "$hash1{$id}[1]\n";
+                    print $cnu_out_fh "$hash2{$id}[1]\n";
                 }
             }
             # ONE CASE
@@ -381,11 +409,11 @@ sub main {
 		
                     if (($length_overlap > $min_overlap) && ($a1[1] eq $a2[1])) {
                         # preference TU
-                        print OUTFILE1 "$hash2{$id}[1]\n";
+                        print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
                     } else {
                         if (!$self->{paired}) {
-                            print OUTFILE2 "$hash1{$id}[1]\n";			
-                            print OUTFILE2 "$hash2{$id}[1]\n";			
+                            print $cnu_out_fh "$hash1{$id}[1]\n";			
+                            print $cnu_out_fh "$hash2{$id}[1]\n";			
                         }
                     }
                 }
@@ -461,16 +489,16 @@ sub main {
 		
                     if ((($astrand eq "+" && $bstrand eq "+" && $atype eq "forward" && $btype eq "reverse") || ($astrand eq "-" && $bstrand eq "-" && $atype eq "reverse" && $btype eq "forward")) && ($chra eq $chrb) && ($aend < $bstart-1) && ($bstart - $aend < $self->{max_pair_dist})) {
                         if ($hash1{$id}[1] =~ /a\t/) {
-                            print OUTFILE1 "$hash1{$id}[1]\n$hash2{$id}[1]\n";
+                            print $bowtie_unique_out_fh "$hash1{$id}[1]\n$hash2{$id}[1]\n";
                         } else {
-                            print OUTFILE1 "$hash2{$id}[1]\n$hash1{$id}[1]\n";
+                            print $bowtie_unique_out_fh "$hash2{$id}[1]\n$hash1{$id}[1]\n";
                         }
                     }
                     if ((($astrand eq "-" && $bstrand eq "-" && $atype eq "forward" && $btype eq "reverse") || ($astrand eq "+" && $bstrand eq "+" && $atype eq "reverse" && $btype eq "forward")) && ($chra eq $chrb) && ($bend < $astart-1) && ($astart - $bend < $self->{max_pair_dist})) {
                         if ($hash1{$id}[1] =~ /a\t/) {
-                            print OUTFILE1 "$hash1{$id}[1]\n$hash2{$id}[1]\n";
+                            print $bowtie_unique_out_fh "$hash1{$id}[1]\n$hash2{$id}[1]\n";
                         } else {
-                            print OUTFILE1 "$hash2{$id}[1]\n$hash1{$id}[1]\n";
+                            print $bowtie_unique_out_fh "$hash2{$id}[1]\n$hash1{$id}[1]\n";
                         }
                     }
                     $Eflag =0;
@@ -636,7 +664,7 @@ sub main {
                         $seq_j = addJunctionsToSeq($merged_seq, $merged_spans);
 
                         if ($seq_j =~ /\S/ && $merged_spans =~ /^\d+.*-.*\d+$/) {
-                            print OUTFILE1 "$seqnum\t$chra\t$merged_spans\t$seq_j\t$astrand\n";
+                            print $bowtie_unique_out_fh "$seqnum\t$chra\t$merged_spans\t$seq_j\t$astrand\n";
                         }
                         $Eflag =1;
                     }
@@ -702,21 +730,21 @@ sub main {
                 $str =~ /^(\d+)/;
                 $length_overlap2 = $1;
                 if (($length_overlap1 > $min_overlap1) && ($length_overlap2 > $min_overlap2) && ($chr1 eq $chr2)) {
-                    print OUTFILE1 "$hash2{$id}[1]\n";
-                    print OUTFILE1 "$hash2{$id}[2]\n";
+                    print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
+                    print $bowtie_unique_out_fh "$hash2{$id}[2]\n";
                 } else {
-                    print OUTFILE2 "$hash1{$id}[1]\n";
-                    print OUTFILE2 "$hash1{$id}[2]\n";
-                    print OUTFILE2 "$hash2{$id}[1]\n";
-                    print OUTFILE2 "$hash2{$id}[2]\n";
+                    print $cnu_out_fh "$hash1{$id}[1]\n";
+                    print $cnu_out_fh "$hash1{$id}[2]\n";
+                    print $cnu_out_fh "$hash2{$id}[1]\n";
+                    print $cnu_out_fh "$hash2{$id}[2]\n";
                 }
             }	
             # NINE CASES DONE
             # ONE CASE
             if ($hash1{$id}[0] == -1 && $hash2{$id}[0] == 2) {
-                print OUTFILE2 "$hash1{$id}[1]\n";
-                print OUTFILE2 "$hash2{$id}[1]\n";
-                print OUTFILE2 "$hash2{$id}[2]\n";
+                print $cnu_out_fh "$hash1{$id}[1]\n";
+                print $cnu_out_fh "$hash2{$id}[1]\n";
+                print $cnu_out_fh "$hash2{$id}[2]\n";
             }
             # ONE CASE
             if ($hash1{$id}[0] == 2 && $hash2{$id}[0] == -1) {
@@ -774,27 +802,27 @@ sub main {
                     $overlap2 = $1;
                 }
                 if ($overlap1 >= $min_overlap1 && $overlap2 >= $min_overlap2) {
-                    print OUTFILE1 "$hash2{$id}[1]\n";
+                    print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
                 } else {
-                    print OUTFILE2 "$hash1{$id}[1]\n";
-                    print OUTFILE2 "$hash1{$id}[2]\n";
-                    print OUTFILE2 "$hash2{$id}[1]\n";
+                    print $cnu_out_fh "$hash1{$id}[1]\n";
+                    print $cnu_out_fh "$hash1{$id}[2]\n";
+                    print $cnu_out_fh "$hash2{$id}[1]\n";
                 }
             }
             # ELEVEN CASES DONE
             if ($hash1{$id}[0] == -1 && $hash2{$id}[0] == 1) {
-                print OUTFILE1 "$hash1{$id}[1]\n";
+                print $bowtie_unique_out_fh "$hash1{$id}[1]\n";
             }
             if ($hash1{$id}[0] == 1 && $hash2{$id}[0] == -1) {
-                print OUTFILE1 "$hash2{$id}[1]\n";
+                print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
             }
             if ($hash1{$id}[0] == 1 && $hash2{$id}[0] == 2) {
-                print OUTFILE1 "$hash2{$id}[1]\n";
-                print OUTFILE1 "$hash2{$id}[2]\n";
+                print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
+                print $bowtie_unique_out_fh "$hash2{$id}[2]\n";
             }	
             if ($hash1{$id}[0] == 2 && $hash2{$id}[0] == 1) {
-                print OUTFILE1 "$hash1{$id}[1]\n";
-                print OUTFILE1 "$hash1{$id}[2]\n";
+                print $bowtie_unique_out_fh "$hash1{$id}[1]\n";
+                print $bowtie_unique_out_fh "$hash1{$id}[2]\n";
             }	
             # ALL FIFTEEN CASES DONE
         }
