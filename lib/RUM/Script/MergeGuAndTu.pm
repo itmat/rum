@@ -4,15 +4,16 @@ no warnings;
 
 use RUM::Logging;
 use RUM::Usage;
-use Getopt::Long;
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 $|=1;
 
 sub main {
 
-    GetOptions(
+    my $self = __PACKAGE__->new;
+
+    $self->get_options(
         "gu-in=s"            => \(my $infile3),
         "tu-in=s"            => \(my $infile4),
         "gnu-in=s"           => \(my $infile1),
@@ -23,10 +24,7 @@ sub main {
         "single"          => \(my $single),
         "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
         "read-length=s"   => \(my $readlength),
-        "min-overlap=s"   => \(my $user_min_overlap),
-        "help|h"          => sub { RUM::Usage->help },
-        "quiet|q"         => sub { $log->less_logging(1) },
-        "verbose|v"         => sub { $log->more_logging(1) });
+        "min-overlap=s"   => \(my $user_min_overlap));
 
     $infile3 or RUM::Usage->bad(
         "Please specify a genome unique input file with --gu");
