@@ -3,6 +3,7 @@ package RUM::Script::Base;
 use strict;
 use warnings;
 
+use Data::Dumper;
 use Scalar::Util qw(blessed);
 
 use Getopt::Long;
@@ -21,9 +22,9 @@ sub logger {
 sub get_options {
     my ($self, %options) = @_;
 
-    $options{'q|quiet'}   = sub { $self->logger->less_logging };
-    $options{'v|verbose'} = sub { $self->logger->more_logging };
-    $options{'h|help'}    = sub { RUM::Usage->help };
+    $options{  'quiet|q'} = sub { $self->logger->less_logging(1) };
+    $options{'verbose|v'} = sub { $self->logger->more_logging(1) };
+    $options{   'help|h'} = sub { RUM::Usage->help };
     GetOptions(%options);
 }
 
