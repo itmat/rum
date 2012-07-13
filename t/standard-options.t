@@ -105,6 +105,6 @@ for my $lib (@libs) {
     run_main($package, "--quiet", "-h");
     my $quiet_level = $log->level;
 
-    ok($verbose_level < $baseline_level, "$package: --verbose ($verbose_level vs $baseline_level)");
+    ok($verbose_level < $baseline_level, "$package: --verbose");
     ok($quiet_level > $verbose_level,    "$package: --quiet");
 }
