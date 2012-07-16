@@ -30,7 +30,7 @@ sub parse_locs {
 
 sub parse_aln {
     my ($self, $line) = @_;
-    
+
     my ($readid, $chr, $locs, $strand, $seq) = split /\t/, $line;
     $locs or croak "Got empty location in line '$line' (line number " 
     . $self->filehandle->input_line_number . ")";

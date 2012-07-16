@@ -238,7 +238,7 @@ sub run {
     my $gu_in_fh             = $self->{gu_in_fh};
     my $tu_in_fh             = $self->{tu_in_fh};
     my $bowtie_unique_out_fh = $self->{bowtie_unique_out_fh};
-    my $cnu_out_fh           = $self->{cnu_out};
+    my $cnu_out_fh           = $self->{cnu_out_fh};
 
     $num_lines_at_once = 10000;
     $linecount = 0;
