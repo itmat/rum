@@ -58,7 +58,7 @@ sub aln_array_ref_to_fh {
         my @fields = (
             $aln->readid,
             $aln->chromosome,
-            $aln->locs->[0][0] . "-" . $aln->locs->[0][1],
+            join(", ", map { "$_->[0]-$_->[1]" } @{ $aln->locs }),
             $aln->seq,
             $aln->strand
         );
@@ -83,6 +83,10 @@ sub test_merge {
 
     my $script = RUM::Script::MergeGuAndTu->new;
     
+    if (exists $options{read_length}) {
+        $script->{read_length} = $options{read_length};
+    }
+
     $script->{max_pair_dist} = 500000;
     for my $in_name (qw(gu tu gnu tnu)) {
         $script->{"${in_name}_in_fh"} = aln_array_ref_to_fh($options{"${in_name}_in"});
@@ -142,6 +146,14 @@ push @tests, {
     gu_in  => [ [ 'seq.1a', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
     tnu_in => [ [ 'seq.1a', 'chr2', [[5, 8]], 'AAAA', '+' ], 
                      [ 'seq.1a', 'chr3', [[5, 8]], 'AAAA', '+' ] ]
+};
+
+push @tests, {
+    name => "Ambiguous genome, forward transcriptome",
+    gnu_in => [ [ 'seq.1a', 'chr2', [[5, 8]], 'AAAA', '+' ], 
+                     [ 'seq.1a', 'chr3', [[5, 8]], 'AAAA', '+' ] ],
+
+    tu_in  => [ [ 'seq.1a', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
 };
 
 push @tests, {
@@ -375,9 +387,21 @@ push @tests, {
                 ],
  };
 
+push @tests, {
+    name => "Unique forward genome, reverse transcriptome, overlap",
 
-plan tests => scalar(@tests) * 2;
+    gu_in      => [ [ 'seq.1a', 'chr1', [[  1, 40], [ 61, 100] ], ('A' x 80), '+' ] ],
+    tu_in      => [ [ 'seq.1b', 'chr1', [[ 31, 70], [ 91, 130] ], ('A' x 80), '+' ] ],
+    unique_out => [ [ 'seq.1',  'chr1', [[ 2, 40], [61], [31, 70], [91, 130]], ('A' x 39) . '::' . ('A' x 40) . ':' . ('A' x 40), '+'] ]
+
+};
+
+
+plan tests => scalar(@tests) * 4;
 
 for my $test ( @tests ) {
     test_merge(%{ $test });
+    my %copy = %{ $test };
+    $copy{read_length} = 'v';
+    test_merge(%copy);
 }

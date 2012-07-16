@@ -510,6 +510,8 @@ sub run {
                     }
                     $Eflag =0;
 
+                    warn "Getting ready to take care of $aend and $bend\n";
+
                     if (($astrand eq $bstrand) && ($chra eq $chrb) && (($aend >= $bstart-1) && ($astart <= $bstart)) || (($bend >= $astart-1) && ($bstart <= $astart))) {
 
                         $aseq2 = $aseq;
@@ -524,7 +526,10 @@ sub run {
                         if (!($merged_spans =~ /\S/)) {
                             @AS = split(/-/,$aspans);
                             $AS[0]++;
+                            warn "Got in here aspans is $aspans, AS are @AS\n";
+
                             $aspans_temp = $AS[0] . "-" . $AS[1]; 
+                            warn "Aspans temp is $aspans_temp\n";
                             $aseq2_temp = $aseq2;
                             $aseq2_temp =~ s/^.//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
@@ -946,147 +951,149 @@ sub run {
         return $seq_out;
     }
 
-    sub merge () {
-        warn "Merging $upstreamspans and $downstreamspans\n";
-        ($upstreamspans, $downstreamspans, $seq1, $seq2) = @_;
+}
 
-        undef %HASH;
-        undef @Uarray;
-        undef @Darray;
-        undef @Upstreamspans;
-        undef @Downstreamspans;
-        undef @Ustarts;
-        undef @Dstarts;
-        undef @Uends;
-        undef @Dends;
-        undef @T;
+sub merge () {
+    use strict;
+    my ($upstreamspans, $downstreamspans, $seq1, $seq2) = @_;
+    warn "Merging $upstreamspans and $downstreamspans\n";
+    
+    my %HASH;
+    my @Uarray;
+    my @Darray;
 
-        @Upstreamspans = split(/, /,$upstreamspans);
-        @Downstreamspans = split(/, /,$downstreamspans);
-        $num_u = @Upstreamspans;
-        $num_d = @Downstreamspans;
-        for ($i1=0; $i1<$num_u; $i1++) {
-            @T = split(/-/, $Upstreamspans[$i1]);
-            $Ustarts[$i1] = $T[0];
-            $Uends[$i1] = $T[1];
-        }
-        for ($i1=0; $i1<$num_d; $i1++) {
-            @T = split(/-/, $Downstreamspans[$i1]);
-            $Dstarts[$i1] = $T[0];
-            $Dends[$i1] = $T[1];
-        }
-        # the last few bases of the upstream read might be misaligned downstream of the entire
-        # downstream read, the following chops them off and tries again
-
-        if ($num_u > 1 && ($Uends[$num_u-1]-$Ustarts[$num_u-1]) <= 5) {
-            if ($Dends[$num_d-1] < $Uends[$num_u-1]) {
-                $upstreamspans =~ s/, (\d+)-(\d+)$//;
-                $length_diff = $2 - $1 + 1;
-                for ($i1=0; $i1<$length_diff; $i1++) {
-                    $seq1 =~ s/.$//;
-                }
-                ($merged, $merged_seq) = merge($upstreamspans, $downstreamspans, $seq1, $seq2);
-                return ($merged, $merged_seq);
-            }
-        }
-        # similarly, the first few bases of the downstream read might be misaligned upstream of the entire
-        # upstream read, the following chops them off and tries again
-
-        if ($num_u > 1 && ($Dends[0]-$Dstarts[0]) <= 5) {
-            if ($Dstarts[0] < $Ustarts[0]) {
-                $downstreamspans =~ s/^(\d+)-(\d+), //;
-                $length_diff = $2 - $1 + 1;
-                for ($i1=0; $i1<$length_diff; $i1++) {
-                    $seq2 =~ s/^.//;
-                }
-                ($merged, $merged_seq) = merge($upstreamspans, $downstreamspans, $seq1, $seq2);
-                return ($merged, $merged_seq);
-            }
-        }
-
-        # next two if statements take care of the case where they do not overlap
-
-        if ($Uends[$num_u-1] == $Dstarts[0]-1) {
-            $upstreamspans =~ s/-\d+$//;
-            $downstreamspans =~ s/^\d+-//;
-            $seq = $seq1 . $seq2;
-            $merged = $upstreamspans . "-" . $downstreamspans;
-            return ($merged, $seq);
-        }
-        if ($Uends[$num_u-1] < $Dstarts[0]-1) {
-            $seq = $seq1 . $seq2;
-            $merged = $upstreamspans . ", " . $downstreamspans;
-            return ($merged, $seq);
-        }
-
-        # now going to do a bunch of checks that these reads coords are consistent with 
-        # them really being overlapping
-
-        # the following merges the upstream starts and ends into one array
-        for ($i1=0; $i1<$num_u; $i1++) {
-            $Uarray[2*$i1] = $Ustarts[$i1];
-            $Uarray[2*$i1+1] = $Uends[$i1];
-        }
-        # the following merges the downstream starts and ends into one array
-        for ($i1=0; $i1<$num_d; $i1++) {
-            $Darray[2*$i1] = $Dstarts[$i1];
-            $Darray[2*$i1+1] = $Dends[$i1];
-        }
-        $Flength = 0;
-        $Rlength = 0;
-        for ($i1=0; $i1<@Uarray; $i1=$i1+2) {
-            $Flength = $Flength + $Uarray[$i1+1] - $Uarray[$i1] + 1;
-        }
-        for ($i1=0; $i1<@Darray; $i1=$i1+2) {
-            $Rlength = $Rlength + $Darray[$i1+1] - $Darray[$i1] + 1;
-        }
-        $i1=0;
-        $flag1 = 0;
-        # try to find a upstream span that contains the start of the downstream read
-        until ($i1>=@Uarray || ($Uarray[$i1] <= $Darray[0] && $Darray[0] <= $Uarray[$i1+1])) {
-            $i1 = $i1+2;
-        } 
-        if ($i1>=@Uarray) {     # didn't find one...
-            $flag1 = 1;
-        }
-        $Fhold = $Uarray[$i1];
-        # the following checks the spans in the overlap have the same starts and ends
-        for ($j1=$i1+1; $j1<@Uarray-1; $j1++) {
-            if ($Uarray[$j1] != $Darray[$j1-$i1]) {
-                $flag1 = 1;
-            } 
-        }
-        $Rhold = $Darray[@Uarray-1-$i1];
-        # make sure the end of the upstream ends in a span of the downstream   
-        if (!($Uarray[@Uarray-1] >= $Darray[@Uarray-$i1-2] && $Uarray[@Uarray-1] <= $Darray[@Uarray-$i1-1])) {
-            $flag1 = 1;
-        }
-        $merged="";
-        $Darray[0] = $Fhold;
-        $Uarray[@Uarray-1] = $Rhold;
-        if ($flag1 == 0) { # everything is kosher, going to proceed to merge
-            for ($i1=0; $i1<@Uarray-1; $i1=$i1+2) {
-                $HASH{"$Uarray[$i1]-$Uarray[$i1+1]"}++;
-            }
-            for ($i1=0; $i1<@Darray-1; $i1=$i1+2) {
-                $HASH{"$Darray[$i1]-$Darray[$i1+1]"}++;
-            }
-            $merged_length=0;
-            foreach $key_i (sort {$a<=>$b} keys %HASH) {
-                $merged = $merged . ", $key_i";
-                @A = split(/-/,$key_i);
-                $merged_length = $merged_length + $A[1] - $A[0] + 1;
-            }
-            $suffix_length = $merged_length - $Flength;
-            $offset = $Rlength - $suffix_length;
-            $suffix = substr($seq2, $offset, $merged_length);
-            $merged =~ s/\s*,\s*$//;
-            $merged =~ s/^\s*,\s*//;
-            $merged_seq = $seq1 . $suffix;
-            return ($merged, $merged_seq);
-        }
-        warn "Returning undef!\n";
-        return;
-
+    my @Ustarts;
+    my @Dstarts;
+    my @Uends;
+    my @Dends;
+    my @T;
+    
+    my @Upstreamspans = split(/, /,$upstreamspans);
+    my @Downstreamspans = split(/, /,$downstreamspans);
+    my $num_u = @Upstreamspans;
+    my $num_d = @Downstreamspans;
+    for (my $i1=0; $i1<$num_u; $i1++) {
+        @T = split(/-/, $Upstreamspans[$i1]);
+        $Ustarts[$i1] = $T[0];
+        $Uends[$i1] = $T[1];
     }
+    for (my $i1=0; $i1<$num_d; $i1++) {
+        @T = split(/-/, $Downstreamspans[$i1]);
+        $Dstarts[$i1] = $T[0];
+        $Dends[$i1] = $T[1];
+    }
+    
+    warn "Num u is $num_u, num d is $num_d\n";
+    
+    # the last few bases of the upstream read might be misaligned downstream of the entire
+    # downstream read, the following chops them off and tries again
+    
+    if ($num_u > 1 && ($Uends[$num_u-1]-$Ustarts[$num_u-1]) <= 5) {
+        if ($Dends[$num_d-1] < $Uends[$num_u-1]) {
+            $upstreamspans =~ s/, (\d+)-(\d+)$//;
+            my $length_diff = $2 - $1 + 1;
+            for (my $i1=0; $i1<$length_diff; $i1++) {
+                $seq1 =~ s/.$//;
+            }
+            return merge($upstreamspans, $downstreamspans, $seq1, $seq2);
+        }
+    }
+    # similarly, the first few bases of the downstream read might be misaligned upstream of the entire
+    # upstream read, the following chops them off and tries again
+    
+    if ($num_u > 1 && ($Dends[0]-$Dstarts[0]) <= 5) {
+        if ($Dstarts[0] < $Ustarts[0]) {
+            $downstreamspans =~ s/^(\d+)-(\d+), //;
+            my $length_diff = $2 - $1 + 1;
+            for (my $i1=0; $i1<$length_diff; $i1++) {
+                $seq2 =~ s/^.//;
+            }
+            return merge($upstreamspans, $downstreamspans, $seq1, $seq2);
+        }
+    }
+
+    # next two if statements take care of the case where they do not overlap
+    
+    if ($Uends[$num_u-1] == $Dstarts[0]-1) {
+        $upstreamspans =~ s/-\d+$//;
+        $downstreamspans =~ s/^\d+-//;
+        my $seq = $seq1 . $seq2;
+        my $merged = $upstreamspans . "-" . $downstreamspans;
+        return ($merged, $seq);
+    }
+    if ($Uends[$num_u-1] < $Dstarts[0]-1) {
+        my $seq = $seq1 . $seq2;
+        my $merged = $upstreamspans . ", " . $downstreamspans;
+        return ($merged, $seq);
+    }
+
+    # now going to do a bunch of checks that these reads coords are consistent with 
+    # them really being overlapping
+    
+    # the following merges the upstream starts and ends into one array
+    for (my $i1=0; $i1<$num_u; $i1++) {
+        $Uarray[2*$i1] = $Ustarts[$i1];
+        $Uarray[2*$i1+1] = $Uends[$i1];
+    }
+    # the following merges the downstream starts and ends into one array
+    for (my $i1=0; $i1<$num_d; $i1++) {
+        $Darray[2*$i1] = $Dstarts[$i1];
+        $Darray[2*$i1+1] = $Dends[$i1];
+    }
+    my $Flength = 0;
+    my $Rlength = 0;
+    for (my $i1=0; $i1<@Uarray; $i1=$i1+2) {
+        $Flength = $Flength + $Uarray[$i1+1] - $Uarray[$i1] + 1;
+    }
+    for (my $i1=0; $i1<@Darray; $i1=$i1+2) {
+        $Rlength = $Rlength + $Darray[$i1+1] - $Darray[$i1] + 1;
+    }
+    my $i1=0;
+    my $flag1 = 0;
+    # try to find a upstream span that contains the start of the downstream read
+    until ($i1>=@Uarray || ($Uarray[$i1] <= $Darray[0] && $Darray[0] <= $Uarray[$i1+1])) {
+        $i1 = $i1+2;
+    } 
+    if ($i1>=@Uarray) {     # didn't find one...
+        $flag1 = 1;
+    }
+    my $Fhold = $Uarray[$i1];
+    # the following checks the spans in the overlap have the same starts and ends
+    for (my $j1=$i1+1; $j1<@Uarray-1; $j1++) {
+        if ($Uarray[$j1] != $Darray[$j1-$i1]) {
+            $flag1 = 1;
+        } 
+    }
+    my $Rhold = $Darray[@Uarray-1-$i1];
+    # make sure the end of the upstream ends in a span of the downstream   
+    if (!($Uarray[@Uarray-1] >= $Darray[@Uarray-$i1-2] && $Uarray[@Uarray-1] <= $Darray[@Uarray-$i1-1])) {
+        $flag1 = 1;
+    }
+    my $merged="";
+    $Darray[0] = $Fhold;
+    $Uarray[@Uarray-1] = $Rhold;
+    if ($flag1 == 0) { # everything is kosher, going to proceed to merge
+        for ($i1=0; $i1<@Uarray-1; $i1=$i1+2) {
+            $HASH{"$Uarray[$i1]-$Uarray[$i1+1]"}++;
+        }
+        for ($i1=0; $i1<@Darray-1; $i1=$i1+2) {
+            $HASH{"$Darray[$i1]-$Darray[$i1+1]"}++;
+        }
+        my $merged_length=0;
+        foreach my $key_i (sort {$a<=>$b} keys %HASH) {
+            $merged = $merged . ", $key_i";
+            my @A = split(/-/,$key_i);
+            $merged_length = $merged_length + $A[1] - $A[0] + 1;
+        }
+        my $suffix_length = $merged_length - $Flength;
+        my $offset = $Rlength - $suffix_length;
+        my $suffix = substr($seq2, $offset, $merged_length);
+        $merged =~ s/\s*,\s*$//;
+        $merged =~ s/^\s*,\s*//;
+        my $merged_seq = $seq1 . $suffix;
+        return ($merged, $merged_seq);
+    }
+    warn "Returning undef!\n";
+    return;
+    
 }
