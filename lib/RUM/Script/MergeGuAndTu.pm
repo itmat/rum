@@ -947,6 +947,7 @@ sub run {
     }
 
     sub merge () {
+        warn "Merging $upstreamspans and $downstreamspans\n";
         ($upstreamspans, $downstreamspans, $seq1, $seq2) = @_;
 
         undef %HASH;
@@ -1084,5 +1085,8 @@ sub run {
             $merged_seq = $seq1 . $suffix;
             return ($merged, $merged_seq);
         }
+        warn "Returning undef!\n";
+        return;
+
     }
 }

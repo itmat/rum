@@ -269,6 +269,113 @@ push @tests, {
 };
 
 
+push @tests, {
+    name => "Unique forward genome, reverse transcriptome, no overlap",
+
+    gu_in      => [ [ 'seq.1a', 'chr1',  [[101, 175]], ('A' x 75), '-' ] ],
+    tu_in      => [ [ 'seq.1b', 'chr1',  [[  1,  75]], ('A' x 75), '-' ] ],
+    unique_out => [ [ 'seq.1a',  'chr1', [[101, 175]], ('A' x 75), '-' ],
+                    [ 'seq.1b', 'chr1',  [[  1,  75]], ('A' x 75), '-' ] ]
+};
+
+push @tests, {
+    name => "Unique reverse genome, forward transcriptome, no overlap",
+
+    gu_in      => [ [ 'seq.1b', 'chr1',  [[  1,  75]], ('A' x 75), '-' ] ],
+    tu_in      => [ [ 'seq.1a', 'chr1',  [[101, 175]], ('A' x 75), '-' ] ],
+    unique_out => [ [ 'seq.1a',  'chr1', [[101, 175]],    ('A' x 75), '-' ],
+                    [ 'seq.1b', 'chr1',  [[  1,  75]], ('A' x 75), '-' ] ]
+};
+
+push @tests, {
+    name => "Unique forward genome, reverse transcriptome, overlap",
+
+    gu_in      => [ [ 'seq.1a', 'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+    tu_in      => [ [ 'seq.1b', 'chr1', [[ 51, 125]], ('A' x 75), '+' ] ],
+    unique_out => [ [ 'seq.1',  'chr1', [[  1, 125]], ('A' x 125), '+' ] ]};
+
+
+push @tests, {
+    name => "Unique unjoined genome, unjoined transcriptome",
+
+    gu_in      => [ [ 'seq.1a', 'chr1', [[  1,  75]], ('A' x 75), '+' ],
+                    [ 'seq.1b', 'chr1', [[101, 175]], ('A' x 75), '+' ] ],
+
+    tu_in      => [ [ 'seq.1a', 'chr1', [[201, 275]], ('A' x 75), '+' ],
+                    [ 'seq.1b', 'chr1', [[301, 375]], ('A' x 75), '+' ] ],
+
+    cnu_out => [ [ 'seq.1a',  'chr1', [[  1,  75]], ('A' x 75), '+' ],
+                 [ 'seq.1b',  'chr1', [[101, 175]], ('A' x 75), '+' ],
+                 [ 'seq.1a', 'chr1', [[201, 275]], ('A' x 75), '+' ],
+                 [ 'seq.1b', 'chr1', [[301, 375]], ('A' x 75), '+' ] ] };
+
+push @tests, {
+    name => "Unique joined genome, unjoined transcriptome",
+
+    gu_in      => [ [ 'seq.1', 'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+
+    tu_in      => [ [ 'seq.1a', 'chr1', [[201, 275]], ('A' x 75), '+' ],
+                    [ 'seq.1b', 'chr1', [[301, 375]], ('A' x 75), '+' ] ],
+
+    cnu_out => [ [ 'seq.1',  'chr1', [[  1,  75]], ('A' x 75), '+' ],
+                 [ 'seq.1a', 'chr1', [[201, 275]], ('A' x 75), '+' ],
+                 [ 'seq.1b', 'chr1', [[301, 375]], ('A' x 75), '+' ] ] };
+
+push @tests, {
+    name => "Unique unjoined genome, joined transcriptome",
+
+    gu_in      => [ [ 'seq.1a', 'chr1', [[201, 275]], ('A' x 75), '+' ],
+                    [ 'seq.1b', 'chr1', [[301, 375]], ('A' x 75), '+' ] ],
+
+    tu_in      => [ [ 'seq.1', 'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+
+    cnu_out => [ [ 'seq.1a', 'chr1', [[201, 275]], ('A' x 75), '+' ],
+                 [ 'seq.1b', 'chr1', [[301, 375]], ('A' x 75), '+' ],
+                 [ 'seq.1',  'chr1', [[  1,  75]], ('A' x 75), '+' ] ] };
+
+push @tests, {
+    name => "Unique joined genome, forward transcriptome",
+
+    gu_in      => [ [ 'seq.1',  'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+    tu_in      => [ [ 'seq.1a', 'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+
+    unique_out => [ [ 'seq.1', 'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+ };
+
+
+push @tests, {
+    name => "Unique joined genome, reverse transcriptome",
+
+    gu_in      => [ [ 'seq.1',  'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+    tu_in      => [ [ 'seq.1b', 'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+
+    unique_out => [ [ 'seq.1', 'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+ };
+
+
+push @tests, {
+    name => "Unique forward genome, joined transcriptome",
+
+    gu_in      => [ [ 'seq.1a',  'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+    tu_in      => [ [ 'seq.1',   'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+
+    unique_out => [ [ 'seq.1', 'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+ };
+
+push @tests, {
+    name => "Unique forward genome, unjoined transcriptome",
+
+    gu_in      => [ [ 'seq.1a',  'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+    tu_in      => [ [ 'seq.1a',   'chr1', [[  1,  75]], ('A' x 75), '+' ],
+                    [ 'seq.1b',   'chr1', [[101, 175]], ('A' x 75), '+' ],
+                ],
+
+    unique_out => [ [ 'seq.1a', 'chr1', [[  1,  75]], ('A' x 75), '+' ],
+                    [ 'seq.1b', 'chr1', [[101, 175]], ('A' x 75), '+' ],
+                ],
+ };
+
+
 plan tests => scalar(@tests) * 2;
 
 for my $test ( @tests ) {
