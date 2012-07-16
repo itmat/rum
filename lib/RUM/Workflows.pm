@@ -671,12 +671,14 @@ sub postprocessing_workflow {
             ["perl", $c->script("sort_by_location.pl"),
              "-o", post($junctions_all_rum),
              "--location", 1,
+             '--skip', 1,
              pre(junctions('all', 'rum'))]);
 
         $w->step(
             "Sort junctions (all, bed) by location",
             ["perl", $c->script("sort_by_location.pl"),
              "-o", post($junctions_all_bed),
+             '--skip', 1,
              "--chromosome", 1,
              "--start", 2,
              "--end", 3,
@@ -686,6 +688,7 @@ sub postprocessing_workflow {
             "Sort junctions (high-quality, bed) by location",
             ["perl", $c->script("sort_by_location.pl"),
              "-o", post($junctions_high_quality_bed),
+             '--skip', 1,
              "--chromosome", 1,
              "--start", 2,
              "--end", 3,
