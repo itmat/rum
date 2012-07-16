@@ -169,7 +169,7 @@ sub run {
             $cnt = 0;
             my $infile = $self->{tnu_in_fh};
             
-            while ($line = <INFILE>) {
+            while ($line = <$infile>) {
                 if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
                     chomp($line);
                     @a = split(/\t/,$line);
@@ -223,15 +223,16 @@ sub run {
         
         while ($line = <$gnu_in_fh>) {
             $line =~ /^seq.(\d+)/;
-            $ambiguous_mappers{$1}++;
+            $self->{ambiguous_mappers}->{$1}++;
         }
     }
     
     {
-        my $tnu_in_fh = $self->{tnu_in};
-        while ($line = <INFILE>) {
+        my $tnu_in_fh = $self->{tnu_in_fh};
+        while ($line = <$tnu_in_fh>) {
+            warn "Got TNU $line\n";
             $line =~ /^seq.(\d+)/;
-            $ambiguous_mappers{$1}++;
+            $self->{ambiguous_mappers}->{$1}++;
         }
     }
     
@@ -314,7 +315,7 @@ sub run {
             $line_prev = $line;
         }
         foreach $id (sort {$a <=> $b} keys %allids) {
-            if ($ambiguous_mappers{$id}+0 > 0) {
+            if ($self->{ambiguous_mappers}->{$id}+0 > 0) {
                 next;
             }
             $hash1{$id}[0] = $hash1{$id}[0] + 0;
@@ -491,6 +492,8 @@ sub run {
 
                     # the next two if's take care of the case that there is no overlap, one read lies entirely downstream of the other
 		
+                    warn "astrand $astrand, bstrand $bstrand, atype $atype, btype $btype, chra $chra, chrb $chrb, aend $aend, bstart $bstart, max pair dist $self->{max_pair_dist}\n";
+
                     if ((($astrand eq "+" && $bstrand eq "+" && $atype eq "forward" && $btype eq "reverse") || ($astrand eq "-" && $bstrand eq "-" && $atype eq "reverse" && $btype eq "forward")) && ($chra eq $chrb) && ($aend < $bstart-1) && ($bstart - $aend < $self->{max_pair_dist})) {
                         if ($hash1{$id}[1] =~ /a\t/) {
                             print $bowtie_unique_out_fh "$hash1{$id}[1]\n$hash2{$id}[1]\n";

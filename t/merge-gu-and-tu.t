@@ -55,7 +55,6 @@ sub aln_array_ref_to_fh {
                 strand => $aln->[4],
             );
         }
-        warn "Aln is $aln\n";
         my @fields = (
             $aln->readid,
             $aln->chromosome,
@@ -72,6 +71,7 @@ sub aln_array_ref_to_fh {
 
 sub parse_out {
     my ($str) = @_;
+    $str ||= '';
     $str =~ s/^\n*//;
     open my $fh, '<', \$str;
     return RUM::RUMIO->new(-fh => $fh,
@@ -83,6 +83,7 @@ sub test_merge {
 
     my $script = RUM::Script::MergeGuAndTu->new;
     
+    $script->{max_pair_dist} = 500000;
     for my $in_name (qw(gu tu gnu tnu)) {
         $script->{"${in_name}_in_fh"} = aln_array_ref_to_fh($options{"${in_name}_in"});
     }
@@ -135,6 +136,43 @@ push @tests, {
     unique_out => [ [ 'seq.1a', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
 };
 
+push @tests, {
+    name => "Unique forward mapping against genome with ambiguous transcriptome",
+
+    gu_in  => [ [ 'seq.1a', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
+    tnu_in => [ [ 'seq.1a', 'chr2', [[5, 8]], 'AAAA', '+' ], 
+                     [ 'seq.1a', 'chr3', [[5, 8]], 'AAAA', '+' ] ]
+};
+
+push @tests, {
+    name => "Unique reverse mapping against genome",
+
+    gu_in      => [ [ 'seq.1b', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
+    unique_out => [ [ 'seq.1b', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
+};
+
+push @tests, {
+    name => "Unique reverse mapping against transcriptome",
+
+    tu_in      => [ [ 'seq.1b', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
+    unique_out => [ [ 'seq.1b', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
+};
+
+
+push @tests, {
+    name => "Unique joined mapping against genome",
+
+    gu_in      => [ [ 'seq.1', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
+    unique_out => [ [ 'seq.1', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
+};
+
+push @tests, {
+    name => "Unique joined mapping against transcriptome",
+
+    tu_in      => [ [ 'seq.1', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
+    unique_out => [ [ 'seq.1', 'chr1', [[5, 8]], 'AAAA', '+' ] ],
+};
+
 
 push @tests, {
     name => "Unique overlapping joined transcriptome and genome mappings",
@@ -170,6 +208,66 @@ push @tests, {
     tu_in      => [ [ 'seq.1a', 'chr1', [[1, 75]], ('A' x 75), '+' ] ],
     unique_out => [ [ 'seq.1a', 'chr1', [[1, 75]], ('A' x 75), '+' ] ],
 };
+
+push @tests, {
+    name => "Unique identical reverse mappings",
+
+    gu_in      => [ [ 'seq.1b', 'chr1', [[1, 75]], ('A' x 75), '+' ] ],
+    tu_in      => [ [ 'seq.1b', 'chr1', [[1, 75]], ('A' x 75), '+' ] ],
+    unique_out => [ [ 'seq.1b', 'chr1', [[1, 75]], ('A' x 75), '+' ] ],
+};
+
+push @tests, {
+    name => "Unique forward genome, reverse transcriptome",
+
+    gu_in      => [ [ 'seq.1a', 'chr1', [[1, 75]], ('A' x 75), '+' ] ],
+    tu_in      => [ [ 'seq.1b', 'chr1', [[1, 75]], ('A' x 75), '+' ] ],
+    unique_out => [ [ 'seq.1',  'chr1', [[1, 75]], ('A' x 75), '+' ] ],
+};
+
+push @tests, {
+    name => "Unique reverse genome, forward transcriptome",
+
+    gu_in      => [ [ 'seq.1b', 'chr1', [[1, 75]], ('A' x 75), '+' ] ],
+    tu_in      => [ [ 'seq.1a', 'chr1', [[1, 75]], ('A' x 75), '+' ] ],
+    unique_out => [ [ 'seq.1',  'chr1', [[1, 75]], ('A' x 75), '+' ] ],
+};
+
+push @tests, {
+    name => "Unique forward genome, reverse transcriptome, - strand",
+
+    gu_in      => [ [ 'seq.1a', 'chr1', [[1, 75]], ('A' x 75), '-' ] ],
+    tu_in      => [ [ 'seq.1b', 'chr1', [[1, 75]], ('A' x 75), '-' ] ],
+    unique_out => [ [ 'seq.1',  'chr1', [[1, 75]], ('A' x 75), '-' ] ],
+};
+
+push @tests, {
+    name => "Unique reverse genome, forward transcriptome, - strand",
+
+    gu_in      => [ [ 'seq.1b', 'chr1', [[1, 75]], ('A' x 75), '-' ] ],
+    tu_in      => [ [ 'seq.1a', 'chr1', [[1, 75]], ('A' x 75), '-' ] ],
+    unique_out => [ [ 'seq.1',  'chr1', [[1, 75]], ('A' x 75), '-' ] ],
+};
+
+
+push @tests, {
+    name => "Unique forward genome, reverse transcriptome, no overlap",
+
+    gu_in      => [ [ 'seq.1a', 'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+    tu_in      => [ [ 'seq.1b', 'chr1', [[101, 175]], ('A' x 75), '+' ] ],
+    unique_out => [ [ 'seq.1a',  'chr1', [[1, 75]],    ('A' x 75), '+' ],
+                    [ 'seq.1b', 'chr1', [[101, 175]], ('A' x 75), '+' ] ]
+};
+
+push @tests, {
+    name => "Unique reverse genome, forward transcriptome, no overlap",
+
+    gu_in      => [ [ 'seq.1b', 'chr1', [[101, 175]], ('A' x 75), '+' ] ],
+    tu_in      => [ [ 'seq.1a', 'chr1', [[  1,  75]], ('A' x 75), '+' ] ],
+    unique_out => [ [ 'seq.1a',  'chr1', [[1, 75]],    ('A' x 75), '+' ],
+                    [ 'seq.1b', 'chr1', [[101, 175]], ('A' x 75), '+' ] ]
+};
+
 
 plan tests => scalar(@tests) * 2;
 
