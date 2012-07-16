@@ -75,7 +75,11 @@ sub main {
 
     my $self = __PACKAGE__->new;
     $self->parse_command_line;
-    
+    $self->run;
+}
+
+sub run {
+    my ($self) = @_;
     if ($self->{read_length} == 0) {
         {
             my $infile = $self->{tu_in_fh};

@@ -33,3 +33,13 @@ for my $type (qw(paired single)) {
     no_diffs($cnu, "$EXPECTED_DIR/$type-cnu", "$type cnu");
 }
 
+sub test_merge {
+    my %options = @_;
+
+    my $gu_in             = $options{gu_in};
+    my $tu_in             = $options{tu_in};
+    my $gnu_in            = $options{gu_in};
+    my $tnu_in            = $options{tu_in};
+    my $bowtie_unique_out = $options{bowtie_unique_out};
+    my $cnu_out           = $options{cnu_out};
+}
