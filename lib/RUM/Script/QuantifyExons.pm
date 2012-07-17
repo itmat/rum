@@ -12,9 +12,6 @@ use strict;
 
 sub main {
 
-
-    
-
     my %EXON_temp;
     my %cnt;
     my @A;
@@ -56,29 +53,14 @@ sub main {
             "--strand must be p or m, not $strand");
     }
 
-
-    # read in the info file, if given
-
-    my %INFO;
-    if ($infofile) {
-        open(INFILE, $infofile) 
-            or die "Can't open $infofile for reading: $!";
-        while (my $line = <INFILE>) {
-            chomp($line);
-            my @a = split(/\t/,$line);
-            $INFO{$a[0]} = $a[1];
-        }
-        close(INFILE);
-    }
-
 # read in the transcript models
 
     open(INFILE, $annotfile) or die "ERROR: in script rum2quantifications.pl: cannot open '$annotfile' for reading.\n\n";
-my %EXON;
-my %CHRS;
+    my %EXON;
+    my %CHRS;
     while (my $line = <INFILE>) {
         chomp($line);
-        my @a = split(/\t/,$line);
+        my @a = split /\t/, $line;
         if ($novel && $a[1] eq "annotated") {
             next;
         } 
@@ -90,6 +72,7 @@ my %CHRS;
                 next;
             }
         }
+
         $a[0] =~ /^(.*):(\d+)-(\d+)$/;
         my $chr = $1;
         my $start = $2;
@@ -102,7 +85,7 @@ my %CHRS;
         $EXON{$chr}[$ecnt{$chr}]{end} = $end;
         $ecnt{$chr}++;
     }
-
+    
     my $readfile = sub {
         my ($filename, $type) = @_;
         open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
@@ -148,6 +131,7 @@ my %CHRS;
                 }
             }
             my $CHR = $a[1];
+
             $HASH{$CHR}++;
             #	if($HASH{$CHR} == 1) {
             #	    print "CHR: $CHR\n";
@@ -215,15 +199,16 @@ my %CHRS;
     open(OUTFILE1, ">$outfile1") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile1' for writing.\n\n";
     my $num_reads = $UREADS;
     $num_reads = $num_reads + (scalar keys %NUREADS);
-if ($countsonly) {
+    if ($countsonly) {
         print OUTFILE1 "num_reads = $num_reads\n";
     }
     foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
+
         for (my $i=0; $i<$ecnt{$chr}; $i++) {
             my $x1 = $EXON{$chr}[$i]{Ucount}+0;
             my $x2 = $EXON{$chr}[$i]{NUcount}+0;
-            my $s = $EXON{$chr}[$i]{start};
-            my $e = $EXON{$chr}[$i]{end};
+            my $s  = $EXON{$chr}[$i]{start};
+            my $e  = $EXON{$chr}[$i]{end};
             my $elen = $e - $s + 1;
             #	print OUTFILE1 "transcript\t$chr:$s-$e\t$x1\t$x2\t$elen\t+\t$chr:$s-$e\n";
             print OUTFILE1 "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
