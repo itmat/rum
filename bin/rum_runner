@@ -94,6 +94,8 @@ check the status by running C<rum_runner status -o I<dir>>, where
 I<dir> is the output directory. You can kill it by running
 C<rum_runner I<kill>> or C<rum_runner kill -o I<dir>>.
 
+B<Note>: Please run C<rum_runner help align> to see all of the options
+you can use when running an alignment.
 
 =head1 OPTIONS
 

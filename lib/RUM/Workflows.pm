@@ -671,12 +671,14 @@ sub postprocessing_workflow {
             ["perl", $c->script("sort_by_location.pl"),
              "-o", post($junctions_all_rum),
              "--location", 1,
+             '--skip', 1,
              pre(junctions('all', 'rum'))]);
 
         $w->step(
             "Sort junctions (all, bed) by location",
             ["perl", $c->script("sort_by_location.pl"),
              "-o", post($junctions_all_bed),
+             '--skip', 1,
              "--chromosome", 1,
              "--start", 2,
              "--end", 3,
@@ -686,6 +688,7 @@ sub postprocessing_workflow {
             "Sort junctions (high-quality, bed) by location",
             ["perl", $c->script("sort_by_location.pl"),
              "-o", post($junctions_high_quality_bed),
+             '--skip', 1,
              "--chromosome", 1,
              "--start", 2,
              "--end", 3,
@@ -755,19 +758,16 @@ sub postprocessing_workflow {
             $w->step(
                 "Quantify novel exons",
                 ["perl", $c->script("quantifyexons.pl"),
-                 "--exons-in", pre($inferred_internal_exons),
+                 "--exons-in", pre($inferred_internal_exons_txt),
                  "--unique-in", pre($rum_unique),
                  "--non-unique-in", pre($rum_nu),
-                 "-o", post($c->in_output_dir("quant_novel.1")),
-                 "--novel", "--countsonly"]);
-            
-            $w->step(
-                "Merge novel exons",
+                 "-o", $c->in_postproc_dir("quant.1"),
+                 "--novel", "--countsonly"],
                 ["perl", $c->script("merge_quants.pl"),
                  "--chunks", 1,
                  "-o", post($c->in_postproc_dir("novel_exon_quant_temp")),
                  "--header",
-                 $c->output_dir . "/chunks"],
+                 $c->postproc_dir],
                 ["grep", "-v", "transcript",
                  post($c->in_postproc_dir("novel_exon_quant_temp")),
                  ">", post($c->novel_inferred_internal_exons_quantifications)]);
