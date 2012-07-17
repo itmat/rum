@@ -19,6 +19,7 @@ use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
 use Carp;
 use Data::Dumper;
+
 use RUM::Action::Clean;
 
 use RUM::Directives;
@@ -28,6 +29,7 @@ use RUM::Usage;
 use RUM::Pipeline;
 use RUM::Common qw(format_large_int);
 use RUM::Lock;
+use RUM::JobReport;
 
 use base 'RUM::Base';
 
@@ -85,7 +87,10 @@ sub run {
     }
 
     $self->config->save unless $d->child;
-    $self->dump_config;
+    my $report = RUM::JobReport->new($c);
+    if ( ! ($d->parent || $d->child)) {
+        $report->print_header;
+    }
 
     if ( !$local && ! ( $d->parent || $d->child ) ) {
         $self->logsay("Submitting tasks and exiting");
@@ -132,6 +137,7 @@ sub run {
             $platform->postprocess;
             $self->_final_check;
         }
+
     }
     RUM::Lock->release;
 }
@@ -601,33 +607,47 @@ sub check_gamma {
     }
 }
 
-=item dump_config
-
-Dump the configuration file to the log.
-
-=cut
-
-sub dump_config {
-    my ($self) = @_;
-    $log->debug("-" x 40);
-    $log->debug("Job configuration");
-    $log->debug("RUM Version: $RUM::Pipeline::VERSION");
-    
-    for my $key ($self->config->properties) {
-        my $val = $self->config->get($key);
-        next unless defined $val;
-        $val = Data::Dumper->new([$val])->Indent(0)->Dump if ref($val);
-        $log->debug("$key: $val");
-    }
-    $log->debug("-" x 40);
-}
-
 =item check_ram
 
 Make sure there seems to be enough ram, based on the size of the
 genome.
 
 =cut
+
+sub prompt_not_enough_ram {
+    my ($self, %options) = @_;
+
+    my $min_ram       = delete $options{min_ram};
+    my $num_chunks    = delete $options{num_chunks};
+    my $ram_per_chunk = delete $options{ram_per_chunk};
+    my $total_ram     = delete $options{total_ram};
+
+    my $prompt = <<"EOF";
+WARNING ***
+
+Based on the size of your genome, this job will require about $min_ram
+GB of RAM for each chunk. You seem to have about $total_ram GB of RAM,
+or about $ram_per_chunk GB per chunk. If you run all $num_chunks
+chunks at the same time on this machine, it may fail.  Do you still
+want me to split the input into $num_chunks chunks?
+
+y or n: 
+EOF
+
+    $prompt = fill('*** ', '*** ', $prompt);
+    chomp $prompt;
+
+    $log->info($prompt);
+
+    print $prompt;
+
+    my $response = <STDIN>;
+    if ($response !~ /^y$/i) {
+        $log->info("User responded to not-enough-memory prompt with " 
+                   . "$response; exiting");
+        exit;
+    }
+}
 
 sub check_ram {
 
@@ -656,9 +676,11 @@ sub check_ram {
     my $RAMperchunk;
     my $ram;
 
+    my $num_chunks = $c->num_chunks || 1;
+    
     # We couldn't figure out RAM, warn user.
     if ($totalram) {
-        $RAMperchunk = $totalram / ($c->num_chunks||1);
+        $RAMperchunk = $totalram / $num_chunks;
     } else {
         warn("Warning: I could not determine how much RAM you " ,
              "have.  If you have less than $min_ram gigs per ",
@@ -675,17 +697,11 @@ sub check_ram {
                 "your machine. Unless you have too much other stuff ".
                 "running, RAM should not be a problem.", $totalram));
         } else {
-            $self->logsay(
-                "Warning: you have only $RAMperchunk Gb of RAM ",
-                "per chunk.  Based on the size of your genome ",
-                "you will probably need more like $min_ram Gb ",
-                "per chunk. Anyway I can try and see what ",
-                "happens.");
-            print("Do you really want me to proceed?  Enter 'Y' or 'N': ");
-            local $_ = <STDIN>;
-            if(/^n$/i) {
-                exit();
-            }
+            $self->prompt_not_enough_ram(
+                total_ram     => $totalram,
+                ram_per_chunk => $RAMperchunk,
+                min_ram       => $min_ram,
+                num_chunks    => $num_chunks);
         }
         $self->say();
         $ram = $min_ram;

@@ -34,6 +34,7 @@ use Text::Wrap qw(wrap fill);
 use RUM::Directives;
 use RUM::Logging;
 use RUM::Workflows;
+use RUM::JobReport;
 
 our $log = RUM::Logging->get_logger();
 
