@@ -484,6 +484,7 @@ sub process {
         $log->info("Running chunk $chunk");
         my $w = $self->chunk_workflow($chunk);
         $w->execute($self->_step_printer($w), ! $self->directives->no_clean);
+        RUM::JobReport->new($self->config)->print_milestone("Chunk $chunk finished");
     }
     elsif ($config->num_chunks) {
         $self->_process_in_chunks;
@@ -564,7 +565,6 @@ sub _process_in_chunks {
             $log->error("$prefix $failures; $action");
         }
         else {
-            RUM::JobReport->new($self->config)->print_milestone("Chunk $chunk finished");
             $log->info("$prefix finished");
         }
     }
