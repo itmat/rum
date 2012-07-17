@@ -107,10 +107,8 @@ EOF
         }
     }
 
-    my @lengths = map { length($_) } values %name_for;
+    my @lengths = grep { $_ } map { length($_) } values %name_for;
     my $max_len_name = max(@lengths);
-    print "max is $max_len_name\n";
-    print "Ordered keys are @ordered_keys\n";
         
   PROPERTY: for my $key (@ordered_keys) {
         my $name = $name_for{$key};
@@ -123,7 +121,7 @@ EOF
             $val =~ s/\$VAR (?: \d+) \s* = \s*//mx;
         }
 
-        printf $fh "%${max_len_name}s : %s\n", $name, $val;
+        printf $fh "%${max_len_name}s : %s\n", $name, $val || "";
     }
 
     print $fh <<"EOF";
