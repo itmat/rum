@@ -19,6 +19,7 @@ use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
 use Carp;
 use Data::Dumper;
+
 use RUM::Action::Clean;
 
 use RUM::Directives;
@@ -28,6 +29,7 @@ use RUM::Usage;
 use RUM::Pipeline;
 use RUM::Common qw(format_large_int);
 use RUM::Lock;
+use RUM::JobReport;
 
 use base 'RUM::Base';
 
@@ -85,7 +87,10 @@ sub run {
     }
 
     $self->config->save unless $d->child;
-    $self->dump_config;
+    my $report = RUM::JobReport->new($c);
+    if ( ! ($d->parent || $d->child)) {
+        $report->print_header;
+    }
 
     if ( !$local && ! ( $d->parent || $d->child ) ) {
         $self->logsay("Submitting tasks and exiting");
@@ -99,7 +104,12 @@ sub run {
         "You can also run \"$0 status -o $dir\" to check the status of the job.");
 
     if ($d->preprocess || $d->all) {
+        $report->print_start_preproc;
         $platform->preprocess;
+        $report->print_finish_preproc;
+    }
+    elsif (! $d->child ) {
+        $report->print_skip_preproc;
     }
 
     $self->_show_match_length;
@@ -112,7 +122,13 @@ sub run {
     # execute the processing phase.
     if ($d->process || $d->all) {
         if ($self->still_processing) {
+            if (!$d->child) {
+                $report->print_start_proc;
+            }
             $platform->process($chunk);
+        }
+        else {
+            $report->print_skip_proc;
         }
     }
 
@@ -129,9 +145,15 @@ sub run {
         # communicate with one of its child processes, telling it to
         # do postproessing
         if ( !$chunk || $chunk == $self->config->num_chunks ) {
+            $report->print_start_postproc;
             $platform->postprocess;
+            $report->print_finish_postproc;
             $self->_final_check;
         }
+        else {
+            $report->print_skip_postproc;
+        }
+
     }
     RUM::Lock->release;
 }
@@ -599,27 +621,6 @@ sub check_gamma {
     if ($host =~ /login.genomics.upenn.edu/ && !$self->config->platform eq 'Local') {
         die("you cannot run RUM on the PGFI cluster without using the --qsub option.");
     }
-}
-
-=item dump_config
-
-Dump the configuration file to the log.
-
-=cut
-
-sub dump_config {
-    my ($self) = @_;
-    $log->debug("-" x 40);
-    $log->debug("Job configuration");
-    $log->debug("RUM Version: $RUM::Pipeline::VERSION");
-    
-    for my $key ($self->config->properties) {
-        my $val = $self->config->get($key);
-        next unless defined $val;
-        $val = Data::Dumper->new([$val])->Indent(0)->Dump if ref($val);
-        $log->debug("$key: $val");
-    }
-    $log->debug("-" x 40);
 }
 
 =item check_ram

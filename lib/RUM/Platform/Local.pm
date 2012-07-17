@@ -27,6 +27,7 @@ use RUM::WorkflowRunner;
 use RUM::Logging;
 use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
 use RUM::Workflow;
+use RUM::JobReport;
 
 use base 'RUM::Platform';
 
@@ -559,6 +560,7 @@ sub _process_in_chunks {
             $log->error("$prefix $failures; $action");
         }
         else {
+            RUM::JobReport->new($self->config)->print_milestone("Chunk $chunk finished");
             $log->info("$prefix finished");
         }
     }
