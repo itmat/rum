@@ -60,8 +60,11 @@ sub preprocess {
     # run preprocessing.
     if ($self->postprocessing_workflow->steps_done) {
         $self->say("(skipping: we're in the postprocessing phase)");
+        $self->job_report->print_skip_preproc;
         return;
     }
+
+    $self->job_report->print_start_preproc;
 
     # We don't start any chunks until preprocessing is completely
     # done. So if any chunks have started, we don't need to do
@@ -82,6 +85,7 @@ sub preprocess {
     $self->_determine_read_length();
     $self->config->save;
     $self->{workflows} = undef;
+    $self->job_report->print_finish_preproc;
 }
 
 
@@ -606,8 +610,12 @@ sub postprocess {
     $self->say("Postprocessing");
     $self->say("--------------");
 
+    $self->job_report->print_start_postproc;
+
     my $w = $self->postprocessing_workflow;
     $w->execute($self->_step_printer($w), ! $self->directives->no_clean);
+
+    $self->job_report->print_finish_postproc;
 }
 
 sub _reads {
@@ -636,5 +644,12 @@ sub stop {
     $self->say("Killing process $pid");
     kill 15, $pid or die "I can't kill $pid: $!";
 }
+
+sub job_report {
+    my ($self) = @_;
+    return RUM::JobReport->new($self->config);
+}
+
+
 
 1;

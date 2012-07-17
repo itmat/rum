@@ -104,12 +104,7 @@ sub run {
         "You can also run \"$0 status -o $dir\" to check the status of the job.");
 
     if ($d->preprocess || $d->all) {
-        $report->print_start_preproc;
         $platform->preprocess;
-        $report->print_finish_preproc;
-    }
-    elsif (! $d->child ) {
-        $report->print_skip_preproc;
     }
 
     $self->_show_match_length;
@@ -122,13 +117,7 @@ sub run {
     # execute the processing phase.
     if ($d->process || $d->all) {
         if ($self->still_processing) {
-            if (!$d->child) {
-                $report->print_start_proc;
-            }
             $platform->process($chunk);
-        }
-        else {
-            $report->print_skip_proc;
         }
     }
 
@@ -145,13 +134,8 @@ sub run {
         # communicate with one of its child processes, telling it to
         # do postproessing
         if ( !$chunk || $chunk == $self->config->num_chunks ) {
-            $report->print_start_postproc;
             $platform->postprocess;
-            $report->print_finish_postproc;
             $self->_final_check;
-        }
-        else {
-            $report->print_skip_postproc;
         }
 
     }
