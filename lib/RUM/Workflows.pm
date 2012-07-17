@@ -758,19 +758,16 @@ sub postprocessing_workflow {
             $w->step(
                 "Quantify novel exons",
                 ["perl", $c->script("quantifyexons.pl"),
-                 "--exons-in", pre($inferred_internal_exons),
+                 "--exons-in", pre($inferred_internal_exons_txt),
                  "--unique-in", pre($rum_unique),
                  "--non-unique-in", pre($rum_nu),
-                 "-o", post($c->in_output_dir("quant_novel.1")),
-                 "--novel", "--countsonly"]);
-            
-            $w->step(
-                "Merge novel exons",
+                 "-o", $c->in_postproc_dir("quant.1"),
+                 "--novel", "--countsonly"],
                 ["perl", $c->script("merge_quants.pl"),
                  "--chunks", 1,
                  "-o", post($c->in_postproc_dir("novel_exon_quant_temp")),
                  "--header",
-                 $c->output_dir . "/chunks"],
+                 $c->postproc_dir],
                 ["grep", "-v", "transcript",
                  post($c->in_postproc_dir("novel_exon_quant_temp")),
                  ">", post($c->novel_inferred_internal_exons_quantifications)]);
