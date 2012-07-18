@@ -286,14 +286,14 @@ sub get_options {
         $d->set_process;
     }
 
-    my $did_set;
+    my @changed_settings;
 
     my $set = sub { 
         my ($k, $v) = @_;
         return unless defined $v;
         my $existing = $c->get($k);
         if (defined($existing) && $existing ne $v) {
-            $did_set = 1;
+            push @changed_settings, [ $k, $existing, $v ];
             $log->info("Changing $k from $existing to $v");
         }
         
@@ -337,8 +337,13 @@ sub get_options {
     $set->('user_quals', $quals_file);
     $set->('variable_length_reads', $variable_length_reads);
 
-    if ($did_set && $did_load && !$force && !$d->child) {
-        die("I found job settings in " . $c->settings_filename . ", but you specified different settings on the command line. I won't run without the --force flag. If you want to use the saved settings, please don't provide any extra options on the command line. If you need to change the settings, please either delete " . $c->settings_filename . " or run again with --force.");
+    if (@changed_settings && $did_load && !$force && !$d->child) {
+        my $msg = $self->changed_settings_msg($c->settings_filename);
+        $msg .= "You tried to make the following changes:\n\n";
+        for my $change (@changed_settings) {
+            $msg .= sprintf("  * Change %s from %s to %s\n", @{ $change });
+        }
+        die $msg;
     }
 
     $self->{config} = $c;
@@ -767,6 +772,16 @@ sub _final_check {
     }
 }
 
+sub changed_settings_msg {
+    my ($self, $filename) = @_;
+    my $msg = <<"EOF";
+
+I found job settings in $filename, but you specified different settings on the command line. Changing the settings on a job that has already been partially run can result in unexpected behavior. If you want to use the saved settings, please don't provide any extra options on the command line, other than options that specify a specific phase or chunk (--preprocess, --process, --postprocess, --chunk). If you want to start the job over from scratch, you can do so by deleting the settings file ($filename). If you really want to change the settings, you can add a --force flag and try again.
+
+EOF
+    return wrap('', '', $msg) . "\n";
+    
+}
 
 __END__
 
