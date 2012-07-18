@@ -3,146 +3,11 @@
 
 package RUM::Script::Indexes;
 
-=head1 NAME
-
-rum_indexes - List, install, or remove RUM indexes
-
-=head1 SYNOPSIS
-
-  rum_indexes [OPTIONS] [INDEX]
-  rum_indexes # Run with no arguments for interactive mode
-
-=head1 DESCRIPTION
-
-Use this program to list, install, and remove your RUM indexes.
-
-By default it will operate on the indexes installed at the same
-location as this script. For example, if the script is located at
-C<~/rum/bin/rum_indexes>, it will assume that config files are in
-C<~/rum/conf> and indexes are in C<~/rum/indexes>. You can tell it to
-use another location with the B<--prefix> option.
-
-=head1 OPTIONS
-
-=over 4
-
-=item B<-a>, B<--all>
-
-When combined with B<-i>, (B<--install>), installs all the indexes
-found on the server that aren't already installed. Combine with B<-f>
-(B<--force>) to also install indexes you do already have.
-
-=item B<-f>, B<--force>
-
-When combined with B<-a>, (B<--all>) and B<-i> (B<--install>), forcibly
-re-installs all indexes found on the server.
-
-=item B<-i>, B<--install>
-
-Install the index specified by the B<INDEX> argument. This can be the
-number of the index, according to the output of C<rum_indexes --list>,
-or a pattern that matches part of the index name.
-
-=item B<-l>, B<--list>
-
-Print a list of available indexes, with a star next to any that are
-already installed.
-
-=item B<-m>, B<--migrate>
-
-Migrates an index from RUM 1.x into the directory structure needed by
-RUM 2.0. Please provide one or more RUM 1.x index configuration files
-on the command line, and it will move all the files from those indexes
-into their new locations. If you provide a --prefix argument, I'll put
-the indexes in subdirectories under that directory.
-
-=item B<--prefix> I<PREFIX>
-
-Specify a different location for the repository.
-
-=item B<-r>, B<--remove>
-
-Remove the index specified by the B<INDEX> argument, which has the
-same requirements as the B<INDEX> argument for the B<--install>
-option.
-
-=back
-
-=head1 EXAMPLES
-
-=head2 Listing Indexes
-
-Get a list of all available indexes:
-
-  $ ./bin/rum_indexes -l
-  The following indexes are available. Indexes that you already
-  have are marked with '*':
-
-    1     hg19:                human (Homo sapiens)
-  * 2     hg18:                human (Homo sapiens)
-    3      mm9:                mouse (Mus musculus)
-    4  danRer7:            zebrafish (Danio rerio)
-  --- snip ---
-
-Or filtered by a regular expression:
-
-  $ ./bin/rum_indexes -l human
-  The following indexes are available. Indexes that you already 
-  have are marked with '*':
-
-    1     hg19:                human (Homo sapiens)
-  * 2     hg18:                human (Homo sapiens)
-  --- snip ---
-
-Or in another location:
-
-  $ ./bin/rum_indexes -l human --prefix ~/rum/indexes
-  --- snip ---
-
-=head2 Installing Indexes
-
-Install an index by build name, or number, or in another location:
-
-  $ rum-indexes -i hg19
-  $ rum-indexes -i 1
-  $ rum-indexes -i 1 --prefix ~/rum/indexes
-
-Install all indexes we don't already have:
-
-  $ rum-indexes --install --all
-  $ rum-indexes -i -a
-
-Forcibly re-install all indexes found on the server:
-
-  $ rum-indexes --install --all --force
-  $ rum-indexes -i -a -f
-
-=head2 Removing Indexes
-
-Remove an index by build name, or number, or in another location:
-
-  $ rum-indexes -r hg19
-  $ rum-indexes -r 1
-  $ rum-indexes -i 1 --prefix ~/rum/indexes
-
-=head2 Interactive mode
-
-Run rum_indexes without any arguments to enter interactive mode, where
-it will prompt you for indexes to install:
-
-  $ rum_indexes
-
-Or run it with just the B<--prefix> option to run interactive mode
-pointing to a set of indexes in another location:
-
-  $ rum_indexes --list --prefix ~/my-rum-indexes
-
-=cut
-
 use strict;
 use warnings;
 use autodie;
 
+use Cwd qw(realpath);
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 use RUM::Repository;
@@ -177,7 +42,7 @@ sub main {
     $self->{repo} = RUM::Repository->new(%options);
     $self->{markdown} = $use_markdown;
     $self->{force} = $force;
-    printf "Looking at the repository located at $prefix\n";
+    print "Using the repository located at " . realpath($prefix) . "\n";
     
     if ($do_list) {
         $self->list_indexes(@ARGV);
@@ -313,6 +178,11 @@ sub install_all_indexes {
 
 sub migrate_indexes {
     my ($self, @old_config_files) = @_;
+
+    if (! @old_config_files) {
+        die "Please list one or more old RUM index config files "
+        . "on the command line.\n";
+    }
     
     my @old_configs;
     my @new_configs;
@@ -444,3 +314,139 @@ sub interactive {
 }
 
 __PACKAGE__->new->main;
+
+__END__
+
+=head1 NAME
+
+rum_indexes - List, install, or remove RUM indexes
+
+=head1 SYNOPSIS
+
+  rum_indexes [OPTIONS] [INDEX]
+  rum_indexes # Run with no arguments for interactive mode
+
+=head1 DESCRIPTION
+
+Use this program to list, install, and remove your RUM indexes.
+
+By default it will operate on the indexes installed at the same
+location as this script. For example, if the script is located at
+C<~/rum/bin/rum_indexes>, it will assume that config files are in
+C<~/rum/conf> and indexes are in C<~/rum/indexes>. You can tell it to
+use another location with the B<--prefix> option.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-a>, B<--all>
+
+When combined with B<-i>, (B<--install>), installs all the indexes
+found on the server that aren't already installed. Combine with B<-f>
+(B<--force>) to also install indexes you do already have.
+
+=item B<-f>, B<--force>
+
+When combined with B<-a>, (B<--all>) and B<-i> (B<--install>), forcibly
+re-installs all indexes found on the server.
+
+=item B<-i>, B<--install>
+
+Install the index specified by the B<INDEX> argument. This can be the
+number of the index, according to the output of C<rum_indexes --list>,
+or a pattern that matches part of the index name.
+
+=item B<-l>, B<--list>
+
+Print a list of available indexes, with a star next to any that are
+already installed.
+
+=item B<-m>, B<--migrate>
+
+Migrates an index from RUM 1.x into the directory structure needed by
+RUM 2.0. Please provide one or more RUM 1.x index configuration files
+on the command line, and it will move all the files from those indexes
+into their new locations. If you provide a --prefix argument, I'll put
+the indexes in subdirectories under that directory.
+
+=item B<--prefix> I<PREFIX>
+
+Specify a different location for the repository.
+
+=item B<-r>, B<--remove>
+
+Remove the index specified by the B<INDEX> argument, which has the
+same requirements as the B<INDEX> argument for the B<--install>
+option.
+
+=back
+
+=head1 EXAMPLES
+
+=head2 Listing Indexes
+
+Get a list of all available indexes:
+
+  $ ./bin/rum_indexes -l
+  The following indexes are available. Indexes that you already
+  have are marked with '*':
+
+    1     hg19:                human (Homo sapiens)
+  * 2     hg18:                human (Homo sapiens)
+    3      mm9:                mouse (Mus musculus)
+    4  danRer7:            zebrafish (Danio rerio)
+  --- snip ---
+
+Or filtered by a regular expression:
+
+  $ ./bin/rum_indexes -l human
+  The following indexes are available. Indexes that you already 
+  have are marked with '*':
+
+    1     hg19:                human (Homo sapiens)
+  * 2     hg18:                human (Homo sapiens)
+  --- snip ---
+
+Or in another location:
+
+  $ ./bin/rum_indexes -l human --prefix ~/rum/indexes
+  --- snip ---
+
+=head2 Installing Indexes
+
+Install an index by build name, or number, or in another location:
+
+  $ rum-indexes -i hg19
+  $ rum-indexes -i 1
+  $ rum-indexes -i 1 --prefix ~/rum/indexes
+
+Install all indexes we don't already have:
+
+  $ rum-indexes --install --all
+  $ rum-indexes -i -a
+
+Forcibly re-install all indexes found on the server:
+
+  $ rum-indexes --install --all --force
+  $ rum-indexes -i -a -f
+
+=head2 Removing Indexes
+
+Remove an index by build name, or number, or in another location:
+
+  $ rum-indexes -r hg19
+  $ rum-indexes -r 1
+  $ rum-indexes -i 1 --prefix ~/rum/indexes
+
+=head2 Interactive mode
+
+Run rum_indexes without any arguments to enter interactive mode, where
+it will prompt you for indexes to install:
+
+  $ rum_indexes
+
+Or run it with just the B<--prefix> option to run interactive mode
+pointing to a set of indexes in another location:
+
+  $ rum_indexes --list --prefix ~/my-rum-indexes
