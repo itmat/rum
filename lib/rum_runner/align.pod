@@ -269,8 +269,8 @@ Run blat with maxIntron=x (default x=50000).
 These options are not saved as part of the configuration file, and
 only affect how RUM behaves on one invocation. If you want to manually
 split up job into chunks and run each chunk separately, you can use
-the `--preprocessing`, `--processing`, `--postprocessing`, and
-`--chunks` options to do that. Detailed instructions on doing that are
+the I<--preprocessing>, I<--processing>, I<--postprocessing>, and
+I<--chunks> options to do that. Detailed instructions on doing that are
 provided L<here|https://github.com/PGFI/rum/wiki/Running-a-job-on-a-cluster>.
 
 =over 4
