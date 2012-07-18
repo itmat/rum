@@ -30,14 +30,14 @@ it under a million reads per chunk will speed things considerably.
 
 You will probably specify all of these options for any given job. The
 first time you run C<rum_runner align -o I<dir> OPTIONS> on output
-directory I<dir>, will save the options you ran it with in
+directory I<dir>, rum_runner will save the options you ran it with in
 I<dir/.rum/job_settings>. Then if you need to rerun the job for any
 reason, you can run C<rum_runner align -o I<dir>> later and it will
 automatically pick up the options you specified originally.
 
-Once you start a job running, if you need to restart it for any
-reason, you should not attempt to change the values of these
-settings. Doing so may result in undefined behavior.
+Once you start a job running, if you need to restart it, you should
+not attempt to change the values of these settings. Doing so may
+result in undefined behavior.
 
 =over 4
 
