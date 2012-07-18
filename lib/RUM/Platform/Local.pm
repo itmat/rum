@@ -1,21 +1,5 @@
 package RUM::Platform::Local;
 
-=head1 NAME
-
-RUM::Platform::Local - A platform that runs the pipeline locally
-
-=head1 DESCRIPTION
-
-Runs the preprocessing and postprocessing phases simply by executing
-the workflows in the current process. Runs the processing phase by
-forking a subprocess for each chunk.
-
-=head1 METHODS
-
-=over 4
-
-=cut
-
 use strict;
 use warnings;
 
@@ -39,14 +23,6 @@ our $READ_CHECK_LINES = 50000;
 ###
 ### Preprocessing
 ###
-
-=item preprocess
-
-Checks the read files for quality and reformats them, splitting them
-into chunks if necessary. Determines the read length and saves the
-configuration so that we don't need to repeat that step.
-
-=cut
 
 sub preprocess {
     my ($self) = @_;
@@ -87,9 +63,6 @@ sub preprocess {
     $self->{workflows} = undef;
     $self->job_report->print_finish_preproc;
 }
-
-
-
 
 sub _check_input {
     my ($self) = @_;
@@ -369,6 +342,8 @@ sub _reformat_reads {
     $self->say("Done splitting");
 }
 
+
+
 sub _got_quals {
     my ($filename) = @_;
     open my $in, "<", $filename;
@@ -448,17 +423,7 @@ sub _breakup_file  {
     return 0;
 }
 
-
 ## Processing
-
-=item process
-
-Runs the processing phase. If the configuration specifies a single
-chunk, we run that chunk in the foreground and print messages to
-stdout. If not, we fork off a subprocess for each chunk and wait for
-all the chunks to finish.
-
-=cut
 
 sub process {
     my ($self, $chunk) = @_;
@@ -583,14 +548,7 @@ sub _step_printer {
     };
 }
 
-
 ## Post-processing
-
-=item postprocess
-
-Runs the postprocessing phase, in the current process.
-
-=cut
 
 sub postprocess {
     my ($self) = @_;
@@ -622,13 +580,6 @@ sub _reads {
     return @{ $_[0]->config->reads };
 }
 
-=item stop
-
-Attempt to stop a running pipeline by getting the pid from the
-.rum/lock file and killing that process.
-
-=cut
-
 sub stop {
     my ($self) = @_;
     my $lock_file = $self->config->lock_file;
@@ -650,6 +601,60 @@ sub job_report {
     return RUM::JobReport->new($self->config);
 }
 
-
-
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Platform::Local - A platform that runs the pipeline locally
+
+=head1 DESCRIPTION
+
+Runs the preprocessing and postprocessing phases simply by executing
+the workflows in the current process. Runs the processing phase by
+forking a subprocess for each chunk.
+
+=head1 METHODS
+
+=over 4
+
+=item preprocess
+
+Checks the read files for quality and reformats them, splitting them
+into chunks if necessary. Determines the read length and saves the
+configuration so that we don't need to repeat that step.
+
+=item process
+
+Runs the processing phase. If the configuration specifies a single
+chunk, we run that chunk in the foreground and print messages to
+stdout. If not, we fork off a subprocess for each chunk and wait for
+all the chunks to finish.
+
+=item postprocess
+
+Runs the postprocessing phase, in the current process.
+
+=item stop
+
+Attempt to stop a running pipeline by getting the pid from the
+.rum/lock file and killing that process.
+
+=item job_report
+
+Return a RUM::JobReport that can be used to print timestamps for
+milestones.
+
+=back
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
+
