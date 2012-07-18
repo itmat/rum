@@ -93,6 +93,7 @@ lib/RUM/Directives.pm
 lib/RUM/FileIterator.pm
 lib/RUM/Heap.pm
 lib/RUM/Index.pm
+lib/RUM/JobReport.pm
 lib/RUM/JobStatus.pm
 lib/RUM/Lock.pm
 lib/RUM/Logger.pm
@@ -106,6 +107,7 @@ lib/RUM/Repository.pm
 lib/RUM/Repository/IndexSpec.pm
 lib/RUM/SamIO.pm
 lib/RUM/Script.pm
+lib/RUM/Script/Base.pm
 lib/RUM/Script/ComputeStats.pm
 lib/RUM/Script/CountReadsMapped.pm
 lib/RUM/Script/FinalCleanup.pm
@@ -313,7 +315,6 @@ t/integration/get-inferred-internal-exons.t
 t/integration/make-rum-junctions-file.t
 t/integration/parse-blat-out.t
 t/integration/rum-final-cleanup.t
-t/integration/rum-to-cov.t
 t/integration/rum-to-quantifications.t
 t/integration/rum-to-sam.t
 t/junctions-to-bed.t
@@ -338,6 +339,7 @@ t/quantify-exons.t
 t/remove-dups.t
 t/repository.t
 t/rum-config-file.t
+t/rum-to-cov.t
 t/runner-usage.t
 t/samio.t
 t/sge.t
