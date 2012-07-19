@@ -396,8 +396,9 @@ push @tests, {
 
 };
 
+undef @tests;
 
-plan tests => scalar(@tests) * 4;
+plan tests => scalar(@tests) * 4 + 11;
 
 for my $test ( @tests ) {
     test_merge(%{ $test });
@@ -405,3 +406,109 @@ for my $test ( @tests ) {
     $copy{read_length} = 'v';
     test_merge(%copy);
 }
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '1-10, 21-30',
+        '41-50, 61-70',
+        'A' x 20,
+        'C' x 20)],
+    ['1-10, 21-30, 41-50, 61-70',
+     'AAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCCC']);
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '1-10, 21-30',
+        '30-39, 51-60',
+        'A' x 20,
+        'C' x 20)],
+    ['1-10, 21-39, 51-60',
+     'AAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCC']);
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '1-10, 21-30',
+        '31-39, 51-60',
+        'A' x 20,
+        'C' x 20)],
+    ['1-10, 21-39, 51-60',
+     'AAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCCC']);
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '1-10, 41-50',
+        '21-30, 61-70',
+        'A' x 20,
+        'C' x 20)],
+    []);
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '1-10, 21-30',
+        '30-34, 51-65',
+        'A' x 20,
+        'C' x 20)],
+    ['1-10, 21-34, 51-65',
+     'AAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCCCCCC']);
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '1-10, 21-30',
+        '21-30, 41-50',
+        'A' x 20,
+        'C' x 20)],
+    ['1-10, 21-30, 41-50',
+     'AAAAAAAAAAAAAAAAAAAACCCCCCCCCC']);
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '1-10, 21-30',
+        '1-10, 41-50',
+        'A' x 20,
+        'C' x 20)],
+    []);
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '1-10, 21-41',
+        '30-39, 51-60',
+        'A' x 20,
+        'C' x 20)],
+    []);
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '1-15, 21-25',
+        '1-20',
+        'A' x 20,
+        'C' x 20)],
+    ['1-20',
+     'AAAAAAAAAAAAAAACCCCC']);
+
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '1-15, 21-25',
+        '1-10, 31-40',
+        'A' x 20,
+        'C' x 20)],
+    []);
+
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '1-10, 21-30',
+        '25-30, 36-50',
+        'A' x 20,
+        'C' x 20)],
+    ['1-10, 21-30, 36-50',
+     'AAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCC']);
+
+is_deeply(
+    [RUM::Script::MergeGuAndTu::merge(
+        '2-11, 21-30',
+        '1-5, 36-50',
+        'A' x 20,
+        'C' x 20)],
+    ['2-11, 21-30, 36-50',
+     'AAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCC']);
