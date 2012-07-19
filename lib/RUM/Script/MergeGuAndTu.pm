@@ -518,7 +518,7 @@ sub run {
                         } else {
                             ($merged_spans, $merged_seq) = merge($bspans, $aspans, $bseq2, $aseq2);
                         }
-                        if (!($merged_spans =~ /\S/)) {
+                        if (! $merged_spans) {
                             @AS = split(/-/,$aspans);
                             $AS[0]++;
 
@@ -533,7 +533,7 @@ sub run {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
                             }
                         }
-                        if (!($merged_spans =~ /\S/)) {
+                        if (! $merged_spans) {
                             $AS[0]++;
                             $aspans_temp = join '-', @AS;
                             warn "Changed $aspans to $aspans_temp\n";
@@ -544,7 +544,7 @@ sub run {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
                             }
                         }
-                        if (!($merged_spans =~ /\S/)) {
+                        if (! $merged_spans) {
                             $AS[0]++;
                             $aspans_temp = join '-', @AS;
                             warn "Changed $aspans to $aspans_temp\n";
@@ -555,7 +555,7 @@ sub run {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
                             }
                         }
-                        if (!($merged_spans =~ /\S/)) {
+                        if (! $merged_spans) {
                             @AS = split(/-/,$aspans);
                             $AS[-1]--;
                             $aspans_temp = join '-', @AS;
@@ -568,7 +568,7 @@ sub run {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
                             }
                         }
-                        if (!($merged_spans =~ /\S/)) {
+                        if (! $merged_spans) {
                             $AS[-1]--;
                             $aspans_temp = join '-', @AS;
                             warn "Changed $aspans to $aspans_temp\n";
@@ -579,7 +579,7 @@ sub run {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
                             }
                         }
-                        if (!($merged_spans =~ /\S/)) {
+                        if (! $merged_spans) {
                             $AS[-1]--;
                             $aspans_temp = join '-', @AS;
                             warn "Changed $aspans to $aspans_temp\n";
@@ -590,8 +590,9 @@ sub run {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
                             }
                         }
-
-                        if (!($merged_spans =~ /\S/)) {
+                        
+                        if (! $merged_spans) {
+                            warn "Still nothing\n";
                             @Fspans = split(/, /,$aspans);
                             @T = split(/-/, $Fspans[0]);
                             $aspans3 = $aspans;
@@ -599,7 +600,13 @@ sub run {
                             $bseq3 = $bseq;
                             $aseq3 =~ s/://g;
                             $bseq3 =~ s/://g;
+
+                            # If the first span is 5 bases or fewer,
+                            # remove it and trim the sequence
+                            # accordingly, then try to merge the
+                            # spans.
                             if ($T[1] - $T[0] <= 5) {
+                                warn "Trimming front\n";
                                 $aspans3 =~ s/^(\d+)-(\d+), //;
                                 $length_diff = $2 - $1 + 1;
                                 for ($i1=0; $i1<$length_diff; $i1++) {
@@ -611,7 +618,9 @@ sub run {
                             } else {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans3, $bseq3, $aseq3);
                             }
-                            if (!($merged_spans =~ /\S/)) {
+
+                            # Now try the same with the last span
+                            if (! $merged_spans) {
                                 @T = split(/-/, $Fspans[@Fspans-1]);
                                 $aspans4 = $aspans;
                                 $aseq4 = $aseq;
@@ -632,7 +641,9 @@ sub run {
                                 }
                             }
                         }
-                        if (!($merged_spans =~ /\S/)) {
+
+                        
+                        if (! $merged_spans) {
                             @Rspans = split(/, /,$bspans);
                             @T = split(/-/, $Rspans[0]);
                             $bspans3 = $bspans;
@@ -652,7 +663,7 @@ sub run {
                             } else {
                                 ($merged_spans, $merged_seq) = merge($bspans3, $aspans, $bseq3, $aseq3);
                             }
-                            if (!($merged_spans =~ /\S/)) {
+                            if (! $merged_spans) {
                                 @T = split(/-/, $Rspans[@Rspans-1]);
                                 $bspans4 = $bspans;
                                 $aseq4 = $aseq;
@@ -956,6 +967,7 @@ sub run {
 sub merge {
     use strict;
     my ($upstreamspans, $downstreamspans, $seq1, $seq2) = @_;
+    warn "Merging $upstreamspans and $downstreamspans\n";
     
     my %HASH;
     my @Uarray;
