@@ -4,8 +4,10 @@ no warnings;
 
 use Carp;
 use RUM::Usage;
+use RUM::RUMIO;
 use RUM::Common qw(min_overlap_for_read_length
                    min_overlap_for_seqs);
+use RUM::Mapper;
 use List::Util qw(min max);
 
 use base 'RUM::Script::Base';
@@ -145,6 +147,14 @@ sub run {
     my $bowtie_unique_out_fh = $self->{bowtie_unique_out_fh};
     my $cnu_out_fh           = $self->{cnu_out_fh};
 
+    my $gu_iter =  RUM::BowtieIO->new(
+        -fh => $gu_in_fh, strand_last => 1);
+    my $tu_iter =  RUM::BowtieIO->new(
+        -fh => $tu_in_fh, strand_last => 1);
+
+    my $unique_io = RUM::RUMIO->new(-fh => $bowtie_unique_out_fh, strand_last => 1);
+    my $cnu_io    = RUM::RUMIO->new(-fh => $cnu_out_fh, strand_last => 1);
+
     $num_lines_at_once = 10000;
     $linecount = 0;
     $FLAG = 1;
@@ -224,9 +234,20 @@ sub run {
             $hash1{$id}[0] = $hash1{$id}[0] + 0;
             $hash2{$id}[0] = $hash2{$id}[0] + 0;
 
+            my @gu_lines = @{ $hash1{$id} };
+            my @gu_alns = map { $gu_iter->parse_aln($_) } @gu_lines[1..$#gu_lines];
+            my $gu = RUM::Mapper->new(source => 'gu',
+                                      alignments => \@gu_alns);
+
+            my @tu_lines = @{ $hash2{$id} };
+            @tu_lines = grep { $_ } @tu_lines[1..$#tu_lines];
+            my @tu_alns = map { warn "Line is $_\n"; $tu_iter->parse_aln($_) } @tu_lines;
+            my $tu = RUM::Mapper->new(source => 'tu',
+                                      alignments => \@tu_alns);
+
             # MUST DO 15 CASES IN TOTAL:
             # THREE CASES:
-            if ($hash1{$id}[0] == 0) {
+            if ($gu->is_empty) {
                 # no genome mapper, so there must be a transcriptome mapper
                 if ($hash2{$id}[0] == -1) {
                     print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
@@ -237,82 +258,72 @@ sub run {
                 }
             }
             # THREE CASES
-            if ($hash2{$id}[0] == 0) {
+            if ($tu->is_empty) {
                 # no transcriptome mapper, so there must be a genome mapper
-                if ($hash1{$id}[0] == -1) {
-                    print $bowtie_unique_out_fh "$hash1{$id}[1]\n";
-                } else {
-                    for ($i=0; $i<$hash1{$id}[0]; $i++) {
-                        print $bowtie_unique_out_fh "$hash1{$id}[$i+1]\n";
-                    }
-                }
+                $unique_io->write_alns($gu);
             }
             # ONE CASE
-            if ($hash1{$id}[0] == -1 && $hash2{$id}[0] == -1) {
+            if ($gu->joined && $tu->joined) {
                 # genome mapper and transcriptome mapper, and both joined
                 undef @spans;
-                @a1 = split(/\t/,$hash1{$id}[1]);
                 @a2 = split(/\t/,$hash2{$id}[1]);
-                $spans[0] = $a1[2];
-                $spans[1] = $a2[2];
-                $str = intersect(\@spans, $a1[3]);
+
+                my @spans = (RUM::RUMIO->format_locs($gu->joined),
+                             RUM::RUMIO->format_locs($tu->joined));
+
+                $str = intersect(\@spans, $gu->joined->seq);
                 $str =~ /^(\d+)/;
                 $length_overlap = $1;
 
-                if ($self->enough_overlap($length_overlap, $a1[3], $a2[3]) &&
-                    ($a1[1] eq $a2[1])) {
-                    print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
+                if ($self->enough_overlap($length_overlap, $gu->joined->seq, $tu->joined->seq) &&
+                    ($gu->joined->chromosome eq $tu->joined->chromosome)) {
+                    $unique_io->write_alns($tu);
                 } else {
-                    print $cnu_out_fh "$hash1{$id}[1]\n";
-                    print $cnu_out_fh "$hash2{$id}[1]\n";
+                    $cnu_io->write_alns($gu);
+                    $cnu_io->write_alns($tu);
                 }
             }
             # ONE CASE
-            if ($hash1{$id}[0] == 1 && $hash2{$id}[0] == 1) {
+            if ($gu->single && $tu->single) {
                 # genome mapper and transcriptome mapper, and both single read mapping
                 # If single-end then this is the only case where $hash1{$id}[0] > 0 and $hash2{$id}[0] > 0
-                if ((($hash1{$id}[1] =~ /seq.\d+a/) && ($hash2{$id}[1] =~ /seq.\d+a/)) || (($hash1{$id}[1] =~ /seq.\d+b/) && ($hash2{$id}[1] =~ /seq.\d+b/))) {
+                if (($gu->single_forward && $tu->single_forward) || 
+                    ($gu->single_reverse && $tu->single_reverse)) {
                     # both forward mappers, or both reverse mappers
                     undef @spans;
-                    @a1 = split(/\t/,$hash1{$id}[1]);
-                    @a2 = split(/\t/,$hash2{$id}[1]);
-                    $spans[0] = $a1[2];
-                    $spans[1] = $a2[2];
-                    $str = intersect(\@spans, $a1[3]);
+
+                    my @spans = (RUM::RUMIO->format_locs($gu->single),
+                                 RUM::RUMIO->format_locs($tu->single));
+
+                    $str = intersect(\@spans, $gu->single->seq);
                     $str =~ /^(\d+)/;
                     $length_overlap = $1;
 
-                    if ($self->enough_overlap($length_overlap, $a1[3], $a2[3]) 
-                        && ($a1[1] eq $a2[1])) {
+                    if ($self->enough_overlap($length_overlap, $gu->single->seq, $tu->single->seq) 
+                        && ($gu->single->chromosome eq $tu->single->chromosome)) {
                         # preference TU
-                        print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
+                        $unique_io->write_alns($tu);
                     } else {
                         if (!$self->{paired}) {
-                            print $cnu_out_fh "$hash1{$id}[1]\n";			
-                            print $cnu_out_fh "$hash2{$id}[1]\n";			
+                            $cnu_io->write_alns($gu);
+                            $cnu_io->write_alns($tu);
                         }
                     }
                 }
-                if ((($hash1{$id}[1] =~ /seq.\d+a/) && ($hash2{$id}[1] =~ /seq.\d+b/)) || (($hash1{$id}[1] =~ /seq.\d+b/) && ($hash2{$id}[1] =~ /seq.\d+a/))) {
+                if (($gu->single_forward && $tu->single_reverse) || 
+                    ($gu->single_reverse && $tu->single_forward)) {
                     # one forward and one reverse
-                    @a = split(/\t/,$hash1{$id}[1]);
-                    $aspans = $a[2];
-                    $a[2] =~ /^(\d+)[^\d]/;
-                    $astart = $1;
-                    $a[2] =~ /[^\d](\d+)$/;
-                    $aend = $1;
-                    $chra = $a[1];
-                    $aseq = $a[3];
-                    $seqnum = $a[0];
-                    $atype = "";
-                    if ($seqnum =~ s/a$//) {
-                        $atype = "forward";
-                    }
-                    if ($seqnum =~ s/b$//) {
-                        $atype = "reverse";
-                    }
-                    $astrand = $a[4];
-                    if ($atype eq "forward") {
+
+                    $aspans = RUM::RUMIO->format_locs($gu->single);
+                    $astart = $gu->single->start;
+                    $aend = $gu->single->end;
+                    $chra = $gu->single->chromosome;
+                    $aseq = $gu->single->seq;
+                    $seqnum = $gu->single->readid;
+                    $astrand = $gu->single->strand;
+                    $seqnum = $gu->single->readid_directionless;
+
+                    if ($gu->single_forward) {
                         if ($astrand eq "+") {
                             $forward_strand = "+";
                         }
@@ -328,24 +339,13 @@ sub run {
                         }
                     }
 
-                    @a = split(/\t/,$hash2{$id}[1]);
-                    $btype = "";
-                    if ($a[0] =~ /a$/) {
-                        $btype = "forward";
-                    }
-                    if ($a[0] =~ /b$/) {
-                        $btype = "reverse";
-                    }
-
                     $bspans = $a[2];
-                    $a[2] =~ /^(\d+)[^\d]/;
-                    $bstart = $1;
-                    $a[2] =~ /[^\d](\d+)$/;
-                    $bend = $1;
-                    $chrb = $a[1];
-                    $bseq = $a[3];
-                    $bstrand = $a[4];
-                    if ($btype eq "forward") {
+                    $bstart = $tu->single->start;
+                    $bend = $tu->single->end;
+                    $chrb = $tu->single->chromosome;
+                    $bseq = $tu->single->seq;
+                    $bstrand = $tu->single->strand;
+                    if ($tu->single_forward) {
                         if ($bstrand eq "+") {
                             $forward_strand = "+";
                         }
@@ -363,18 +363,18 @@ sub run {
 
                     # the next two if's take care of the case that there is no overlap, one read lies entirely downstream of the other
 		
-                    if ((($astrand eq "+" && $bstrand eq "+" && $atype eq "forward" && $btype eq "reverse") || ($astrand eq "-" && $bstrand eq "-" && $atype eq "reverse" && $btype eq "forward")) && ($chra eq $chrb) && ($aend < $bstart-1) && ($bstart - $aend < $self->{max_pair_dist})) {
-                        if ($hash1{$id}[1] =~ /a\t/) {
-                            print $bowtie_unique_out_fh "$hash1{$id}[1]\n$hash2{$id}[1]\n";
+                    if ((($astrand eq "+" && $bstrand eq "+" && $gu->single_forward && $tu->single_reverse) || ($astrand eq "-" && $bstrand eq "-" && $gu->single_reverse && $tu->single_forward)) && ($chra eq $chrb) && ($aend < $bstart-1) && ($bstart - $aend < $self->{max_pair_dist})) {
+                        if ($gu->single_forward) {
+                            $unique_io->write_alns([$gu->single, $tu->single]);
                         } else {
-                            print $bowtie_unique_out_fh "$hash2{$id}[1]\n$hash1{$id}[1]\n";
+                            $unique_io->write_alns([$tu->single, $gu->single]);
                         }
                     }
-                    if ((($astrand eq "-" && $bstrand eq "-" && $atype eq "forward" && $btype eq "reverse") || ($astrand eq "+" && $bstrand eq "+" && $atype eq "reverse" && $btype eq "forward")) && ($chra eq $chrb) && ($bend < $astart-1) && ($astart - $bend < $self->{max_pair_dist})) {
-                        if ($hash1{$id}[1] =~ /a\t/) {
-                            print $bowtie_unique_out_fh "$hash1{$id}[1]\n$hash2{$id}[1]\n";
+                    if ((($astrand eq "-" && $bstrand eq "-" && $gu->single_forward && $tu->single_reverse) || ($astrand eq "+" && $bstrand eq "+" && $gu->single_reverse && $tu->single_forward)) && ($chra eq $chrb) && ($bend < $astart-1) && ($astart - $bend < $self->{max_pair_dist})) {
+                        if ($gu->single_forward) {
+                            $unique_io->write_alns([$gu->single, $tu->single]);
                         } else {
-                            print $bowtie_unique_out_fh "$hash2{$id}[1]\n$hash1{$id}[1]\n";
+                            $unique_io->write_alns([$tu->single, $gu->single]);
                         }
                     }
                     $Eflag =0;
@@ -385,7 +385,7 @@ sub run {
                         $aseq2 =~ s/://g;
                         $bseq2 = $bseq;
                         $bseq2 =~ s/://g;
-                        if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                        if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                             ($merged_spans, $merged_seq) = merge($aspans, $bspans, $aseq2, $bseq2);
                         } else {
                             ($merged_spans, $merged_seq) = merge($bspans, $aspans, $bseq2, $aseq2);
@@ -398,7 +398,7 @@ sub run {
                             $aseq2_temp = $aseq2;
                             $aseq2_temp =~ s/^.//;
 
-                            if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                            if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
                             } else {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
@@ -408,7 +408,7 @@ sub run {
                             $AS[0]++;
                             $aspans_temp = join '-', @AS;
                             $aseq2_temp =~ s/^.//;
-                            if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                            if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
                             } else {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
@@ -418,7 +418,7 @@ sub run {
                             $AS[0]++;
                             $aspans_temp = join '-', @AS;
                             $aseq2_temp =~ s/^.//;
-                            if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                            if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
                             } else {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
@@ -430,7 +430,7 @@ sub run {
                             $aspans_temp = join '-', @AS;
                             $aseq2_temp = $aseq2;
                             $aseq2_temp =~ s/.$//;
-                            if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                            if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
                             } else {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
@@ -440,7 +440,7 @@ sub run {
                             $AS[-1]--;
                             $aspans_temp = join '-', @AS;
                             $aseq2_temp =~ s/.$//;
-                            if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                            if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
                             } else {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
@@ -450,7 +450,7 @@ sub run {
                             $AS[-1]--;
                             $aspans_temp = join '-', @AS;
                             $aseq2_temp =~ s/.$//;
-                            if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                            if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
                             } else {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
@@ -477,7 +477,7 @@ sub run {
                                     $aseq3 =~ s/^.//;
                                 }
                             }
-                            if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                            if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans3, $bspans, $aseq3, $bseq3);
                             } else {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans3, $bseq3, $aseq3);
@@ -498,7 +498,7 @@ sub run {
                                         $aseq4 =~ s/.$//;
                                     }
                                 }
-                                if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                                if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                     ($merged_spans, $merged_seq) = merge($aspans4, $bspans, $aseq4, $bseq4);
                                 } else {
                                     ($merged_spans, $merged_seq) = merge($bspans, $aspans4, $bseq4, $aseq4);
@@ -522,7 +522,7 @@ sub run {
                                     $bseq3 =~ s/^.//;
                                 }
                             }
-                            if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                            if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans, $bspans3, $aseq3, $bseq3);
                             } else {
                                 ($merged_spans, $merged_seq) = merge($bspans3, $aspans, $bseq3, $aseq3);
@@ -541,7 +541,7 @@ sub run {
                                         $bseq4 =~ s/.$//;
                                     }
                                 }
-                                if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                                if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                     ($merged_spans, $merged_seq) = merge($aspans, $bspans4, $aseq4, $bseq4);
                                 } else {
                                     ($merged_spans, $merged_seq) = merge($bspans4, $aspans, $bseq4, $aseq4);
@@ -558,7 +558,7 @@ sub run {
                 }
             }
             # ONE CASE
-            if ($hash1{$id}[0] == 2 && $hash2{$id}[0] == 2) {
+            if ($gu->unjoined && $hash2{$id}[0] == 2) {
                 undef @spansa;
                 undef @spansb;
                 @a = split(/\t/,$hash1{$id}[1]);
@@ -599,13 +599,13 @@ sub run {
             }	
             # NINE CASES DONE
             # ONE CASE
-            if ($hash1{$id}[0] == -1 && $hash2{$id}[0] == 2) {
+            if ($gu->joined && $hash2{$id}[0] == 2) {
                 print $cnu_out_fh "$hash1{$id}[1]\n";
                 print $cnu_out_fh "$hash2{$id}[1]\n";
                 print $cnu_out_fh "$hash2{$id}[2]\n";
             }
             # ONE CASE
-            if ($hash1{$id}[0] == 2 && $hash2{$id}[0] == -1) {
+            if ($gu->unjoined && $hash2{$id}[0] == -1) {
                 undef @spans;
                 @a = split(/\t/,$hash1{$id}[1]);
                 $chr1 = $a[1];
@@ -642,17 +642,17 @@ sub run {
                 }
             }
             # ELEVEN CASES DONE
-            if ($hash1{$id}[0] == -1 && $hash2{$id}[0] == 1) {
+            if ($gu->joined && $hash2{$id}[0] == 1) {
                 print $bowtie_unique_out_fh "$hash1{$id}[1]\n";
             }
-            if ($hash1{$id}[0] == 1 && $hash2{$id}[0] == -1) {
+            if ($gu->single && $hash2{$id}[0] == -1) {
                 print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
             }
-            if ($hash1{$id}[0] == 1 && $hash2{$id}[0] == 2) {
+            if ($gu->single && $hash2{$id}[0] == 2) {
                 print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
                 print $bowtie_unique_out_fh "$hash2{$id}[2]\n";
             }	
-            if ($hash1{$id}[0] == 2 && $hash2{$id}[0] == 1) {
+            if ($gu->unjoined && $hash2{$id}[0] == 1) {
                 print $bowtie_unique_out_fh "$hash1{$id}[1]\n";
                 print $bowtie_unique_out_fh "$hash1{$id}[2]\n";
             }	
