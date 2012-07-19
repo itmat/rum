@@ -230,7 +230,6 @@ sub run {
     {
         my $tnu_in_fh = $self->{tnu_in_fh};
         while ($line = <$tnu_in_fh>) {
-            warn "Got TNU $line\n";
             $line =~ /^seq.(\d+)/;
             $self->{ambiguous_mappers}->{$1}++;
         }
@@ -492,8 +491,6 @@ sub run {
 
                     # the next two if's take care of the case that there is no overlap, one read lies entirely downstream of the other
 		
-                    warn "astrand $astrand, bstrand $bstrand, atype $atype, btype $btype, chra $chra, chrb $chrb, aend $aend, bstart $bstart, max pair dist $self->{max_pair_dist}\n";
-
                     if ((($astrand eq "+" && $bstrand eq "+" && $atype eq "forward" && $btype eq "reverse") || ($astrand eq "-" && $bstrand eq "-" && $atype eq "reverse" && $btype eq "forward")) && ($chra eq $chrb) && ($aend < $bstart-1) && ($bstart - $aend < $self->{max_pair_dist})) {
                         if ($hash1{$id}[1] =~ /a\t/) {
                             print $bowtie_unique_out_fh "$hash1{$id}[1]\n$hash2{$id}[1]\n";
@@ -510,8 +507,6 @@ sub run {
                     }
                     $Eflag =0;
 
-                    warn "Getting ready to take care of $aend and $bend\n";
-
                     if (($astrand eq $bstrand) && ($chra eq $chrb) && (($aend >= $bstart-1) && ($astart <= $bstart)) || (($bend >= $astart-1) && ($bstart <= $astart))) {
 
                         $aseq2 = $aseq;
@@ -526,10 +521,8 @@ sub run {
                         if (!($merged_spans =~ /\S/)) {
                             @AS = split(/-/,$aspans);
                             $AS[0]++;
-                            warn "Got in here aspans is $aspans, AS are @AS\n";
 
                             $aspans_temp = $AS[0] . "-" . $AS[1]; 
-                            warn "Aspans temp is $aspans_temp\n";
                             $aseq2_temp = $aseq2;
                             $aseq2_temp =~ s/^.//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
@@ -953,10 +946,9 @@ sub run {
 
 }
 
-sub merge () {
+sub merge {
     use strict;
     my ($upstreamspans, $downstreamspans, $seq1, $seq2) = @_;
-    warn "Merging $upstreamspans and $downstreamspans\n";
     
     my %HASH;
     my @Uarray;
@@ -982,8 +974,6 @@ sub merge () {
         $Dstarts[$i1] = $T[0];
         $Dends[$i1] = $T[1];
     }
-    
-    warn "Num u is $num_u, num d is $num_d\n";
     
     # the last few bases of the upstream read might be misaligned downstream of the entire
     # downstream read, the following chops them off and tries again
@@ -1093,7 +1083,7 @@ sub merge () {
         my $merged_seq = $seq1 . $suffix;
         return ($merged, $merged_seq);
     }
-    warn "Returning undef!\n";
+
     return;
     
 }

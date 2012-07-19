@@ -447,8 +447,6 @@ push @merge_tests, [
     ['2-11, 21-30', '1-5, 36-50', 'A' x 20, 'C' x 20],
     ['2-11, 21-30, 36-50', 'AAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCC']];
 
-undef @tests;
-
 plan tests => scalar(@tests) * 4 + scalar(@merge_tests);
 
 for my $test ( @tests ) {
