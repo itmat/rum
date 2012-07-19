@@ -524,7 +524,6 @@ sub run {
 
                             $aspans_temp = join '-', @AS;
                             $aseq2_temp = $aseq2;
-                            warn "Changed $aspans to $aspans_temp\n";
                             $aseq2_temp =~ s/^.//;
 
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
@@ -536,7 +535,6 @@ sub run {
                         if (! $merged_spans) {
                             $AS[0]++;
                             $aspans_temp = join '-', @AS;
-                            warn "Changed $aspans to $aspans_temp\n";
                             $aseq2_temp =~ s/^.//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
@@ -547,7 +545,6 @@ sub run {
                         if (! $merged_spans) {
                             $AS[0]++;
                             $aspans_temp = join '-', @AS;
-                            warn "Changed $aspans to $aspans_temp\n";
                             $aseq2_temp =~ s/^.//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
@@ -559,7 +556,6 @@ sub run {
                             @AS = split(/-/,$aspans);
                             $AS[-1]--;
                             $aspans_temp = join '-', @AS;
-                            warn "Changed $aspans to $aspans_temp\n";
                             $aseq2_temp = $aseq2;
                             $aseq2_temp =~ s/.$//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
@@ -571,7 +567,6 @@ sub run {
                         if (! $merged_spans) {
                             $AS[-1]--;
                             $aspans_temp = join '-', @AS;
-                            warn "Changed $aspans to $aspans_temp\n";
                             $aseq2_temp =~ s/.$//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
@@ -582,7 +577,6 @@ sub run {
                         if (! $merged_spans) {
                             $AS[-1]--;
                             $aspans_temp = join '-', @AS;
-                            warn "Changed $aspans to $aspans_temp\n";
                             $aseq2_temp =~ s/.$//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
@@ -592,7 +586,6 @@ sub run {
                         }
                         
                         if (! $merged_spans) {
-                            warn "Still nothing\n";
                             @Fspans = split(/, /,$aspans);
                             @T = split(/-/, $Fspans[0]);
                             $aspans3 = $aspans;
@@ -606,7 +599,6 @@ sub run {
                             # accordingly, then try to merge the
                             # spans.
                             if ($T[1] - $T[0] <= 5) {
-                                warn "Trimming front\n";
                                 $aspans3 =~ s/^(\d+)-(\d+), //;
                                 $length_diff = $2 - $1 + 1;
                                 for ($i1=0; $i1<$length_diff; $i1++) {
@@ -967,7 +959,6 @@ sub run {
 sub merge {
     use strict;
     my ($upstreamspans, $downstreamspans, $seq1, $seq2) = @_;
-    warn "Merging $upstreamspans and $downstreamspans\n";
     
     my %HASH;
     my @Uarray;

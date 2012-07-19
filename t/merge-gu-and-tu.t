@@ -392,7 +392,7 @@ push @tests, {
 
     gu_in      => [ [ 'seq.1a', 'chr1', [[  1, 40], [ 61, 100] ], ('A' x 80), '+' ] ],
     tu_in      => [ [ 'seq.1b', 'chr1', [[ 31, 70], [ 91, 130] ], ('C' x 80), '+' ] ],
-    unique_out => [ [ 'seq.1',  'chr1', [[ 1, 70], [91, 130]], ('A' x 70) . ':' . ('A' x 9) . ('C' x 31), '+' ]]
+    unique_out => []
 };
 
 push @tests, {
@@ -414,16 +414,16 @@ push @tests, {
 };
 
 push @tests, {
-    name => "Unique forward genome, reverse transcriptome, overlap (part 4)",
+    name => "Unique forward genome, reverse transcriptome, overlap (part 5)",
 
     gu_in      => [ [ 'seq.1a', 'chr1', [ [12, 17], [19, 20], [21, 29], [31, 35] ], ('A' x 80), '+' ] ],
     tu_in      => [ [ 'seq.1b', 'chr1', [ [10, 15], [17, 19], [21, 29], [31, 35] ], ('C' x 80), '+' ] ],
-    unique_out => [ [ 'seq.1',  'chr1', [[21, 29], [31, 35]], join(':', ('A' x 9), ('A' x 5)) , '+'] ]
+    unique_out => [ [ 'seq.1',  'chr1', [[19, 20], [21, 29], [31, 35]], join(':', 'A' x 2, 'A' x 9, 'A' x 5) , '+'] ]
 
 };
 
 push @tests, {
-    name => "Unique forward genome, reverse transcriptome, overlap (part 4)",
+    name => "Unique forward genome, reverse transcriptome, overlap (part 6)",
 
     gu_in      => [ [ 'seq.1a', 'chr1', [ [21, 29], [31, 35], [40,41], [43, 48] ], ('A' x 80), '+' ] ],
     tu_in      => [ [ 'seq.1b', 'chr1', [ [21, 29], [31, 35], [38, 43] ], ('C' x 80), '+' ] ],
@@ -432,7 +432,7 @@ push @tests, {
 };
 
 push @tests, {
-    name => "Unique forward genome, reverse transcriptome, overlap (part 4)",
+    name => "Unique forward genome, reverse transcriptome, overlap (part 7)",
 
     gu_in      => [ [ 'seq.1a', 'chr1', [ [21, 29], [31, 35], [40,41], [43, 48], [52, 55] ], ('A' x 80), '+' ] ],
     tu_in      => [ [ 'seq.1b', 'chr1', [ [21, 29], [31, 35], [38, 43] ], ('C' x 80), '+' ] ],
@@ -440,7 +440,10 @@ push @tests, {
 
 };
 
-
+##############################################################################
+##
+## Test the merge function
+##
 
 my @merge_tests;
 
@@ -494,6 +497,8 @@ push @merge_tests, [
     ['2-11, 21-30, 36-50', 'AAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCC']];
 
 plan tests => scalar(@tests) * 4 + scalar(@merge_tests);
+
+
 
 my $count = 0;
 for my $test ( @tests ) {
