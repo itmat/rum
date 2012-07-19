@@ -2,7 +2,11 @@ package RUM::Script::MergeGuAndTu;
 
 no warnings;
 
+use Carp;
 use RUM::Usage;
+use RUM::Common qw(min_overlap_for_read_length
+                   min_overlap_for_seqs);
+use List::Util qw(min max);
 
 use base 'RUM::Script::Base';
 
@@ -78,142 +82,43 @@ sub main {
     $self->run;
 }
 
+sub determine_read_length_from_input {
+    use strict;
+    my ($self) = @_;
+    my @keys = qw(gu_in_fh
+                  tu_in_fh 
+                  gnu_in_fh
+                  tnu_in_fh);
+    my @fhs = map { $self->{$_} } @keys;
+    my @iters   = map { RUM::BowtieIO->new(
+        -fh => $_, strand_last => 1) } @fhs;
+
+    my @lengths = map { $_->longest_read } @iters;
+
+    for my $fh (@fhs) {
+        seek $fh, 0, 0;
+    }
+    warn "my lengths are @lengths\n";
+    return max(@lengths);
+}
+
 sub run {
     my ($self) = @_;
-    if ($self->{read_length} == 0) {
-        {
-            my $infile = $self->{tu_in_fh};
-            
-            $cnt = 0;
-            while ($line = <$infile>) {
-                $length = 0;
-                if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                    chomp($line);
-                    @a = split(/\t/,$line);
-                    $span = $a[2];
-                    @SPANS = split(/, /, $span);
-                    $cnt++;
-                    for ($i=0; $i<@SPANS; $i++) {
-                        @b = split(/-/,$SPANS[$i]);
-                        $length = $length + $b[1] - $b[0] + 1;
-                    }
-                    if ($length > $self->{read_length}) {
-                        $self->{read_length} = $length;
-                        $cnt = 0;
-                    }
-                    if ($cnt > 50000) {
-                        last;
-                    }
-                }
-            }
-            seek $infile, 0, 0;
-        }
 
-        {
-            my $infile = $self->{gu_in};
-            
-            $cnt = 0;
-            while ($line = <$infile>) {
-                $length = 0;
-                if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                    chomp($line);
-                    @a = split(/\t/,$line);
-                    $span = $a[2];
-                    @SPANS = split(/, /, $span);
-                    $cnt++;
-                    for ($i=0; $i<@SPANS; $i++) {
-                        @b = split(/-/,$SPANS[$i]);
-                        $length = $length + $b[1] - $b[0] + 1;
-                    }
-                    if ($length > $self->{read_length}) {
-                        $self->{read_length} = $length;
-                        $cnt = 0;
-                    }
-                    if ($cnt > 50000) {
-                        last;
-                    }
-                }
-            }
-            seek $infile, 0, 0;
-        }
-
-        {
-            $cnt = 0;
-            my $infile = $self->{gnu_in_fh};
-
-            while ($line = <$infile>) {
-                if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                    chomp($line);
-                    @a = split(/\t/,$line);
-                    $span = $a[2];
-                    if (!($span =~ /,/)) {
-                        $cnt++;
-                        @b = split(/-/,$span);
-                        $length = $b[1] - $b[0] + 1;
-                        if ($length > $self->{read_length}) {
-                            $self->{read_length} = $length;
-                            $cnt = 0;
-                        }
-                        if ($cnt > 50000) { # it checked 50,000 lines without finding anything larger than the last time
-                            # readlength was changed, so it's most certainly found the max.
-                            # Went through this to avoid the user having to input the readlength.
-                            last;
-                        }
-                    }
-                }
-            }
-            seek $infile, 0, 0;
-        }
-
-        {
-            $cnt = 0;
-            my $infile = $self->{tnu_in_fh};
-            
-            while ($line = <$infile>) {
-                if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
-                    chomp($line);
-                    @a = split(/\t/,$line);
-                    $span = $a[2];
-                    if (!($span =~ /,/)) {
-                        $cnt++;
-                        @b = split(/-/,$span);
-                        $length = $b[1] - $b[0] + 1;
-                        if ($length > $self->{read_length}) {
-                            $self->{read_length} = $length;
-                            $cnt = 0;
-                        }
-                        if ($cnt > 50000) { # it checked 50,000 lines without finding anything larger than the last time
-                            # readlength was changed, so it's most certainly found the max.
-                            # Went through this to avoid the user having to input the readlength.
-                            last;
-                        }
-                    }
-                }
-            }
-            seek $infile, 0, 0;
-        }
-    }
-
-
-    if ($self->{read_length} == 0) { # Couldn't determine the read length so going to fall back
+    $self->{read_length} ||= $self->determine_read_length_from_input;
+    warn "Read length is $self->{read_length}\n";
+    if (!$self->{read_length}) { # Couldn't determine the read length so going to fall back
         # on the strategy used for variable length reads.
         $self->{read_length} = "v";
     }
 
-    if (!($self->{read_length} eq "v")) {
-        if ($self->{read_length} < 80) {
-            $min_overlap = 35;
-        } else {
-            $min_overlap = 45;
-        }
-        if ($min_overlap >= .8 * $self->{read_length}) {
-            $min_overlap = int(.6 * $self->{read_length});
-        }
+    if ($self->{read_length} ne "v") {
+        $min_overlap  = min_overlap_for_read_length($self->{read_length});
         $min_overlap1 = $min_overlap;
         $min_overlap2 = $min_overlap;
     }
     if ($self->{user_min_overlap} > 0) {
-        $min_overlap = $self->{user_min_overlap};
+        $min_overlap  = $self->{user_min_overlap};
         $min_overlap1 = $self->{user_min_overlap};
         $min_overlap2 = $self->{user_min_overlap};
     }
@@ -314,11 +219,11 @@ sub run {
             $line_prev = $line;
         }
         foreach $id (sort {$a <=> $b} keys %allids) {
-            if ($self->{ambiguous_mappers}->{$id}+0 > 0) {
-                next;
-            }
+            next if $self->{ambiguous_mappers}->{$id};
+
             $hash1{$id}[0] = $hash1{$id}[0] + 0;
             $hash2{$id}[0] = $hash2{$id}[0] + 0;
+
             # MUST DO 15 CASES IN TOTAL:
             # THREE CASES:
             if ($hash1{$id}[0] == 0) {
@@ -354,24 +259,8 @@ sub run {
                 $str =~ /^(\d+)/;
                 $length_overlap = $1;
 
-                if ($self->{read_length} eq "v") {
-                    $readlength_temp = length($a1[3]);
-                    if (length($a2[3]) < $readlength_temp) {
-                        $readlength_temp = length($a2[3]);
-                    }
-                    if ($readlength_temp < 80) {
-                        $min_overlap = 35;
-                    } else {
-                        $min_overlap = 45;
-                    }
-                    if ($min_overlap >= .8 * $readlength_temp) {
-                        $min_overlap = int(.6 * $readlength_temp);
-                    }
-                }
-                if ($self->{user_min_overlap} > 0) {
-                    $min_overlap = $self->{user_min_overlap};
-                }
-                if (($length_overlap > $min_overlap) && ($a1[1] eq $a2[1])) {
+                if ($self->enough_overlap($length_overlap, $a1[3], $a2[3]) &&
+                    ($a1[1] eq $a2[1])) {
                     print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
                 } else {
                     print $cnu_out_fh "$hash1{$id}[1]\n";
@@ -393,25 +282,8 @@ sub run {
                     $str =~ /^(\d+)/;
                     $length_overlap = $1;
 
-                    if ($self->{read_length} eq "v") {
-                        $readlength_temp = length($a1[3]);
-                        if (length($a2[3]) < $readlength_temp) {
-                            $readlength_temp = length($a2[3]);
-                        }
-                        if ($readlength_temp < 80) {
-                            $min_overlap = 35;
-                        } else {
-                            $min_overlap = 45;
-                        }
-                        if ($min_overlap >= .8 * $readlength_temp) {
-                            $min_overlap = int(.6 * $readlength_temp);
-                        }
-                    }
-                    if ($self->{user_min_overlap} > 0) {
-                        $min_overlap = $self->{user_min_overlap};
-                    }
-		
-                    if (($length_overlap > $min_overlap) && ($a1[1] eq $a2[1])) {
+                    if ($self->enough_overlap($length_overlap, $a1[3], $a2[3]) 
+                        && ($a1[1] eq $a2[1])) {
                         # preference TU
                         print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
                     } else {
@@ -700,43 +572,12 @@ sub run {
                 $chr2 = $a[1];
                 $spansa[1] = $a[2];
 
-                if ($self->{read_length} eq "v") {
-                    $readlength_temp = length($seqa);
-                    if (length($a[3]) < $readlength_temp) {
-                        $readlength_temp = length($a[3]);
-                    }
-                    if ($readlength_temp < 80) {
-                        $min_overlap1 = 35;
-                    } else {
-                        $min_overlap1 = 45;
-                    }
-                    if ($min_overlap1 >= .8 * $readlength_temp) {
-                        $min_overlap1 = int(.6 * $readlength_temp);
-                    }
-                }
-                if ($self->{user_min_overlap} > 0) {
-                    $min_overlap1 = $self->{user_min_overlap};
-                }
+                $min_overlap1 = $self->min_overlap($seqa, $a[3]);
+
                 @a = split(/\t/,$hash2{$id}[2]);
                 $spansb[1] = $a[2];
 
-                if ($self->{read_length} eq "v") {
-                    $readlength_temp = length($seqb);
-                    if (length($a[3]) < $readlength_temp) {
-                        $readlength_temp = length($a[3]);
-                    }
-                    if ($readlength_temp < 80) {
-                        $min_overlap2 = 35;
-                    } else {
-                        $min_overlap2 = 45;
-                    }
-                    if ($min_overlap2 >= .8 * $readlength_temp) {
-                        $min_overlap2 = int(.6 * $readlength_temp);
-                    }
-                }
-                if ($self->{user_min_overlap} > 0) {
-                    $min_overlap2 = $self->{user_min_overlap};
-                }
+                $min_overlap2 = $self->min_overlap($seqb, $a[3]);
 
                 $str = intersect(\@spansa, $seqa);
                 $str =~ /^(\d+)/;
@@ -744,7 +585,9 @@ sub run {
                 $str = intersect(\@spansb, $seqb);
                 $str =~ /^(\d+)/;
                 $length_overlap2 = $1;
-                if (($length_overlap1 > $min_overlap1) && ($length_overlap2 > $min_overlap2) && ($chr1 eq $chr2)) {
+                if (($length_overlap1 > $min_overlap1) && 
+                    ($length_overlap2 > $min_overlap2) && 
+                    ($chr1 eq $chr2)) {
                     print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
                     print $bowtie_unique_out_fh "$hash2{$id}[2]\n";
                 } else {
@@ -772,41 +615,15 @@ sub run {
                 $chr2 = $a[1];
                 $spans[1] = $a[2];
                 if ($chr1 eq $chr2) {
-                    if ($self->{read_length} eq "v") {
-                        $readlength_temp = length($seq);
-                        if (length($a[3]) < $readlength_temp) {
-                            $readlength_temp = length($a[3]);
-                        }
-                        if ($readlength_temp < 80) {
-                            $min_overlap1 = 35;
-                        } else {
-                            $min_overlap1 = 45;
-                        }
-                        if ($min_overlap1 >= .8 * $readlength_temp) {
-                            $min_overlap1 = int(.6 * $readlength_temp);
-                        }
-                    }
-                    if ($self->{user_min_overlap} > 0) {
-                        $min_overlap1 = $self->{user_min_overlap};
-                    }
+
+                    $min_overlap1 = $self->min_overlap($seq, $a[3]);
 
                     $str = intersect(\@spans, $seq);
                     $str =~ /^(\d+)/;
                     $overlap1 = $1;
                     @a = split(/\t/,$hash1{$id}[2]);
                     if ($self->{read_length} eq "v") {
-                        $readlength_temp = length($seq);
-                        if (length($a[3]) < $readlength_temp) {
-                            $readlength_temp = length($a[3]);
-                        }
-                        if ($readlength_temp < 80) {
-                            $min_overlap2 = 35;
-                        } else {
-                            $min_overlap2 = 45;
-                        }
-                        if ($min_overlap2 >= .8 * $readlength_temp) {
-                            $min_overlap2 = int(.6 * $readlength_temp);
-                        }
+                        $min_overlap2 = min_overlap_for_seqs($seq, $a[3]);
                     }
                     if ($self->{user_min_overlap} > 0) {
                         $min_overlap2 = $self->{user_min_overlap};
@@ -1096,4 +913,32 @@ sub merge {
 
     return;
     
+}
+
+sub enough_overlap {
+    my ($self, $overlap, $seq1, $seq2) = @_;
+    
+    my $threshold = 
+      $self->{user_min_overlap}   ? $self->{user_min_overlap} 
+    : $self->{read_length} ne 'v' ? $self->{min_overlap} 
+    :                               min_overlap_for_seqs($seq1, $seq2);
+    
+    return $overlap > $self->min_overlap($seq1, $seq2);
+}
+
+sub min_overlap {
+    my ($self, $seq1, $seq2) = @_;
+    warn "Getting threshold for $seq1, $seq2\n";
+    if ($self->{user_min_overlap}) {
+        carp "Using threshold from user of $self->{user_min_overlap}\n";
+        return $self->{user_min_overlap};
+    }
+    elsif ($self->{read_length} ne 'v') {
+        carp "Using calculated threshold of $self->{min_overlap}\n";
+        return min_overlap_for_read_length($self->{read_length});
+    }
+    else {
+        carp "Using custom threshold of " . min_overlap_for_seqs($seq1, $seq2);
+        return min_overlap_for_seqs($seq1, $seq2);
+    }
 }

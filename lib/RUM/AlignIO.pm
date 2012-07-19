@@ -49,4 +49,36 @@ sub write_alns {
     }
 }
 
+sub longest_read {
+
+    my ($self) = @_;
+    my $count = 0;
+    my $readlength = 0;
+    while (my $aln = $self->next_val) {
+        my $length = 0;
+        my $locs = $aln->locs;
+        
+        $count++;
+        for my $span ( @{ $locs } ) {
+            my ($start, $end) = @{ $span };
+            $length += $end - $start + 1;
+        }
+        if ($length > $readlength) {
+            $readlength = $length;
+            $count = 0;
+        }
+        if ($count > 50000) { 
+            # it checked 50,000 lines without finding anything
+            # larger than the last time readlength was
+            # changed, so it's most certainly found the max.
+            # Went through this to avoid the user having to
+            # input the readlength.
+            last;
+        }
+    }
+    return $readlength;
+}
+
+
+
 1;

@@ -43,36 +43,6 @@ my ($astem, $a_insertion, $aseq_p, $apost);
 my ($bstem, $b_insertion, $bseq_p, $bpost);
 my $dflag;
 
-sub longest_read {
-    use strict;
-    my ($iter) = @_;
-    my $count = 0;
-    my $readlength = 0;
-    while (my $aln = $iter->next_val) {
-        my $length = 0;
-        my $locs = $aln->locs;
-        
-        $count++;
-        for my $span ( @{ $locs } ) {
-            my ($start, $end) = @{ $span };
-            $length += $end - $start + 1;
-        }
-        if ($length > $readlength) {
-            $readlength = $length;
-            $count = 0;
-        }
-        if ($count > 50000) { 
-            # it checked 50,000 lines without finding anything
-            # larger than the last time readlength was
-            # changed, so it's most certainly found the max.
-            # Went through this to avoid the user having to
-            # input the readlength.
-            last;
-        }
-    }    
-    return $readlength;
-}
-
 sub blat_nu_iter_for_readid {
     my ($filename, $readid) = @_;
     open my $fh, '-|', "grep $readid $filename";
@@ -136,7 +106,7 @@ sub main {
         my @iters   = map { RUM::BowtieIO->new(
             -file => $_, strand_last => 1
                                            ) } @files;
-        my @lengths = map { longest_read($_) } @iters;
+        my @lengths = map { $_->longest_read } @iters;
         $readlength = max(@lengths);
     }
     
@@ -367,7 +337,6 @@ sub main {
 }
 
 sub joinifpossible () {
-    use strict;
     my ($aln1, $aln2, $max_distance_between_paired_reads) = @_;
     my $LINE1 = $aln1->raw;
     my $LINE2 = $aln2->raw;
@@ -504,7 +473,6 @@ sub merge  {
 }
 
 sub intersect {
-    use strict;
     my ($spans_ref, $seq) = @_;
     my @spans = @{$spans_ref};
     my $num_i = @spans;
@@ -593,7 +561,6 @@ sub intersect {
 }
 
 sub handle_both_single {
-    use strict;
     my ($bowtie, $blat, $unique_io, $nu_io, $readlength,
         $max_distance_between_paired_reads) = @_;
     my $bowtie_single = $bowtie->single;

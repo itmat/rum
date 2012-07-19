@@ -498,8 +498,6 @@ push @merge_tests, [
 
 plan tests => scalar(@tests) * 4 + scalar(@merge_tests);
 
-
-
 my $count = 0;
 for my $test ( @tests ) {
     $count++;
@@ -515,5 +513,4 @@ for my $test (@merge_tests) {
     my @got = RUM::Script::MergeGuAndTu::merge(@{ $in });
     is_deeply(\@got, $out);
 }
-
 

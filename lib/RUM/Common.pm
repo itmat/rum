@@ -8,12 +8,14 @@ use RUM::Logging;
 
 our $log = RUM::Logging->get_logger;
 
+use List::Util qw(min);
 use Carp;
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
                     reversecomplement format_large_int spansTotalLength
                     reversesignal read_chunk_id_mapping is_fasta is_fastq head
-                    num_digits shell is_on_cluster min_overlap_for_read_length);
+                    num_digits shell is_on_cluster min_overlap_for_read_length
+                    min_overlap_for_seqs);
 
 =head1 FUNCTIONS
 
@@ -437,6 +439,13 @@ sub min_overlap_for_read_length {
         $min_overlap = int(.6 * $read_length);
     }
     return $min_overlap;
+}
+
+sub min_overlap_for_seqs {
+    my ($x, $y) = @_;
+    warn "My seqs are $x, $y\n";
+    my $len = min(length($x), length($y));
+    return min_overlap_for_read_length($len);
 }
 
 1;
