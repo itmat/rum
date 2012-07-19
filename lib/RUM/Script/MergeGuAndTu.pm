@@ -100,7 +100,6 @@ sub determine_read_length_from_input {
     for my $fh (@fhs) {
         seek $fh, 0, 0;
     }
-    warn "my lengths are @lengths\n";
     return max(@lengths);
 }
 
@@ -108,7 +107,7 @@ sub run {
     my ($self) = @_;
 
     $self->{read_length} ||= $self->determine_read_length_from_input;
-    warn "Read length is $self->{read_length}\n";
+
     if (!$self->{read_length}) { # Couldn't determine the read length so going to fall back
         # on the strategy used for variable length reads.
         $self->{read_length} = "v";
@@ -241,7 +240,7 @@ sub run {
 
             my @tu_lines = @{ $hash2{$id} };
             @tu_lines = grep { $_ } @tu_lines[1..$#tu_lines];
-            my @tu_alns = map { warn "Line is $_\n"; $tu_iter->parse_aln($_) } @tu_lines;
+            my @tu_alns = map { $tu_iter->parse_aln($_) } @tu_lines;
             my $tu = RUM::Mapper->new(source => 'tu',
                                       alignments => \@tu_alns);
 
@@ -558,26 +557,25 @@ sub run {
                 }
             }
             # ONE CASE
-            if ($gu->unjoined && $hash2{$id}[0] == 2) {
-                undef @spansa;
-                undef @spansb;
-                @a = split(/\t/,$hash1{$id}[1]);
-                $chr1 = $a[1];
-                $spansa[0] = $a[2];
-                $seqa = $a[3];
-                @a = split(/\t/,$hash1{$id}[2]);
-                $spansb[0] = $a[2];
-                $seqb = $a[3];
-                @a = split(/\t/,$hash2{$id}[1]);
-                $chr2 = $a[1];
-                $spansa[1] = $a[2];
+            if ($gu->unjoined && $tu->unjoined) {
+                my @spansa;
+                my @spansb;
+                my @gu = @{ $gu->unjoined };
+                my @tu = @{ $tu->unjoined };
 
-                $min_overlap1 = $self->min_overlap($seqa, $a[3]);
+                $chr1 = $gu[0]->chromosome;
+                $chr2 = $tu[0]->chromosome;
 
-                @a = split(/\t/,$hash2{$id}[2]);
-                $spansb[1] = $a[2];
+                $spansa[0] = RUM::RUMIO->format_locs($gu[0]);
+                $spansb[0] = RUM::RUMIO->format_locs($gu[1]);
+                $seqa = $gu[0]->seq;
+                $seqb = $gu[1]->seq;
+                
+                $spansa[1] = RUM::RUMIO->format_locs($tu[0]);
+                $spansb[1] = RUM::RUMIO->format_locs($tu[1]);
 
-                $min_overlap2 = $self->min_overlap($seqb, $a[3]);
+                $min_overlap1 = $self->min_overlap($seqa, $tu[0]->seq);
+                $min_overlap2 = $self->min_overlap($seqb, $tu[1]->seq);
 
                 $str = intersect(\@spansa, $seqa);
                 $str =~ /^(\d+)/;
@@ -585,16 +583,14 @@ sub run {
                 $str = intersect(\@spansb, $seqb);
                 $str =~ /^(\d+)/;
                 $length_overlap2 = $1;
+
                 if (($length_overlap1 > $min_overlap1) && 
                     ($length_overlap2 > $min_overlap2) && 
                     ($chr1 eq $chr2)) {
-                    print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
-                    print $bowtie_unique_out_fh "$hash2{$id}[2]\n";
+                    $unique_io->write_alns($tu);
                 } else {
-                    print $cnu_out_fh "$hash1{$id}[1]\n";
-                    print $cnu_out_fh "$hash1{$id}[2]\n";
-                    print $cnu_out_fh "$hash2{$id}[1]\n";
-                    print $cnu_out_fh "$hash2{$id}[2]\n";
+                    $cnu_io->write_alns($gu);
+                    $cnu_io->write_alns($tu);
                 }
             }	
             # NINE CASES DONE
@@ -928,17 +924,13 @@ sub enough_overlap {
 
 sub min_overlap {
     my ($self, $seq1, $seq2) = @_;
-    warn "Getting threshold for $seq1, $seq2\n";
     if ($self->{user_min_overlap}) {
-        carp "Using threshold from user of $self->{user_min_overlap}\n";
         return $self->{user_min_overlap};
     }
     elsif ($self->{read_length} ne 'v') {
-        carp "Using calculated threshold of $self->{min_overlap}\n";
         return min_overlap_for_read_length($self->{read_length});
     }
     else {
-        carp "Using custom threshold of " . min_overlap_for_seqs($seq1, $seq2);
         return min_overlap_for_seqs($seq1, $seq2);
     }
 }
