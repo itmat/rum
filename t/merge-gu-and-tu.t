@@ -387,12 +387,20 @@ push @tests, {
                 ],
  };
 
-push @tests, {
-    name => "Unique forward genome, reverse transcriptome, overlap",
+#push @tests, {
+#    name => "Unique forward genome, reverse transcriptome, overlap (part 2)",
+#
+#    gu_in      => [ [ 'seq.1a', 'chr1', [[  1, 40], [ 61, 100] ], ('A' x 80), '+' ] ],
+#    tu_in      => [ [ 'seq.1b', 'chr1', [[ 31, 70], [ 91, 130] ], ('C' x 80), '+' ] ],
+#    unique_out => [ [ 'seq.1',  'chr1', [[ 1, 70], [91, 130]], ('A' x 70) . ':' . ('A' x 9) . ('C' x 31), '+' ]]
+#};
 
-    gu_in      => [ [ 'seq.1a', 'chr1', [[  1, 40], [ 61, 100] ], ('A' x 80), '+' ] ],
-    tu_in      => [ [ 'seq.1b', 'chr1', [[ 31, 70], [ 91, 130] ], ('A' x 80), '+' ] ],
-    unique_out => [ [ 'seq.1',  'chr1', [[ 2, 40], [61], [31, 70], [91, 130]], ('A' x 39) . '::' . ('A' x 40) . ':' . ('A' x 40), '+'] ]
+push @tests, {
+    name => "Unique forward genome, reverse transcriptome, overlap (part 3)",
+
+    gu_in      => [ [ 'seq.1a', 'chr1', [[1, 13], [ 21, 29] ], ('A' x 80), '+' ] ],
+    tu_in      => [ [ 'seq.1b', 'chr1', [[1, 13], [ 16, 25] ], ('C' x 80), '+' ] ],
+    unique_out => [ [ 'seq.1',  'chr1', [[1, 13], [16, 25]], ('A' x 13) . ':' . ('A' x 10), '+'] ]
 
 };
 
@@ -449,7 +457,10 @@ push @merge_tests, [
 
 plan tests => scalar(@tests) * 4 + scalar(@merge_tests);
 
+my $count = 0;
 for my $test ( @tests ) {
+    $count++;
+    $test->{name} = "$count $test->{name}";
     test_merge(%{ $test });
     my %copy = %{ $test };
     $copy{read_length} = 'v';

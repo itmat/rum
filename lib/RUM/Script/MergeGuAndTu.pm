@@ -522,8 +522,21 @@ sub run {
                             @AS = split(/-/,$aspans);
                             $AS[0]++;
 
-                            $aspans_temp = $AS[0] . "-" . $AS[1]; 
+                            $aspans_temp = join '-', @AS;
                             $aseq2_temp = $aseq2;
+                            warn "Changed $aspans to $aspans_temp\n";
+                            $aseq2_temp =~ s/^.//;
+
+                            if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
+                                ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
+                            } else {
+                                ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
+                            }
+                        }
+                        if (!($merged_spans =~ /\S/)) {
+                            $AS[0]++;
+                            $aspans_temp = join '-', @AS;
+                            warn "Changed $aspans to $aspans_temp\n";
                             $aseq2_temp =~ s/^.//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
@@ -533,17 +546,8 @@ sub run {
                         }
                         if (!($merged_spans =~ /\S/)) {
                             $AS[0]++;
-                            $aspans_temp = $AS[0] . "-" . $AS[1]; 
-                            $aseq2_temp =~ s/^.//;
-                            if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
-                                ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
-                            } else {
-                                ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
-                            }
-                        }
-                        if (!($merged_spans =~ /\S/)) {
-                            $AS[0]++;
-                            $aspans_temp = $AS[0] . "-" . $AS[1]; 
+                            $aspans_temp = join '-', @AS;
+                            warn "Changed $aspans to $aspans_temp\n";
                             $aseq2_temp =~ s/^.//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
@@ -553,8 +557,9 @@ sub run {
                         }
                         if (!($merged_spans =~ /\S/)) {
                             @AS = split(/-/,$aspans);
-                            $AS[1]--;
-                            $aspans_temp = $AS[0] . "-" . $AS[1]; 
+                            $AS[-1]--;
+                            $aspans_temp = join '-', @AS;
+                            warn "Changed $aspans to $aspans_temp\n";
                             $aseq2_temp = $aseq2;
                             $aseq2_temp =~ s/.$//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
@@ -564,8 +569,9 @@ sub run {
                             }
                         }
                         if (!($merged_spans =~ /\S/)) {
-                            $AS[1]--;
-                            $aspans_temp = $AS[0] . "-" . $AS[1]; 
+                            $AS[-1]--;
+                            $aspans_temp = join '-', @AS;
+                            warn "Changed $aspans to $aspans_temp\n";
                             $aseq2_temp =~ s/.$//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
@@ -574,8 +580,9 @@ sub run {
                             }
                         }
                         if (!($merged_spans =~ /\S/)) {
-                            $AS[1]--;
-                            $aspans_temp = $AS[0] . "-" . $AS[1]; 
+                            $AS[-1]--;
+                            $aspans_temp = join '-', @AS;
+                            warn "Changed $aspans to $aspans_temp\n";
                             $aseq2_temp =~ s/.$//;
                             if ($atype eq "forward" && $astrand eq "+" || $atype eq "reverse" && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
