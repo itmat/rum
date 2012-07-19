@@ -596,20 +596,19 @@ sub run {
             # NINE CASES DONE
             # ONE CASE
             if ($gu->joined && $hash2{$id}[0] == 2) {
-                print $cnu_out_fh "$hash1{$id}[1]\n";
-                print $cnu_out_fh "$hash2{$id}[1]\n";
-                print $cnu_out_fh "$hash2{$id}[2]\n";
+                $cnu_io->write_alns($gu);
+                $cnu_io->write_alns($tu);
             }
             # ONE CASE
-            if ($gu->unjoined && $hash2{$id}[0] == -1) {
+            if ($gu->unjoined && $tu->joined) {
+                my @gu = @{ $gu->unjoined };
                 undef @spans;
-                @a = split(/\t/,$hash1{$id}[1]);
-                $chr1 = $a[1];
-                $spans[0] = $a[2];
-                $seq = $a[3];
+                $chr1 = $gu[0]->chromosome;
+                $spans[0] = RUM::RUMIO->format_locs($gu[0]);
+                $seq = $gu[0]->seq;
                 @a = split(/\t/,$hash2{$id}[1]);
-                $chr2 = $a[1];
-                $spans[1] = $a[2];
+                $chr2 = $tu->joined->chromosome;
+                $spans[1] = RUM::RUMIO->format_locs($tu->joined);
                 if ($chr1 eq $chr2) {
 
                     $min_overlap1 = $self->min_overlap($seq, $a[3]);
