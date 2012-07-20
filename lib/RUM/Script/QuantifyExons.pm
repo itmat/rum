@@ -5,19 +5,18 @@ no warnings;
 use autodie;
 
 use RUM::Usage;
-use RUM::Logging;
-use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
 use RUM::RUMIO;
-our $log = RUM::Logging->get_logger();
+
+use base 'RUM::Script::Base';
 
 sub main {
-
-
+    
+    my $self = __PACKAGE__->new;
     my %ecnt;
     
-    GetOptions(
+    $self->get_options(
         "exons-in=s"      => \(my $annotfile),    
         "unique-in=s"     => \(my $U_readsfile),
         "non-unique-in=s" => \(my $NU_readsfile),
@@ -26,10 +25,7 @@ sub main {
         "strand=s"        => \(my $userstrand = ""),
         "anti"            => \(my $anti),
         "countsonly"      => \(my $countsonly),
-        "novel"           => \(my $novel),
-        "help|h"          => sub { RUM::Usage->help },
-        "verbose|v"       => sub { $log->more_logging(1) },
-        "quiet|q"         => sub { $log->less_logging(1) });
+        "novel"           => \(my $novel));
     
     $annotfile or RUM::Usage->bad(
         "Please specify an exons file with --exons-in");
@@ -213,3 +209,37 @@ sub do_they_overlap {
 
 
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::QuantifyExons
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::QuantifyExons->main
+
+Run the script.
+
+=item readfile
+
+Load the given filename into some internal data structures.
+
+=item do_they_overlap
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
