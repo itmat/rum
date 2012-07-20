@@ -1,22 +1,19 @@
 package RUM::Script::MergeChrCounts;
 
-no warnings;
-use RUM::Usage;
-use RUM::Logging;
-use RUM::Common qw(read_chunk_id_mapping);
-use Getopt::Long;
-use RUM::Sort qw(by_chromosome);
-our $log = RUM::Logging->get_logger();
-
 use strict;
+no warnings;
+
+use RUM::Usage;
+use RUM::Common qw(read_chunk_id_mapping);
+use RUM::Sort qw(by_chromosome);
+
+use base 'RUM::Script::Base';
 
 sub main {
+    my $self = __PACKAGE__->new;
 
-    GetOptions(
+    $self->get_options(
         "output|o=s" => \(my $outfile),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) },
         "chunk-ids-file=s" => \(my $chunk_ids_file));
 
     $outfile or RUM::Usage->bad(
@@ -62,4 +59,31 @@ sub main {
     
 }
 
-    1;
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::MergeChrCounts
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::MergeChrCounts->main
+
+Run the script.
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
+
