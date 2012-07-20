@@ -22,24 +22,6 @@ my $tu  = "$INPUT_DIR/TU.1";
 my $gnu = "$INPUT_DIR/GNU.1";
 my $tnu = "$INPUT_DIR/TNU.1";
 
-#for my $type (qw(paired single)) {
-#    my $bowtie_unique  = temp_filename(TEMPLATE=>"$type-bowtie-unique.XXXXXX");
-#    my $cnu = temp_filename(TEMPLATE => "$type-cnu.XXXXXX",
-#                        UNLINK => 0);
-#    @ARGV = ("--gu", $gu, 
-#             "--tu", $tu, 
-#             "--gnu", $gnu, 
-#             "--tnu", $tnu,
-#             "--bowtie-unique", $bowtie_unique, 
-#             "--cnu", $cnu, 
-#             "--$type");
-#    
-#    RUM::Script::MergeGuAndTu->main();
-#    no_diffs($bowtie_unique, "$EXPECTED_DIR/$type-bowtie-unique", 
-#         "$type bowtie unique");
-#    no_diffs($cnu, "$EXPECTED_DIR/$type-cnu", "$type cnu");
-#}
-
 sub aln_array_ref_to_fh {
     my ($alns) = @_;
 
@@ -518,7 +500,7 @@ push @merge_tests, [
     ['2-11, 21-30', '1-5, 36-50', 'A' x 20, 'C' x 20],
     ['2-11, 21-30, 36-50', 'AAAAAAAAAAAAAAAAAAAACCCCCCCCCCCCCCC']];
 
-plan tests => scalar(@tests) * 4 + scalar(@merge_tests);
+plan tests => scalar(@tests) * 4 + scalar(@merge_tests) + 4;
 
 my $count = 0;
 for my $test ( @tests ) {
@@ -537,5 +519,23 @@ for my $test (@merge_tests) {
     my ($in, $out) = @{ $test };
     my @got = RUM::Script::MergeGuAndTu::merge(@{ $in });
     is_deeply(\@got, $out);
+}
+
+for my $type (qw(paired single)) {
+    my $bowtie_unique  = temp_filename(TEMPLATE=>"$type-bowtie-unique.XXXXXX");
+    my $cnu = temp_filename(TEMPLATE => "$type-cnu.XXXXXX",
+                        UNLINK => 0);
+    @ARGV = ("--gu", $gu, 
+             "--tu", $tu, 
+             "--gnu", $gnu, 
+             "--tnu", $tnu,
+             "--bowtie-unique", $bowtie_unique, 
+             "--cnu", $cnu, 
+             "--$type");
+    
+    RUM::Script::MergeGuAndTu->main();
+    no_diffs($bowtie_unique, "$EXPECTED_DIR/$type-bowtie-unique", 
+         "$type bowtie unique");
+    no_diffs($cnu, "$EXPECTED_DIR/$type-cnu", "$type cnu");
 }
 

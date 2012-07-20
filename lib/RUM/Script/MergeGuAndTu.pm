@@ -132,7 +132,6 @@ sub main {
 }
 
 sub determine_read_length_from_input {
-    use strict;
     my ($self) = @_;
     my @keys = qw(gu_in_fh
                   tu_in_fh 
@@ -264,8 +263,6 @@ sub run {
                     my $seqnum  = $gu->single->readid;
                     my $astrand = $gu->single->strand;
                     my $seqnum  = $gu->single->readid_directionless;
-
-                    my $forward_strand;
 
                     my $bspans  = RUM::RUMIO->format_locs($tu->single);
                     my $bstart  = $tu->single->start;
@@ -528,7 +525,6 @@ sub run {
 
 
 sub addJunctionsToSeq {
-    use strict;
     my ($seq_in, $spans_in) = @_;
     my @s1 = split(//,$seq_in);
     my @b1 = split(/, /,$spans_in);
@@ -552,7 +548,6 @@ sub addJunctionsToSeq {
 
 sub merge {
    
-    use strict;
     my ($upstreamspans, $downstreamspans, $seq1, $seq2) = @_;
 
     my %HASH;
