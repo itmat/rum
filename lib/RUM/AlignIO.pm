@@ -6,6 +6,7 @@ use autodie;
 use Scalar::Util qw(blessed);
 use Carp;
 
+use RUM::Mapper;
 use RUM::Alignment;
 
 use base 'RUM::BaseIO';

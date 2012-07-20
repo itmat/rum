@@ -1,4 +1,4 @@
-package RUM::Script::SortRumById;
+ package RUM::Script::SortRumById;
 
 use strict;
 use warnings;
@@ -12,15 +12,11 @@ use RUM::Usage;
 use RUM::Logging;
 use RUM::RUMIO;
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 sub main {
-
-    GetOptions(
-        "output|o=s" => \(my $sortedfile),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+    my $self = __PACKAGE__->new;
+    $self->get_options("output|o=s" => \(my $sortedfile));
 
     my $infile = $ARGV[0];
 
@@ -29,7 +25,7 @@ sub main {
     $sortedfile or RUM::Usage->bad(
         "Please specify an output file with -o or --output");
 
-    $log->info("Sorting '$infile'");
+    $self->logger->info("Sorting '$infile'");
 
     my @sorted_files   = map { "${infile}_sorted_temp$_"   } (1, 2, 3);
     my @unsorted_files = map { "${infile}_unsorted_temp$_" } (1, 2);
@@ -64,8 +60,8 @@ sub main {
 
     unlink @sorted_files, @unsorted_files;
 
-    $log->debug("Number of merges required to sort '$infile': $num_merges");
-    $log->debug("Done sorting '$infile' to $sortedfile");
+    $self->logger->debug("Number of merges required to sort '$infile': $num_merges");
+    $self->logger->debug("Done sorting '$infile' to $sortedfile");
 }
 
 sub split_sorted_and_unsorted {
@@ -110,3 +106,43 @@ sub merge {
         }
     }
 }
+
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::SortRumById - Sort a RUM file by id
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::SortRumById->main
+
+Run the script.
+
+=item split_sorted_and_unsorted($in, $sorted, $unsorted)
+
+Split the given $in file into two files, one that's sorted and one
+that isn't.
+
+=item merge($in1, $in2, $out)
+
+Merge the two (sorted) files $in1 and $in2 into a single sorted $out
+file.
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+=back
+
+
