@@ -71,7 +71,7 @@ sub main {
         return $iters->[0]->append($iters->[1])->peekable;
     };
 
-    my $merged = $gnu->merge($cmp, $tnu, $append)->peekable->merge($cmp, $cnu, $append)->peekable;
+    my $merged = $gnu->merge(cmp_fn => $cmp, others => [$tnu], group_fn => $append)->peekable->merge(cmp_fn => $cmp, others => [$cnu], group_fn => $append)->peekable;
 
     while (my $group = $merged->next_val) {
         my %seen;

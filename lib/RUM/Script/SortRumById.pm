@@ -98,12 +98,13 @@ sub merge {
     my $it1 = RUM::RUMIO->new(-file => $in1)->peekable;
     my $it2 = RUM::RUMIO->new(-file => $in2)->peekable;
 
-    my $merged = $it1->merge(sub { $_[0]->cmp_read_ids($_[1]) }, $it2);
+    my $merged = $it1->merge(
+        cmp_fn => sub { $_[0]->cmp_read_ids($_[1]) },
+        others => [$it2]);
     
     open my $out_fh, ">", $out;
 
     while (my $group = $merged->next_val) {
-        warn "Group is $group\n";
         for my $aln ( @{ $group } ) {
             print $out_fh $aln->raw . "\n";
         }
