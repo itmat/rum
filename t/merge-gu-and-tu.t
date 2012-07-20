@@ -15,6 +15,7 @@ use RUM::BowtieIO;
 use RUM::RUMIO;
 use RUM::Script::MergeGuAndTu;
 use RUM::TestUtils;
+
 use Data::Dumper;
 
 my $gu  = "$INPUT_DIR/GU.1";

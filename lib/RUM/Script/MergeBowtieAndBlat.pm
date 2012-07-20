@@ -41,17 +41,7 @@ sub blat_nu_iter_for_readid {
 
 sub unique_iter {
     my ($filename, $source) = @_;
-    my $iter = RUM::BowtieIO->new(-file => $filename, strand_last => 1);
-    return $iter->group_by(
-        sub { 
-            my ($x, $y) = @_;
-            return RUM::Identifiable::is_mate($x, $y),
-        },
-        sub { 
-            my $alns = shift;
-            RUM::Mapper->new(alignments => $alns,
-                             source => $source) })->peekable;
-
+    my $iter = RUM::BowtieIO->new(-file => $filename, strand_last => 1)->to_mapper_iter($source);
 }
 
 sub main {
@@ -146,7 +136,8 @@ sub main {
     my $blat_unique_iter   = unique_iter($blat_unique_in,   'blat unique');
 
     my $unique_iter = $bowtie_unique_iter->merge(
-        \&RUM::Mapper::cmp_read_ids, $blat_unique_iter, sub { shift });
+        cmp_fn => \&RUM::Mapper::cmp_read_ids, 
+        others => [$blat_unique_iter]);
 
     $max_distance_between_paired_reads = 500000;
 

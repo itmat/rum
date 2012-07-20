@@ -71,9 +71,9 @@ is_deeply $it->to_array, [1,2,3,4,5,6,7,8,9], "append multi";
     my $twos   = RUM::Iterator->new([2,4,6,8,10,12])->peekable;
     my $threes = RUM::Iterator->new([3,6,9,12])->peekable;
     my $merged = $twos->merge(
-        sub { $_[0] <=> $_[1] }, 
-        $threes,
-        sub { my $items = shift; return $items; });
+        others => [$threes],
+        cmp_fn => sub { $_[0] <=> $_[1] }, 
+        group_fn => sub { my $items = shift; return $items; });
     is_deeply $merged->to_array, [[2],[3],[4],[6,6],[8],[9],[10],[12,12]], "merge";
 }
 
@@ -83,9 +83,9 @@ is_deeply $it->to_array, [1,2,3,4,5,6,7,8,9], "append multi";
     my $threes = RUM::Iterator->new([3,6,9,12])->peekable;
     warn "Here I am\n";
     my $merged = $twos->merge(
-        sub { $_[0] <=> $_[1] }, 
-        $threes,
-        sub { my $items = shift; warn "Iterms are @{ $items }\n"; return @{ $items }; });
+        cmp_fn => sub { $_[0] <=> $_[1] }, 
+        others => [$threes],
+        group_fn => sub { my $items = shift; warn "Iterms are @{ $items }\n"; return @{ $items }; });
     is_deeply $merged->to_array, [2,3,4,6,6,8,9,10,12,12], "merge";
 }
 

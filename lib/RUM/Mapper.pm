@@ -67,7 +67,7 @@ sub is_empty {
 
 sub cmp_read_ids {
     my ($x, $y) = @_;
-    
+
     my $x_alns = $x->alignments;
     my $y_alns = $y->alignments;
     my $x_order = $x->alignments->[0]->order;

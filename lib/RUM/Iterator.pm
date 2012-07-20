@@ -5,6 +5,7 @@ use warnings;
 
 use Carp;
 use Scalar::Util qw(blessed);
+use List::Util qw(reduce);
 
 sub new {
     my ($class, $x) = @_;
@@ -156,7 +157,7 @@ use warnings;
 use Carp;
 use Scalar::Util qw(blessed);
 use Data::Dumper;
-
+use List::Util qw(reduce);
 use base 'RUM::Iterator';
 
 sub new {
@@ -205,44 +206,49 @@ sub peek {
 }
 
 sub merge {
-    my ($self, $cmp, $other, $handle_dup) = @_;
-    $handle_dup ||= sub { shift };
-    if ( ! $other->can('peek')) {
-        die "Can only merge with a peekable iterator";
+    my ($self, %options) = @_;
+
+    my $cmp      = delete $options{cmp_fn};
+    my $others   = delete $options{others};
+    my $group_fn = delete $options{group_fn} || sub { shift };
+
+    if (keys %options) {
+        croak "Bad keys to Iterator->merge: " . join(', ', keys %options);
     }
+
+    my @iters = ($self, @{ $others });
 
     my @buffer;
 
     my $f = sub {
         
-        if (@buffer) {
-            return shift @buffer;
-        }
-
-        my $mine   = $self->peek;
-        my $theirs = $other->peek;
+        return shift @buffer if @buffer;
         
-        # If we've exhausted both lists, return undef to indicate that
-        # the merged iterator is exhausted.
-        return if ! ( $mine || $theirs );
+        # @vals is an array of the next value that would be returned
+        # by all the iterators, for any iterators that are not
+        # exhausted
+        my @vals = grep { defined } map { $_->peek } @iters;
 
-        # If we've exhausted my list, we need to pick the next item
-        # from the other list. If we've exhausted the other list, pick
-        # the next iterm from my list. Otherwise we'll need to compare
-        # the next item from both lists.
-        my $val = !$mine &&  $theirs ?  1
-        :          $mine && !$theirs ? -1
-        :                               $cmp->($mine, $theirs);
+        # No vals means we've exhausted all the iterators.
+        return if ! @vals;
 
-        my @group;
-        
-        if ($val <= 0) {
-            push @group, $self->next_val;
+        # Find the minimum next value according to our comparator
+        my $min_val = reduce { $cmp->($a, $b) < 0 ? $a : $b } @vals;
+
+        # Pop all the iterators whose next value compares as equal to
+        # the minimum next value, and put all those minimum values in
+        # @min_vals;
+
+        my @min_vals;
+      ITER: for my $iter (@iters) {
+            my $val = $iter->peek;
+            next ITER if ! defined $val;
+            if ($cmp->($min_val, $val) == 0) {
+                push @min_vals, $iter->next_val;
+            }
         }
-        if ($val >= 0) {
-            push @group, $other->next_val;
-        }
-        @buffer = $handle_dup->(\@group);
+
+        @buffer = $group_fn->(\@min_vals);
         return shift @buffer;
     };
     return RUM::Iterator->new($f);

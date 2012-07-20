@@ -443,7 +443,6 @@ sub min_overlap_for_read_length {
 
 sub min_overlap_for_seqs {
     my ($x, $y) = @_;
-    warn "My seqs are $x, $y\n";
     my $len = min(length($x), length($y));
     return min_overlap_for_read_length($len);
 }
