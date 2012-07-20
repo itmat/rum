@@ -3,28 +3,24 @@ package RUM::Script::SortRumByLocation;
 no warnings;
 use autodie;
 
-use FindBin qw($Bin);
-
 use Carp;
-use Getopt::Long;
 use RUM::Sort qw(by_chromosome);
 use RUM::Usage;
 use RUM::RUMIO;
 use File::Copy qw(mv cp);
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
+
 $|=1;
 
 sub main {
-    GetOptions(
-        "output|o=s" => \(my $outfile),
-        "separate" => \(my $separate = 0),
-        "ram=s"    => \(my $ram = 6),
-        "max-chunk-size=s" => \(my $maxchunksize),
-        "allow-small-chunks" => \(my $allowsmallchunks = 0),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+    my $self = __PACKAGE__->new;
+    $self->get_options(
+        "output|o=s"         => \(my $outfile),
+        "separate"           => \(my $separate = 0),
+        "ram=s"              => \(my $ram = 6),
+        "max-chunk-size=s"   => \(my $maxchunksize),
+        "allow-small-chunks" => \(my $allowsmallchunks = 0));
         
     my $infile = $ARGV[0] or RUM::Usage->bad(
         "Please specify an input file");
@@ -87,7 +83,7 @@ sub main {
                    separate => $separate,
                    outfile => $outfile,
                    infile  => $infile);
-    my $chr_counts = doEverything(%options);
+    my $chr_counts = _do_everything(%options);
 
     my $size_input = -s $infile;
     my $size_output = -s $outfile;
@@ -95,8 +91,8 @@ sub main {
     my $clean = "false";
     for (my $i=0; $i<2; $i++) {
         if ($size_input != $size_output) {
-            $log->warn("Sorting \"$infile\":  failed, trying again.");
-            &doEverything(%options);
+            $self->logger->warn("Sorting \"$infile\":  failed, trying again.");
+            &_do_everything(%options);
             system "rm -f $running_indicator_file";
             $size_output = -s $outfile;
         } else {
@@ -110,7 +106,7 @@ sub main {
     }
 
     if ($clean eq "false") {
-        $log->error("While trying to sort \"$infile\": the size of the " .
+        $self->logger->error("While trying to sort \"$infile\": the size of the " .
                     "unsorted input ($size_input) and sorted output files " .
                     "($size_output) are not equal.  I tried three times and " .
                     "it failed every time.  Must be something strange about " .
@@ -119,7 +115,7 @@ sub main {
 
 }
 
-sub get_chromosome_counts {
+sub _get_chromosome_counts {
     use strict;
     my ($filename) = @_;
 
@@ -134,11 +130,7 @@ sub get_chromosome_counts {
     return %counts;
 }
 
-sub are_mates {
-    $_[0]->is_mate($_[1]);
-}
-
-sub doEverything  {
+sub _do_everything  {
 
     use strict;
 
@@ -150,7 +142,7 @@ sub doEverything  {
 
     open(FINALOUT, ">", $outfile)
         or die "Can't open $outfile for writing: $!";
-    my %chr_counts = get_chromosome_counts($infile);
+    my %chr_counts = _get_chromosome_counts($infile);
 
 
     my (@CHR, %CHUNK);
@@ -221,7 +213,7 @@ sub doEverything  {
 
             # Open an iterator over the records in $sorting_chunk_in
 
-            my $grouper = $separate ? sub { undef } : \&are_mates;
+            my $grouper = $separate ? sub { undef } : \&RUM::Identifiable::is_mate;
 
             my $it = RUM::RUMIO->new(-fh => $sorting_chunk_in)->group_by($grouper);
 	    my $FLAG = 0;
@@ -287,7 +279,7 @@ sub doEverything  {
 	    $cnt++;
 	}
 	my $INFILE = $infile . "_sorting_tempfile." . $chunk;
-        my $grouper = $separate ? sub { undef } : \&are_mates;
+        my $grouper = $separate ? sub { undef } : \&RUM::Identifiable::is_mate;
         my $iter = RUM::RUMIO->new(-file => $INFILE)->group_by($grouper);
         RUM::RUMIO->sort_by_location($iter, *FINALOUT);
 	$chunk++;
@@ -301,3 +293,20 @@ sub doEverything  {
     return \%chr_counts;
 }
 
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::SortRumByLocation - Sort a RUM file by location
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::SortRumByLocation->main
+
+Run the script.
+
+=back

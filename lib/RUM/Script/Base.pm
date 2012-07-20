@@ -3,6 +3,7 @@ package RUM::Script::Base;
 use strict;
 use warnings;
 
+use Carp;
 use Data::Dumper;
 use Scalar::Util qw(blessed);
 
