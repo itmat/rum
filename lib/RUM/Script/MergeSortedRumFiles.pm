@@ -6,7 +6,6 @@ use strict;
 use autodie;
 no warnings;
 
-use RUM::Common qw(read_chunk_id_mapping);
 use RUM::RUMIO;
 use RUM::Usage;
 
@@ -20,11 +19,6 @@ sub main {
         # This will accept either --output or -o and save the argument
         # to $outfile.
         "output|o=s" => \(my $outfile),
-
-        # This will accept either -chunk_ids_file or --chunk-ids-file,
-        # and assign the value the user provides for that option to
-        # $chunk_ids_file.
-        "chunk_ids_file|chunk-ids-file=s" => \(my $chunk_ids_file),
 
         # This will call $self->logger->less_logging(1) if we see either
         # --quiet or -q
@@ -52,8 +46,6 @@ sub main {
     $outfile or RUM::Usage->bad(
         "Please specify an output file with --output\n");
     
-    my %chunk_ids_mapping = read_chunk_id_mapping($chunk_ids_file);
-
     $self->logger->info("Merging ".scalar(@infiles)." files into $outfile");    
 
     # If there's only one file, just copy it

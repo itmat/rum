@@ -4,7 +4,6 @@ use strict;
 no warnings;
 
 use RUM::Usage;
-use RUM::Common qw(read_chunk_id_mapping);
 use RUM::Sort qw(by_chromosome);
 
 use base 'RUM::Script::Base';
@@ -13,8 +12,7 @@ sub main {
     my $self = __PACKAGE__->new;
 
     $self->get_options(
-        "output|o=s" => \(my $outfile),
-        "chunk-ids-file=s" => \(my $chunk_ids_file));
+        "output|o=s" => \(my $outfile));
 
     $outfile or RUM::Usage->bad(
         "Please specify an output file with --output or -o");
@@ -24,18 +22,8 @@ sub main {
     @file > 0 or RUM::Usage->bad(
         "Please list the input files on the command line");
     
-    my %chunk_ids_mapping = read_chunk_id_mapping($chunk_ids_file);
-
     open(OUTFILE, ">>", $outfile) or die "Can't open $outfile for appending";
     
-    for (my $i=0; $i<@file; $i++) {
-        my $j = $i+1;
-        if ($chunk_ids_file =~ /\S/ && $chunk_ids_mapping{$j} =~ /\S/) {
-            $file[$i] =~ s/(\d|\.)+$//;
-            $file[$i] = $file[$i] . ".$j." . $chunk_ids_mapping{$j};
-        }
-    }
-
     my %chrcnt;
     for my $filename (@file) {
         open(INFILE, $filename) or die "Can't open $filename for reading: $!";
@@ -74,6 +62,8 @@ RUM::Script::MergeChrCounts
 =item RUM::Script::MergeChrCounts->main
 
 Run the script.
+
+=back
 
 =head1 AUTHORS
 

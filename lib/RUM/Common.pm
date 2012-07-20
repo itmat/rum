@@ -13,7 +13,7 @@ use Carp;
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
                     reversecomplement format_large_int spansTotalLength
-                    reversesignal read_chunk_id_mapping is_fasta is_fastq head
+                    reversesignal is_fasta is_fastq head
                     num_digits shell is_on_cluster min_overlap_for_read_length
                     min_overlap_for_seqs);
 
@@ -278,27 +278,6 @@ sub reversesignal {
 	}
     }
     return $return_string;
-}
-
-=item read_chunk_id_mapping($filename)
-
-If $filename is defined and exists, reads a chunk id mapping from it
-and returns it as a hash, otherwise returns undef.
-
-=cut
-
-sub read_chunk_id_mapping {
-    my ($chunk_ids_file) = @_;
-    my %chunk_ids_mapping;
-    return unless $chunk_ids_file && -e $chunk_ids_file;
-
-    open my $infile, "<", "$chunk_ids_file";
-    while (defined(local $_ = <$infile>)) {
-        chomp;
-        my ($old, $new) = split /\t/;
-        $chunk_ids_mapping{$old} = $new unless $old eq 'chr_name';
-    }
-    return %chunk_ids_mapping;
 }
 
 =item head($filehandle, $n)

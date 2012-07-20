@@ -96,6 +96,8 @@ RUM::Script::MergeGuAndTu
 
 Run the script.
 
+=back
+
 =head1 AUTHORS
 
 Gregory Grant (ggrant@grant.org)
@@ -105,6 +107,3 @@ Mike DeLaurentis (delaurentis@gmail.com)
 =head1 COPYRIGHT
 
 Copyright 2012, University of Pennsylvania
-
-
-

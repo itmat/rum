@@ -2,7 +2,6 @@ package RUM::Script::MergeQuants;
 
 no warnings;
 use RUM::Usage;
-use RUM::Common qw(read_chunk_id_mapping);
 
 use base 'RUM::Script::Base';
 
@@ -15,7 +14,6 @@ sub main {
         "output|o=s" => \(my $outfile),
         "chunks|n=s" => \(my $numchunks),
         "strand=s"   => \(my $strand),
-        "chunk-ids-file=s" => \(my $chunk_id_file),
         "countsonly"       => \(my $countsonly),
         "alt"              => \(my $alt),
         "header"           => \(my $header));
@@ -34,8 +32,6 @@ sub main {
             "--strand must be one of (@VALID_STRANDS), not '$strand'");
     }
     
-    my %chunk_ids_mapping = read_chunk_id_mapping($chunk_ids_file);
-
     $num_reads = 0;
     $first = 1;
     my @counts;
@@ -52,9 +48,6 @@ sub main {
             } else {
                 $filename = "quant.altquant.$i";
             }
-        }
-        if ($chunk_ids_file =~ /\S/ && $chunk_ids_mapping{$i} =~ /\S/) {
-            $filename = $filename . "." . $chunk_ids_mapping{$i};
         }
 
         $self->logger->info("Reading from $filename");

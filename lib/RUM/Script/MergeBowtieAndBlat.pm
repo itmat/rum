@@ -748,3 +748,45 @@ sub handle_both_single {
 
 1;
 
+__END__
+
+=head1 NAME
+
+RUM::Script::MergeBowtieAndBlat
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::MergeBowtieAndBlat->main
+
+Run the script.
+
+=item blat_nu_iter_for_readid
+
+=item handle_both_single
+
+=item intersect
+
+=item joinifpossible
+
+=item merge
+
+=item set_min_overlap
+
+=item unique_iter
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
+
