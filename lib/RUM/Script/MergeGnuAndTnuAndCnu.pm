@@ -4,24 +4,19 @@ use strict;
 use warnings;
 use autodie;
 
-use Getopt::Long;
-
 use RUM::Usage;
-use RUM::Logging;
 use RUM::RUMIO;
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 sub main {
 
-    GetOptions(
+    my $self = __PACKAGE__->new;
+    $self->get_options(
         "gnu-in=s" => \(my $infile1),
         "tnu-in=s" => \(my $infile2),
         "cnu-in=s" => \(my $infile3),
-        "output=s" => \(my $outfile),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+        "output=s" => \(my $outfile));
 
     $infile1 or RUM::Usage->bad("Missing --gnu-in option");
     $infile2 or RUM::Usage->bad("Missing --tnu-in option");
@@ -84,3 +79,32 @@ sub main {
         }
     }
 }
+
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::MergeGuAndTu
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::MergeGuAndTu->main
+
+Run the script.
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
+
