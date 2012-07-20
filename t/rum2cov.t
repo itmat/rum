@@ -7,22 +7,10 @@ use Test::More tests => 4;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::TestUtils;
+use RUM::Script::RumToCov;
 
 sub rum2cov {
     @ARGV = @_;
-    # TODO: RumToCov does not use strict, because there are two subs
-    # (getStartEndandSpans_of_nextline and main) that depend on a lot
-    # of global variables. If we call main() twice in a row, some of
-    # the state from the first call is still present when the second
-    # call starts. This is not an issue in practice, because main is
-    # just called once from rum2cov.pl. But for testing, this means
-    # that we can't just call main twice in a row. If we load RumToCov
-    # with 'do', it will clear the symbol table, so all the globals
-    # will be fresh each time. It would be best to refactor it and get
-    # rid of all the globals, but I'm having trouble with that, and
-    # this works well enough for now.
-    do "RUM/Script/RumToCov.pm";
-    no strict 'subs';
     RUM::Script::RumToCov->main;
 }
 
