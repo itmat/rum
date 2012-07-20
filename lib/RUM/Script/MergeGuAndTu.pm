@@ -1,7 +1,7 @@
 package RUM::Script::MergeGuAndTu;
 
 use strict;
-use warnings;
+no warnings;
 
 use Carp;
 use Data::Dumper;
