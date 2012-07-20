@@ -30,10 +30,14 @@ it under a million reads per chunk will speed things considerably.
 
 You will probably specify all of these options for any given job. The
 first time you run C<rum_runner align -o I<dir> OPTIONS> on output
-directory I<dir>, will save the options you ran it with in
+directory I<dir>, rum_runner will save the options you ran it with in
 I<dir/.rum/job_settings>. Then if you need to rerun the job for any
 reason, you can run C<rum_runner align -o I<dir>> later and it will
 automatically pick up the options you specified originally.
+
+Once you start a job running, if you need to restart it, you should
+not attempt to change the values of these settings. Doing so may
+result in undefined behavior.
 
 =over 4
 
@@ -111,6 +115,11 @@ Alias for C<--platform SGE>.
 =back
 
 =head2 Advanced Job Configuration Options
+
+You can use these options to tweak some lower level settings. These
+settings are also saved in a file in the output directory so you don't
+need to provide them again if you restart a job. You should not change
+them once you start a job running.
 
 =over 4
 
@@ -227,7 +236,9 @@ Set this if your reads are not all of the same length.
 
 You can tweak the BLAT portion of RUM to suit your needs. We found the
 following to be a good balance for speed, sensitivity, and temporary
-file size.
+file size. Like the other settings above, these values are saved in a
+file in the output directory so you don't need to enter them twice,
+and you should not change them once you start a job.
 
 =over 4
 
@@ -253,10 +264,14 @@ Run blat with maxIntron=x (default x=50000).
 
 =back
 
-=head2 Other Options
+=head2 Directives
 
 These options are not saved as part of the configuration file, and
-only affect how RUM behaves on one invocation.
+only affect how RUM behaves on one invocation. If you want to manually
+split up job into chunks and run each chunk separately, you can use
+the I<--preprocessing>, I<--processing>, I<--postprocessing>, and
+I<--chunks> options to do that. Detailed instructions on doing that are
+provided L<here|https://github.com/PGFI/rum/wiki/Running-a-job-on-a-cluster>.
 
 =over 4
 

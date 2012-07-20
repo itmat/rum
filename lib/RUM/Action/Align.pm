@@ -1,15 +1,5 @@
 package RUM::Action::Align;
 
-=head1 NAME
-
-RUM::Action::Align - Align reads using the RUM Pipeline.
-
-=head1 DESCRIPTION
-
-This action is the one that actually runs the RUM Pipeline.
-
-=cut
-
 use strict;
 use warnings;
 use autodie;
@@ -43,20 +33,6 @@ $SIG{INT} = $SIG{TERM} = sub {
     RUM::Lock->release;
     exit 1;
 };
-
-=head1 METHODS
-
-=over 4
-
-=cut
-
-=item run
-
-The top-level function in this class. Parses the command-line options,
-checks the configuration and warns the user if it's invalid, does some
-setup tasks, then runs the pipeline.
-
-=cut
 
 sub run {
     my ($class) = @_;
@@ -199,14 +175,6 @@ sub _show_match_length {
     }
 }
 
-
-=item get_options
-
-Parse @ARGV and build a RUM::Config from it. Also set some flags in
-$self->{directives} based on some boolean options.
-
-=cut
-
 sub get_options {
     my ($self) = @_;
 
@@ -318,14 +286,14 @@ sub get_options {
         $d->set_process;
     }
 
-    my $did_set;
+    my @changed_settings;
 
     my $set = sub { 
         my ($k, $v) = @_;
         return unless defined $v;
         my $existing = $c->get($k);
         if (defined($existing) && $existing ne $v) {
-            $did_set = 1;
+            push @changed_settings, [ $k, $existing, $v ];
             $log->info("Changing $k from $existing to $v");
         }
         
@@ -369,27 +337,19 @@ sub get_options {
     $set->('user_quals', $quals_file);
     $set->('variable_length_reads', $variable_length_reads);
 
-    if ($did_set && $did_load && !$force && !$d->child) {
-        die("I found job settings in " . $c->settings_filename . ", but you specified different settings on the command line. I won't run without the --force flag. If you want to use the saved settings, please don't provide any extra options on the command line. If you need to change the settings, please either delete " . $c->settings_filename . " or run again with --force.");
+    if (@changed_settings && $did_load && !$force && !$d->child) {
+        my $msg = $self->changed_settings_msg($c->settings_filename);
+        $msg .= "You tried to make the following changes:\n\n";
+        for my $change (@changed_settings) {
+            $msg .= sprintf("  * Change %s from %s to %s\n", @{ $change });
+        }
+        die $msg;
     }
 
     $self->{config} = $c;
     $usage->check;
 }
 
-
-=item check_deps
-
-
-
-=cut
-
-=item check_config
-
-Check my RUM::Config for errors. Calls RUM::Usage->bad (which exits)
-if there are any errors.
-
-=cut
 
 sub check_config {
     my ($self) = @_;
@@ -487,13 +447,6 @@ sub check_config {
     }
 }
 
-=item check_deps
-
-Check to make sure the dependencies (bowtie, blat, mdust) exist,
-and die with an error message if they don't.
-
-=cut
-
 sub check_deps {
 
     my ($self) = @_;
@@ -516,14 +469,6 @@ sub check_deps {
     }
 }
 
-=item get_lock
-
-Attempts to get a lock on the $output_dir/.rum/lock file. Dies with a
-warning message if the lock is held by someone else. Otherwise returns
-normally, and RUM::Lock::FILE will be set to the filename.
-
-=cut
-
 sub get_lock {
     my ($self) = @_;
     return if $self->directives->parent || $self->directives->child;
@@ -534,12 +479,6 @@ sub get_lock {
     RUM::Lock->acquire($lock) or die
           "It seems like rum_runner may already be running in $dir. You can try running \"$0 kill\" to stop it. If you #are sure there's nothing running in $dir, remove $lock and try again.\n";
 }
-
-=item setup
-
-Creates the output directory and .rum subdirectory.
-
-=cut
 
 sub setup {
     my ($self) = @_;
@@ -557,12 +496,6 @@ sub setup {
     }
 }
 
-=item show_logo
-
-Print out the RUM logo.
-
-=cut
-
 sub show_logo {
     my ($self) = @_;
     my $msg = <<EOF;
@@ -574,12 +507,6 @@ EOF
     $self->say($msg);
 
 }
-
-=item fix_name
-
-Remove unwanted characters from the name.
-
-=cut
 
 sub fix_name {
     local $_ = shift;
@@ -593,12 +520,6 @@ sub fix_name {
     return $_;
 }
 
-=item check_gamma
-
-Die if we seem to be running on gamma.
-
-=cut
-
 sub check_gamma {
     my ($self) = @_;
     my $host = `hostname`;
@@ -606,13 +527,6 @@ sub check_gamma {
         die("you cannot run RUM on the PGFI cluster without using the --qsub option.");
     }
 }
-
-=item check_ram
-
-Make sure there seems to be enough ram, based on the size of the
-genome.
-
-=cut
 
 sub prompt_not_enough_ram {
     my ($self, %options) = @_;
@@ -721,12 +635,6 @@ sub check_ram {
 
 }
 
-=item available_ram
-
-Attempt to figure out how much ram is available, and return it.
-
-=cut
-
 sub available_ram {
 
     my ($self) = @_;
@@ -805,8 +713,6 @@ $LOGO = <<'EOF';
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 EOF
 
-1;
-
 sub _all_files_end_with_newlines {
     my ($self, $file) = @_;
     my $c = $self->config;
@@ -866,5 +772,98 @@ sub _final_check {
     }
 }
 
+sub changed_settings_msg {
+    my ($self, $filename) = @_;
+    my $msg = <<"EOF";
+
+I found job settings in $filename, but you specified different settings on the command line. Changing the settings on a job that has already been partially run can result in unexpected behavior. If you want to use the saved settings, please don't provide any extra options on the command line, other than options that specify a specific phase or chunk (--preprocess, --process, --postprocess, --chunk). If you want to start the job over from scratch, you can do so by deleting the settings file ($filename). If you really want to change the settings, you can add a --force flag and try again.
+
+EOF
+    return wrap('', '', $msg) . "\n";
+    
+}
+
+__END__
+
+=head1 NAME
+
+RUM::Action::Align - Align reads using the RUM Pipeline.
+
+=head1 DESCRIPTION
+
+This action is the one that actually runs the RUM Pipeline.
+
+=head1 METHODS
+
+=over 4
+
+=item run
+
+The top-level function in this class. Parses the command-line options,
+checks the configuration and warns the user if it's invalid, does some
+setup tasks, then runs the pipeline.
+
+=item get_options
+
+Parse @ARGV and build a RUM::Config from it. Also set some flags in
+$self->{directives} based on some boolean options.
+
+=item check_deps
+
+=item check_config
+
+Check my RUM::Config for errors. Calls RUM::Usage->bad (which exits)
+if there are any errors.
+
+=item check_deps
+
+Check to make sure the dependencies (bowtie, blat, mdust) exist,
+and die with an error message if they don't.
+
+=item available_ram
+
+Attempt to figure out how much ram is available, and return it.
+
+=item get_lock
+
+Attempts to get a lock on the $output_dir/.rum/lock file. Dies with a
+warning message if the lock is held by someone else. Otherwise returns
+normally, and RUM::Lock::FILE will be set to the filename.
+
+=item setup
+
+Creates the output directory and .rum subdirectory.
+
+=item show_logo
+
+Print out the RUM logo.
+
+=item fix_name
+
+Remove unwanted characters from the name.
+
+=item check_gamma
+
+Die if we seem to be running on gamma.
+
+=item check_ram
+
+Make sure there seems to be enough ram, based on the size of the
+genome.
+
+=item prompt_not_enough_ram
+
+Prompt the user to ask if we should proceed even though there doesn't
+seem to be enough RAM per chunk. Exits if the user doesn't say yes.
 
 =back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania

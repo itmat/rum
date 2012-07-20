@@ -137,8 +137,21 @@ information specific to that action.
 
 =head1 SEE ALSO
 
-L<rum_runner/align>, L<rum_runner/clean>, L<rum_runner/kill>,
-L<rum_runner/status>, L<rum_runner/version>
+You can run C<rum_runner help ACTION> for help on a specific action:
+
+=over 4
+
+=item C<rum_runner help align>
+
+=item C<rum_runner help clean>
+
+=item C<rum_runner help kill>
+
+=item C<rum_runner help status>
+
+=item C<rum_runner help version>
+
+=back
 
 =cut
 

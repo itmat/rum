@@ -152,3 +152,86 @@ sub print_milestone {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::JobReport - Prints a summary report for a job
+
+=head1 SYNOPSIS
+
+  use RUM::JobReport;
+
+  # Construct it with a RUM::Config
+  my $jr = RUM::JobReport->new($config);
+
+  # Print the report header before running anything
+  $jr->print_header;
+
+  # Then print a timestamp whenever you start, finish, or decide to
+  # skip a phase:
+  $jr->print_start_preproc;
+  ...
+
+=head1 CONSTRUCTORS
+
+=over 4
+
+=item RUM::JobReport->new($config)
+
+Create a new job report given a RUM::Config.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item $jr->print_header
+
+Print the report header.
+
+=item $jr->print_start_preproc
+
+=item $jr->print_start_proc
+
+=item $jr->print_start_postproc
+
+Indicate that we've started the specified phase.
+
+=item $jr->print_finish_preproc
+
+=item $jr->print_finish_proc
+
+=item $jr->print_finish_postproc
+
+Indicate that we've finished the specified phase.
+
+=item $jr->print_skip_preproc
+
+=item $jr->print_skip_proc
+
+=item $jr->print_skip_postproc
+
+Indicate that we've decided to skip the specified phase.
+
+=item $jr->print_milestone($milestone)
+
+Print a timestamp for the given milestone, which should be a string.
+
+=item $jr->filehandle
+
+Open and return a writeable filehandle for our report.
+
+=back
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
