@@ -47,8 +47,6 @@ sub new {
 
 sub main {
 
-    print "Argv is @ARGV\n";
-
     GetOptions(
         "unique=s"        => \(my $outfile1),
         "non-unique=s"    => \(my $outfile2),
