@@ -309,6 +309,8 @@ RUM::Script::SortRumByLocation - Sort a RUM file by location
 
 Run the script.
 
+=back
+
 =head1 AUTHORS
 
 Gregory Grant (ggrant@grant.org)
@@ -319,4 +321,4 @@ Mike DeLaurentis (delaurentis@gmail.com)
 
 Copyright 2012, University of Pennsylvania
 
-=back
+=cut

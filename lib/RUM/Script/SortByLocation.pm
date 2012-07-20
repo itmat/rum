@@ -4,26 +4,21 @@ use strict;
 no warnings;
 
 use RUM::Usage;
-use RUM::Logging;
-use Getopt::Long;
 use RUM::Sort qw(cmpChrs);
 
-
-
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 sub main {
 
-    GetOptions(
+    my $self = __PACKAGE__->new;
+
+    $self->get_options(
         "output|o=s"   => \(my $outfile),
         "location=s"   => \(my $location_col),
         "chromosome=s" => \(my $chromosome_col),
         "start=s"      => \(my $start_col),
         "end=s"        => \(my $end_col),
-        "skip=s"       => \(my $skip = 0),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+        "skip=s"       => \(my $skip = 0));
 
     my ($infile) = shift(@ARGV) or RUM::Usage->bad(
         "Please provide an input file");
@@ -97,3 +92,33 @@ sub main {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::SortByLocation - Sort a junction file by location
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::SortByLocation->main
+
+Run the script.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+=cut
+
+

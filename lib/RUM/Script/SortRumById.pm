@@ -6,10 +6,8 @@ use autodie;
 
 use Carp;
 use File::Copy qw(mv);
-use Getopt::Long;
 
 use RUM::Usage;
-use RUM::Logging;
 use RUM::RUMIO;
 
 use base 'RUM::Script::Base';
@@ -133,6 +131,8 @@ that isn't.
 Merge the two (sorted) files $in1 and $in2 into a single sorted $out
 file.
 
+=back
+
 =head1 AUTHORS
 
 Gregory Grant (ggrant@grant.org)
@@ -143,6 +143,5 @@ Mike DeLaurentis (delaurentis@gmail.com)
 
 Copyright 2012, University of Pennsylvania
 
-=back
 
 
