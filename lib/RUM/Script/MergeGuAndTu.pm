@@ -1,6 +1,7 @@
 package RUM::Script::MergeGuAndTu;
 
-no warnings;
+use strict;
+use warnings;
 
 use Carp;
 use Data::Dumper;
@@ -14,10 +15,44 @@ use List::Util qw(min max first);
 use base 'RUM::Script::Base';
 
 sub overlap_length {
-    my @alns = @_;
-    my $str = intersect(@alns);
-    $str =~ /^(\d+)/;
-    return $1;
+
+    my (@alns) = @_;
+    my @spans = map { $_->locs } @alns;
+    my %chash;
+    for my $spans (@spans) {
+        for my $span (@{ $spans }) {
+            my ($start, $end) = @{ $span };
+            for my $j ($start .. $end) {
+                $chash{$j}++;
+            }
+        }
+    }
+    my $spanlength = 0;
+    my $in_overlap_region = 0;
+    my $maxspanlength = 0;
+    
+    for my $key_i (sort {$a <=> $b} keys %chash) {
+        if ($chash{$key_i} == @spans) {
+            if ( ! $in_overlap_region) {
+                $in_overlap_region = 1;
+            }
+            $spanlength++;
+        } else {
+            if ($in_overlap_region) {
+                $in_overlap_region = 0;
+                if ($spanlength > $maxspanlength) {
+                    $maxspanlength = $spanlength;
+                }
+                $spanlength = 0;
+            }
+        }
+    }
+    if ($in_overlap_region) {
+        if ($spanlength > $maxspanlength) {
+            $maxspanlength = $spanlength;
+        }
+    }
+    return $maxspanlength;
 }
 
 sub unique_iter {
@@ -124,7 +159,7 @@ sub run {
         # on the strategy used for variable length reads.
         $self->{read_length} = "v";
     }
-
+    my $min_overlap;
     if ($self->{read_length} ne "v") {
         $min_overlap  = min_overlap_for_read_length($self->{read_length});
     }
@@ -135,7 +170,7 @@ sub run {
     {
         my $gnu_in_fh = $self->{gnu_in_fh};
         
-        while ($line = <$gnu_in_fh>) {
+        while (my $line = <$gnu_in_fh>) {
             $line =~ /^seq.(\d+)/;
             $self->{ambiguous_mappers}->{$1}++;
         }
@@ -143,7 +178,7 @@ sub run {
     
     {
         my $tnu_in_fh = $self->{tnu_in_fh};
-        while ($line = <$tnu_in_fh>) {
+        while (my $line = <$tnu_in_fh>) {
             $line =~ /^seq.(\d+)/;
             $self->{ambiguous_mappers}->{$1}++;
         }
@@ -221,52 +256,23 @@ sub run {
 
                     # one forward and one reverse
 
-                    $aspans = RUM::RUMIO->format_locs($gu->single);
-                    $astart = $gu->single->start;
-                    $aend = $gu->single->end;
-                    $chra = $gu->single->chromosome;
-                    $aseq = $gu->single->seq;
-                    $seqnum = $gu->single->readid;
-                    $astrand = $gu->single->strand;
-                    $seqnum = $gu->single->readid_directionless;
+                    my $aspans  = RUM::RUMIO->format_locs($gu->single);
+                    my $astart  = $gu->single->start;
+                    my $aend    = $gu->single->end;
+                    my $chra    = $gu->single->chromosome;
+                    my $aseq    = $gu->single->seq;
+                    my $seqnum  = $gu->single->readid;
+                    my $astrand = $gu->single->strand;
+                    my $seqnum  = $gu->single->readid_directionless;
 
-                    if ($gu->single_forward) {
-                        if ($astrand eq "+") {
-                            $forward_strand = "+";
-                        }
-                        if ($astrand eq "-") {
-                            $forward_strand = "-";
-                        }
-                    } else {
-                        if ($bstrand eq "+") {
-                            $forward_strand = "+";
-                        }
-                        if ($bstrand eq "-") {
-                            $forward_strand = "-";
-                        }
-                    }
+                    my $forward_strand;
 
-                    $bspans = RUM::RUMIO->format_locs($tu->single);
-                    $bstart = $tu->single->start;
-                    $bend = $tu->single->end;
-                    $chrb = $tu->single->chromosome;
-                    $bseq = $tu->single->seq;
-                    $bstrand = $tu->single->strand;
-                    if ($tu->single_forward) {
-                        if ($bstrand eq "+") {
-                            $forward_strand = "+";
-                        }
-                        if ($bstrand eq "-") {
-                            $forward_strand = "-";
-                        }
-                    } else {
-                        if ($astrand eq "+") {
-                            $forward_strand = "+";
-                        }
-                        if ($astrand eq "-") {
-                            $forward_strand = "-";
-                        }
-                    }
+                    my $bspans  = RUM::RUMIO->format_locs($tu->single);
+                    my $bstart  = $tu->single->start;
+                    my $bend    = $tu->single->end;
+                    my $chrb    = $tu->single->chromosome;
+                    my $bseq    = $tu->single->seq;
+                    my $bstrand = $tu->single->strand;
 
                     # the next two if's take care of the case that there is no overlap, one read lies entirely downstream of the other
 		
@@ -286,10 +292,10 @@ sub run {
                     }
 
                     if (($astrand eq $bstrand) && ($chra eq $chrb) && (($aend >= $bstart-1) && ($astart <= $bstart)) || (($bend >= $astart-1) && ($bstart <= $astart))) {
-                                            
-                        $aseq2 = $aseq;
+                        my ($merged_spans, $merged_seq);
+                        my $aseq2 = $aseq;
                         $aseq2 =~ s/://g;
-                        $bseq2 = $bseq;
+                        my $bseq2 = $bseq;
                         $bseq2 =~ s/://g;
 
                         if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
@@ -297,12 +303,12 @@ sub run {
                         } else {
                             ($merged_spans, $merged_seq) = merge($bspans, $aspans, $bseq2, $aseq2);
                         }
-
+                        my (@AS, $aseq2_temp);
                         if (! $merged_spans) {
                             @AS = split(/-/,$aspans);
                             $AS[0]++;
 
-                            $aspans_temp = join '-', @AS;
+                            my $aspans_temp = join '-', @AS;
                             $aseq2_temp = $aseq2;
                             $aseq2_temp =~ s/^.//;
 
@@ -315,7 +321,7 @@ sub run {
 
                         if (! $merged_spans) {
                             $AS[0]++;
-                            $aspans_temp = join '-', @AS;
+                            my $aspans_temp = join '-', @AS;
                             $aseq2_temp =~ s/^.//;
                             if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
@@ -325,7 +331,7 @@ sub run {
                         }
                         if (! $merged_spans) {
                             $AS[0]++;
-                            $aspans_temp = join '-', @AS;
+                            my $aspans_temp = join '-', @AS;
                             $aseq2_temp =~ s/^.//;
                             if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
@@ -336,7 +342,7 @@ sub run {
                         if (! $merged_spans) {
                             @AS = split(/-/,$aspans);
                             $AS[-1]--;
-                            $aspans_temp = join '-', @AS;
+                            my $aspans_temp = join '-', @AS;
                             $aseq2_temp = $aseq2;
                             $aseq2_temp =~ s/.$//;
                             if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
@@ -347,7 +353,7 @@ sub run {
                         }
                         if (! $merged_spans) {
                             $AS[-1]--;
-                            $aspans_temp = join '-', @AS;
+                            my $aspans_temp = join '-', @AS;
                             $aseq2_temp =~ s/.$//;
                             if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
@@ -357,7 +363,7 @@ sub run {
                         }
                         if (! $merged_spans) {
                             $AS[-1]--;
-                            $aspans_temp = join '-', @AS;
+                            my $aspans_temp = join '-', @AS;
                             $aseq2_temp =~ s/.$//;
                             if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                                 ($merged_spans, $merged_seq) = merge($aspans_temp, $bspans, $aseq2_temp, $bseq2);
@@ -367,11 +373,11 @@ sub run {
                         }
                         
                         if (! $merged_spans) {
-                            @Fspans = split(/, /,$aspans);
-                            @T = split(/-/, $Fspans[0]);
-                            $aspans3 = $aspans;
-                            $aseq3 = $aseq;
-                            $bseq3 = $bseq;
+                            my @Fspans = split(/, /,$aspans);
+                            my @T = split(/-/, $Fspans[0]);
+                            my $aspans3 = $aspans;
+                            my $aseq3 = $aseq;
+                            my $bseq3 = $bseq;
                             $aseq3 =~ s/://g;
                             $bseq3 =~ s/://g;
 
@@ -381,8 +387,8 @@ sub run {
                             # spans.
                             if ($T[1] - $T[0] <= 5) {
                                 $aspans3 =~ s/^(\d+)-(\d+), //;
-                                $length_diff = $2 - $1 + 1;
-                                for ($i1=0; $i1<$length_diff; $i1++) {
+                                my $length_diff = $2 - $1 + 1;
+                                for (my $i1=0; $i1<$length_diff; $i1++) {
                                     $aseq3 =~ s/^.//;
                                 }
                             }
@@ -395,15 +401,15 @@ sub run {
                             # Now try the same with the last span
                             if (! $merged_spans) {
                                 @T = split(/-/, $Fspans[@Fspans-1]);
-                                $aspans4 = $aspans;
-                                $aseq4 = $aseq;
-                                $bseq4 = $bseq;
+                                my $aspans4 = $aspans;
+                                my $aseq4 = $aseq;
+                                my $bseq4 = $bseq;
                                 $aseq4 =~ s/://g;
                                 $bseq4 =~ s/://g;
                                 if ($T[1] - $T[0] <= 5) {
                                     $aspans4 =~ s/, (\d+)-(\d+)$//;
-                                    $length_diff = $2 - $1 + 1;
-                                    for ($i1=0; $i1<$length_diff; $i1++) {
+                                    my $length_diff = $2 - $1 + 1;
+                                    for (my $i1=0; $i1<$length_diff; $i1++) {
                                         $aseq4 =~ s/.$//;
                                     }
                                 }
@@ -417,17 +423,17 @@ sub run {
 
                         
                         if (! $merged_spans) {
-                            @Rspans = split(/, /,$bspans);
-                            @T = split(/-/, $Rspans[0]);
-                            $bspans3 = $bspans;
-                            $aseq3 = $aseq;
-                            $bseq3 = $bseq;
+                            my @Rspans = split(/, /,$bspans);
+                            my @T = split(/-/, $Rspans[0]);
+                            my $bspans3 = $bspans;
+                            my $aseq3 = $aseq;
+                            my $bseq3 = $bseq;
                             $aseq3 =~ s/://g;
                             $bseq3 =~ s/://g;
                             if ($T[1] - $T[0] <= 5) {
                                 $bspans3 =~ s/^(\d+)-(\d+), //;
-                                $length_diff = $2 - $1 + 1;
-                                for ($i1=0; $i1<$length_diff; $i1++) {
+                                my $length_diff = $2 - $1 + 1;
+                                for (my $i1=0; $i1<$length_diff; $i1++) {
                                     $bseq3 =~ s/^.//;
                                 }
                             }
@@ -437,16 +443,16 @@ sub run {
                                 ($merged_spans, $merged_seq) = merge($bspans3, $aspans, $bseq3, $aseq3);
                             }
                             if (! $merged_spans) {
-                                @T = split(/-/, $Rspans[@Rspans-1]);
-                                $bspans4 = $bspans;
-                                $aseq4 = $aseq;
-                                $bseq4 = $bseq;
+                                my @T = split(/-/, $Rspans[@Rspans-1]);
+                                my $bspans4 = $bspans;
+                                my $aseq4 = $aseq;
+                                my $bseq4 = $bseq;
                                 $aseq4 =~ s/://g;
                                 $bseq4 =~ s/://g;
                                 if ($T[1] - $T[0] <= 5) {
                                     $bspans4 =~ s/, (\d+)-(\d+)$//;
-                                    $length_diff = $2 - $1 + 1;
-                                    for ($i1=0; $i1<$length_diff; $i1++) {
+                                    my $length_diff = $2 - $1 + 1;
+                                    for (my $i1=0; $i1<$length_diff; $i1++) {
                                         $bseq4 =~ s/.$//;
                                     }
                                 }
@@ -457,7 +463,7 @@ sub run {
                                 }
                             }
                         }
-                        $seq_j = addJunctionsToSeq($merged_seq, $merged_spans);
+                        my $seq_j = addJunctionsToSeq($merged_seq, $merged_spans);
 
                         if ($seq_j =~ /\S/ && $merged_spans =~ /^\d+.*-.*\d+$/) {
                             $unique_io->write_aln(
@@ -518,50 +524,8 @@ sub run {
             # ALL FIFTEEN CASES DONE
         }
     }
-
-
-    sub intersect () {
-        my (@alns) = @_;
-        my @spans = map { $_->locs } @alns;
-        my %chash;
-        for $spans (@spans) {
-            for my $span (@{ $spans }) {
-                my ($start, $end) = @{ $span };
-                for my $j ($start .. $end) {
-                    $chash{$j}++;
-                }
-            }
-        }
-        $spanlength = 0;
-        $in_overlap_region = 0;
-        $maxspanlength = 0;
-
-        for $key_i (sort {$a <=> $b} keys %chash) {
-            if ($chash{$key_i} == @spans) {
-                if ( ! $in_overlap_region) {
-                    $in_overlap_region = 1;
-                    $span_start = $key_i;
-                }
-                $spanlength++;
-            } else {
-                if ($in_overlap_region) {
-                    $in_overlap_region = 0;
-                    if ($spanlength > $maxspanlength) {
-                        $maxspanlength = $spanlength;
-                    }
-                    $spanlength = 0;
-                }
-            }
-        }
-        if ($in_overlap_region) {
-            if ($spanlength > $maxspanlength) {
-                $maxspanlength = $spanlength;
-            }
-        }
-        return $maxspanlength;
-    }
-
 }
+
 
 sub addJunctionsToSeq {
     use strict;
