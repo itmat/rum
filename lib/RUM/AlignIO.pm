@@ -79,6 +79,23 @@ sub longest_read {
     return $readlength;
 }
 
+sub to_mapper_iter {
+    my ($self, $source) = @_;
+
+    return $self->group_by(
+        sub { 
+            my ($x, $y) = @_;
+            return RUM::Identifiable::is_mate($x, $y),
+        },
+        sub { 
+            my $alns = shift;
+            RUM::Mapper->new(alignments => $alns,
+                             source => $source) 
+          }
+    )->peekable;
+}
+
+
 
 
 1;

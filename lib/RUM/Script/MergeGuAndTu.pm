@@ -13,11 +13,9 @@ use List::Util qw(min max first);
 
 use base 'RUM::Script::Base';
 
-$|=1;
-
 sub overlap_length {
-    my ($spans, $seq) = @_;
-    my $str = intersect($spans, $seq);
+    my @alns = @_;
+    my $str = intersect(@alns);
     $str =~ /^(\d+)/;
     return $1;
 }
@@ -25,19 +23,8 @@ sub overlap_length {
 sub unique_iter {
     my ($fh, $source) = @_;
     my $iter = RUM::BowtieIO->new(-fh => $fh, strand_last => 1);
-    return $iter->group_by(
-        sub { 
-            my ($x, $y) = @_;
-            return RUM::Identifiable::is_mate($x, $y),
-        },
-        sub { 
-            my $alns = shift;
-            RUM::Mapper->new(alignments => $alns,
-                             source => $source) 
-          }
-    )->peekable;
+    return $iter->to_mapper_iter($source);
 }
-
 
 sub parse_command_line {
     my ($self) = @_;
@@ -140,13 +127,9 @@ sub run {
 
     if ($self->{read_length} ne "v") {
         $min_overlap  = min_overlap_for_read_length($self->{read_length});
-        $min_overlap1 = $min_overlap;
-        $min_overlap2 = $min_overlap;
     }
     if ($self->{user_min_overlap} > 0) {
         $min_overlap  = $self->{user_min_overlap};
-        $min_overlap1 = $self->{user_min_overlap};
-        $min_overlap2 = $self->{user_min_overlap};
     }
 
     {
@@ -207,13 +190,7 @@ sub run {
             # ONE CASE
             if ($gu->joined && $tu->joined) {
 
-                my @spans = (RUM::RUMIO->format_locs($gu->joined),
-                             RUM::RUMIO->format_locs($tu->joined));
-
-                my $length_overlap = overlap_length(\@spans, $gu->joined->seq);
-
-                if ($self->enough_overlap($length_overlap, $gu->joined->seq, $tu->joined->seq) &&
-                    ($gu->joined->chromosome eq $tu->joined->chromosome)) {
+                if ($self->enough_overlap($gu->joined, $tu->joined)) {
                     $unique_io->write_alns($tu);
                 } else {
                     $cnu_io->write_alns($gu);
@@ -229,13 +206,7 @@ sub run {
                     ($gu->single_reverse && $tu->single_reverse)) {
                     # both forward mappers, or both reverse mappers
 
-                    my @spans = (RUM::RUMIO->format_locs($gu->single),
-                                 RUM::RUMIO->format_locs($tu->single));
-
-                    my $length_overlap = overlap_length(\@spans, $gu->single->seq);
-
-                    if ($self->enough_overlap($length_overlap, $gu->single->seq, $tu->single->seq) 
-                        && ($gu->single->chromosome eq $tu->single->chromosome)) {
+                    if ($self->enough_overlap($gu->single, $tu->single)) {
                         # preference TU
                         $unique_io->write_alns($tu);
                     } else {
@@ -313,7 +284,6 @@ sub run {
                             $unique_io->write_alns([$tu->single, $gu->single]);
                         }
                     }
-                    $Eflag =0;
 
                     if (($astrand eq $bstrand) && ($chra eq $chrb) && (($aend >= $bstart-1) && ($astart <= $bstart)) || (($bend >= $astart-1) && ($bstart <= $astart))) {
                                             
@@ -490,39 +460,24 @@ sub run {
                         $seq_j = addJunctionsToSeq($merged_seq, $merged_spans);
 
                         if ($seq_j =~ /\S/ && $merged_spans =~ /^\d+.*-.*\d+$/) {
-                            print $bowtie_unique_out_fh "$seqnum\t$chra\t$merged_spans\t$seq_j\t$astrand\n";
+                            $unique_io->write_aln(
+                                RUM::Alignment->new(
+                                    readid => $seqnum,
+                                    chr => $chra,
+                                    locs => RUM::RUMIO->parse_locs($merged_spans),
+                                    seq => $seq_j,
+                                    strand => $astrand));
                         }
-                        $Eflag =1;
                     }
                 }
             }
             # ONE CASE
             if ($gu->unjoined && $tu->unjoined) {
-                my @spansa;
-                my @spansb;
                 my @gu = @{ $gu->unjoined };
                 my @tu = @{ $tu->unjoined };
 
-                $chr1 = $gu[0]->chromosome;
-                $chr2 = $tu[0]->chromosome;
-
-                $spansa[0] = RUM::RUMIO->format_locs($gu[0]);
-                $spansb[0] = RUM::RUMIO->format_locs($gu[1]);
-                $seqa = $gu[0]->seq;
-                $seqb = $gu[1]->seq;
-                
-                $spansa[1] = RUM::RUMIO->format_locs($tu[0]);
-                $spansb[1] = RUM::RUMIO->format_locs($tu[1]);
-
-                $min_overlap1 = $self->min_overlap($seqa, $tu[0]->seq);
-                $min_overlap2 = $self->min_overlap($seqb, $tu[1]->seq);
-
-                my $length_overlap1 = overlap_length(\@spansa, $seqa);
-                my $length_overlap2 = overlap_length(\@spansb, $seqb);
-
-                if (($length_overlap1 > $min_overlap1) && 
-                    ($length_overlap2 > $min_overlap2) && 
-                    ($chr1 eq $chr2)) {
+                if ($self->enough_overlap($gu[0], $tu[0]) &&
+                    $self->enough_overlap($gu[1], $tu[1])) {
                     $unique_io->write_alns($tu);
                 } else {
                     $cnu_io->write_alns($gu);
@@ -539,30 +494,8 @@ sub run {
             if ($gu->unjoined && $tu->joined) {
                 my @gu = @{ $gu->unjoined };
 
-                my $seq  = $gu[0]->seq;
-                my $chr1 = $gu[0]->chromosome;
-                my $chr2 = $tu->joined->chromosome;
-                
-                my @spans = (RUM::RUMIO->format_locs($gu[0]),
-                             RUM::RUMIO->format_locs($tu->joined));
-
-                if ($chr1 eq $chr2) {
-
-                    $min_overlap1 = $self->min_overlap_for_seqs($seq, $tu->joined->seq);
-
-                    my $overlap1 = overlap_length(\@spans, $seq);
-
-                    if ($self->{read_length} eq "v") {
-                        $min_overlap2 = min_overlap_for_seqs($seq, $gu[1]->seq);
-                    }
-                    if ($self->{user_min_overlap} > 0) {
-                        $min_overlap2 = $self->{user_min_overlap};
-                    }
-                    $spans[0] = RUM::RUMIO->format_locs($gu[1]);
-                    my $overlap2 = overlap_length(\@spans, $seq);
-                }
-
-                if ($overlap1 >= $min_overlap1 && $overlap2 >= $min_overlap2) {
+                if ($self->enough_overlap($gu[0], $tu->joined) &&
+                    $self->enough_overlap($gu[1], $tu->joined)) {
                     $unique_io->write_alns($tu);
                 } else {
                     $cnu_io->write_alns($gu);
@@ -588,116 +521,70 @@ sub run {
 
 
     sub intersect () {
-        ($spans_ref, $seq) = @_;
-        @spans = @{$spans_ref};
-        $num_i = @spans;
-        undef %chash;
-        for ($s_i=0; $s_i<$num_i; $s_i++) {
-            @a_i = split(/, /,$spans[$s_i]);
-            for ($i_i=0;$i_i<@a_i;$i_i++) {
-                @b_i = split(/-/,$a_i[$i_i]);
-                for ($j_i=$b_i[0];$j_i<=$b_i[1];$j_i++) {
-                    $chash{$j_i}++;
+        my (@alns) = @_;
+        my @spans = map { $_->locs } @alns;
+        my %chash;
+        for $spans (@spans) {
+            for my $span (@{ $spans }) {
+                my ($start, $end) = @{ $span };
+                for my $j ($start .. $end) {
+                    $chash{$j}++;
                 }
             }
         }
         $spanlength = 0;
-        $flag_i = 0;
+        $in_overlap_region = 0;
         $maxspanlength = 0;
-        $maxspan_start = 0;
-        $maxspan_end = 0;
-        $prevkey = 0;
+
         for $key_i (sort {$a <=> $b} keys %chash) {
-            if ($chash{$key_i} == $num_i) {
-                if ($flag_i == 0) {
-                    $flag_i = 1;
+            if ($chash{$key_i} == @spans) {
+                if ( ! $in_overlap_region) {
+                    $in_overlap_region = 1;
                     $span_start = $key_i;
                 }
                 $spanlength++;
             } else {
-                if ($flag_i == 1) {
-                    $flag_i = 0;
+                if ($in_overlap_region) {
+                    $in_overlap_region = 0;
                     if ($spanlength > $maxspanlength) {
                         $maxspanlength = $spanlength;
-                        $maxspan_start = $span_start;
-                        $maxspan_end = $prevkey;
                     }
                     $spanlength = 0;
                 }
             }
-            $prevkey = $key_i;
         }
-        if ($flag_i == 1) {
+        if ($in_overlap_region) {
             if ($spanlength > $maxspanlength) {
                 $maxspanlength = $spanlength;
-                $maxspan_start = $span_start;
-                $maxspan_end = $prevkey;
             }
         }
-        if ($maxspanlength > 0) {
-            @a_i = split(/, /,$spans[0]);
-            @b_i = split(/-/,$a_i[0]);
-            $i_i=0;
-            until ($b_i[1] >= $maxspan_start) {
-                $i_i++;
-                @b_i = split(/-/,$a_i[$i_i]);
-            }
-            $prefix_size = $maxspan_start - $b_i[0]; # the size of the part removed from spans[0]
-            for ($j_i=0; $j_i<$i_i; $j_i++) {
-                @b_i = split(/-/,$a_i[$j_i]);
-                $prefix_size = $prefix_size + $b_i[1] - $b_i[0] + 1;
-            }
-            @s_i = split(//,$seq);
-            $newseq = "";
-            for ($i_i=$prefix_size; $i_i<$prefix_size + $maxspanlength; $i_i++) {
-                $newseq = $newseq . $s_i[$i_i];
-            }
-            $flag_i = 0;
-            $i_i=0;
-            @b_i = split(/-/,$a_i[0]);
-            until ($b_i[1] >= $maxspan_start) {
-                $i_i++;
-                @b_i = split(/-/,$a_i[$i_i]);
-            }
-            $newspans = $maxspan_start;
-            until ($b_i[1] >= $maxspan_end) {
-                $newspans = $newspans . "-$b_i[1]";
-                $i_i++;
-                @b_i = split(/-/,$a_i[$i_i]);
-                $newspans = $newspans . ", $b_i[0]";
-            }
-            $newspans = $newspans . "-$maxspan_end";
-            $off = "";
-            for ($i_i=0; $i_i<$prefix_size; $i_i++) {
-                $off = $off . " ";
-            }
-            return "$maxspanlength\t$newspans\t$newseq";
-        } else {
-            return "0";
-        }
-    }
-
-    sub addJunctionsToSeq () {
-        ($seq_in, $spans_in) = @_;
-        @s1 = split(//,$seq_in);
-        @b1 = split(/, /,$spans_in);
-        $seq_out = "";
-        $place = 0;
-        for ($j1=0; $j1<@b1; $j1++) {
-            @c1 = split(/-/,$b1[$j1]);
-            $len1 = $c1[1] - $c1[0] + 1;
-            if ($seq_out =~ /\S/) {
-                $seq_out = $seq_out . ":";
-            }
-            for ($k1=0; $k1<$len1; $k1++) {
-                $seq_out = $seq_out . $s1[$place];
-                $place++;
-            }
-        }
-        return $seq_out;
+        return $maxspanlength;
     }
 
 }
+
+sub addJunctionsToSeq {
+    use strict;
+    my ($seq_in, $spans_in) = @_;
+    my @s1 = split(//,$seq_in);
+    my @b1 = split(/, /,$spans_in);
+    my $seq_out = "";
+    my $place = 0;
+    for (my $j1=0; $j1<@b1; $j1++) {
+        my @c1 = split(/-/,$b1[$j1]);
+        my $len1 = $c1[1] - $c1[0] + 1;
+        if ($seq_out =~ /\S/) {
+            $seq_out = $seq_out . ":";
+        }
+        for (my $k1=0; $k1<$len1; $k1++) {
+            $seq_out = $seq_out . $s1[$place];
+            $place++;
+        }
+    }
+    return $seq_out;
+}
+
+
 
 sub merge {
    
@@ -842,17 +729,6 @@ sub merge {
     
 }
 
-sub enough_overlap {
-    my ($self, $overlap, $seq1, $seq2) = @_;
-    
-    my $threshold = 
-      $self->{user_min_overlap}   ? $self->{user_min_overlap} 
-    : $self->{read_length} ne 'v' ? $self->{min_overlap} 
-    :                               min_overlap_for_seqs($seq1, $seq2);
-    
-    return $overlap > $self->min_overlap($seq1, $seq2);
-}
-
 sub min_overlap {
     my ($self, $seq1, $seq2) = @_;
     if ($self->{user_min_overlap}) {
@@ -865,3 +741,24 @@ sub min_overlap {
         return min_overlap_for_seqs($seq1, $seq2);
     }
 }
+
+sub enough_overlap {
+    my ($self, $x, $y) = @_;
+
+    return if $x->chromosome ne $y->chromosome;
+
+    my $overlap = overlap_length($x, $y);
+
+    my $seq1 = $x->seq;
+    my $seq2 = $y->seq;
+
+    my $threshold = 
+      $self->{user_min_overlap}   ? $self->{user_min_overlap} 
+    : $self->{read_length} ne 'v' ? $self->{min_overlap} 
+    :                               min_overlap_for_seqs($seq1, $seq2);
+    
+    return $overlap > $self->min_overlap($seq1, $seq2);
+
+}
+
+1;
