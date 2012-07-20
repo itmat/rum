@@ -6,13 +6,13 @@ no warnings;
 use File::Copy;
 use RUM::Usage;
 use RUM::Logging;
-use Getopt::Long;
 use RUM::Common qw(addJunctionsToSeq reversecomplement spansTotalLength);
 use RUM::SamIO qw(:flags);
 use RUM::SeqIO;
 use RUM::RUMIO;
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
+
 $|=1;
 
 our $QNAME =  0;
@@ -109,9 +109,11 @@ sub check_rum_input {
 
 sub main {
 
+    my $self = __PACKAGE__->new;
+
     my $map_names = "false";
 
-    GetOptions(
+    $self->get_options(
         "suppress1" => \(my $suppress1),
         "suppress2" => \(my $suppress2),
         "suppress3" => \(my $suppress3),
@@ -120,10 +122,7 @@ sub main {
         "quals-in=s" => \(my $qual_file),
         "reads-in=s" => \(my $reads_file),
         "non-unique-in=s" => \(my $rum_nu_file),
-        "unique-in=s" => \(my $rum_unique_file),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+        "unique-in=s" => \(my $rum_unique_file));
 
     $sam_outfile or RUM::Usage->bad(
         "Please specify an output file with --sam-out");
@@ -474,7 +473,7 @@ sub main {
                     for ($i=0; $i<$prefix_offset_upstream; $i++) {
                         $UR2 =~ s/^.//;
                     }
-                    $upstream_spans = &getprefix($ruj[2], $plen);
+                    $upstream_spans = &_getprefix($ruj[2], $plen);
 		
                     if ($ruj[3] eq "-") {
                         $downstream_read = reversecomplement($forward_read_hold);
@@ -615,7 +614,7 @@ sub main {
                         $DR2 =~ s/.$//;
                     }
 		
-                    $downstream_spans = &getsuffix($ruj[2], $plen);
+                    $downstream_spans = &_getsuffix($ruj[2], $plen);
 		
                     $UR2 = &addJunctionsToSeq($UR2, $upstream_spans);
                     $DR2 = &addJunctionsToSeq($DR2, $downstream_spans);
@@ -1075,7 +1074,7 @@ sub main {
 }
 
 
-sub getsuffix () {
+sub _getsuffix () {
     ($spans, $suffixlength) = @_;
 
     $prefixlength = &spansTotalLength($spans) - $suffixlength;
@@ -1101,7 +1100,7 @@ sub getsuffix () {
     }
 }
 
-sub getprefix () {
+sub _getprefix () {
     ($spans, $prefixlength) = @_;
 
     $newspans = "";
@@ -1207,3 +1206,68 @@ sub cigar2mismatches () {
     $return_array[1] = $NM;
     return \@return_array;
 }
+
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::RumToSam - Convert RUM files to a SAM file
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::SortRumById->main
+
+Run the script.
+
+=item some_segment_mapped
+
+=item this_segment_mapped
+
+=item both_segments_mapped
+
+These functions take an array ref representing a sam record and return
+a boolean indicating which segments mapped, based on the value of the
+flag field.
+
+=item check_rum_input
+
+Make sure the input file looks like a RUM file.
+
+=item cigar2mismatches($chr_c, $start_c, $cigar_c, $seq_c)
+
+Take a cigar string and a sequence and return the extra SAM fields
+containing mismatch info.
+
+=item first_read_number($filename)
+
+=item last_read_number($filename)
+
+Return the first or last read number in the given filename.
+
+=item is_paired($filename)
+
+Read the first couple lines from $filename and return boolean
+indicating whether it appears to be paired.
+
+=item read_length($filename)
+
+Read the first sequence from $filename and return its length.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
+
