@@ -3,16 +3,34 @@ package RUM::Script::MergeGuAndTu;
 no warnings;
 
 use Carp;
+use Data::Dumper;
 use RUM::Usage;
 use RUM::RUMIO;
 use RUM::Common qw(min_overlap_for_read_length
                    min_overlap_for_seqs);
 use RUM::Mapper;
-use List::Util qw(min max);
+use List::Util qw(min max first);
 
 use base 'RUM::Script::Base';
 
 $|=1;
+
+sub unique_iter {
+    my ($fh, $source) = @_;
+    my $iter = RUM::BowtieIO->new(-fh => $fh, strand_last => 1);
+    return $iter->group_by(
+        sub { 
+            my ($x, $y) = @_;
+            return RUM::Identifiable::is_mate($x, $y),
+        },
+        sub { 
+            my $alns = shift;
+            RUM::Mapper->new(alignments => $alns,
+                             source => $source) 
+          }
+    )->peekable;
+}
+
 
 sub parse_command_line {
     my ($self) = @_;
@@ -91,8 +109,8 @@ sub determine_read_length_from_input {
                   tu_in_fh 
                   gnu_in_fh
                   tnu_in_fh);
-    my @fhs = map { $self->{$_} } @keys;
-    my @iters   = map { RUM::BowtieIO->new(
+    my @fhs   = map { $self->{$_} } @keys;
+    my @iters = map { RUM::BowtieIO->new(
         -fh => $_, strand_last => 1) } @fhs;
 
     my @lengths = map { $_->longest_read } @iters;
@@ -146,115 +164,34 @@ sub run {
     my $bowtie_unique_out_fh = $self->{bowtie_unique_out_fh};
     my $cnu_out_fh           = $self->{cnu_out_fh};
 
-    my $gu_iter =  RUM::BowtieIO->new(
-        -fh => $gu_in_fh, strand_last => 1);
-    my $tu_iter =  RUM::BowtieIO->new(
-        -fh => $tu_in_fh, strand_last => 1);
+    my $gu_iter =  unique_iter($gu_in_fh, 'gu');
+    my $tu_iter =  unique_iter($tu_in_fh, 'tu');
 
     my $unique_io = RUM::RUMIO->new(-fh => $bowtie_unique_out_fh, strand_last => 1);
     my $cnu_io    = RUM::RUMIO->new(-fh => $cnu_out_fh, strand_last => 1);
 
-    $num_lines_at_once = 10000;
-    $linecount = 0;
-    $FLAG = 1;
-    $line_prev = <$tu_in_fh>;
-    chomp($line_prev);
-    while ($FLAG == 1) {
-        undef %hash1;
-        undef %hash2;
-        undef %allids;
-        $linecount = 0;
-        until ($linecount == $num_lines_at_once) {
-            $line=<$gu_in_fh>;
-            if (!($line =~ /\S/)) {
-                $FLAG = 0;
-                $linecount = $num_lines_at_once;
-            } else {
-                chomp($line);
-                @a = split(/\t/,$line);
-                $a[0] =~ /seq.(\d+)/;
-                $id = $1;
-                $last_id = $id;
-                $allids{$id}++;
-                if ($a[0] =~ /a$/ || $a[0] =~ /b$/) {
-                    $hash1{$id}[0]++;
-                    $hash1{$id}[$hash1{$id}[0]]=$line;
-                } else {
-                    $hash1{$id}[0]=-1;
-                    $hash1{$id}[1]=$line;
-                }
-                if ($self->{paired}) {
-                    # this makes sure we have read in both a and b reads, this approach might cause a problem
-                    # for paired end data if no, or very few, b reads mapped at all.
-                    if ( (($linecount == ($num_lines_at_once - 1)) && !($a[0] =~ /a$/)) || ($linecount < ($num_lines_at_once - 1)) ) {
-                        $linecount++;
-                    }
-                } else {
-                    if ( ($linecount == ($num_lines_at_once - 1)) || ($linecount < ($num_lines_at_once - 1)) ) {
-                        $linecount++;
-                    }
-                }
-            }
-        }
-        $line = $line_prev;
-        @a = split(/\t/,$line);
-        $a[0] =~ /seq.(\d+)/;
-        $prev_id = $id;
-        $id = $1;
-        if ($prev_id eq $id) {
-            $FLAG2 = 0;
-        }
-        $FLAG2 = 1;
-        until ($id > $last_id || $FLAG2 == 0) {
-            $allids{$id}++;
-            if ($a[0] =~ /a$/ || $a[0] =~ /b$/) {
-                $hash2{$id}[0]++;
-                $hash2{$id}[$hash2{$id}[0]]=$line;
-            } else {
-                $hash2{$id}[0]=-1;
-                $hash2{$id}[1]=$line;
-            }
-            $line=<$tu_in_fh>;
-            chomp($line);
-            if (!($line =~ /\S/)) {
-                $FLAG2 = 0;
-            } else {
-                @a = split(/\t/,$line);
-                $a[0] =~ /seq.(\d+)/;
-                $id = $1;
-            }
-        }
-        if ($FLAG2 == 1) {
-            $line_prev = $line;
-        }
-        foreach $id (sort {$a <=> $b} keys %allids) {
-            next if $self->{ambiguous_mappers}->{$id};
+    my $unique_iter = $gu_iter->merge(
+        \&RUM::Mapper::cmp_read_ids, $tu_iter, sub { shift });
 
-            $hash1{$id}[0] = $hash1{$id}[0] + 0;
-            $hash2{$id}[0] = $hash2{$id}[0] + 0;
+  READ: while (my $mappers = $unique_iter->next_val) {
 
-            my @gu_lines = @{ $hash1{$id} };
-            my @gu_alns = map { $gu_iter->parse_aln($_) } @gu_lines[1..$#gu_lines];
-            my $gu = RUM::Mapper->new(source => 'gu',
-                                      alignments => \@gu_alns);
+        if (ref($mappers) !~ /^ARRAY/) {
+            $mappers = [ $mappers ];
+        }
+        my $id = $mappers->[0]->alignments->[0]->order;
 
-            my @tu_lines = @{ $hash2{$id} };
-            @tu_lines = grep { $_ } @tu_lines[1..$#tu_lines];
-            my @tu_alns = map { $tu_iter->parse_aln($_) } @tu_lines;
-            my $tu = RUM::Mapper->new(source => 'tu',
-                                      alignments => \@tu_alns);
+        next READ if $self->{ambiguous_mappers}->{$id};
+        {
+            my $gu = first { $_->source eq 'gu' } @{ $mappers };
+            my $tu = first { $_->source eq 'tu' } @{ $mappers };
+            
+            $gu ||= RUM::Mapper->new();
+            $tu ||= RUM::Mapper->new();
 
             # MUST DO 15 CASES IN TOTAL:
             # THREE CASES:
             if ($gu->is_empty) {
-                # no genome mapper, so there must be a transcriptome mapper
-                if ($hash2{$id}[0] == -1) {
-                    print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
-                } else {
-                    for ($i=0; $i<$hash2{$id}[0]; $i++) {
-                        print $bowtie_unique_out_fh "$hash2{$id}[$i+1]\n";
-                    }
-                }
+                $unique_io->write_alns($tu);
             }
             # THREE CASES
             if ($tu->is_empty) {
@@ -284,6 +221,7 @@ sub run {
             }
             # ONE CASE
             if ($gu->single && $tu->single) {
+
                 # genome mapper and transcriptome mapper, and both single read mapping
                 # If single-end then this is the only case where $hash1{$id}[0] > 0 and $hash2{$id}[0] > 0
                 if (($gu->single_forward && $tu->single_forward) || 
@@ -311,6 +249,7 @@ sub run {
                 }
                 if (($gu->single_forward && $tu->single_reverse) || 
                     ($gu->single_reverse && $tu->single_forward)) {
+
                     # one forward and one reverse
 
                     $aspans = RUM::RUMIO->format_locs($gu->single);
@@ -338,7 +277,7 @@ sub run {
                         }
                     }
 
-                    $bspans = $a[2];
+                    $bspans = RUM::RUMIO->format_locs($tu->single);
                     $bstart = $tu->single->start;
                     $bend = $tu->single->end;
                     $chrb = $tu->single->chromosome;
@@ -379,16 +318,18 @@ sub run {
                     $Eflag =0;
 
                     if (($astrand eq $bstrand) && ($chra eq $chrb) && (($aend >= $bstart-1) && ($astart <= $bstart)) || (($bend >= $astart-1) && ($bstart <= $astart))) {
-
+                                            
                         $aseq2 = $aseq;
                         $aseq2 =~ s/://g;
                         $bseq2 = $bseq;
                         $bseq2 =~ s/://g;
+
                         if ($gu->single_forward && $astrand eq "+" || $gu->single_reverse && $astrand eq "-") {
                             ($merged_spans, $merged_seq) = merge($aspans, $bspans, $aseq2, $bseq2);
                         } else {
                             ($merged_spans, $merged_seq) = merge($bspans, $aspans, $bseq2, $aseq2);
                         }
+
                         if (! $merged_spans) {
                             @AS = split(/-/,$aspans);
                             $AS[0]++;
@@ -403,6 +344,7 @@ sub run {
                                 ($merged_spans, $merged_seq) = merge($bspans, $aspans_temp, $bseq2, $aseq2_temp);
                             }
                         }
+
                         if (! $merged_spans) {
                             $AS[0]++;
                             $aspans_temp = join '-', @AS;
@@ -595,7 +537,7 @@ sub run {
             }	
             # NINE CASES DONE
             # ONE CASE
-            if ($gu->joined && $hash2{$id}[0] == 2) {
+            if ($gu->joined && $tu->unjoined) {
                 $cnu_io->write_alns($gu);
                 $cnu_io->write_alns($tu);
             }
@@ -606,50 +548,47 @@ sub run {
                 $chr1 = $gu[0]->chromosome;
                 $spans[0] = RUM::RUMIO->format_locs($gu[0]);
                 $seq = $gu[0]->seq;
-                @a = split(/\t/,$hash2{$id}[1]);
+
                 $chr2 = $tu->joined->chromosome;
                 $spans[1] = RUM::RUMIO->format_locs($tu->joined);
                 if ($chr1 eq $chr2) {
 
-                    $min_overlap1 = $self->min_overlap($seq, $a[3]);
+                    $min_overlap1 = $self->min_overlap_for_seqs($seq, $tu->joined->seq);
 
                     $str = intersect(\@spans, $seq);
                     $str =~ /^(\d+)/;
                     $overlap1 = $1;
-                    @a = split(/\t/,$hash1{$id}[2]);
+
                     if ($self->{read_length} eq "v") {
-                        $min_overlap2 = min_overlap_for_seqs($seq, $a[3]);
+                        $min_overlap2 = min_overlap_for_seqs($seq, $gu[1]->seq);
                     }
                     if ($self->{user_min_overlap} > 0) {
                         $min_overlap2 = $self->{user_min_overlap};
                     }
-                    $spans[0] = $a[2];
+                    $spans[0] = RUM::RUMIO->format_locs($gu[1]);
                     $str = intersect(\@spans, $seq);
                     $str =~ /^(\d+)/;
                     $overlap2 = $1;
                 }
                 if ($overlap1 >= $min_overlap1 && $overlap2 >= $min_overlap2) {
-                    print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
+                    $unique_io->write_alns($tu);
                 } else {
-                    print $cnu_out_fh "$hash1{$id}[1]\n";
-                    print $cnu_out_fh "$hash1{$id}[2]\n";
-                    print $cnu_out_fh "$hash2{$id}[1]\n";
+                    $cnu_io->write_alns($gu);
+                    $cnu_io->write_alns($tu);
                 }
             }
             # ELEVEN CASES DONE
-            if ($gu->joined && $hash2{$id}[0] == 1) {
-                print $bowtie_unique_out_fh "$hash1{$id}[1]\n";
+            if ($gu->joined && $tu->single) {
+                $unique_io->write_alns($gu);
             }
-            if ($gu->single && $hash2{$id}[0] == -1) {
-                print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
+            if ($gu->single && $tu->joined) {
+                $unique_io->write_alns($tu);
             }
-            if ($gu->single && $hash2{$id}[0] == 2) {
-                print $bowtie_unique_out_fh "$hash2{$id}[1]\n";
-                print $bowtie_unique_out_fh "$hash2{$id}[2]\n";
+            if ($gu->single && $tu->unjoined) {
+                $unique_io->write_alns($tu);
             }	
-            if ($gu->unjoined && $hash2{$id}[0] == 1) {
-                print $bowtie_unique_out_fh "$hash1{$id}[1]\n";
-                print $bowtie_unique_out_fh "$hash1{$id}[2]\n";
+            if ($gu->unjoined && $tu->single) {
+                $unique_io->write_alns($gu);
             }	
             # ALL FIFTEEN CASES DONE
         }
@@ -769,9 +708,10 @@ sub run {
 }
 
 sub merge {
+   
     use strict;
     my ($upstreamspans, $downstreamspans, $seq1, $seq2) = @_;
-    
+
     my %HASH;
     my @Uarray;
     my @Darray;

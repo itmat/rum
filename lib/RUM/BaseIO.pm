@@ -24,7 +24,9 @@ sub new {
         $fh = __PACKAGE__->table_to_tab_file($table);
     }
 
-    open $fh, "<", $file unless $fh;
+    if ( ! $fh ) {
+        open $fh, "<", $file;
+    }
 
     my $self = $class->SUPER::new;
 

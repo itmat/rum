@@ -25,16 +25,6 @@ sub set_min_overlap {
     $MIN_OVERLAP = $val;
 }
 
-sub cmp_read_ids {
-    my ($x, $y) = @_;
-    
-    my $x_alns = $x->alignments;
-    my $y_alns = $y->alignments;
-    my $x_order = $x->alignments->[0]->order;
-    my $y_order = $y->alignments->[0]->order;
-    return $x_order <=> $y_order;
-}
-
 $|=1;
 
 # These are used by both main and joinifpossible. It would be nice to
@@ -156,7 +146,7 @@ sub main {
     my $blat_unique_iter   = unique_iter($blat_unique_in,   'blat unique');
 
     my $unique_iter = $bowtie_unique_iter->merge(
-        \&cmp_read_ids, $blat_unique_iter, sub { shift });
+        \&RUM::Mapper::cmp_read_ids, $blat_unique_iter, sub { shift });
 
     $max_distance_between_paired_reads = 500000;
 

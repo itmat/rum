@@ -65,4 +65,15 @@ sub is_empty {
     return ! @{ $self->{alignments} };
 }
 
+sub cmp_read_ids {
+    my ($x, $y) = @_;
+    
+    my $x_alns = $x->alignments;
+    my $y_alns = $y->alignments;
+    my $x_order = $x->alignments->[0]->order;
+    my $y_order = $y->alignments->[0]->order;
+    return $x_order <=> $y_order;
+}
+
+
 1;
