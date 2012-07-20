@@ -2,32 +2,26 @@ package RUM::Script::MergeNuStats;
 
 use strict;
 no warnings;
+use autodie;
 
 use Carp;
 
-use RUM::Usage;
-use RUM::Logging;
-use Getopt::Long;
-
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 sub main {
 
-    GetOptions(
-        "help|h" => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+    my $self = __PACKAGE__->new;
+    $self->get_options;
 
     my @nu_stats = @ARGV;
 
-    $log->info("Merging non-unique stats");
+    $self->logger->info("Merging non-unique stats");
 
     my %data;
 
     for my $filename (@nu_stats) {
 
-        open my $in, "<", $filename or croak
-            "Couldn't open nu_stats file $filename: $!";
+        open my $in, "<", $filename;
 
         local $_ = <$in>;
 
@@ -39,7 +33,7 @@ sub main {
         }
     }
 
-    $log->debug("Data has " . scalar(keys(%data)) . " keys");
+    $self->logger->debug("Data has " . scalar(keys(%data)) . " keys");
 
     print "\n------------------------------------------\n";
     print "num_locs\tnum_reads\n";
@@ -51,3 +45,31 @@ sub main {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::MergeNuStats
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::MergeNuStats->main
+
+Run the script.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+

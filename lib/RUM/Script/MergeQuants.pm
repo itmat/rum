@@ -2,27 +2,23 @@ package RUM::Script::MergeQuants;
 
 no warnings;
 use RUM::Usage;
-use RUM::Logging;
 use RUM::Common qw(read_chunk_id_mapping);
-use Getopt::Long;
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 our @VALID_STRANDS = qw(pa ma ps ms);
 
 sub main {
+    my $self = __PACKAGE__->new;
 
-    GetOptions(
+    $self->get_options(
         "output|o=s" => \(my $outfile),
         "chunks|n=s" => \(my $numchunks),
         "strand=s"   => \(my $strand),
         "chunk-ids-file=s" => \(my $chunk_id_file),
         "countsonly"       => \(my $countsonly),
         "alt"              => \(my $alt),
-        "header"           => \(my $header),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+        "header"           => \(my $header));
 
     my $output_dir = shift(@ARGV) or RUM::Usage->bad(
         "Please provide the directory containing the quant.* files");
@@ -61,7 +57,7 @@ sub main {
             $filename = $filename . "." . $chunk_ids_mapping{$i};
         }
 
-        $log->info("Reading from $filename");
+        $self->logger->info("Reading from $filename");
 
         open(INFILE, "$output_dir/$filename")
             or die "Can't open $output_dir/$filename for reading: $!";
@@ -103,7 +99,6 @@ sub main {
         }
         $NL = $counts[$i]{len} / 1000;
         unless ($NL) {
-#            $log->warn("Got 0 NL");
             next;
         }
 
@@ -133,3 +128,31 @@ sub main {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::MergeQuants
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::MergeQuants->main
+
+Run the script.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+

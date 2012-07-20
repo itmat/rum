@@ -721,3 +721,80 @@ sub enough_overlap {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::MergeGuAndTu
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::MergeGuAndTu->main
+
+Run the script.
+
+=item overlap_length(@alns)
+
+Given a list of RUM::Alignments, returns the length of the longest
+overlapping span.
+
+=item unique_iter($fh, $source)
+
+Return an iterator over RUM::Mappers from the given filehandle,
+associating each mapper with the given $source.
+
+=item parse_command_line
+
+Parse command-line arguments and store in $self.
+
+=item determine_read_length_from_input
+
+Read some lines from my inputs to try to determine the maximum read
+length.
+
+=item group_mappers_by_source
+
+Given an array ref of RUM::Mappers, return a hash mapping each source
+to its corresponding mapper.
+
+=item run
+
+Guts of the script, called by main.
+
+=item addJunctionsToSeq
+
+Modify a sequence based on a list of spans by adding ':'; characters
+in to represent junctions.
+
+=item merge
+
+Merge two lists of spans.
+
+=item enough_overlap
+
+Given two alignments, return boolean indicating whether they have an
+overlapping region large enough to merit reporting the alignments
+together.
+
+=item min_overlap
+
+Return the minimum overlap I should allow based on the user's options
+and on the two specific alignments (in case my read lengths are
+variable and the user did not specify a min-overlap).
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
