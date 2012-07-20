@@ -5,20 +5,16 @@ use warnings;
 use autodie;
 
 use RUM::Usage;
-use RUM::Logging;
 use RUM::RUMIO;
-use Getopt::Long;
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 sub main {
 
-    GetOptions(
+    my $self = __PACKAGE__->new;
+    $self->get_options(
         "non-unique-out=s" => \(my $outfile),
-        "unique-out=s"     => \(my $outfileu),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+        "unique-out=s"     => \(my $outfileu));
 
     my $infile = $ARGV[0] or RUM::Usage->bad(
         "Please provide an input file of non-unique mappers");
@@ -59,3 +55,34 @@ sub main {
         }
     }
 }
+
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::RemoveDups - Separate an input RUM file into unique and non-unique mappers
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::RemoveDups->main
+
+Run the script.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
+
