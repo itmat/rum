@@ -15,6 +15,13 @@ use base 'RUM::Script::Base';
 
 $|=1;
 
+sub overlap_length {
+    my ($spans, $seq) = @_;
+    my $str = intersect($spans, $seq);
+    $str =~ /^(\d+)/;
+    return $1;
+}
+
 sub unique_iter {
     my ($fh, $source) = @_;
     my $iter = RUM::BowtieIO->new(-fh => $fh, strand_last => 1);
@@ -195,21 +202,15 @@ sub run {
             }
             # THREE CASES
             if ($tu->is_empty) {
-                # no transcriptome mapper, so there must be a genome mapper
                 $unique_io->write_alns($gu);
             }
             # ONE CASE
             if ($gu->joined && $tu->joined) {
-                # genome mapper and transcriptome mapper, and both joined
-                undef @spans;
-                @a2 = split(/\t/,$hash2{$id}[1]);
 
                 my @spans = (RUM::RUMIO->format_locs($gu->joined),
                              RUM::RUMIO->format_locs($tu->joined));
 
-                $str = intersect(\@spans, $gu->joined->seq);
-                $str =~ /^(\d+)/;
-                $length_overlap = $1;
+                my $length_overlap = overlap_length(\@spans, $gu->joined->seq);
 
                 if ($self->enough_overlap($length_overlap, $gu->joined->seq, $tu->joined->seq) &&
                     ($gu->joined->chromosome eq $tu->joined->chromosome)) {
@@ -227,14 +228,11 @@ sub run {
                 if (($gu->single_forward && $tu->single_forward) || 
                     ($gu->single_reverse && $tu->single_reverse)) {
                     # both forward mappers, or both reverse mappers
-                    undef @spans;
 
                     my @spans = (RUM::RUMIO->format_locs($gu->single),
                                  RUM::RUMIO->format_locs($tu->single));
 
-                    $str = intersect(\@spans, $gu->single->seq);
-                    $str =~ /^(\d+)/;
-                    $length_overlap = $1;
+                    my $length_overlap = overlap_length(\@spans, $gu->single->seq);
 
                     if ($self->enough_overlap($length_overlap, $gu->single->seq, $tu->single->seq) 
                         && ($gu->single->chromosome eq $tu->single->chromosome)) {
@@ -519,12 +517,8 @@ sub run {
                 $min_overlap1 = $self->min_overlap($seqa, $tu[0]->seq);
                 $min_overlap2 = $self->min_overlap($seqb, $tu[1]->seq);
 
-                $str = intersect(\@spansa, $seqa);
-                $str =~ /^(\d+)/;
-                $length_overlap1 = $1;
-                $str = intersect(\@spansb, $seqb);
-                $str =~ /^(\d+)/;
-                $length_overlap2 = $1;
+                my $length_overlap1 = overlap_length(\@spansa, $seqa);
+                my $length_overlap2 = overlap_length(\@spansb, $seqb);
 
                 if (($length_overlap1 > $min_overlap1) && 
                     ($length_overlap2 > $min_overlap2) && 
@@ -544,20 +538,19 @@ sub run {
             # ONE CASE
             if ($gu->unjoined && $tu->joined) {
                 my @gu = @{ $gu->unjoined };
-                undef @spans;
-                $chr1 = $gu[0]->chromosome;
-                $spans[0] = RUM::RUMIO->format_locs($gu[0]);
-                $seq = $gu[0]->seq;
 
-                $chr2 = $tu->joined->chromosome;
-                $spans[1] = RUM::RUMIO->format_locs($tu->joined);
+                my $seq  = $gu[0]->seq;
+                my $chr1 = $gu[0]->chromosome;
+                my $chr2 = $tu->joined->chromosome;
+                
+                my @spans = (RUM::RUMIO->format_locs($gu[0]),
+                             RUM::RUMIO->format_locs($tu->joined));
+
                 if ($chr1 eq $chr2) {
 
                     $min_overlap1 = $self->min_overlap_for_seqs($seq, $tu->joined->seq);
 
-                    $str = intersect(\@spans, $seq);
-                    $str =~ /^(\d+)/;
-                    $overlap1 = $1;
+                    my $overlap1 = overlap_length(\@spans, $seq);
 
                     if ($self->{read_length} eq "v") {
                         $min_overlap2 = min_overlap_for_seqs($seq, $gu[1]->seq);
@@ -566,10 +559,9 @@ sub run {
                         $min_overlap2 = $self->{user_min_overlap};
                     }
                     $spans[0] = RUM::RUMIO->format_locs($gu[1]);
-                    $str = intersect(\@spans, $seq);
-                    $str =~ /^(\d+)/;
-                    $overlap2 = $1;
+                    my $overlap2 = overlap_length(\@spans, $seq);
                 }
+
                 if ($overlap1 >= $min_overlap1 && $overlap2 >= $min_overlap2) {
                     $unique_io->write_alns($tu);
                 } else {
