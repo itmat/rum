@@ -5,14 +5,12 @@ use autodie;
 no warnings;
 
 use RUM::Usage;
-use RUM::Logging;
-use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
 use RUM::Script::QuantifyExons;
 use RUM::RUMIO;
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 my $sepout = "false";
 my $posonly;
@@ -32,11 +30,6 @@ my $UREADS=0;
 my %EXON;
 my %INTRON;
 
-sub new {
-    my ($class) = @_;
-    bless {}, $class;
-    
-}
 
 my %strand_for_user_strand = (
     p => '+',
@@ -44,6 +37,8 @@ my %strand_for_user_strand = (
     '' => undef);
 
 sub main {
+
+    my $self = __PACKAGE__->new;
 
     my $outfile2;
     
@@ -74,7 +69,7 @@ sub main {
     undef $countsonly;
     undef $anti;
 
-    GetOptions(
+    $self->get_options(
         "genes-in=s"      => \$annotfile,
         "unique-in=s"     => \$U_readsfile,
         "non-unique-in=s" => \$NU_readsfile,
@@ -84,10 +79,7 @@ sub main {
         "posonly"         => \$posonly,
         "countsonly"      => \$countsonly,
         "anti"            => \$anti,
-        "info=s"          => \$infofile,
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+        "info=s"          => \$infofile);
 
     $annotfile or RUM::Usage->bad(
         "Please provide a gene annotation file with --genes-in");
@@ -186,8 +178,8 @@ sub main {
         }
     }
 
-    &readfile($U_readsfile, "Ucount", $strand);
-    &readfile($NU_readsfile, "NUcount", $strand);
+    &_readfile($U_readsfile, "Ucount", $strand);
+    &_readfile($NU_readsfile, "NUcount", $strand);
 
     my %EXONhash;
     foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
@@ -483,7 +475,7 @@ sub main {
 }
 
 
-sub readfile {
+sub _readfile {
     my ($filename, $type, $strand) = @_;
     my $iter = RUM::RUMIO->new(-file => $filename)->peekable;
 
@@ -569,48 +561,32 @@ sub readfile {
     }
 }
 
-# sub  union () {
-#     my ($spans1_u, $spans2_u) = @_;
-
-#     my %chash;
-#     my @a = split(/, /,$spans1_u);
-#     for (my $i=0;$i<@a;$i++) {
-# 	my @b = split(/-/,$a[$i]);
-# 	for (my $j=$b[0];$j<=$b[1];$j++) {
-# 	    $chash{$j}++;
-# 	}
-#     }
-#     @a = split(/, /,$spans2_u);
-#     for (my $i=0;$i<@a;$i++) {
-# 	my @b = split(/-/,$a[$i]);
-# 	for (my $j=$b[0];$j<=$b[1];$j++) {
-# 	    $chash{$j}++;
-# 	}
-#     }
-#     my $first = 1;
-#     my $spans_union;
-#     my $pos_prev;
-#     foreach my $pos (sort {$a<=>$b} keys %chash) {
-# 	if ($first == 1) {
-# 	    $spans_union = $pos;
-# 	    $first = 0;
-# 	} else {
-# 	    if ($pos > $pos_prev + 1) {
-# 		$spans_union = $spans_union . "-$pos_prev, $pos";
-# 	    }
-# 	}
-# 	$pos_prev = $pos;
-#     }
-#     $spans_union = $spans_union . "-$pos_prev";
-#     return $spans_union;
-# }
-
-# seq.35669       chr1    3206742-3206966 -       GCCCACCACCATGTCAAACACAATCTCTTCCCATTTGGTGATACAGAATTCTGTCTCACAGTGGACAATCCAGAAAGTCATGATGCACCAATGGAGGACAATAAATATCCCAAAATACAGCTGGAAAACCGAGGCAAAGAGGGCGAATGTGATGACCCTGGCAGCGATGGTGAAGAAATGCCAGCAGAACTGAATGATGACAGCCATTTAGCTGATGGGCTTTTT
-# 
-# 
-# chr1    -       3195981 3206425 2       3195981,3203689,        3197398,3206425,        OTTMUST00000086625(vega)
-
-
-
-
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::RumToQuantifications - Convert a RUM file to a quantifications file
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::RumToQuantifications->main
+
+Run the script.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
