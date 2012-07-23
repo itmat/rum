@@ -164,28 +164,29 @@ sub main {
     my $self = __PACKAGE__->new;
 
     $self->get_options(
-        "reads-in=s"            => \(my $seqfile),
+        "reads-in=s"            => \($self->{seqfile}),
         "blat-in=s"             => \($self->{blatfile}),
-        "mdust-in=s"            => \(my $mdustfile),
-        "unique-out=s"          => \(my $outfile1),
-        "non-unique-out=s"      => \(my $outfile2),
+        "mdust-in=s"            => \($self->{mdustfile}),
+        "unique-out=s"          => \($self->{unique_out}),
+        "non-unique-out=s"      => \($self->{nu_out}),
         "max-pair-dist=s"       => \(my $max_distance_between_paired_reads = 500000),
         "max-insertions=s"      => \(my $num_insertions_allowed = 1),
         "match-length-cutoff=s" => \(my $match_length_cutoff = 0),
         "dna"                   => \(my $dna));
 
-    $seqfile or RUM::Usage->bad(
+    
+    # Check command-line args
+
+    $self->{seqfile} or RUM::Usage->bad(
         "Please provide a file of unmapped reads with --reads-in");
     $self->{blatfile} or RUM::Usage->bad(
         "Please provide the file produced by blat with --blat-in");
-    $mdustfile or RUM::Usage->bad(
+    $self->{mdustfile} or RUM::Usage->bad(
         "Please provide the file produced by mdust with --mdust-in");
-    $outfile1 or RUM::Usage->bad(
+    $self->{unique_out} or RUM::Usage->bad(
         "Specify an output file for unique mappers with --unique-out");
-    $outfile2 or RUM::Usage->bad(
+    $self->{unique_out} or RUM::Usage->bad(
         "Specify an output file for non-unique mappers with --non-unique-out");
-    
-    # Check command-line args
     $num_insertions_allowed =~ /^\d+$/ or RUM::Usage->bad(
         "If you provide --num-insertions-allowed, it must be an integer");
     $match_length_cutoff =~ /^\d+$/ or RUM::Usage->bad(
@@ -195,13 +196,19 @@ sub main {
 
     $self->ensure_blat_file_sorted;
 
-    $head = `head -1 $seqfile`;
-    $head2 = `head -3 $seqfile`;
-    if ($head2 =~ /seq.\d+b/) {
-        $paired_end = "true";
-    } else {
-        $paired_end = "false";
-    }
+    open my $blat_hits, '<', $self->{blatfile_sorted};
+    open my $seq_fh,    '<', $self->{seqfile};
+    open my $mdust_fh,  '<', $self->{mdustfile};
+    open $unique_fh,       '>', $self->{unique_out};
+    open $nu_fh,      '>', $self->{nu_out};
+
+    # Get the first and last sequence number and determine if the
+    # reads are paired end.
+    $head  = `head -1 $self->{seqfile}`;
+    $head2 = `head -3 $self->{seqfile}`;
+
+    $paired_end = $head2 =~ /seq.\d+b/;
+
     $head =~ /seq.(\d+)/;
     $first_seq_num = $1;
     $tail = `tail -1 $self->{blatfile_sorted}`;
@@ -209,13 +216,7 @@ sub main {
     $last_seq_num = $a[9];
     $last_seq_num =~ s/[^\d]//g;
 
-    open my $blat_hits, '<', $self->{blatfile_sorted};
-    open SEQFILE,       '<', $seqfile;
-    open MDUST,         '<', $mdustfile;
-    open RESULTS,       '>', $outfile1;
-    open RESULTS2,      '>', $outfile2;
-
-    if ($num_insertions_allowed > 1 && $paired_end eq "true") {
+    if ($num_insertions_allowed > 1 && $paired_end) {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
     }
 
@@ -247,38 +248,39 @@ sub main {
             $seqname = $a[9];
             $seqnum = $seqname;
             $seqnum =~ s/[^\d]//g;
-            $seqa_temp = <SEQFILE>;
+            $seqa_temp = <$seq_fh>;
             chomp($seqa_temp);
             $seqa_temp =~ s/[^ACGTNab]$//;
-            $mdust_temp = <MDUST>;
+            warn "Seqa temp si $seqa_temp\n";
+            $mdust_temp = <$mdust_fh>;
             chomp($mdust_temp);
             $mdust_temp =~ s/[^ACGTNab]$//;
         }
         $seqa_temp =~ /seq.(\d+)/;
         $seq_count = $1; # this way we skip over things that aren't in <seq file>
-        $seqa_temp = <SEQFILE>;
+        $seqa_temp = <$seq_fh>;
         chomp($seqa_temp);
         $seqa_temp =~ s/[^ACGTNab]$//;
         $seqa = "";
         while (!($seqa_temp =~ /^>/)) {
             $seqa_temp =~ s/[^A-Z]//gs;
             $seqa = $seqa . $seqa_temp;
-            $seqa_temp = <SEQFILE>;
+            $seqa_temp = <$seq_fh>;
             chomp($seqa_temp);
             $seqa_temp =~ s/[^ACGTNab]$//;
             if ($seqa_temp eq '') {
                 last;
             }
         }
-        if ($paired_end eq "true") {
-            $seqb_temp = <SEQFILE>;
+        if ($paired_end) {
+            $seqb_temp = <$seq_fh>;
             chomp($seqb_temp);
             $seqb_temp =~ s/[^ACGTNab]$//;
             $seqb = "";
             $seqb_temp =~ s/[^A-Z]//gs;
             while (!($seqb_temp =~ /^>/)) {
                 $seqb = $seqb . $seqb_temp;
-                $seqb_temp = <SEQFILE>;
+                $seqb_temp = <$seq_fh>;
                 chomp($seqb_temp);
                 $seqb_temp =~ s/[^ACGTNab]$//;
                 if ($seqb_temp eq '') {
@@ -288,13 +290,13 @@ sub main {
             $seqa_temp = $seqb_temp;
         }
 
-        $mdust_temp = <MDUST>;
+        $mdust_temp = <$mdust_fh>;
         chomp($mdust_temp);
         $mdust_temp =~ s/[^ACGTNab]$//;
         $dust_output = "";
         while (!($mdust_temp =~ /^>/)) {
             $dust_output = $dust_output . $mdust_temp;
-            $mdust_temp = <MDUST>;
+            $mdust_temp = <$mdust_fh>;
             chomp($mdust_temp);
             $mdust_temp =~ s/[^ACGTNab]$//;
             if ($mdust_temp eq '') {
@@ -307,14 +309,14 @@ sub main {
         if ($cutoff{$sn} > $a_x[10] - 2) {
             $cutoff{$sn} = $a_x[10] - 2;
         }
-        if ($paired_end eq "true") {
-            $mdust_temp = <MDUST>;
+        if ($paired_end) {
+            $mdust_temp = <$mdust_fh>;
             chomp($mdust_temp);
             $mdust_temp =~ s/[^ACGTNab]$//;
             $dust_output = "";
             while (!($mdust_temp =~ /^>/)) {
                 $dust_output = $dust_output . $mdust_temp;
-                $mdust_temp = <MDUST>;
+                $mdust_temp = <$mdust_fh>;
                 chomp($mdust_temp);
                 $mdust_temp =~ s/[^ACGTNab]$//;
                 if ($mdust_temp eq '') {
@@ -648,12 +650,12 @@ sub main {
         $numb = @{$read_mapping_to_genome_coords[1]} + 0;
 
         if ($numa == 1 && $numb == 0) { # unique forward match, no reverse
-            print RESULTS "$read_mapping_to_genome_coords[0][0]\n";
+            print $unique_fh "$read_mapping_to_genome_coords[0][0]\n";
         }
         if ($numa > 1 && $numb == 0) {
             $unique = 0;
             if ($one_dir_only_candidate[0] =~ /\S/) {
-                print RESULTS "$one_dir_only_candidate[0]\n";
+                print $unique_fh "$one_dir_only_candidate[0]\n";
                 $unique = 1;
             }
             undef @spans;
@@ -684,8 +686,8 @@ sub main {
                     if ($size >= $min_size_intersection_allowed) {
                         @ss = split(/\t/,$str);
                         $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                        print RESULTS "seq.$seq_count";
-                        print RESULTS "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                        print $unique_fh "seq.$seq_count";
+                        print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                         $unique = 1;
                     }
                 }
@@ -695,17 +697,17 @@ sub main {
             undef @spans;
             if ($unique == 0) {
                 for ($i=0; $i<$numa; $i++) {
-                    print RESULTS2 "$read_mapping_to_genome_coords[0][$i]\n";
+                    print $nu_fh "$read_mapping_to_genome_coords[0][$i]\n";
                 }
             }
         }
         if ($numb == 1 && $numa == 0) { # unique reverse match, no forward
-            print RESULTS "$read_mapping_to_genome_coords[1][0]\n";
+            print $unique_fh "$read_mapping_to_genome_coords[1][0]\n";
         }
         if ($numa == 0 && $numb > 1) {
             $unique = 0;
             if ($one_dir_only_candidate[1] =~ /\S/) {
-                print RESULTS "$one_dir_only_candidate[1]\n";
+                print $unique_fh "$one_dir_only_candidate[1]\n";
                 $unique = 1;
             }
             undef @spans;
@@ -736,8 +738,8 @@ sub main {
                     if ($size >= $min_size_intersection_allowed) {
                         @ss = split(/\t/,$str);
                         $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                        print RESULTS "seq.$seq_count";
-                        print RESULTS "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                        print $unique_fh "seq.$seq_count";
+                        print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                         $unique = 1;
                     }
                 }
@@ -747,7 +749,7 @@ sub main {
             undef @spans;
             if ($unique == 0) {
                 for ($i=0; $i<$numb; $i++) {
-                    print RESULTS2 "$read_mapping_to_genome_coords[1][$i]\n";
+                    print $nu_fh "$read_mapping_to_genome_coords[1][$i]\n";
                 }
             }
         }
@@ -1081,14 +1083,14 @@ sub main {
                         $seq_new = addJunctionsToSeq($a[3], $a[2]);
                         if (@A == 2 && $n == 0) {
                             $outstring = "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
-                            print RESULTS $outstring;
+                            print $unique_fh $outstring;
                         }
                         if (@A == 2 && $n == 1) {
                             $outstring = "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
-                            print RESULTS $outstring;
+                            print $unique_fh $outstring;
                         }
                         if (@A == 1) {
-                            print RESULTS "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
+                            print $unique_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
                         }
                     }
                 }
@@ -1147,8 +1149,8 @@ sub main {
                         if ($size1 >= $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str1);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print RESULTS "seq.$seq_count";
-                            print RESULTS "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh "seq.$seq_count";
+                            print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                     }
@@ -1158,8 +1160,8 @@ sub main {
                         if ($size2 >= $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str2);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print RESULTS "seq.$seq_count";
-                            print RESULTS "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh "seq.$seq_count";
+                            print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                     }
@@ -1171,15 +1173,15 @@ sub main {
                         if ($size1 >= $min_size_intersection_allowed && $size2 < $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str1);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print RESULTS "seq.$seq_count";
-                            print RESULTS "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh "seq.$seq_count";
+                            print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                         if ($size2 >= $min_size_intersection_allowed && $size1 < $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str2);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print RESULTS "seq.$seq_count";
-                            print RESULTS "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh "seq.$seq_count";
+                            print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                         if ($size1 >= $min_size_intersection_allowed && $size2 >= $min_size_intersection_allowed) {
@@ -1192,12 +1194,12 @@ sub main {
                             if ((($start2 - $end1 > 0) && ($start2 - $end1 < $max_distance_between_paired_reads)) || (($start1 - $end2 > 0) && ($start1 - $end2 < $max_distance_between_paired_reads))) {
                                 @ss = split(/\t/,$str1);
                                 $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                print RESULTS "seq.$seq_count";
-                                print RESULTS "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                print $unique_fh "seq.$seq_count";
+                                print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                                 @ss = split(/\t/,$str2);
                                 $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                print RESULTS "seq.$seq_count";
-                                print RESULTS "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                print $unique_fh "seq.$seq_count";
+                                print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                                 $nointersection = 0;
                             }
                         }
@@ -1211,7 +1213,7 @@ sub main {
                         if ($size >= $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print RESULTS "seq.$seq_count\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh "seq.$seq_count\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                     }
@@ -1224,13 +1226,13 @@ sub main {
                             @a = split(/\t/,$A[$n]);
                             $seq_new = addJunctionsToSeq($a[3], $a[2]);
                             if (@A == 2 && $n == 0) {
-                                print RESULTS2 "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
+                                print $nu_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
                             }
                             if (@A == 2 && $n == 1) {
-                                print RESULTS2 "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
+                                print $nu_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
                             }
                             if (@A == 1) {
-                                print RESULTS2 "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
+                                print $nu_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
                             }
                         }
                     }
@@ -1250,7 +1252,7 @@ sub main {
         undef @read_mapping_to_genome_pairing_candidate;
     }
 
-    close(RESULTS);
+    close($unique_fh);
     #close(INSERTIONFILE);
     
     # seq 12 in s_5 is an intersting marginal case for uniqueness...
