@@ -1,13 +1,13 @@
 package RUM::Script::ParseBlatOut;
 
+use autodie;
 no warnings;
 
 use RUM::Usage;
 use RUM::Logging;
-use Getopt::Long;
 use RUM::Common qw(getave addJunctionsToSeq);
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 # Given a filehandle, skip over all rows that appear to be header
 # rows. After I return, the filehandle will be positioned at the first
@@ -35,6 +35,32 @@ sub skip_headers {
     seek $fh, $off, 0;
 }
 
+sub is_blat_file_sorted {
+    my ($self, $blatfile) = @_;
+    open my $blat_hits, '<', $blatfile;
+
+    skip_headers($blat_hits);
+    my $line = <$blat_hits>;
+    chomp $line;
+    my $line1 = $line;
+
+    $self->logger->info("Checking to see if blat file is sorted");
+    while (my $line2 = <$blat_hits>) {
+        $line1 =~ /seq.(\d+)(.)/;
+        my $seqnum1 = $1;
+        my $type1 = $2;
+        $line2 =~ /seq.(\d+)(.)/;
+        my $seqnum2 = $1;
+        my $type2 = $2;
+
+        if ($seqnum1 > $seqnum2 || ( $seqnum1 == $seqnum2 && $type1 eq 'b' && $type2 eq 'a')) {
+            return 'false';
+        }
+        $line1 = $line2;
+    }
+    return 'true';
+}
+
 $| = 1;
 # blat run on forward/reverse reads separately, reported in order
 # first make hash 'blathits' which is all alignments of the read that we would accept (indexed by t=0,1 for forward/reverse)
@@ -52,20 +78,18 @@ $| = 1;
 
 sub main {
 
-    GetOptions(
-        "reads-in=s" => \(my $seqfile),
-        "blat-in=s" => \(my $blatfile),
-        "mdust-in=s" => \(my $mdustfile),
-        "unique-out=s" => \(my $outfile1),
-        "non-unique-out=s" => \(my $outfile2),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "max-insertions=s" => \(my $num_insertions_allowed = 1),
-        "match-length-cutoff=s"    => \(my $match_length_cutoff = 0),
-        "dna" => \(my $dna),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) },
-    );
+    my $self = __PACKAGE__->new;
+
+    $self->get_options(
+        "reads-in=s"            => \(my $seqfile),
+        "blat-in=s"             => \(my $blatfile),
+        "mdust-in=s"            => \(my $mdustfile),
+        "unique-out=s"          => \(my $outfile1),
+        "non-unique-out=s"      => \(my $outfile2),
+        "max-pair-dist=s"       => \(my $max_distance_between_paired_reads = 500000),
+        "max-insertions=s"      => \(my $num_insertions_allowed = 1),
+        "match-length-cutoff=s" => \(my $match_length_cutoff = 0),
+        "dna"                   => \(my $dna));
 
     $seqfile or RUM::Usage->bad(
         "Please provide a file of unmapped reads with --reads-in");
@@ -86,40 +110,17 @@ sub main {
 
     $num_blocks_allowed = $dna ? 1 : 1000;
 
-    open(BLATHITS, "<", $blatfile) 
-        or die "Can't open $blatfile for reading: $!";
-
-    skip_headers(\*BLATHITS);
-    $line = <BLATHITS>;
-    chomp $line;
-    $line1 = $line;
-    $blatsorted = "true";
-    $log->info("Checking to see if blat file is sorted");
-    while ($line2 = <BLATHITS>) {
-        $line1 =~ /seq.(\d+)(.)/;
-        $seqnum1 = $1;
-        $type1 = $2;
-        $line2 =~ /seq.(\d+)(.)/;
-        $seqnum2 = $1;
-        $type2 = $2;
-
-        if ($seqnum1>$seqnum2 || ($seqnum1==$seqnum2 && $type1 eq 'b' && $type2 eq 'a')) {
-            $blatsorted = "false";
-            $flag = 1;
-            last;
-        }
-        $line1 = $line2;
-    }
-    close(BLATHITS);
+    my $blatsorted = $self->is_blat_file_sorted($blatfile);
 
     if ($blatsorted eq "false") {
-        $log->warn("The blat file is not sorted properly, I'm sorting it now.  This could indicate an error");
+        $self->logger->warn("The blat file is not sorted properly, I'm sorting it now.  This could indicate an error");
         $blatfile_sorted = $blatfile . ".sorted";
 
-        open(INFILE, $blatfile);
+        open INFILE, '<', $blatfile;
         $tempfilename = $blatfile . "_temp1";
-        open(OUTFILE1, ">$tempfilename");
-        open(OUTFILE2, ">$blatfile_sorted");
+
+        open OUTFILE1, '>', $tempfilename;
+        open OUTFILE2, '>', $blatfile_sorted;
         $line = <INFILE>;
         while (($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
             print OUTFILE2 $line;
@@ -144,7 +145,7 @@ sub main {
         $tempfilename2 = $blatfile . "_temp2";
         $x = `sort -T . -n $tempfilename > $tempfilename2`;
         $x = `rm $tempfilename`;
-        open(INFILE, $tempfilename2);
+        open INFILE, '<', $tempfilename2;
         while ($line = <INFILE>) {
             chomp($line);
             $line =~ s/^(\d+)\t(.)\t//;
@@ -163,7 +164,7 @@ sub main {
         }
         $blatfile = $blatfile_sorted;
     } else {
-        $log->info("The blat file is sorted properly.");
+        $self->logger->info("The blat file is sorted properly.");
     }
 
     $head = `head -1 $seqfile`;
@@ -180,15 +181,11 @@ sub main {
     $last_seq_num = $a[9];
     $last_seq_num =~ s/[^\d]//g;
 
-    open my $blat_hits, "<", $blatfile;
-    open(SEQFILE, "<", $seqfile) 
-        or die "Can't open $seqfile for rading: $!";
-    open(MDUST, "<", $mdustfile) 
-        or die "Can't open $mdustfile for reading: $!";
-    open(RESULTS, ">", $outfile1) 
-        or die "Can't open $outfile1 for writing: $!";
-    open(RESULTS2, ">", $outfile2) 
-        or die "Can't open $outfile2 for writing: $!";
+    open my $blat_hits, '<', $blatfile;
+    open SEQFILE,       '<', $seqfile;
+    open MDUST,         '<', $mdustfile;
+    open RESULTS,       '>', $outfile1;
+    open RESULTS2,      '>', $outfile2;
 
     if ($num_insertions_allowed > 1 && $paired_end eq "true") {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
@@ -1426,3 +1423,17 @@ sub intersect () {
     }
 }
 
+__END__
+
+=head1 NAME
+
+RUM::Script::ParseBlatOut - Parse output of blat
+
+=head1 METHODS
+
+=over 4
+
+=item is_blat_file_sorted($blat_file)
+
+Return 'true' if the given filename appears to be sorted by location,
+otherwise 'false'.

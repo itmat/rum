@@ -15,6 +15,9 @@ my $mdust_results = "$INPUT_DIR/R.mdust.1";
 my $unique = temp_filename(TEMPLATE => "unique.XXXXXX");
 my $non_unique = temp_filename(TEMPLATE => "non-unique.XXXXXX");
 
+$unique = 'u';
+$non_unique = 'nu';
+
 @ARGV = (
    "--reads-in", $reads,
    "--blat-in", $blat_results,
@@ -25,5 +28,3 @@ my $non_unique = temp_filename(TEMPLATE => "non-unique.XXXXXX");
 RUM::Script::ParseBlatOut->main();
 no_diffs($unique, "$EXPECTED_DIR/BlatUnique.1");
 no_diffs($non_unique, "$EXPECTED_DIR/BlatNU.1");
-
-

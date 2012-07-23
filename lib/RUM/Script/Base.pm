@@ -35,5 +35,8 @@ sub option {
     return $self->{options}->{$name};
 }
 
+sub check_option {
+    my ($self, $name, $message);
+}
 
 1;
