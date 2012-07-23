@@ -3,6 +3,8 @@ package RUM::Script::ParseBlatOut;
 use autodie;
 no warnings;
 
+use Carp;
+
 use RUM::Usage;
 use RUM::Logging;
 use RUM::Common qw(getave addJunctionsToSeq);
@@ -36,16 +38,19 @@ sub skip_headers {
 }
 
 sub is_blat_file_sorted {
-    my ($self, $blatfile) = @_;
-    open my $blat_hits, '<', $blatfile;
+    use strict;
+    my ($self) = @_;
+    open my $blat_hits, '<', $self->{blatfile};
 
     skip_headers($blat_hits);
     my $line = <$blat_hits>;
     chomp $line;
     my $line1 = $line;
 
-    $self->logger->info("Checking to see if blat file is sorted");
+    $self->logger->info("Checking to see if blat file $self->{blatfile} is sorted");
+    my $count = 0;
     while (my $line2 = <$blat_hits>) {
+        $count++;
         $line1 =~ /seq.(\d+)(.)/;
         my $seqnum1 = $1;
         my $type1 = $2;
@@ -54,11 +59,89 @@ sub is_blat_file_sorted {
         my $type2 = $2;
 
         if ($seqnum1 > $seqnum2 || ( $seqnum1 == $seqnum2 && $type1 eq 'b' && $type2 eq 'a')) {
-            return 'false';
+            return;
         }
         $line1 = $line2;
     }
-    return 'true';
+    $self->logger->debug("Blat file $self->{blatfile} is sorted");
+    return 1;
+}
+
+sub ensure_blat_file_sorted {
+    use strict;
+    my ($self) = @_;
+
+    if ($self->is_blat_file_sorted) {
+        $self->logger->info("The blat file is already sorted");
+        $self->{blatfile_sorted} = $self->{blatfile};
+        return;
+    }
+        
+    $self->logger->warn("The blat file is not sorted properly, I'm sorting it now.  This could indicate an error");
+
+    my $temp1  = File::Temp->new(UNLINK => 0);
+    my $temp2  = File::Temp->new(UNLINK => 0);
+    my $sorted = File::Temp->new(UNLINK => 0);
+    my $temp2_filename = $temp2->filename;
+    close $temp2;
+
+    $self->{blatfile_sorted} = $sorted->filename;
+    $self->logger->debug("Opening blat file $self->{blatfile}");
+    open my $unsorted_fh, '<', $self->{blatfile};
+    
+    $self->logger->debug("Copying headers to $sorted");
+    my $line = <$unsorted_fh>;
+    while (($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
+        print $sorted $line;
+        $line = <$unsorted_fh>;
+    }
+
+
+    chomp($line);
+    my @a = split(/\t/, $line);
+    my $name = $a[9];
+    $name =~ s/seq.//;
+    $name =~ /(\d+)(a|b)/;
+    print $temp1 "$1\t$2\t$line\n";
+    while ($line = <$unsorted_fh>) {
+        chomp($line);
+        @a = split(/\t/, $line);
+        $name = $a[9];
+        $name =~ s/seq.//;
+        $name =~ /(\d+)(a|b)/ or croak "Unexpected line in blat file: $line";
+        print $temp1 "$1\t$2\t$line\n";
+    }
+
+    close($temp1);
+
+    open my $sort_output, '-|', "sort -T . -n $temp1";
+
+    while (my $line = <$sort_output>) {
+        chomp($line);
+        $line =~ s/^(\d+)\t(.)\t//;
+        print $sorted "$line\n";
+    }
+
+    close $sorted;
+
+    my $old_size = -s $self->{blatfile};
+    my $new_size = -s $self->{blatfile_sorted};
+
+    if ($old_size != $new_size) {
+        my $diff = $old_size - $new_size;
+        my $msg = <<"EOF";
+
+I tried to sort the blat file but the sorted file is not the same size
+as the original. The unsorted file's size is $old_size and the sorted
+file's size is $new_size (difference of $diff)
+
+EOF
+        system "cp $self->{blatfile} old";
+        system "cp $self->{blatfile_sorted} new";
+        die $msg;
+    } else {
+        $self->logger->info("The blat file is now sorted properly");
+    }
 }
 
 $| = 1;
@@ -82,7 +165,7 @@ sub main {
 
     $self->get_options(
         "reads-in=s"            => \(my $seqfile),
-        "blat-in=s"             => \(my $blatfile),
+        "blat-in=s"             => \($self->{blatfile}),
         "mdust-in=s"            => \(my $mdustfile),
         "unique-out=s"          => \(my $outfile1),
         "non-unique-out=s"      => \(my $outfile2),
@@ -93,7 +176,7 @@ sub main {
 
     $seqfile or RUM::Usage->bad(
         "Please provide a file of unmapped reads with --reads-in");
-    $blatfile or RUM::Usage->bad(
+    $self->{blatfile} or RUM::Usage->bad(
         "Please provide the file produced by blat with --blat-in");
     $mdustfile or RUM::Usage->bad(
         "Please provide the file produced by mdust with --mdust-in");
@@ -110,62 +193,7 @@ sub main {
 
     $num_blocks_allowed = $dna ? 1 : 1000;
 
-    my $blatsorted = $self->is_blat_file_sorted($blatfile);
-
-    if ($blatsorted eq "false") {
-        $self->logger->warn("The blat file is not sorted properly, I'm sorting it now.  This could indicate an error");
-        $blatfile_sorted = $blatfile . ".sorted";
-
-        open INFILE, '<', $blatfile;
-        $tempfilename = $blatfile . "_temp1";
-
-        open OUTFILE1, '>', $tempfilename;
-        open OUTFILE2, '>', $blatfile_sorted;
-        $line = <INFILE>;
-        while (($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
-            print OUTFILE2 $line;
-            $line = <INFILE>;
-        }
-        chomp($line);
-        @a = split(/\t/, $line);
-        $name = $a[9];
-        $name =~ s/seq.//;
-        $name =~ /(\d+)(a|b)/;
-        print OUTFILE1 "$1\t$2\t$line\n";
-        while ($line = <INFILE>) {
-            chomp($line);
-            @a = split(/\t/, $line);
-            $name = $a[9];
-            $name =~ s/seq.//;
-            $name =~ /(\d+)(a|b)/;
-            print OUTFILE1 "$1\t$2\t$line\n";
-        }
-        close(OUTFILE1);
-        close(INFILE);
-        $tempfilename2 = $blatfile . "_temp2";
-        $x = `sort -T . -n $tempfilename > $tempfilename2`;
-        $x = `rm $tempfilename`;
-        open INFILE, '<', $tempfilename2;
-        while ($line = <INFILE>) {
-            chomp($line);
-            $line =~ s/^(\d+)\t(.)\t//;
-            print OUTFILE2 "$line\n";
-        }
-        close(OUTFILE2);
-        close(INFILE);
-        $x = `rm $tempfilename2`;
-        $N = -s $blatfile;
-        $M = -s $blatfile_sorted;
-        if ($N != $M) {
-            die "I tried to sort the blat file but the sorted file is not the same size as the original.";
-        } else {
-            print STDERR "The blat file is now sorted properly.\n";
-            print "The blat file is now sorted properly.\n";
-        }
-        $blatfile = $blatfile_sorted;
-    } else {
-        $self->logger->info("The blat file is sorted properly.");
-    }
+    $self->ensure_blat_file_sorted;
 
     $head = `head -1 $seqfile`;
     $head2 = `head -3 $seqfile`;
@@ -176,12 +204,12 @@ sub main {
     }
     $head =~ /seq.(\d+)/;
     $first_seq_num = $1;
-    $tail = `tail -1 $blatfile`;
+    $tail = `tail -1 $self->{blatfile_sorted}`;
     @a = split(/\t/,$tail);
     $last_seq_num = $a[9];
     $last_seq_num =~ s/[^\d]//g;
 
-    open my $blat_hits, '<', $blatfile;
+    open my $blat_hits, '<', $self->{blatfile_sorted};
     open SEQFILE,       '<', $seqfile;
     open MDUST,         '<', $mdustfile;
     open RESULTS,       '>', $outfile1;
