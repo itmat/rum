@@ -3,13 +3,13 @@ package RUM::BlatIO;
 use strict;
 use warnings;
 
-use base 'RUM::AlignIO';
-
+use Carp;
 use Data::Dumper;
 
 use RUM::Logging;
+use RUM::BlatAlignment;
 
-use Carp;
+use base 'RUM::AlignIO';
 
 our $log = RUM::Logging->get_logger;
 
@@ -66,6 +66,7 @@ sub _read_headers {
 
     my $header1 = <$fh>;
     my $header2 = <$fh>;
+    my $hr      = <$fh>;
 
     my @header1 = split /\t/, $header1;
     my @header2 = split /\t/, $header2;
@@ -78,4 +79,25 @@ sub _read_headers {
 }
 
 
+sub parse_aln {
+    my ($self, $line) = @_;
+    my @vals = split /\t/, $line;
+    my %rec;
+    
+    for my $i ( 0 .. $#vals) {
+        $rec{$self->fields->[$i]} = $vals[$i];
+    }
+    
+    warn "Rec is " . Dumper(\%rec);
+
+    return RUM::BlatAlignment->new(
+        readid => $rec{'Q name'},
+        chr    => $rec{'T name'},
+        strand => $rec{'strand'},
+        seq    => ''
+    );
+}
+
+
 sub fields { shift->{fields} }
+

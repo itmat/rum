@@ -171,7 +171,6 @@ sub open_files {
         open my $fh, '>', $self->{$key};
         $self->{"${key}_fh"} = $fh;
     }
-
     
 }
 
