@@ -776,10 +776,18 @@ sub changed_settings_msg {
     my ($self, $filename) = @_;
     my $msg = <<"EOF";
 
-I found job settings in $filename, but you specified different settings on the command line. Changing the settings on a job that has already been partially run can result in unexpected behavior. If you want to use the saved settings, please don't provide any extra options on the command line, other than options that specify a specific phase or chunk (--preprocess, --process, --postprocess, --chunk). If you want to start the job over from scratch, you can do so by deleting the settings file ($filename). If you really want to change the settings, you can add a --force flag and try again.
+I found job settings in $filename, but you specified different
+settings on the command line. Changing the settings on a job that has
+already been partially run can result in unexpected behavior. If you
+want to use the saved settings, please don't provide any extra options
+on the command line, other than options that specify a specific phase
+or chunk (--preprocess, --process, --postprocess, --chunk). If you
+want to start the job over from scratch, you can do so by deleting the
+settings file ($filename). If you really want to change the settings,
+you can add a --force flag and try again.
 
 EOF
-    return wrap('', '', $msg) . "\n";
+    return fill('', '', $msg) . "\n";
     
 }
 
@@ -855,6 +863,10 @@ genome.
 
 Prompt the user to ask if we should proceed even though there doesn't
 seem to be enough RAM per chunk. Exits if the user doesn't say yes.
+
+=item changed_settings_msg
+
+Return a message indicating that the user changed some settings.
 
 =back
 
