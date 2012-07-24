@@ -17,24 +17,7 @@ use base 'RUM::Script::Base';
 sub skip_headers {
     my ($fh) = @_;
 
-    my $off;
-    local $_;
-    # Skip over header lines
-    while (1) {
-        
-        $off = tell $fh;
-
-        defined ($_ = <$fh>) or last;
-
-        unless (/--------------------------------/ ||
-                /psLayout/ || 
-                /blockSizes/ || 
-                /match\s+match/ || 
-                !/\S/) {
-            last;
-        }
-    }
-    seek $fh, $off, 0;
+    my $blatio = RUM::BlatIO->new(-fh => $fh);
 }
 
 sub is_blat_file_sorted {

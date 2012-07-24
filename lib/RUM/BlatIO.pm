@@ -75,7 +75,6 @@ sub _read_headers {
 
     $self->{fields} = \@fields;
     
-    warn "My fields are " . Dumper(\@fields);
 }
 
 
@@ -88,8 +87,6 @@ sub parse_aln {
         $rec{$self->fields->[$i]} = $vals[$i];
     }
     
-    warn "Rec is " . Dumper(\%rec);
-
     return RUM::BlatAlignment->new(
         readid => $rec{'Q name'},
         chr    => $rec{'T name'},
