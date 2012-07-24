@@ -159,6 +159,22 @@ $| = 1;
 # Blat should be run with the following parameters for speed:
 # -ooc=11.ooc -minScore=M -minIdentity=93
 
+sub _open_files {
+    my ($self) = @_;
+    
+    for my $key (qw(blatfile_sorted seqfile mdustfile)) {
+        open my $fh, '<', $self->{$key};
+        $self->{"${key}_fh"} = $fh;
+    }
+
+    for my $key (qw(unique_out nu_out)) {
+        open my $fh, '>', $self->{$key};
+        $self->{"${key}_fh"} = $fh;
+    }
+
+    
+}
+
 sub main {
 
     my $self = __PACKAGE__->new;
@@ -173,7 +189,6 @@ sub main {
         "max-insertions=s"      => \(my $num_insertions_allowed = 1),
         "match-length-cutoff=s" => \(my $match_length_cutoff = 0),
         "dna"                   => \(my $dna));
-
     
     # Check command-line args
 
@@ -195,12 +210,13 @@ sub main {
     $num_blocks_allowed = $dna ? 1 : 1000;
 
     $self->ensure_blat_file_sorted;
+    $self->_open_files;
 
-    open my $blat_hits, '<', $self->{blatfile_sorted};
-    open my $seq_fh,    '<', $self->{seqfile};
-    open my $mdust_fh,  '<', $self->{mdustfile};
-    open $unique_fh,       '>', $self->{unique_out};
-    open $nu_fh,      '>', $self->{nu_out};
+    my $blat_hits = $self->{blatfile_sorted_fh};
+    my $seq_fh    = $self->{seqfile_fh};
+    my $mdust_fh  = $self->{mdustfile_fh};
+    my $unique_fh = $self->{unique_out_fh};
+    my $nu_fh     = $self->{nu_out_fh};
 
     # Get the first and last sequence number and determine if the
     # reads are paired end.

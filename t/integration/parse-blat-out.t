@@ -45,4 +45,4 @@ no_diffs($unique, "$EXPECTED_DIR/BlatUnique.1", "Unique unsorted");
 my @expected_reads = `cut -f 1 $EXPECTED_DIR/BlatNU.1`;
 my @got_reads      = `cut -f 1 $non_unique`;
 
-#is_deeply(\@got_reads, \@expected_reads, "Non-unique read ids");
+is_deeply(\@got_reads, \@expected_reads, "Non-unique read ids");
