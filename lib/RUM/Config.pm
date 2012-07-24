@@ -586,6 +586,17 @@ sub novel_inferred_internal_exons_quantifications {
                                     .$self->name);
 }
 
+=item preprocessed_reads
+
+Return the path to preprocessed reads file (reads.fa in the output
+directory).
+
+=cut
+
+sub preprocessed_reads {
+    return shift->in_output_dir("reads.fa");
+}
+
 sub AUTOLOAD {
     my ($self) = @_;
     

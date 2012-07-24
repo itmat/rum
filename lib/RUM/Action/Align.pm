@@ -40,6 +40,7 @@ sub run {
     $self->get_options();
     my $c = $self->config;
     my $d = $self->directives;
+
     $self->check_config;        
     $self->check_deps;
     $self->check_gamma;
@@ -442,8 +443,12 @@ sub check_config {
             "Can't read from ".$c->alt_quant_model.": $!";
     }
 
-    for my $fname (@{ $reads || [] }) {
-        -r $fname or die "Can't read from read file $fname";
+    # If we haven't yet split the input file, make sure that the raw
+    # read files exist.
+    if ( ! -r $c->preprocessed_reads ) {
+        for my $fname (@{ $reads || [] }) {
+            -r $fname or die "Can't read from read file $fname";
+        }
     }
 }
 
