@@ -159,7 +159,7 @@ $| = 1;
 # Blat should be run with the following parameters for speed:
 # -ooc=11.ooc -minScore=M -minIdentity=93
 
-sub _open_files {
+sub open_files {
     my ($self) = @_;
     
     for my $key (qw(blatfile_sorted seqfile mdustfile)) {
@@ -175,13 +175,10 @@ sub _open_files {
     
 }
 
-sub main {
 
-    my $self = __PACKAGE__->new;
+sub parse_command_line {
 
-#    $self->{max_pair_dist} = 500000;
-#    $self->{max_insertions} = 1;
-#    $self->{match_length_cutoff} = 0
+    my ($self) = @_;
 
     $self->get_options(
         "reads-in=s"            => \($self->{seqfile}),
@@ -212,9 +209,19 @@ sub main {
         "If you provide --match-length-cutoff, it must be an integer");
 
     $self->{num_blocks_allowed} = $dna ? 1 : 1000;
+}
 
+sub main {
+    my $self = __PACKAGE__->new;
+
+    $self->parse_command_line;
     $self->ensure_blat_file_sorted;
-    $self->_open_files;
+    $self->open_files;
+    $self->run;
+}
+
+sub run {
+    my ($self) = @_;
 
     my $blat_hits = $self->{blatfile_sorted_fh};
     my $seq_fh    = $self->{seqfile_fh};
