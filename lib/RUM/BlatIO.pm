@@ -59,19 +59,20 @@ sub _read_headers {
 
     my $fh = $self->filehandle;
 
-    my $ps_layout = <$fh> || '';
-    die "Expected 'psLayout' on line 1 of blat output" unless $ps_layout =~ /psLayout/;
+    my $ps_layout = <$fh>; chomp $ps_layout;
+    croak "Expected 'psLayout' on line 1 of blat output; got $ps_layout" unless $ps_layout =~ /psLayout/;
 
-    my $blank = <$fh>;
-
-    my $header1 = <$fh>;
-    my $header2 = <$fh>;
-    my $hr      = <$fh>;
+    my $blank   = <$fh>; chomp $blank;
+    my $header1 = <$fh>; chomp $header1;
+    my $header2 = <$fh>; chomp $header2;
+    my $hr      = <$fh>; chomp $hr;
 
     my @header1 = split /\t/, $header1;
     my @header2 = split /\t/, $header2;
     
     my @fields = map { $self->join_headers($header1[$_], $header2[$_]) } (0 .. $#header1);
+
+    $self->{header_lines} = [$ps_layout, $blank, $header1, $header2, $hr];
 
     $self->{fields} = \@fields;
     
@@ -91,10 +92,12 @@ sub parse_aln {
         readid => $rec{'Q name'},
         chr    => $rec{'T name'},
         strand => $rec{'strand'},
-        seq    => ''
+        seq    => '',
+        raw => $line
     );
 }
 
 
 sub fields { shift->{fields} }
 
+sub header_lines { shift->{header_lines} }

@@ -5,9 +5,10 @@ no warnings;
 
 use Carp;
 
-use RUM::Usage;
-use RUM::Logging;
+use RUM::BlatIO;
 use RUM::Common qw(getave addJunctionsToSeq);
+use RUM::Logging;
+use RUM::Usage;
 
 use base 'RUM::Script::Base';
 
@@ -16,37 +17,28 @@ use base 'RUM::Script::Base';
 # data row.
 sub skip_headers {
     my ($fh) = @_;
-
     my $blatio = RUM::BlatIO->new(-fh => $fh);
 }
 
 sub is_blat_file_sorted {
     use strict;
     my ($self) = @_;
-    open my $blat_hits, '<', $self->{blatfile};
 
-    skip_headers($blat_hits);
-    my $line = <$blat_hits>;
-    chomp $line;
-    my $line1 = $line;
+    my $blat_io = RUM::BlatIO->new(-fh => $self->{blatfile_fh})->peekable;
+    my $last = $blat_io->next_val;;
 
     $self->logger->info("Checking to see if blat file $self->{blatfile} is sorted");
     my $count = 0;
-    while (my $line2 = <$blat_hits>) {
-        $count++;
-        $line1 =~ /seq.(\d+)(.)/;
-        my $seqnum1 = $1;
-        my $type1 = $2;
-        $line2 =~ /seq.(\d+)(.)/;
-        my $seqnum2 = $1;
-        my $type2 = $2;
-
-        if ($seqnum1 > $seqnum2 || ( $seqnum1 == $seqnum2 && $type1 eq 'b' && $type2 eq 'a')) {
+    while (my $next = $blat_io->next_val) {
+        
+        if ($last->order > $next->order 
+            || ( $last->is_mate($next) && $last->is_reverse && $next->is_forward)) {
             return;
         }
-        $line1 = $line2;
+        $last = $next;
     }
     $self->logger->debug("Blat file $self->{blatfile} is sorted");
+    seek $self->{blatfile_fh}, 0, 0;
     return 1;
 }
 
@@ -57,6 +49,7 @@ sub ensure_blat_file_sorted {
     if ($self->is_blat_file_sorted) {
         $self->logger->info("The blat file is already sorted");
         $self->{blatfile_sorted} = $self->{blatfile};
+        warn "Blat file sorted is $self->{blatfile_sorted}\n";
         return;
     }
         
@@ -71,28 +64,19 @@ sub ensure_blat_file_sorted {
     $self->{blatfile_sorted} = $sorted->filename;
     $self->logger->debug("Opening blat file $self->{blatfile}");
     open my $unsorted_fh, '<', $self->{blatfile};
+
+    my $blat_iter = RUM::BlatIO->new(-fh => $unsorted_fh);
     
     $self->logger->debug("Copying headers to $sorted");
-    my $line = <$unsorted_fh>;
-    while (($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
-        print $sorted $line;
-        $line = <$unsorted_fh>;
+    for my $line (@{ $blat_iter->header_lines }) {
+        print $sorted "$line\n";
     }
 
-
-    chomp($line);
-    my @a = split(/\t/, $line);
-    my $name = $a[9];
-    $name =~ s/seq.//;
-    $name =~ /(\d+)(a|b)/;
-    print $temp1 "$1\t$2\t$line\n";
-    while ($line = <$unsorted_fh>) {
-        chomp($line);
-        @a = split(/\t/, $line);
-        $name = $a[9];
-        $name =~ s/seq.//;
-        $name =~ /(\d+)(a|b)/ or croak "Unexpected line in blat file: $line";
-        print $temp1 "$1\t$2\t$line\n";
+    while (my $rec = $blat_iter->next_val) {
+        my $line = $rec->raw;
+        my $order = $rec->order;
+        my $type = $rec->is_forward ? 'a' : 'b';
+        print $temp1 "$order\t$type\t$line\n";
     }
 
     close($temp1);
@@ -145,7 +129,7 @@ $| = 1;
 sub open_files {
     my ($self) = @_;
     
-    for my $key (qw(blatfile_sorted seqfile mdustfile)) {
+    for my $key (qw(blatfile seqfile mdustfile)) {
         open my $fh, '<', $self->{$key};
         $self->{"${key}_fh"} = $fh;
     }
@@ -197,19 +181,22 @@ sub main {
     my $self = __PACKAGE__->new;
 
     $self->parse_command_line;
-    $self->ensure_blat_file_sorted;
     $self->open_files;
+    $self->ensure_blat_file_sorted;
     $self->run;
 }
 
 sub run {
     my ($self) = @_;
 
-    my $blat_hits = $self->{blatfile_sorted_fh};
+    open my $blat_hits, '<', $self->{blatfile_sorted};
     my $seq_fh    = $self->{seqfile_fh};
     my $mdust_fh  = $self->{mdustfile_fh};
     my $unique_fh = $self->{unique_out_fh};
     my $nu_fh     = $self->{nu_out_fh};
+
+    skip_headers($blat_hits);
+
 
     # Get the first and last sequence number and determine if the
     # reads are paired end.
@@ -233,7 +220,6 @@ sub run {
     for ($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
         if ($seq_count == $first_seq_num) {
 
-            skip_headers($blat_hits);
             $line = <$blat_hits>;
             chomp $line;
             @a = split(/\t/,$line);
@@ -480,7 +466,7 @@ sub run {
                     }
                 }
             }
-            skip_headers($blat_hits);
+
             $line = <$blat_hits>;
             chomp $line;
             @a = split(/\t/,$line);
