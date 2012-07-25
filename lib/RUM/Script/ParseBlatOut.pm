@@ -195,8 +195,7 @@ sub run {
     my $unique_fh = $self->{unique_out_fh};
     my $nu_fh     = $self->{nu_out_fh};
 
-    skip_headers($blat_hits);
-
+    my $blat_iter = RUM::BlatIO->new(-fh => $blat_hits);
 
     # Get the first and last sequence number and determine if the
     # reads are paired end.
@@ -216,11 +215,14 @@ sub run {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
     }
 
+    my $aln;
+
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
     for ($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
         if ($seq_count == $first_seq_num) {
 
-            $line = <$blat_hits>;
+            $aln = $blat_iter->next_val;
+            $line = $aln ? $aln->raw : '';
             chomp $line;
             @a = split(/\t/,$line);
             $readlength = $a[10];
@@ -237,7 +239,7 @@ sub run {
             }
             if ($min_size_intersection_allowed >= .8 * $readlength) {
                 $min_size_intersection_allowed = int(.6 * $readlength);
-                $self->{match_length_cutoff} = int(.6 * $readlength);
+                $self->{match_length_cutoff}   = int(.6 * $readlength);
             }
             @a_x = split(/\t/,$line);
             $seqname = $a[9];
@@ -329,7 +331,7 @@ sub run {
         @a_x = split(/\t/,$line);
         while (defined($seqnum) && $seqnum == $seq_count) {
             $LENGTH = getTotalSizeFromBlockSizes($a[18]);
-            $SCORE = $LENGTH - $a[1]; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
+            $SCORE = $LENGTH - $aln->mismatch; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
             if ($SCORE > $cutoff{$seqname}) { # so match is at least cutoff long (and this cutoff was set to be longer if there are a lot of N's (bad reads or low complexity masked by dust)
                 #	    if($a[11] <= 1) {   # so match starts at position zero or one in the query (allow '1' because first base can tend to be an N or low quality)
                 if (1 == 1) { # trying this with no condition to see if it helps... (it did!)
@@ -339,7 +341,7 @@ sub run {
                                 # at this point we know it's a prefix match starting at pos 0 or 1 and with at most one gap in the query, and if low comlexity then not too fragemented...
                                 $gap_flag = 0;
                                 if ($a[4] == 1) { # there's a gap in the query, be stricter about allowing it
-                                    if ($a[1] > 2) { # ONLY 2 MISMATCHES
+                                    if ($aln->mismatch > 2) { # ONLY 2 MISMATCHES
                                         $gap_flag = 1;
                                     }
                                     if ($a[12] < .85 * $a[10]) { # LONGER LENGTH MATCH (at least 85% length of read)
@@ -381,7 +383,7 @@ sub run {
                                     $blathits{$seqname}[$cnt{$seqname}][2] = $a[13]; # the name of the target seq
                                     $blathits{$seqname}[$cnt{$seqname}][3] = $a[18]; # the block sizes
                                     $blathits{$seqname}[$cnt{$seqname}][4] = $a[20]; # the t starts
-                                    $blathits{$seqname}[$cnt{$seqname}][5] = $a[1]; # the number of mismatches (not including N's)
+                                    $blathits{$seqname}[$cnt{$seqname}][5] = $aln->mismatch; # the number of mismatches (not including N's)
                                     $blathits{$seqname}[$cnt{$seqname}][6] = $a[19]; # the q starts
 				
                                     #			    print "blathits{$seqname}[$cnt{$seqname}][0]=$blathits{$seqname}[$cnt{$seqname}][0]\n";
@@ -467,7 +469,8 @@ sub run {
                 }
             }
 
-            $line = <$blat_hits>;
+            $aln = $blat_iter->next_val;
+            $line = $aln ? $aln->raw : '';
             chomp $line;
             @a = split(/\t/,$line);
             @a_x = split(/\t/,$line);

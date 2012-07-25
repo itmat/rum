@@ -93,7 +93,14 @@ sub parse_aln {
         chr    => $rec{'T name'},
         strand => $rec{'strand'},
         seq    => '',
-        raw => $line
+        raw => $line,
+        mismatch => $rec{'mismatch'},
+        q_gap_count => $rec{'Q gap count'},
+        q_name => $rec{'Q name'},
+        q_size => $rec{'Q size'},
+        q_start => $rec{'Q start'},
+        q_end   => $rec{'Q end'},
+        t_name  => $rec{'T name'},
     );
 }
 
