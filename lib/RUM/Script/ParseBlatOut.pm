@@ -335,12 +335,12 @@ sub run {
             if ($SCORE > $cutoff{$seqname}) { # so match is at least cutoff long (and this cutoff was set to be longer if there are a lot of N's (bad reads or low complexity masked by dust)
                 #	    if($a[11] <= 1) {   # so match starts at position zero or one in the query (allow '1' because first base can tend to be an N or low quality)
                 if (1 == 1) { # trying this with no condition to see if it helps... (it did!)
-                    if ($a[4] <= $self->{max_insertions}) { # then the aligment has at most $self->{max_insertions} gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
+                    if ($aln->q_gap_count <= $self->{max_insertions}) { # then the aligment has at most $self->{max_insertions} gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
                         if ($Ncount{$a[9]} <= ($a[10] / 2) || $a[17] <= 3) { # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY TO MATCH BY CHANCE.  
                             if ($a[17] <= $self->{num_blocks_allowed}) { # NEVER ALLOW MORE THAN $self->{num_blocks_allowed} blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
                                 # at this point we know it's a prefix match starting at pos 0 or 1 and with at most one gap in the query, and if low comlexity then not too fragemented...
                                 $gap_flag = 0;
-                                if ($a[4] == 1) { # there's a gap in the query, be stricter about allowing it
+                                if ($aln->q_gap_count == 1) { # there's a gap in the query, be stricter about allowing it
                                     if ($aln->mismatch > 2) { # ONLY 2 MISMATCHES
                                         $gap_flag = 1;
                                     }
@@ -372,14 +372,14 @@ sub run {
                                             }
                                         }
                                     }
-                                    if ($a[4]+$a[6] >= @qs) { # this makes sure gap in query and target not in same place
+                                    if ($aln->q_gap_count + $a[6] >= @qs) { # this makes sure gap in query and target not in same place
                                         $gap_flag = 1;
                                     }
                                 }
                                 if ($gap_flag == 0) { # IF GOT TO HERE THEN READ PASSED ALL CRITERIA FOR A MATCH
                                     $cnt{$seqname} = $cnt{$seqname} + 0;
                                     $blathits{$seqname}[$cnt{$seqname}][0] = $SCORE; # the score of the match (see def above)
-                                    $blathits{$seqname}[$cnt{$seqname}][1] = $a[8]; # the strand
+                                    $blathits{$seqname}[$cnt{$seqname}][1] = $aln->strand; # the strand
                                     $blathits{$seqname}[$cnt{$seqname}][2] = $a[13]; # the name of the target seq
                                     $blathits{$seqname}[$cnt{$seqname}][3] = $a[18]; # the block sizes
                                     $blathits{$seqname}[$cnt{$seqname}][4] = $a[20]; # the t starts
@@ -397,7 +397,7 @@ sub run {
                                     if ($maxlength{$seqname}+0 < $a[12]) {
                                         $maxlength{$seqname} = $a[12];
                                     }
-                                    if ($a[4] == 1) { # then query has a gap, write this to the insertions file I
+                                    if ($aln->q_gap_count == 1) { # then query has a gap, write this to the insertions file I
                                         $gapsize = $a[5];
                                         $a[18] =~ s/,$//;
                                         $a[19] =~ s/,$//;
@@ -415,7 +415,7 @@ sub run {
                                                 if ($seqname =~ /b/) {
                                                     $temp = $seqb;
                                                 }
-                                                if ($a[8] eq "+") {
+                                                if ($aln->strand eq "+") {
                                                     @s = split(//,$temp);
                                                 } else {
                                                     @s2 = split(//,$temp);
