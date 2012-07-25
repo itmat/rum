@@ -474,8 +474,6 @@ sub run {
                 }
             }
         }
-
-        
         
         $sname[0] = "seq." . $seq_count . "a";
         $sname[1] = "seq." . $seq_count . "b";
@@ -524,6 +522,7 @@ sub run {
                     $loc =~ s/\t.*//;
                     $loc = $loc . "\t$fixedloc";
                     $loc =~ s/, $//;
+
                     $read_mapping_to_genome_blatoutput[$t][$cnt2] = "$sname[$t]\t$loc\t$blathits{$sname[$t]}[$i1][0]\t$blathits{$sname[$t]}[$i1][1]\t$blathits{$sname[$t]}[$i1][2]\t$blathits{$sname[$t]}[$i1][3]\t$blathits{$sname[$t]}[$i1][4]\t$blathits{$sname[$t]}[$i1][5]\t$blathits{$sname[$t]}[$i1][6]\t$blathits{$sname[$t]}[$i1][7]\t$i1";
 
                     # 0: sname
@@ -576,11 +575,7 @@ sub run {
                     }
                     $STRAND = $a4[4];
                     if ($t==1) {
-                        if ($STRAND eq "-") {
-                            $STRAND = "+";
-                        } else {
-                            $STRAND = "-";
-                        }
+                        $STRAND = $STRAND eq '-' ? '+' : '-';
                     }
 
                     $read_mapping_to_genome_coords[$t][$c2] = "$a4[0]\t$a4[1]\t$a4[2]\t$seq\t$STRAND";
@@ -610,11 +605,7 @@ sub run {
                 @a6 = split(/\t/,$maxkey);
                 $STRAND = $a6[4];
                 if ($t==1) {
-                    if ($STRAND eq "-") {
-                        $STRAND = "+";
-                    } else {
-                        $STRAND = "-";
-                    }
+                    $STRAND = $STRAND eq '-' ? '+' : '-';
                 }
                 if ($sname[$t] =~ /a/) {
                     $seq = getsequence($a6[6], $a6[9], $a6[4], $seqa);
@@ -632,6 +623,7 @@ sub run {
             print $unique_fh "$read_mapping_to_genome_coords[0][0]\n";
         }
         if ($numa > 1 && $numb == 0) {
+            
             $unique = 0;
             if ($one_dir_only_candidate[0] =~ /\S/) {
                 print $unique_fh "$one_dir_only_candidate[0]\n";
@@ -675,8 +667,8 @@ sub run {
             undef @ss;
             undef @spans;
             if ($unique == 0) {
-                for ($i=0; $i<$numa; $i++) {
-                    print $nu_fh "$read_mapping_to_genome_coords[0][$i]\n";
+                for my $mapping (@{ $read_mapping_to_genome_coords[0] }) {
+                    print $nu_fh "$mapping\n";
                 }
             }
         }
