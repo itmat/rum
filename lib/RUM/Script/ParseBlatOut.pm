@@ -9,6 +9,7 @@ use RUM::BlatIO;
 use RUM::Common qw(getave addJunctionsToSeq);
 use RUM::Logging;
 use RUM::Usage;
+use List::Util qw(sum);
 
 use base 'RUM::Script::Base';
 
@@ -207,9 +208,7 @@ sub run {
     $head =~ /seq.(\d+)/;
     $first_seq_num = $1;
     $tail = `tail -1 $self->{blatfile_sorted}`;
-    @a = split(/\t/,$tail);
-    $last_seq_num = $a[9];
-    $last_seq_num =~ s/[^\d]//g;
+    my $last_seq_num = $blat_iter->parse_aln($tail)->order;
 
     if ($self->{max_insertions} > 1 && $paired_end) {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
@@ -222,10 +221,8 @@ sub run {
         if ($seq_count == $first_seq_num) {
 
             $aln = $blat_iter->next_val;
-            $line = $aln ? $aln->raw : '';
-            chomp $line;
-            @a = split(/\t/,$line);
-            $readlength = $a[10];
+
+            $readlength = $aln->q_size;
             if ($readlength < 80) {
                 $min_size_intersection_allowed = 35;
                 if ($self->{match_length_cutoff} == 0) {
@@ -241,8 +238,7 @@ sub run {
                 $min_size_intersection_allowed = int(.6 * $readlength);
                 $self->{match_length_cutoff}   = int(.6 * $readlength);
             }
-            @a_x = split(/\t/,$line);
-            $seqname = $a[9];
+            $seqname = $aln->readid;
             $seqnum = $seqname;
             $seqnum =~ s/[^\d]//g;
             $seqa_temp = <$seq_fh>;
@@ -300,11 +296,11 @@ sub run {
                 last;
             }
         }
-        $sn = "seq.$seq_count" . "a";
+        $sn = $aln->as_forward->readid;
         $Ncount{$sn} = ($dust_output =~ tr/N//);
         $cutoff{$sn} = $self->{match_length_cutoff} + $Ncount{$sn};
-        if ($cutoff{$sn} > $a_x[10] - 2) {
-            $cutoff{$sn} = $a_x[10] - 2;
+        if ($cutoff{$sn} > $aln->q_size - 2) {
+            $cutoff{$sn} = $aln->q_size - 2;
         }
         if ($paired_end) {
             $mdust_temp = <$mdust_fh>;
@@ -320,50 +316,47 @@ sub run {
                     last;
                 }
             }
-            $sn = "seq.$seq_count" . "b";
+            $sn = $aln->as_reverse->readid;
             $Ncount{$sn} = ($dust_output =~ tr/N//);
             $cutoff{$sn} = $self->{match_length_cutoff} + $Ncount{$sn};
-            if ($cutoff{$sn} > $a_x[10] - 2) {
-                $cutoff{$sn} = $a_x[10] - 2;
+            if ($cutoff{$sn} > $aln->q_size - 2) {
+                $cutoff{$sn} = $aln->q_size - 2;
             }
         }
-        @a = split(/\t/,$line);
-        @a_x = split(/\t/,$line);
+
         while (defined($seqnum) && $seqnum == $seq_count) {
-            $LENGTH = getTotalSizeFromBlockSizes($a[18]);
+            $LENGTH = sum(@{ $aln->block_sizes });
             $SCORE = $LENGTH - $aln->mismatch; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
             if ($SCORE > $cutoff{$seqname}) { # so match is at least cutoff long (and this cutoff was set to be longer if there are a lot of N's (bad reads or low complexity masked by dust)
-                #	    if($a[11] <= 1) {   # so match starts at position zero or one in the query (allow '1' because first base can tend to be an N or low quality)
+                #	    if($aln->q_start <= 1) {   # so match starts at position zero or one in the query (allow '1' because first base can tend to be an N or low quality)
                 if (1 == 1) { # trying this with no condition to see if it helps... (it did!)
                     if ($aln->q_gap_count <= $self->{max_insertions}) { # then the aligment has at most $self->{max_insertions} gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
-                        if ($Ncount{$aln->readid} <= ($a[10] / 2) || $a[17] <= 3) { # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY TO MATCH BY CHANCE.  
-                            if ($a[17] <= $self->{num_blocks_allowed}) { # NEVER ALLOW MORE THAN $self->{num_blocks_allowed} blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
+                        if ($Ncount{$aln->readid} <= ($aln->q_size / 2) || $aln->block_count <= 3) { # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY TO MATCH BY CHANCE.  
+                            if ($aln->block_count <= $self->{num_blocks_allowed}) { # NEVER ALLOW MORE THAN $self->{num_blocks_allowed} blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
                                 # at this point we know it's a prefix match starting at pos 0 or 1 and with at most one gap in the query, and if low comlexity then not too fragemented...
                                 $gap_flag = 0;
                                 if ($aln->q_gap_count == 1) { # there's a gap in the query, be stricter about allowing it
                                     if ($aln->mismatch > 2) { # ONLY 2 MISMATCHES
                                         $gap_flag = 1;
                                     }
-                                    if ($a[12] < .85 * $a[10]) { # LONGER LENGTH MATCH (at least 85% length of read)
+                                    if ($aln->q_end < .85 * $aln->q_size) { # LONGER LENGTH MATCH (at least 85% length of read)
                                         $gap_flag = 1;
                                     }
-                                    if ($a[6] > 1) { # at most one gap in the target
+                                    if ($aln->t_gap_count > 1) { # at most one gap in the target
                                         $gap_flag = 1;
                                     }
-                                    $a[18]=~s/,$//;
-                                    $a[20]=~s/,$//;
-                                    @A=split(/,/,$a[18]);
-                                    @B=split(/,/,$a[20]);
+                                    @A = @{ $aln->block_sizes };
+                                    @B = @{ $aln->t_starts };
                                     for ($k=0;$k<@A-1;$k++) { # any gap in the target must be at least 32 bases
                                         if (($B[$k+1]-$A[$k]-$B[$k]<32) && ($B[$k+1]-$A[$k]-$B[$k]>0)) {
                                             $gap_flag = 1;
                                         }
                                     }
-                                    if ($a[5] > 3) { # gap in the query can be at most 3 bases
+                                    if ($aln->q_gap_bases > 3) { # gap in the query can be at most 3 bases
                                         $gap_flag = 1;
                                     }
-                                    @qs = split(/,/,$a[19]);
-                                    @bs = split(/,/,$a[18]);
+                                    @qs = @{ $aln->q_starts };
+                                    @bs = @{ $aln->block_sizes };
 				
                                     for ($h=0; $h<@qs-1; $h++) { # gap at least 8 bases from the end of a block
                                         if ($qs[$h]+$bs[$h] < $qs[$h+1]) {
@@ -372,49 +365,37 @@ sub run {
                                             }
                                         }
                                     }
-                                    if ($aln->q_gap_count + $a[6] >= @qs) { # this makes sure gap in query and target not in same place
+                                    if ($aln->q_gap_count + $aln->t_gap_count >= @qs) { # this makes sure gap in query and target not in same place
                                         $gap_flag = 1;
                                     }
                                 }
                                 if ($gap_flag == 0) { # IF GOT TO HERE THEN READ PASSED ALL CRITERIA FOR A MATCH
-                                    $cnt{$seqname} = $cnt{$seqname} + 0;
-                                    $blathits{$seqname}[$cnt{$seqname}][0] = $SCORE; # the score of the match (see def above)
-                                    $blathits{$seqname}[$cnt{$seqname}][1] = $aln->strand; # the strand
-                                    $blathits{$seqname}[$cnt{$seqname}][2] = $a[13]; # the name of the target seq
-                                    $blathits{$seqname}[$cnt{$seqname}][3] = $a[18]; # the block sizes
-                                    $blathits{$seqname}[$cnt{$seqname}][4] = $a[20]; # the t starts
-                                    $blathits{$seqname}[$cnt{$seqname}][5] = $aln->mismatch; # the number of mismatches (not including N's)
-                                    $blathits{$seqname}[$cnt{$seqname}][6] = $a[19]; # the q starts
-				
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][0]=$blathits{$seqname}[$cnt{$seqname}][0]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][1]=$blathits{$seqname}[$cnt{$seqname}][1]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][2]=$blathits{$seqname}[$cnt{$seqname}][2]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][3]=$blathits{$seqname}[$cnt{$seqname}][3]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][4]=$blathits{$seqname}[$cnt{$seqname}][4]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][5]=$blathits{$seqname}[$cnt{$seqname}][5]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][6]=$blathits{$seqname}[$cnt{$seqname}][6]\n";
+                                    
+                                    push @{ $blathits{$seqname} ||= [] }, [
+                                        $SCORE,
+                                        $aln->strand,
+                                        $aln->t_name,
+                                        $aln->block_sizes_str,
+                                        $aln->t_starts_str,
+                                        $aln->mismatch,
+                                        $aln->q_starts_str
+                                    ];
+
                                     $N = @{$blathits{$seqname}};
-                                    if ($maxlength{$seqname}+0 < $a[12]) {
-                                        $maxlength{$seqname} = $a[12];
+                                    if ($maxlength{$seqname}+0 < $aln->q_end) {
+                                        $maxlength{$seqname} = $aln->q_end;
                                     }
                                     if ($aln->q_gap_count == 1) { # then query has a gap, write this to the insertions file I
-                                        $gapsize = $a[5];
-                                        $a[18] =~ s/,$//;
-                                        $a[19] =~ s/,$//;
-                                        $a[20] =~ s/,$//;
-                                        @blocksizes = split(/,/,$a[18]);
-                                        @qStarts = split(/,/,$a[19]);
-                                        @tStarts = split(/,/,$a[20]);
+                                        $gapsize = $aln->q_gap_bases;
+                                        @blocksizes = @{ $aln->block_sizes };
+                                        @qStarts    = @{ $aln->q_starts };
+                                        @tStarts    = @{ $aln->t_starts };
                                         $n = @blocksizes;
                                         for ($block=0; $block < $n-1; $block++) {
                                             if ($blocksizes[$block] + $qStarts[$block] < $qStarts[$block+1]) {
                                                 $insertion_target_coord = $blocksizes[$block] + $tStarts[$block];
-                                                if ($seqname =~ /a/) {
-                                                    $temp = $seqa;
-                                                }
-                                                if ($seqname =~ /b/) {
-                                                    $temp = $seqb;
-                                                }
+                                                $temp = $aln->is_forward ? $seqa : $aln->is_reverse ? $seqb : '';
+
                                                 if ($aln->strand eq "+") {
                                                     @s = split(//,$temp);
                                                 } else {
@@ -449,11 +430,11 @@ sub run {
                                                     }
                                                 }
                                                 $insertion = "";
-                                                for ($c=0; $c<$a[5]; $c++) {
+                                                for ($c=0; $c<$aln->q_gap_bases; $c++) {
                                                     $insertion = $insertion . "$s[$c + $qStarts[$block] + $blocksizes[$block]]";
                                                 }
                                                 $inscoord_temp = $insertion_target_coord + 1;
-                                                $a[13] =~ /chr(.*):/;
+                                                $aln->t_name =~ /chr(.*):/;
                                                 $chr = $1;
                                                 $insertion = "chr" . $chr . ":" . $insertion_target_coord . ":" . $insertion . ":" . $inscoord_temp . "\n";
                                                 $blathits{$seqname}[$cnt{$seqname}][7] = $insertion;
@@ -470,15 +451,12 @@ sub run {
             }
 
             $aln = $blat_iter->next_val;
-            $line = $aln ? $aln->raw : '';
-            chomp $line;
-            @a = split(/\t/,$line);
-            @a_x = split(/\t/,$line);
+
             $seqname = $aln ? $aln->readid : '';
             $seqnum = $seqname;
             $seqnum =~ s/[^\d]//g;
             if ($seqnum == $seq_count) {
-                $readlength = $a[10];
+                $readlength = $aln->q_size;
                 if ($readlength < 80) {
                     $min_size_intersection_allowed = 35;
                     if ($self->{match_length_cutoff} == 0) {
@@ -496,6 +474,9 @@ sub run {
                 }
             }
         }
+
+        
+        
         $sname[0] = "seq." . $seq_count . "a";
         $sname[1] = "seq." . $seq_count . "b";
 
@@ -512,7 +493,7 @@ sub run {
                         $start = 1;
                     }
                     @a0 = split(/,/,$blathits{$sname[$t]}[$i1][4]);
-                    @b = split(/,/,$blathits{$sname[$t]}[$i1][3]);
+                    @b  = split(/,/,$blathits{$sname[$t]}[$i1][3]);
                     @qs = split(/,/,$blathits{$sname[$t]}[$i1][6]);
                     $l = $start + $a0[0];
                     $e = $l + $b[0] - 1;
@@ -1259,17 +1240,6 @@ sub run {
 
 }
 
-sub getTotalSizeFromBlockSizes () {
-    ($blocks) = @_;
-    $blocks =~ s/\s*,*\s*$//;
-    $blocks =~ s/^\s*,*\s*//;
-    @BL = split(/,/, $blocks);
-    $totalsize = "";
-    for ($bl=0; $bl<@BL; $bl++) {
-	$totalsize = $totalsize + $BL[$bl];
-    }
-    return $totalsize;
-}
 
 sub getsequence {
     ($blocksizes, $qstarts, $strand, $seq) = @_;

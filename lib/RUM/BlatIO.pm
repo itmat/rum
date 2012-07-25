@@ -96,11 +96,17 @@ sub parse_aln {
         raw => $line,
         mismatch => $rec{'mismatch'},
         q_gap_count => $rec{'Q gap count'},
+        q_gap_bases => $rec{'Q gap bases'},
+        t_gap_count => $rec{'T gap count'},
         q_name => $rec{'Q name'},
         q_size => $rec{'Q size'},
         q_start => $rec{'Q start'},
         q_end   => $rec{'Q end'},
         t_name  => $rec{'T name'},
+        block_count => $rec{'block count'},
+        block_sizes => $rec{'blockSizes'},
+        q_starts => $rec{'qStarts'},
+        t_starts => $rec{'tStarts'},
     );
 }
 

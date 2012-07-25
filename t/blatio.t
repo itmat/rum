@@ -53,8 +53,8 @@ is $rec->mismatch,  0, 'mismatch';
 #is $rec->ns,        2, 'ns';
 
 is $rec->q_gap_count, 1, 'q_gap_count';
-#is $rec->q_gap_bases, 1, 'q_gap_bases';
-#is $rec->q_gap_bases, 1, 't_gap_count';
+is $rec->q_gap_bases, 1, 'q_gap_bases';
+is $rec->t_gap_count, 1, 't_gap_count';
 #is $rec->q_gap_bases, 6, 't_gap_bases';
 
 is $rec->strand, '-', 'strand';
@@ -68,3 +68,8 @@ is $rec->t_name,         5, 't_name';
 #is $rec->t_size,  26975502, 't_size';
 #is $rec->t_start, 12852469, 't_start';
 #is $rec->t_end,   12852511, 't_end';
+
+is $rec->block_count, 2, 'block_count';
+is_deeply $rec->block_sizes, [      15, 21],       'block_sizes';
+is_deeply $rec->q_starts,    [      38, 54],       'q_starts';
+is_deeply $rec->t_starts,    [12859687, 12859708], 't_starts';
