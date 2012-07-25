@@ -13,7 +13,7 @@ sub new {
     return bless $self, $class;
 }
 
-sub readid     { $_[0]->{readid} }
+sub readid { $_[0]->{readid} }
 
 sub order {
     my ($self) = @_;
@@ -71,11 +71,19 @@ sub is_mate {
     return $other->readid eq "$num$other_dir";
 }
 
+sub is_same_or_mate {
+    my ($x, $y) = @_;
+    return $x->is_same_read($y) || $x->is_mate($y);
+}
+
+
 sub cmp_read_ids {
     my ($self, $other) = @_;
     my ($self_num)  = $self->readid  =~ /seq\.(\d+)/g;
     my ($other_num) = $other->readid =~ /seq\.(\d+)/g;
     return $self_num <=> $other_num;
 }
+
+
 
 1;

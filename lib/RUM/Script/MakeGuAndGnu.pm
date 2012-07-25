@@ -7,55 +7,26 @@ use autodie;
 use RUM::Usage;
 use RUM::Logging;
 use RUM::BowtieIO;
-use RUM::Iterator;
+use RUM::RUMIO;
+use RUM::Identifiable;
+
 use Getopt::Long;
 use Carp;
 
 our $log = RUM::Logging->get_logger();
 
-sub same_or_mate {
-    my ($x, $y) = @_;
-    return $x->is_same_read($y) || $x->is_mate($y);
-}
-
-sub write_aln {
-    my ($fh, $read) = @_;
-
-    my @fields = (
-        $read->readid,
-        $read->chromosome,
-        $read->locs->[0][0] . "-" . $read->locs->[0][1],
-        $read->seq,
-        $read->strand
-    );
-    print $fh join("\t", @fields), "\n";
-}
-
-
-sub new {
-    my ($class, %options) = @_;
-
-    my $self = {};
-
-    my @fields = qw(in gu gnu paired max_pair_dist);
-
-    for my $key (@fields) {
-        $self->{$key} = delete $options{$key};
-    }
-    bless $self, $class;
-}
+use base 'RUM::Script::Base';
 
 sub main {
 
-    GetOptions(
+    my $self = __PACKAGE__->new;
+
+    $self->get_options(
         "unique=s"        => \(my $outfile1),
         "non-unique=s"    => \(my $outfile2),
         "paired"          => \(my $paired),
         "single"          => \(my $single),
-        "max-pair-dist=s" => \(my $max_pair_dist = 500000),
-        "help|h"          => sub { RUM::Usage->help },
-        "verbose|v"       => sub { $log->more_logging(1) },
-        "quiet|q"         => sub { $log->less_logging(1) });
+        "max-pair-dist=s" => \(my $max_pair_dist = 500000));
 
     @ARGV == 1 or RUM::Usage->bad(
         "Please specify an input file");
@@ -72,13 +43,11 @@ sub main {
     open my $gu,  ">", $outfile1;
     open my $gnu, ">", $outfile2;
 
-    my $self = __PACKAGE__->new(
-        in => $ARGV[0],
-        gu => $gu,
-        gnu => $gnu,
-        paired => $paired,
-        max_pair_dist => $max_pair_dist
-    );
+    $self->{in}            = $ARGV[0];
+    $self->{gu}            = $gu;
+    $self->{gnu}           = $gnu;
+    $self->{paired}        = $paired;
+    $self->{max_pair_dist} = $max_pair_dist;
     $self->run();
 }
 
@@ -266,23 +235,71 @@ sub handle_group {
 sub run {
     my ($self) = @_;
 
-    my $gu = $self->{gu};
-    my $gnu = $self->{gnu};
-    my $in = $self->{in};
-    my $bowtie_in = RUM::BowtieIO->new(-file => $in);
-    my $it = $bowtie_in->group_by(\&same_or_mate);
+    my $gu  = RUM::RUMIO->new(-fh => $self->{gu},  strand_last => 1);
+    my $gnu = RUM::RUMIO->new(-fh => $self->{gnu}, strand_last => 1);
+    my $bowtie_in = RUM::BowtieIO->new(-file => $self->{in});
+    my $it = $bowtie_in->group_by(\&RUM::Identifiable::is_same_or_mate);
 
     while (my $group = $it->next_val) {
         my $mappers = $self->handle_group($group->to_array);
         my $fh = @$mappers == 1 ? $gu : $gnu;
         for my $aln (@$mappers) {
             my @reads = ref($aln) =~ /^ARRAY/ ? @{ $aln } : $aln;
-            for my $read (@reads) {
-                write_aln $fh, $read;
-            }
+            $fh->write_alns(\@reads);
         }
     }
 
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::MakeGuAndGnu
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::MakeGuAndGnu->main
+
+Parse command line and run the script.
+
+=item $script->run
+
+Run the script.
+
+=item $script->handle_group
+
+Process a group of alignments that are either for the same read or for
+mates of the same read.
+
+=item $script->split_forward_and_reverse
+
+Split a group of reads into two groups: forward and reverse.
+
+=item key
+
+Given one or two alignments, return the string key used to identify
+those reads in the hash.
+
+=item $script->clean_alignment($aln)
+
+Remove 'N' and ':' characters from the sequence and increment the
+start position.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+

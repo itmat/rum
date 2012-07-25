@@ -3,10 +3,8 @@ package RUM::Script::MakeRumJunctionsFile;
 use autodie;
 no warnings;
 use RUM::Usage;
-use RUM::Logging;
-use Getopt::Long;
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 sub main {
 
@@ -86,7 +84,9 @@ sub main {
 
     my @argv = @ARGV;
 
-    GetOptions(
+    my $self = __PACKAGE__->new;
+
+    $self->get_options(
         "unique-in=s" => \(my $rumU),
         "non-unique-in=s" => \(my $rumNU),
         "genome=s" => \(my $genome_sequence),
@@ -98,11 +98,7 @@ sub main {
         "strand=s" => \(my $userstrand),
         "signal=s" => \(my $signal),
         "minintron=s" => \(my $minintron = 15),
-        "overlap=s"   => \(my $allowable_overlap = 8),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) }
-    );
+        "overlap=s"   => \(my $allowable_overlap = 8));
 
     $rumU or RUM::Usage->bad(
         "Please provide a RUM_Unique file with --non-unique-in");
@@ -271,12 +267,12 @@ sub main {
                 }
             }
         }
-        &getjunctions();
-        &printjunctions();
+        &_get_junctions();
+        &_print_junctions();
     }
     close(GENOMESEQ);
 
-    sub printjunctions () {
+    sub _print_junctions () {
 
         foreach $intron (keys %allintrons) {
             $amb{$intron} = $amb{$intron} + 0;
@@ -371,7 +367,7 @@ sub main {
     # 181748087
 
 
-    sub getjunctions () {
+    sub _get_junctions () {
         undef %allintrons;
         undef %goodsplicesignal;
         undef %amb;
@@ -578,3 +574,31 @@ sub main {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::MakeRumJunctionsFile
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::MakeRumJunctionsFile->main
+
+Run the script.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
