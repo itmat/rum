@@ -5,6 +5,7 @@ no warnings;
 
 use Carp;
 
+use Data::Dumper;
 use RUM::BlatIO;
 use RUM::Common qw(getave addJunctionsToSeq);
 use RUM::Logging;
@@ -218,6 +219,7 @@ sub run {
 
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
     for ($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
+        $self->logger->debug("Seq count is $seq_count");
         if ($seq_count == $first_seq_num) {
 
             $aln = $blat_iter->next_val;
@@ -244,7 +246,6 @@ sub run {
             $seqa_temp = <$seq_fh>;
             chomp($seqa_temp);
             $seqa_temp =~ s/[^ACGTNab]$//;
-            warn "Seqa temp si $seqa_temp\n";
             $mdust_temp = <$mdust_fh>;
             chomp($mdust_temp);
             $mdust_temp =~ s/[^ACGTNab]$//;
@@ -650,7 +651,9 @@ sub run {
                     $nchrs++;
                     $CHR = $ky;
                 }
-                $str = intersect(\@spans, $seq_temp);
+                $self->logger->debug("Intersecting spans @spans for $seq_count");
+                $str = $self->intersect(\@spans, $seq_temp);
+                $self->logger->debug("Intersection is $str");
                 if ($str ne "0\t" && $nchrs == 1) {
                     $str =~ s/^(\d+)\t/$CHR\t/;
                     $size = $1;
@@ -702,7 +705,7 @@ sub run {
                     $nchrs++;
                     $CHR = $ky;
                 }
-                $str = intersect(\@spans, $seq_temp);
+                $str = $self->intersect(\@spans, $seq_temp);
                 if ($str ne "0\t" && $nchrs == 1) {
                     $str =~ s/^(\d+)\t/$CHR\t/;
                     $size = $1;
@@ -1112,8 +1115,8 @@ sub run {
                 if ($num_absingle == 0 && $num_absplit > 0 && $nchrs == 1) {
                     $firstseq1 =~ s/://g;
                     $firstseq2 =~ s/://g;
-                    $str1 = intersect(\@spans1, $firstseq1);
-                    $str2 = intersect(\@spans2, $firstseq2);
+                    $str1 = $self->intersect(\@spans1, $firstseq1);
+                    $str2 = $self->intersect(\@spans2, $firstseq2);
                     if ($str1 ne "0\t" && $str2 eq "0\t") {
                         $str1 =~ s/^(\d+)\t/$CHR\t/;
                         $size1 = $1;
@@ -1177,7 +1180,7 @@ sub run {
                     }
                 }
                 if ($num_absingle > 0 && $num_absplit == 0 && $nchrs == 1) {
-                    $str = intersect(\@spans1, $firstseq);
+                    $str = $self->intersect(\@spans1, $firstseq);
                     if ($str ne "0\t") {
                         $str =~ s/^(\d+)\t/$CHR\t/;
                         $size = $1;
@@ -1290,7 +1293,7 @@ sub getsequence {
 }
 
 sub intersect () {
-    ($spans_ref, $seq) = @_;
+    ($self, $spans_ref, $seq) = @_;
 
     @spans = @{$spans_ref};
     $num_i = @spans;
@@ -1329,7 +1332,7 @@ sub intersect () {
 	    }
 	}
 	$prevkey = $key_i;
-    }
+    }    
     if ($flag_i == 1) {
 	if ($spanlength > $maxspanlength) {
 	    $maxspanlength = $spanlength;
@@ -1337,6 +1340,8 @@ sub intersect () {
 	    $maxspan_end = $prevkey;
 	}
     }
+    $self->logger->debug("Max span length is $maxspanlength");
+
     if ($maxspanlength > 0) {
 	@a_i = split(/, /,$spans[0]);
 	@b_i = split(/-/,$a_i[0]);
