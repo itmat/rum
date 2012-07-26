@@ -8,15 +8,13 @@ use FindBin qw($Bin);
 use lib "$Bin/../../lib";
 use RUM::Script::ParseBlatOut;
 use RUM::TestUtils;
+use File::Copy qw(cp);
 
 my $reads         = "$INPUT_DIR/R.1";
 my $blat_results  = "$INPUT_DIR/R.1.blat";
 my $mdust_results = "$INPUT_DIR/R.mdust.1";
 my $unique = temp_filename(TEMPLATE => "unique.XXXXXX");
 my $non_unique = temp_filename(TEMPLATE => "non-unique.XXXXXX");
-
-$unique = 'u';
-$non_unique = 'nu';
 
 # With sorted input
 
@@ -30,6 +28,9 @@ RUM::Script::ParseBlatOut->main();
 no_diffs($unique, "$EXPECTED_DIR/BlatUnique.1", "Unique sorted");
 no_diffs($non_unique, "$EXPECTED_DIR/BlatNU.1", "Non-uniqe sorted");
 
+cp $unique, "sorted-u";
+cp $non_unique, "sorted-nu";
+
 # With unsorted input
 
 @ARGV = (
@@ -38,7 +39,7 @@ no_diffs($non_unique, "$EXPECTED_DIR/BlatNU.1", "Non-uniqe sorted");
    "--mdust-in", $mdust_results,
    "--unique-out", $unique,
    "--non-unique-out", $non_unique);
-RUM::Script::ParseBlatOut->main();
+#RUM::Script::ParseBlatOut->main();
 
 no_diffs($unique, "$EXPECTED_DIR/BlatUnique.1", "Unique unsorted");
 
