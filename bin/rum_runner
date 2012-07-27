@@ -52,8 +52,6 @@ use RUM::Logging;
 if (@ARGV && $ARGV[0] eq 'align') {
 
     my $is_top_level = ! first { / ^ (--parent | --child) $ /mx } @ARGV;
-    
-    warn "Top level is $is_top_level\n";
 
     for (my $i = 0; $i < @ARGV; $i++) {
         local $_ = $ARGV[$i];
@@ -62,7 +60,6 @@ if (@ARGV && $ARGV[0] eq 'align') {
             my $dir = $ARGV[$i + 1];
             
             my $log_dir = RUM::Logging->log_dir_for_output_dir($dir);
-            warn "Log dir is $log_dir\n";
 
             if (-d $log_dir) {
                 my $timestamp = scalar time;
