@@ -16,6 +16,7 @@ use POSIX;
 use File::Spec qw(splitpath);
 use File::Path qw(mkpath);
 use File::Copy qw(mv);
+use Text::Wrap qw(fill);
 
 sub new {
     my ($class) = @_;
@@ -25,6 +26,7 @@ sub new {
 sub main {
     my ($self) = @_;
 
+    my @args = @ARGV;
     get_options(
         "--list|l"      => \(my $do_list),
         "--install|i"   => \(my $do_install),
@@ -32,9 +34,37 @@ sub main {
         "--force|f"       => \(my $force),
         "--migrate|m"   => \(my $do_migrate),
         "--remove|r"    => \(my $do_remove),
-        "--prefix|p=s"  => \(my $prefix="indexes"),
+        "--prefix|p=s"  => \(my $prefix),
         "--markdown"    => \(my $use_markdown));
     
+    if (!$prefix) {
+        my $msg;
+        if ($do_install || $do_migrate) {
+            $msg = <<"EOF";
+
+Please tell me where you want your indexes installed with the --prefix
+noption. For example, if you want the index for organism ORGANISM
+ninstalled in ~/rum_indexes/ORGANISM, you would use:
+
+  $0 --prefix ~/rum_indexes @args 
+
+EOF
+
+        }
+        else {
+            $msg = <<"EOF";
+
+Please tell me where your indexes are installed with the --prefix
+option. For example, if all of your indexes are in subdirectories of
+~/rum_indexes, you would use:
+
+  $0 --prefix ~/rum_indexes @args
+
+EOF
+        }
+        die fill('', '', $msg) . "\n";
+    }
+
     # show_usage() unless $do_list || $do_install || $do_remove;
     my %options;
     $options{indexes_dir} = $prefix;
