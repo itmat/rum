@@ -528,8 +528,15 @@ sub fix_name {
 sub check_gamma {
     my ($self) = @_;
     my $host = `hostname`;
-    if ($host =~ /login.genomics.upenn.edu/ && !$self->config->platform eq 'Local') {
-        die("you cannot run RUM on the PGFI cluster without using the --qsub option.");
+
+    my $on_gamma = `hostname` =~ / (?: login | gamma) 
+                                   \.genomics\.upenn\.edu/xm;
+
+    my $running_locally = $self->config->platform eq 'Local';
+    
+    if ($on_gamma && $running_locally) {
+        die("You cannot run RUM on the PGFI cluster "
+            . "without using the --qsub option.\n");
     }
 }
 
