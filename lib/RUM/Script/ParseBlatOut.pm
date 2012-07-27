@@ -626,7 +626,7 @@ sub run {
                 $self->logger->debug("Intersecting spans @spans for $seq_count");
                 $str = $self->intersect(\@spans, $seq_temp);
                 $self->logger->debug("Intersection is $str");
-                if ($str ne "0\t" && $nchrs == 1) {
+                if ($str && $nchrs == 1) {
                     $str =~ s/^(\d+)\t/$CHR\t/;
                     $size = $1;
                     if ($size >= $min_size_intersection_allowed) {
@@ -678,7 +678,7 @@ sub run {
                     $CHR = $ky;
                 }
                 $str = $self->intersect(\@spans, $seq_temp);
-                if ($str ne "0\t" && $nchrs == 1) {
+                if ($str && $nchrs == 1) {
                     $str =~ s/^(\d+)\t/$CHR\t/;
                     $size = $1;
                     if ($size >= $min_size_intersection_allowed) {
@@ -1089,7 +1089,7 @@ sub run {
                     $firstseq2 =~ s/://g;
                     $str1 = $self->intersect(\@spans1, $firstseq1);
                     $str2 = $self->intersect(\@spans2, $firstseq2);
-                    if ($str1 ne "0\t" && $str2 eq "0\t") {
+                    if ($str1 && ! $str2) {
                         $str1 =~ s/^(\d+)\t/$CHR\t/;
                         $size1 = $1;
                         if ($size1 >= $min_size_intersection_allowed) {
@@ -1100,7 +1100,7 @@ sub run {
                             $nointersection = 0;
                         }
                     }
-                    if ($str2 ne "0\t" && $str1 eq "0\t") {
+                    if (!$str1 && $str2) {
                         $str2 =~ s/^(\d+)\t/$CHR\t/;
                         $size2 = $1;
                         if ($size2 >= $min_size_intersection_allowed) {
@@ -1111,7 +1111,7 @@ sub run {
                             $nointersection = 0;
                         }
                     }
-                    if ($str1 ne "0\t" && $str2 ne "0\t") {
+                    if ($str1 && $str2) {
                         $str1 =~ s/^(\d+)\t/$CHR\t/;
                         $size1 = $1;
                         $str2 =~ s/^(\d+)\t/$CHR\t/;
@@ -1153,7 +1153,7 @@ sub run {
                 }
                 if ($num_absingle > 0 && $num_absplit == 0 && $nchrs == 1) {
                     $str = $self->intersect(\@spans1, $firstseq);
-                    if ($str ne "0\t") {
+                    if ($str) {
                         $str =~ s/^(\d+)\t/$CHR\t/;
                         $size = $1;
                         if ($size >= $min_size_intersection_allowed) {
@@ -1386,7 +1386,7 @@ sub intersect () {
 	}
 	return "$maxspanlength\t$newspans\t$newseq";
     } else {
-	return "0\t";
+	return;
     }
 }
 
