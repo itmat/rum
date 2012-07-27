@@ -33,6 +33,12 @@ our @LOG4PERL_CONFIGS = (
 push @LOG4PERL_CONFIGS, map { "$_/RUM/conf/rum_logging.conf" } @INC;
 
 
+sub log_dir_for_output_dir {
+    my ($class, $output_dir) = @_;
+    return File::Spec->catfile($output_dir, "log");
+}
+
+
 sub init {
     my ($class, $dir) = @_;
 
@@ -43,7 +49,7 @@ sub init {
         $ENV{RUM_OUTPUT_DIR} = $dir;
     }
     if ($ENV{RUM_OUTPUT_DIR}) {
-        $LOGGING_DIR = File::Spec->catfile($ENV{RUM_OUTPUT_DIR}, "log");
+        $LOGGING_DIR = $class->log_dir_for_output_dir($ENV{RUM_OUTPUT_DIR});
     }
     else {
         _init_rum_logger();

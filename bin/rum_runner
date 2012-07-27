@@ -33,7 +33,8 @@ use warnings;
 
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");
-
+use File::Path qw(rmtree);
+use List::Util qw(first);
 use RUM::Logging;
 
 # Initialize the logging system. We only want to log if the action is
@@ -49,9 +50,36 @@ use RUM::Logging;
 # command line and initialize the logging system so that it puts
 # output files there.
 if (@ARGV && $ARGV[0] eq 'align') {
+
+    my $is_top_level = ! first { / ^ (--parent | --child) $ /mx } @ARGV;
+    
+    warn "Top level is $is_top_level\n";
+
     for (my $i = 0; $i < @ARGV; $i++) {
         local $_ = $ARGV[$i];
         if (/^(-o|--out)/) {
+
+            my $dir = $ARGV[$i + 1];
+            
+            my $log_dir = RUM::Logging->log_dir_for_output_dir($dir);
+            warn "Log dir is $log_dir\n";
+
+            if (-d $log_dir) {
+                my $timestamp = scalar time;
+                my $tarball   = "$log_dir.$timestamp.tar.gz";
+                print "Archiving log directory $log_dir to $tarball\n";
+                
+                my $status = system "tar cvfz $tarball -s /^./log.$timestamp/ -C $log_dir .";
+
+                if ($status) {
+                    warn "Couldn't zip up old log directory $log_dir\n";
+                }
+                else {
+                    rmtree $log_dir;
+                }
+                
+            }
+
             RUM::Logging->init($ARGV[$i + 1]);
         }
     }
