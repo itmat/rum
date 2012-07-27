@@ -19,6 +19,7 @@ RUM::Script::JunctionsToBed->main();
 
 use strict;
 use warnings;
+use autodie;
 
 use Carp;
 use Getopt::Long;
@@ -55,12 +56,9 @@ sub main {
     $in_filename or RUM::Usage->bad(
         "Please provide an input file");
 
-    open my $all_out, ">", $all_filename
-        or croak "Can't open $all_filename for writing: $!";
-    open my $hq_out, ">", $hq_filename
-        or croak "Can't open $hq_filename for writing: $!";
-    open my $in, "<", $in_filename 
-        or croak "Can't open $in_filename for reading: $!";
+    open my $all_out, ">", $all_filename;
+    open my $hq_out, ">", $hq_filename;
+    open my $in, "<", $in_filename;
     print "Reading $in_filename\n";
 
     my $self = __PACKAGE__->new();

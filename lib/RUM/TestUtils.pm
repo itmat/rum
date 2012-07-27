@@ -29,15 +29,14 @@ use File::Spec;
 use FindBin qw($Bin);
 use File::Temp;
 
-use RUM::FileIterator qw(file_iterator);
 use RUM::Sort qw(by_chromosome);
 use RUM::Common qw(shell is_on_cluster);
 use RUM::Repository qw(download);
 
 our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR
                  $INDEX_CONFIG $SHARED_INPUT_DIR is_sorted_by_location same_line_count
-                 $RUM_HOME $GENE_INFO $INDEX_DIR);
-our @EXPORT_OK = qw(no_diffs is_sorted_by_location);
+                 $RUM_HOME $GENE_INFO $INDEX_DIR same_contents_sorted);
+our @EXPORT_OK = qw(no_diffs is_sorted_by_location same_contents_sorted);
 our %EXPORT_TAGS = (
     all => [@EXPORT_OK]);
 
@@ -67,6 +66,9 @@ our $SHARED_INPUT_DIR = "$RUM_HOME/t/data/shared";
 our $INPUT_DIR        = "$RUM_HOME/t/data/$PROGRAM_NAME";
 our $EXPECTED_DIR      = "$RUM_HOME/t/expected/$PROGRAM_NAME";
 
+our $PFAL_INDEX_DIR = "$RUM_INDEXES/pfalciparum";
+our $PFAL_GENE_INFO      = "$PFAL_INDEX_DIR/pfal_gene_info.txt";
+
 =item no_diffs(FILE1, FILE2, NAME)
 
 Uses Test::More to assert that there are no differences between the
@@ -77,9 +79,20 @@ two files.
 sub no_diffs {
     my ($file1, $file2, $name, $options) = @_;
     $options ||= "";
-    my $diffs = `diff $options $file2 $file1 > /dev/null`;
+    my $diffs = `diff $options $file2 $file1 > foo`;
     my $status = $? >> 8;
     ok($status == 0, $name);
+}
+
+sub same_contents_sorted {
+    my ($got_filename, $exp_filename, $name) = @_;
+    open my $got, "<", $got_filename;
+    open my $exp, "<", $exp_filename;
+
+    my @got = sort (<$got>);
+    my @exp = sort (<$exp>);
+
+    is_deeply(\@got, \@exp, $name)
 }
 
 =item line_count($filename)
@@ -118,14 +131,16 @@ Asserts that the given RUM file is sorted by location.
 
 sub is_sorted_by_location {
     my ($filename) = @_;
-    open my $in, "<", $filename or croak "Can't open $filename for reading: $!";
-    my $it = file_iterator($in);
+    my $it = my $iter = RUM::RUMIO->new(-file => $filename)->aln_iterator;
 
     my @recs;
-    my @keys = qw(chr start end);
-    while (my $rec = $it->("pop")) {
-        my %rec;
-        @rec{@keys} = @$rec{@keys};
+
+    while (my $rec = $iter->next_val) {
+        my %rec = (
+            chr => $rec->chromosome,
+            start => $rec->start,
+            end => $rec->end
+        );
         push @recs, \%rec;
     }
 
@@ -167,29 +182,6 @@ sub temp_filename {
     $options{UNLINK}   = 1        unless exists $options{UNLINK};
     $options{TEMPLATE} = "XXXXXX" unless exists $options{TEMPLATE};
     File::Temp->new(%options);
-}
-
-=item make_paths RUN_NAME
-
-Recursively make all the paths required for the given test run name,
-unless $DRY_RUN is set.
-
-=cut
-
-sub make_paths {
-    my (@paths) = @_;
-
-    for my $path (@paths) {
-        
-        if (-e $path) {
-            diag "$path exists; not creating it";
-        }
-        else {
-            print "mkdir -p $path\n";
-            mkpath($path) or die "Can't make path $path: $!";
-        }
-
-    }
 }
 
 =back

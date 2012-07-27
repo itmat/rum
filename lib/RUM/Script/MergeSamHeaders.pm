@@ -5,19 +5,11 @@ no warnings;
 use Carp;
 use RUM::Sort qw(by_chromosome);
 
-use Getopt::Long;
-use RUM::Usage;
-use RUM::Logging;
-
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 sub main {
-
-    GetOptions(
-        "name=s"    => \(my $name = "unknown"),
-        "help|h"    => sub { RUM::Usage->help },
-        "quiet|q"   => sub { $log->less_logging(1) },
-        "verbose|v" => sub { $log->more_logging(1) });
+    my $self = __PACKAGE__->new;
+    $self->get_options("name=s" => \(my $name = "unknown"));
 
     local $_;
     my %header;
@@ -36,5 +28,32 @@ sub main {
     print join("\t", '@RG', "ID:$name", "SM:$name"), "\n";
 }
 
-
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::MergeSamHeaders
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::MergeSamHeaders->main
+
+Run the script.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+

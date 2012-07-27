@@ -29,5 +29,6 @@ rum.log
 TAGS
 *.log
 nohup.out
+t/tmp
 nytprof
 nytprof.out

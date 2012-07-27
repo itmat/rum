@@ -1,15 +1,18 @@
 package RUM::Script::RumToSam;
 
+use autodie;
 no warnings;
 
 use File::Copy;
 use RUM::Usage;
 use RUM::Logging;
-use Getopt::Long;
 use RUM::Common qw(addJunctionsToSeq reversecomplement spansTotalLength);
 use RUM::SamIO qw(:flags);
+use RUM::SeqIO;
+use RUM::RUMIO;
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
+
 $|=1;
 
 our $QNAME =  0;
@@ -55,11 +58,62 @@ sub both_segments_mapped {
     return ! ( $rec->[$FLAG] & $mask );
 }
 
+sub first_read_number {
+    my ($filename) = @_;
+    return RUM::SeqIO->new(-file => $filename)->next_seq->order;
+}
+
+sub last_read_number {
+    my ($filename) = @_;
+    open my $in, '-|', "tail -2 $filename";
+    return RUM::SeqIO->new(-fh => $in)->next_seq->order;
+}
+
+sub is_paired {
+    my ($filename) = @_;
+    my $in = RUM::SeqIO->new(-file => $filename);
+    $in->next_seq;
+    my $read = $in->next_seq;
+    return $read && $read->is_reverse;
+}
+
+sub read_length {
+    my ($filename) = @_;
+    return length(RUM::SeqIO->new(-file => $filename)->next_seq->seq);
+}
+
+sub check_rum_input {
+    my ($filename) = @_;
+    my $rum_unique_iter = RUM::RUMIO->new(-file => $filename)->peekable;
+    
+    my $aln = $rum_unique_iter->next_val;
+
+    $flag = 0;
+    if (!$aln->readid) {
+        $flag = 1;
+    }
+    if (ref($aln->locs) !~ /^ARRAY/ || ! @{ $aln->locs }) {
+        $flag = 1;
+    }
+    if ($aln->strand !~ /^[+-]$/) {
+        $flag = 1;
+    }
+    if ($aln->seq !~ /^[ACGTN:+]+$/) {
+        $flag = 1;
+    }
+    if ($flag && $line) {
+        die("The first line of the file '$filename' is "
+            . "misformatted; it does not look like a RUM output file.");
+    }
+}
+
 sub main {
+
+    my $self = __PACKAGE__->new;
 
     my $map_names = "false";
 
-    GetOptions(
+    $self->get_options(
         "suppress1" => \(my $suppress1),
         "suppress2" => \(my $suppress2),
         "suppress3" => \(my $suppress3),
@@ -68,76 +122,38 @@ sub main {
         "quals-in=s" => \(my $qual_file),
         "reads-in=s" => \(my $reads_file),
         "non-unique-in=s" => \(my $rum_nu_file),
-        "unique-in=s" => \(my $rum_unique_file),
-        "name-mapping=s" => \(my $name_mapping_file),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+        "unique-in=s" => \(my $rum_unique_file));
 
     $sam_outfile or RUM::Usage->bad(
         "Please specify an output file with --sam-out");
     $reads_file or RUM::Usage->bad(
         "Please specify a reads file with --reads-in");
 
-    my $allow = sub { 1 };
-    if ($suppress1) {
-        $allow = \&some_segment_mapped;
-    }
-    elsif ($suppress2) {
-        $allow = \&this_segment_mapped;
-    }
-    elsif ($suppress3) {
-        $allow = \&both_segments_mapped;
-    }
-
+    my $allow 
+    = $suppress1 ? \&some_segment_mapped
+    : $suppress2 ? \&this_segment_mapped
+    : $suppress3 ? \&both_segments_mapped
+    :              sub { 1 };
     
-    my %namemapping;
-    if ($name_mapping_file) {
-        $map_names = "true";
-        open(NAMEMAPPING, $name_mapping_file) or die "ERROR: in script parsefastq.pl, cannot open \"$name_mapping_file\" for reading.\n\n";
-        while (my $line = <NAMEMAPPING>) {
+    if ($genome_infile) {
+        open my $genome_in, "<", $genome_infile;
+        while(my $line = <$genome_in>) {
             chomp($line);
-            @a = split(/\t/,$line);
-            $namemapping{$a[0]} = $a[1];
+            $line =~ s/^>//;
+            $line2 = <$genome_in>;
+            chomp($line2);
+            $GENOMESEQ{$line} = $line2;
         }
-        close(NAMEMAPPING);
     }
 
-    open(INFILE, $genome_infile);
-    while(my $line = <INFILE>) {
-        chomp($line);
-        $line =~ s/^>//;
-        $line2 = <INFILE>;
-        chomp($line2);
-        $GENOMESEQ{$line} = $line2;
-    }
-    close(INFILE);
-
-    open(INFILE, $reads_file);
-    $line = <INFILE>;
-    chomp($line);
-    $line =~ /seq.(\d+)/;
-    $firstseqnum = $1;
-    $line = <INFILE>;
-    chomp($line);
-    $readlength = length($line);
+    $firstseqnum = first_read_number($reads_file);
+    $readlength = read_length($reads_file);
     unless ($qual_file) {
         $QUAL{$readlength} = $DEFAULT_QUAL || ("I" x $readlength);
     }
-    $line = <INFILE>;
-    chomp($line);
-    $line =~ /seq.\d+(.)/;
-    $type = $1;
-    my $paired;
-    if ($type eq 'b') {
-        $paired = "true";
-    } else {
-        $paired = "false";
-    }
-    close(INFILE);
-    $x = `tail -2 $reads_file | head -1`;
-    $x =~ /seq.(\d+)/;
-    $lastseqnum = $1;
+
+    my $paired = is_paired($reads_file) ? 'true' : 'false';
+    my $lastseqnum = last_read_number($reads_file);
 
     $bitflag[0] = "the read is paired in sequencing";
     $bitflag[1] = "the read is mapped in a proper pair";
@@ -151,70 +167,32 @@ sub main {
     $bitflag[9] = "the read fails platform/vendor quality checks";
     $bitflag[10] = "the read is either a PCR duplicate or an optical duplicate";
 
-    if ($rum_unique_file) {
-        open(RUMU, $rum_unique_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_unique_file' for reading\n\n";
-    }
-    if ($rum_nu_file) {
-        open(RUMNU, $rum_nu_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_nu_file' for reading\n\n";
-    }
-    open(READS, $reads_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$reads_file' for reading\n\n";
+    my ($rumu, $rumnu);
+    my ($rumu_iter, $rumnu_iter);
+    open my $reads_in, "<", $reads_file;
+    my $reads_iter = RUM::SeqIO->new(-fh => $reads_in);
 
-    # checking that the first line in RUMU really looks like it should:
+    # checking that the first line in $rumu really looks like it should:
 
     if ($rum_unique_file) {
-        $line = <RUMU>;
-        close(RUMU);
-        @a = split(/\t/,$line);
-        $flag = 0;
-        if (!($a[0] =~ /^seq.\d+[ab]?/)) {
-            $flag = 1;
-        }
-        if ($a[2] =~ /[^\d-, ]/) {
-            $flag = 1;
-        }
-        if (!($a[3] eq "+" || $a[3] eq "-")) {
-            $flag = 1;
-        }
-        if (!($a[4] =~ /^[ACGTN:+]+$/)) {
-            $flag = 1;
-        }
-        if ($flag && $line) {
-            die "\nERROR: in script rum2sam.pl: the first line of the file '$rum_unique_file' is misformatted,\nit does not look like a RUM output file.\n";
-        }
-        open(RUMU, $rum_unique_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_unique_file' for reading\n\n";
+        check_rum_input($rum_unique_file);
+        open $rumu, "<", $rum_unique_file;
+        $rumu_iter = RUM::RUMIO->new(-fh => $rumu)->peekable;
     }
     if ($rum_nu_file) {
-        $line = <RUMNU>;
-        close(RUMNU);
-        @a = split(/\t/,$line);
-        $flag = 0;
-        if (!($a[0] =~ /^seq.\d+[ab]?/)) {
-            $flag = 1;
-        }
-        if ($a[2] =~ /[^\d-, ]/) {
-            $flag = 1;
-        }
-        if (!($a[3] eq "+" || $a[3] eq "-")) {
-            $flag = 1;
-        }
-        if (!($a[4] =~ /^[ACGTN:+]+$/)) {
-            $flag = 1;
-        }
-        if ($flag && $line) {
-            die "\nERROR: in script rum2sam.pl: the first line of the file '$rum_nu_file' is misformatted,\nit does not look like a RUM output file.\n";
-        }
-        open(RUMNU, $rum_nu_file) or die "\nERROR: in script rum2sam.pl: cannot open the file '$rum_nu_file' for reading\n\n";
+        check_rum_input($rum_nu_file);
+        open $rumnu, "<", $rum_nu_file;
+        $rumnu_iter = RUM::RUMIO->new(-fh => $rumnu)->peekable;
     }
-
     if ($qual_file) {
         open(QUALS, $qual_file);
     }
 
-    open(my $sam_out, ">", $sam_outfile);
+    open my $sam_out, ">", $sam_outfile;
     my $sam = RUM::SamIO->new(-fh => $sam_out);
 
     for (my $seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
-
+    
         undef @FORWARD;
         undef @REVERSE;
         undef @JOINED;
@@ -224,18 +202,19 @@ sub main {
 	$MMf = 0;
 	$MMr = 0;
 
-        $forward_read = <READS>;
-        $forward_read = <READS>;
-        chomp($forward_read);
+        my $forward_seq = $reads_iter->next_seq;
+
+        $forward_read = $forward_seq->seq;
+
+        my $readid = $forward_seq->readid_directionless;
+
         $forward_read_hold = $forward_read;
         $readlength_forward = length($forward_read);
         if ((!$qual_file) && !($QUAL{$readlength_forward} =~ /\S/)) {
             $QUAL{$readlength_forward} = $DEFAULT_QUAL || ("I" x $readlength);
         }
         if ($paired eq "true") {
-            $reverse_read = <READS>;
-            $reverse_read = <READS>;
-            chomp($reverse_read);
+            $reverse_read = $reads_iter->next_seq->seq;
             $reverse_read_hold = $reverse_read;
             $readlength_reverse = length($reverse_read);
             if ((!$qual_file) && !($QUAL{$readlength_reverse} =~ /\S/)) {
@@ -257,115 +236,96 @@ sub main {
             $reverse_qual = $QUAL{$readlength_reverse};
         }
 
-        $unique_mapper_found = "false";
-        $non_unique_mappers_found = "false";
+        $unique_mapper_found = 0;
+        $non_unique_mappers_found = 0;
         $rum_u_forward = "";
         $rum_u_reverse = "";
         $rum_u_joined = "";
-        $FORWARD[0] = "";
+        $FORWARD[0] = undef;
         $REVERSE[0] = "";
         $JOINED[0] = "";
-        if ($rum_unique_file) {
-            $flag = 0;
-        } else {
-            $flag = 1;
-        }
-        while ($flag == 0) {
-            $line = <RUMU>;
-            chomp($line);
-            $type = "";
-            if ($line =~ /seq.(\d+)(.)/) {
-                $sn = $1;
-                $type = $2;
-            }
-            if ($sn == $seqnum && $type eq "a") {
-                $rum_u_forward = $line;
-                $unique_mapper_found = "true";
-                $FORWARD[0] = $rum_u_forward;
+
+        if ($rumu_iter) {
+          MAPPER: while (1) {
+
+                my $aln = $rumu_iter->peek;
+                last MAPPER unless $aln && $aln->order == $seqnum;
+
+                $rumu_iter->next_val;
+                $unique_mapper_found = 1;
                 $num_mappers = 1;
-            }
-            if ($sn == $seqnum && $type eq "b") {
-                $rum_u_reverse = $line;
-                $unique_mapper_found = "true";
-                $REVERSE[0] = $rum_u_reverse;
-                $num_mappers = 1;
-            }
-            if ($sn == $seqnum && $type eq "\t") {
-                $rum_u_joined = $line;
-                $unique_mapper_found = "true";
-                $JOINED[0] = $rum_u_joined;
-                $num_mappers = 1;
-            }
-            if ($sn > $seqnum) {
-                $len = -1 * (1 + length($line));
-                seek(RUMU, $len, 1);
-                $flag = 1;
-            }
-            if ($line eq '') {
-                $flag = 1;
+                
+                if ($aln->is_forward) {
+                    $FORWARD[0] = $rum_u_forward = $aln->raw;
+                }
+                elsif ($aln->is_reverse) {
+                    $REVERSE[0] = $rum_u_reverse = $aln->raw;
+                }
+                else {
+                    $JOINED[0]  = $rum_u_joined = $aln->raw;
+                }
             }
         }
-        if ($unique_mapper_found eq "false" && $rum_nu_file) {
-            $flag = 0;
+        if ( !$unique_mapper_found && $rum_nu_file) {
+
             $num_mappers = 0;
             $last_type_found = "";
-            while ($flag == 0) {
-                $line = <RUMNU>;
-                chomp($line);
-                $type = "";
-                if ($line =~ /seq.(\d+)(.)/) {
-                    $sn = $1;
-                    $type = $2;
-                }
-                if ($sn == $seqnum && $type eq "a") {
+            my $last_aln;
+          NU_MAPPER: while (1) {
+                my $aln = $rumnu_iter->peek;
+                if ( ! $aln ) {
                     if ($last_type_found eq "a") {
                         $REVERSE[$num_mappers] = "";
+                        $JOINED[$num_mappers] = "";
                         $num_mappers++;
                     }
-                    $JOINED[$num_mappers] = "";
-                    $non_unique_mappers_found = "true";
-                    $FORWARD[$num_mappers] = $line;
-                    $last_type_found = "a";
+                    last NU_MAPPER;
                 }
-                if ($sn == $seqnum && $type eq "b") {
-                    if ($last_type_found eq "b") {
+
+
+                $line = $aln->raw;
+
+                if ($aln->order > $seqnum) {
+                    if ($last_type_found eq "a") {
+                        $REVERSE[$num_mappers] = "";
+                        $JOINED[$num_mappers] = "";
+                        $num_mappers++;
+                    }
+                    last NU_MAPPER;
+                }
+                else {
+                    $rumnu_iter->next_val;
+                    $non_unique_mappers_found = 1;
+                    if ($aln->is_forward) {
+                        if ($last_type_found eq "a") {
+                            $REVERSE[$num_mappers] = "";
+                            $num_mappers++;
+                        }
+                        $JOINED[$num_mappers] = "";
+                        $FORWARD[$num_mappers] = $line;
+                        $last_type_found = "a";
+                    }
+                    elsif ($aln->is_reverse) {
+                        if ($last_type_found eq "b") {
+                            $FORWARD[$num_mappers] = "";
+                        }
+                        $JOINED[$num_mappers] = "";
+                        $REVERSE[$num_mappers] = $line;
+                        $last_type_found = "b";
+                        $num_mappers++;
+                    }
+                    else {
+                        $JOINED[$num_mappers] = $line;
                         $FORWARD[$num_mappers] = "";
-                    }
-                    $JOINED[$num_mappers] = "";
-                    $non_unique_mappers_found = "true";
-                    $REVERSE[$num_mappers] = $line;
-                    $last_type_found = "b";
-                    $num_mappers++;
-                }
-                if ($sn == $seqnum && $type eq "\t") {
-                    $non_unique_mappers_found = "true";
-                    $JOINED[$num_mappers] = $line;
-                    $FORWARD[$num_mappers] = "";
-                    $REVERSE[$num_mappers] = "";
-                    $num_mappers++;
-                }
-                if ($sn > $seqnum) {
-                    if ($last_type_found eq "a") {
                         $REVERSE[$num_mappers] = "";
-                        $JOINED[$num_mappers] = "";
                         $num_mappers++;
                     }
-                    $len = -1 * (1 + length($line));
-                    seek(RUMNU, $len, 1);
-                    $flag = 1;
                 }
-                if ($line eq '') {
-                    if ($last_type_found eq "a") {
-                        $REVERSE[$num_mappers] = "";
-                        $JOINED[$num_mappers] = "";
-                        $num_mappers++;
-                    }
-                    $flag = 1;
-                }
+
             }
         }
 
-        if ($unique_mapper_found eq "true" || $non_unique_mappers_found eq "true") {
+        if ($unique_mapper_found || $non_unique_mappers_found) {
             for ($mapper=0; $mapper<$num_mappers; $mapper++) {
 		$MDf = "";
 		$MDr = "";
@@ -513,7 +473,7 @@ sub main {
                     for ($i=0; $i<$prefix_offset_upstream; $i++) {
                         $UR2 =~ s/^.//;
                     }
-                    $upstream_spans = &getprefix($ruj[2], $plen);
+                    $upstream_spans = &_getprefix($ruj[2], $plen);
 		
                     if ($ruj[3] eq "-") {
                         $downstream_read = reversecomplement($forward_read_hold);
@@ -654,7 +614,7 @@ sub main {
                         $DR2 =~ s/.$//;
                     }
 		
-                    $downstream_spans = &getsuffix($ruj[2], $plen);
+                    $downstream_spans = &_getsuffix($ruj[2], $plen);
 		
                     $UR2 = &addJunctionsToSeq($UR2, $upstream_spans);
                     $DR2 = &addJunctionsToSeq($DR2, $downstream_spans);
@@ -943,12 +903,7 @@ sub main {
                 my @forward_record = map "", (1 .. $N_REQUIRED_FIELDS);
                 my $forward_record;
 
-                if ($map_names eq "true") {
-                    my $tmp = "seq.${seqnum}a";
-                    $forward_record[$QNAME] = $namemapping{$tmp};
-                } else {
-                    $forward_record[$QNAME] = "seq.$seqnum";
-                }
+                $forward_record[$QNAME] = $readid;
                 $forward_record[$FLAG] = $bitscore_f;
 	    
                 if (!($rum_u_forward =~ /\S/) && $rum_u_reverse =~ /\S/) { # forward unmapped, reverse mapped
@@ -1007,12 +962,7 @@ sub main {
 	    
                 if ($paired eq "true") {
                     my @reverse_record = map "", (1 .. $N_REQUIRED_FIELDS);
-                    if ($map_names eq "true") {
-                        $$tmp = "seq.$seqnum" . "b";
-                        $reverse_record[$QNAME] = $namemapping{$tmp};
-                    } else {
-                        $reverse_record[$QNAME] = "seq.$seqnum";
-                    }
+                    $reverse_record[$QNAME] = $readid;
                     $reverse_record[$FLAG] = $bitscore_r;
 
                     if (!($rum_u_reverse =~ /\S/) && $rum_u_forward =~ /\S/) { # reverse unmapped, forward mapped
@@ -1061,18 +1011,12 @@ sub main {
             }
         }
 
-        if ($unique_mapper_found eq "false" && $non_unique_mappers_found eq "false") {
+        if ( ! ($unique_mapper_found || $non_unique_mappers_found) ) {
             # neither forward nor reverse map
             
             if ($paired eq "false") {
                 my @rec = map "", (1 .. $N_REQUIRED_FIELDS);
-
-                if ($map_names eq "true") {
-                    my $tmp = "seq.$seqnum" . "a";
-                    $rec[$QNAME] = $namemapping{$tmp};
-                } else {
-                    $rec[$QNAME] = "seq.$seqnum";
-                }
+                $rec[$QNAME] = $readid;
                 $rec[$FLAG] = $FLAG_SEGMENT_UNMAPPED;
                 $rec[$RNAME] = $DEFAULT_RNAME;
                 $rec[$POS]   = $DEFAULT_POS;
@@ -1087,13 +1031,7 @@ sub main {
                 $sam->write_rec(\@rec)
             } else {
                 my @fwd = map "", (1 .. $N_REQUIRED_FIELDS);
-                if ($map_names eq "true") {
-                    my $tmp = "seq.$seqnum" . "a";
-                    $fwd[$QNAME] = $namemapping{$tmp};
-                } else {
-                    $fwd[$QNAME] = "seq.$seqnum";
-                }
-
+                $fwd[$QNAME] = $readid;
                 
                 $fwd[$FLAG]  = $FLAG_MULTIPLE_SEGMENTS;
                 $fwd[$FLAG] |= $FLAG_SEGMENT_UNMAPPED;
@@ -1111,12 +1049,7 @@ sub main {
                 $fwd[$QUAL]  = $forward_qual || $DEFAULT_QUAL;
 
                 my @rev = map "", (1 .. $N_REQUIRED_FIELDS);
-                if ($map_names eq "true") {
-                    my $tmp = "seq.$seqnum" . "b";
-                    $rev[$QNAME] = $namemapping{$tmp};
-                } else {
-                    $rev[$QNAME] = "seq.$seqnum";
-                }
+                $rev[$QNAME] = $readid;
 
                 $rev[$FLAG] |= $FLAG_MULTIPLE_SEGMENTS;
                 $rev[$FLAG] |= $FLAG_SEGMENT_UNMAPPED;
@@ -1141,7 +1074,7 @@ sub main {
 }
 
 
-sub getsuffix () {
+sub _getsuffix () {
     ($spans, $suffixlength) = @_;
 
     $prefixlength = &spansTotalLength($spans) - $suffixlength;
@@ -1167,7 +1100,7 @@ sub getsuffix () {
     }
 }
 
-sub getprefix () {
+sub _getprefix () {
     ($spans, $prefixlength) = @_;
 
     $newspans = "";
@@ -1273,3 +1206,68 @@ sub cigar2mismatches () {
     $return_array[1] = $NM;
     return \@return_array;
 }
+
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::RumToSam - Convert RUM files to a SAM file
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::SortRumById->main
+
+Run the script.
+
+=item some_segment_mapped
+
+=item this_segment_mapped
+
+=item both_segments_mapped
+
+These functions take an array ref representing a sam record and return
+a boolean indicating which segments mapped, based on the value of the
+flag field.
+
+=item check_rum_input
+
+Make sure the input file looks like a RUM file.
+
+=item cigar2mismatches($chr_c, $start_c, $cigar_c, $seq_c)
+
+Take a cigar string and a sequence and return the extra SAM fields
+containing mismatch info.
+
+=item first_read_number($filename)
+
+=item last_read_number($filename)
+
+Return the first or last read number in the given filename.
+
+=item is_paired($filename)
+
+Read the first couple lines from $filename and return boolean
+indicating whether it appears to be paired.
+
+=item read_length($filename)
+
+Read the first sequence from $filename and return its length.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
+

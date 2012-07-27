@@ -244,7 +244,7 @@ filename, with the given chunk as the suffix.
 
 sub chunk_file {
     my ($self, $name, $chunk) = @_;
-    $chunk or return undef;
+    $chunk or return;
     return $self->in_chunk_dir("$name.$chunk");
 }
 

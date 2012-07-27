@@ -44,7 +44,7 @@ sub union {
             $state{$key} = 1;
         }
     }
-    return bless \%state;
+    return bless \%state, __PACKAGE__;
 }
 
 

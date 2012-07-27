@@ -1,38 +1,116 @@
 package RUM::Script::ParseBlatOut;
 
+use autodie;
 no warnings;
 
-use RUM::Usage;
-use RUM::Logging;
-use Getopt::Long;
-use RUM::Common qw(getave addJunctionsToSeq);
+use Carp;
 
-our $log = RUM::Logging->get_logger();
+use Data::Dumper;
+use RUM::BlatIO;
+use RUM::Common qw(getave addJunctionsToSeq);
+use RUM::Logging;
+use RUM::Usage;
+use List::Util qw(sum);
+
+use base 'RUM::Script::Base';
 
 # Given a filehandle, skip over all rows that appear to be header
 # rows. After I return, the filehandle will be positioned at the first
 # data row.
 sub skip_headers {
     my ($fh) = @_;
+    my $blatio = RUM::BlatIO->new(-fh => $fh);
+}
 
-    my $off;
-    local $_;
-    # Skip over header lines
-    while (1) {
+sub is_blat_file_sorted {
+    use strict;
+    my ($self) = @_;
+
+    my $blat_io = RUM::BlatIO->new(-fh => $self->{blatfile_fh})->peekable;
+    my $last = $blat_io->next_val;;
+
+    $self->logger->info("Checking to see if blat file $self->{blatfile} is sorted");
+    my $count = 0;
+    while (my $next = $blat_io->next_val) {
         
-        $off = tell $fh;
-
-        defined ($_ = <$fh>) or last;
-
-        unless (/--------------------------------/ ||
-                /psLayout/ || 
-                /blockSizes/ || 
-                /match\s+match/ || 
-                !/\S/) {
-            last;
+        if ($last->order > $next->order 
+            || ( $last->is_mate($next) && $last->is_reverse && $next->is_forward)) {
+            return;
         }
+        $last = $next;
     }
-    seek $fh, $off, 0;
+    $self->logger->debug("Blat file $self->{blatfile} is sorted");
+    seek $self->{blatfile_fh}, 0, 0;
+    return 1;
+}
+
+sub ensure_blat_file_sorted {
+    use strict;
+    my ($self) = @_;
+
+    if ($self->is_blat_file_sorted) {
+        $self->logger->info("The blat file is already sorted");
+        $self->{blatfile_sorted} = $self->{blatfile};
+        warn "Blat file sorted is $self->{blatfile_sorted}\n";
+        return;
+    }
+        
+    $self->logger->warn("The blat file is not sorted properly, I'm sorting it now.  This could indicate an error");
+
+    my $temp1  = File::Temp->new(UNLINK => 0);
+    my $temp2  = File::Temp->new(UNLINK => 0);
+    my $sorted = File::Temp->new(UNLINK => 0);
+    my $temp2_filename = $temp2->filename;
+    close $temp2;
+
+    $self->{blatfile_sorted} = $sorted->filename;
+    $self->logger->debug("Opening blat file $self->{blatfile}");
+    open my $unsorted_fh, '<', $self->{blatfile};
+
+    my $blat_iter = RUM::BlatIO->new(-fh => $unsorted_fh);
+    
+    $self->logger->debug("Copying headers to $sorted");
+    for my $line (@{ $blat_iter->header_lines }) {
+        print $sorted "$line\n";
+    }
+
+    while (my $rec = $blat_iter->next_val) {
+        my $line = $rec->raw;
+        my $order = $rec->order;
+        my $type = $rec->is_forward ? 'a' : 'b';
+        print $temp1 "$order\t$type\t$line\n";
+    }
+
+    close($temp1);
+
+    open my $sort_output, '-|', "sort -T . -n $temp1";
+
+    while (my $line = <$sort_output>) {
+        chomp($line);
+        $line =~ s/^(\d+)\t(.)\t//;
+        print $sorted "$line\n";
+    }
+
+    close $sorted;
+
+    my $old_size = -s $self->{blatfile};
+    my $new_size = -s $self->{blatfile_sorted};
+
+    if ($old_size != $new_size) {
+        my $diff = $old_size - $new_size;
+        my $msg = <<"EOF";
+
+I tried to sort the blat file but the sorted file is not the same size
+as the original. The unsorted file's size is $old_size and the sorted
+file's size is $new_size (difference of $diff)
+
+EOF
+        system "cp $self->{blatfile} old";
+        system "cp $self->{blatfile_sorted} new";
+        die $msg;
+    } else {
+        $self->logger->info("The blat file is now sorted properly");
+    }
 }
 
 $| = 1;
@@ -50,211 +128,153 @@ $| = 1;
 # Blat should be run with the following parameters for speed:
 # -ooc=11.ooc -minScore=M -minIdentity=93
 
-sub main {
+sub open_files {
+    my ($self) = @_;
+    
+    for my $key (qw(blatfile seqfile mdustfile)) {
+        open my $fh, '<', $self->{$key};
+        $self->{"${key}_fh"} = $fh;
+    }
 
-    GetOptions(
-        "reads-in=s" => \(my $seqfile),
-        "blat-in=s" => \(my $blatfile),
-        "mdust-in=s" => \(my $mdustfile),
-        "unique-out=s" => \(my $outfile1),
-        "non-unique-out=s" => \(my $outfile2),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "max-insertions=s" => \(my $num_insertions_allowed = 1),
-        "match-length-cutoff=s"    => \(my $match_length_cutoff = 0),
-        "dna" => \(my $dna),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) },
-    );
+    for my $key (qw(unique_out nu_out)) {
+        open my $fh, '>', $self->{$key};
+        $self->{"${key}_fh"} = $fh;
+    }
+    
+}
 
-    $seqfile or RUM::Usage->bad(
-        "Please provide a file of unmapped reads with --reads-in");
-    $blatfile or RUM::Usage->bad(
-        "Please provide the file produced by blat with --blat-in");
-    $mdustfile or RUM::Usage->bad(
-        "Please provide the file produced by mdust with --mdust-in");
-    $outfile1 or RUM::Usage->bad(
-        "Specify an output file for unique mappers with --unique-out");
-    $outfile2 or RUM::Usage->bad(
-        "Specify an output file for non-unique mappers with --non-unique-out");
+
+sub parse_command_line {
+
+    my ($self) = @_;
+
+    $self->get_options(
+        "reads-in=s"            => \($self->{seqfile}),
+        "blat-in=s"             => \($self->{blatfile}),
+        "mdust-in=s"            => \($self->{mdustfile}),
+        "unique-out=s"          => \($self->{unique_out}),
+        "non-unique-out=s"      => \($self->{nu_out}),
+        "max-pair-dist=s"       => \($self->{max_pair_dist} = 500000),
+        "max-insertions=s"      => \($self->{max_insertions} = 1),
+        "match-length-cutoff=s" => \($self->{match_length_cutoff} = 0),
+        "dna"                   => \(my $dna));
     
     # Check command-line args
-    $num_insertions_allowed =~ /^\d+$/ or RUM::Usage->bad(
+
+    $self->{seqfile} or RUM::Usage->bad(
+        "Please provide a file of unmapped reads with --reads-in");
+    $self->{blatfile} or RUM::Usage->bad(
+        "Please provide the file produced by blat with --blat-in");
+    $self->{mdustfile} or RUM::Usage->bad(
+        "Please provide the file produced by mdust with --mdust-in");
+    $self->{unique_out} or RUM::Usage->bad(
+        "Specify an output file for unique mappers with --unique-out");
+    $self->{unique_out} or RUM::Usage->bad(
+        "Specify an output file for non-unique mappers with --non-unique-out");
+    $self->{max_insertions} =~ /^\d+$/ or RUM::Usage->bad(
         "If you provide --num-insertions-allowed, it must be an integer");
-    $match_length_cutoff =~ /^\d+$/ or RUM::Usage->bad(
+    $self->{match_length_cutoff} =~ /^\d+$/ or RUM::Usage->bad(
         "If you provide --match-length-cutoff, it must be an integer");
 
-    $num_blocks_allowed = $dna ? 1 : 1000;
+    $self->{num_blocks_allowed} = $dna ? 1 : 1000;
+}
 
-    open(BLATHITS, "<", $blatfile) 
-        or die "Can't open $blatfile for reading: $!";
+sub main {
+    my $self = __PACKAGE__->new;
 
-    skip_headers(\*BLATHITS);
-    $line = <BLATHITS>;
-    chomp $line;
-    $line1 = $line;
-    $blatsorted = "true";
-    $log->info("Checking to see if blat file is sorted");
-    while ($line2 = <BLATHITS>) {
-        $line1 =~ /seq.(\d+)(.)/;
-        $seqnum1 = $1;
-        $type1 = $2;
-        $line2 =~ /seq.(\d+)(.)/;
-        $seqnum2 = $1;
-        $type2 = $2;
+    $self->parse_command_line;
+    $self->open_files;
+    $self->ensure_blat_file_sorted;
+    $self->run;
+}
 
-        if ($seqnum1>$seqnum2 || ($seqnum1==$seqnum2 && $type1 eq 'b' && $type2 eq 'a')) {
-            $blatsorted = "false";
-            $flag = 1;
-            last;
-        }
-        $line1 = $line2;
-    }
-    close(BLATHITS);
+sub run {
+    my ($self) = @_;
 
-    if ($blatsorted eq "false") {
-        $log->warn("The blat file is not sorted properly, I'm sorting it now.  This could indicate an error");
-        $blatfile_sorted = $blatfile . ".sorted";
+    open my $blat_hits, '<', $self->{blatfile_sorted};
+    my $seq_fh    = $self->{seqfile_fh};
+    my $mdust_fh  = $self->{mdustfile_fh};
+    my $unique_fh = $self->{unique_out_fh};
+    my $nu_fh     = $self->{nu_out_fh};
 
-        open(INFILE, $blatfile);
-        $tempfilename = $blatfile . "_temp1";
-        open(OUTFILE1, ">$tempfilename");
-        open(OUTFILE2, ">$blatfile_sorted");
-        $line = <INFILE>;
-        while (($line =~ /--------------------------------/) || ($line =~ /psLayout/) || ($line =~ /blockSizes/) || ($line =~ /match\s+match/) || (!($line =~ /\S/))) {
-            print OUTFILE2 $line;
-            $line = <INFILE>;
-        }
-        chomp($line);
-        @a = split(/\t/, $line);
-        $name = $a[9];
-        $name =~ s/seq.//;
-        $name =~ /(\d+)(a|b)/;
-        print OUTFILE1 "$1\t$2\t$line\n";
-        while ($line = <INFILE>) {
-            chomp($line);
-            @a = split(/\t/, $line);
-            $name = $a[9];
-            $name =~ s/seq.//;
-            $name =~ /(\d+)(a|b)/;
-            print OUTFILE1 "$1\t$2\t$line\n";
-        }
-        close(OUTFILE1);
-        close(INFILE);
-        $tempfilename2 = $blatfile . "_temp2";
-        $x = `sort -T . -n $tempfilename > $tempfilename2`;
-        $x = `rm $tempfilename`;
-        open(INFILE, $tempfilename2);
-        while ($line = <INFILE>) {
-            chomp($line);
-            $line =~ s/^(\d+)\t(.)\t//;
-            print OUTFILE2 "$line\n";
-        }
-        close(OUTFILE2);
-        close(INFILE);
-        $x = `rm $tempfilename2`;
-        $N = -s $blatfile;
-        $M = -s $blatfile_sorted;
-        if ($N != $M) {
-            die "I tried to sort the blat file but the sorted file is not the same size as the original.";
-        } else {
-            print STDERR "The blat file is now sorted properly.\n";
-            print "The blat file is now sorted properly.\n";
-        }
-        $blatfile = $blatfile_sorted;
-    } else {
-        $log->info("The blat file is sorted properly.");
-    }
+    my $blat_iter = RUM::BlatIO->new(-fh => $blat_hits);
 
-    $head = `head -1 $seqfile`;
-    $head2 = `head -3 $seqfile`;
-    if ($head2 =~ /seq.\d+b/) {
-        $paired_end = "true";
-    } else {
-        $paired_end = "false";
-    }
+    # Get the first and last sequence number and determine if the
+    # reads are paired end.
+    $head  = `head -1 $self->{seqfile}`;
+    $head2 = `head -3 $self->{seqfile}`;
+
+    $paired_end = $head2 =~ /seq.\d+b/;
+
     $head =~ /seq.(\d+)/;
     $first_seq_num = $1;
-    $tail = `tail -1 $blatfile`;
-    @a = split(/\t/,$tail);
-    $last_seq_num = $a[9];
-    $last_seq_num =~ s/[^\d]//g;
+    $tail = `tail -1 $self->{blatfile_sorted}`;
+    my $last_seq_num = $blat_iter->parse_aln($tail)->order;
 
-    open(BLATHITS, "<", $blatfile)
-        or die "Can't open $blatfile for reading: $!";
-    open(SEQFILE, "<", $seqfile) 
-        or die "Can't open $seqfile for rading: $!";
-    open(MDUST, "<", $mdustfile) 
-        or die "Can't open $mdustfile for reading: $!";
-    open(RESULTS, ">", $outfile1) 
-        or die "Can't open $outfile1 for writing: $!";
-    open(RESULTS2, ">", $outfile2) 
-        or die "Can't open $outfile2 for writing: $!";
-
-    if ($num_insertions_allowed > 1 && $paired_end eq "true") {
+    if ($self->{max_insertions} > 1 && $paired_end) {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
     }
 
+    my $aln;
+
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
     for ($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
+        $self->logger->debug("Seq count is $seq_count");
         if ($seq_count == $first_seq_num) {
 
-            skip_headers(\*BLATHITS);
-            $line = <BLATHITS>;
-            chomp $line;
-            @a = split(/\t/,$line);
-            $readlength = $a[10];
+            $aln = $blat_iter->next_val;
+
+            $readlength = $aln->q_size;
             if ($readlength < 80) {
                 $min_size_intersection_allowed = 35;
-                if ($match_length_cutoff == 0) {
-                    $match_length_cutoff = 35;
+                if ($self->{match_length_cutoff} == 0) {
+                    $self->{match_length_cutoff} = 35;
                 }
             } else {
                 $min_size_intersection_allowed = 45;
-                if ($match_length_cutoff == 0) {
-                    $match_length_cutoff = 50;
+                if ($self->{match_length_cutoff} == 0) {
+                    $self->{match_length_cutoff} = 50;
                 }
             }
             if ($min_size_intersection_allowed >= .8 * $readlength) {
                 $min_size_intersection_allowed = int(.6 * $readlength);
-                $match_length_cutoff = int(.6 * $readlength);
+                $self->{match_length_cutoff}   = int(.6 * $readlength);
             }
-            @a_x = split(/\t/,$line);
-            $seqname = $a[9];
+            $seqname = $aln->readid;
             $seqnum = $seqname;
             $seqnum =~ s/[^\d]//g;
-            $seqa_temp = <SEQFILE>;
+            $seqa_temp = <$seq_fh>;
             chomp($seqa_temp);
             $seqa_temp =~ s/[^ACGTNab]$//;
-            $mdust_temp = <MDUST>;
+            $mdust_temp = <$mdust_fh>;
             chomp($mdust_temp);
             $mdust_temp =~ s/[^ACGTNab]$//;
         }
         $seqa_temp =~ /seq.(\d+)/;
         $seq_count = $1; # this way we skip over things that aren't in <seq file>
-        $seqa_temp = <SEQFILE>;
+        $seqa_temp = <$seq_fh>;
         chomp($seqa_temp);
         $seqa_temp =~ s/[^ACGTNab]$//;
         $seqa = "";
         while (!($seqa_temp =~ /^>/)) {
             $seqa_temp =~ s/[^A-Z]//gs;
             $seqa = $seqa . $seqa_temp;
-            $seqa_temp = <SEQFILE>;
+            $seqa_temp = <$seq_fh>;
             chomp($seqa_temp);
             $seqa_temp =~ s/[^ACGTNab]$//;
             if ($seqa_temp eq '') {
                 last;
             }
         }
-        if ($paired_end eq "true") {
-            $seqb_temp = <SEQFILE>;
+        if ($paired_end) {
+            $seqb_temp = <$seq_fh>;
             chomp($seqb_temp);
             $seqb_temp =~ s/[^ACGTNab]$//;
             $seqb = "";
             $seqb_temp =~ s/[^A-Z]//gs;
             while (!($seqb_temp =~ /^>/)) {
                 $seqb = $seqb . $seqb_temp;
-                $seqb_temp = <SEQFILE>;
+                $seqb_temp = <$seq_fh>;
                 chomp($seqb_temp);
                 $seqb_temp =~ s/[^ACGTNab]$//;
                 if ($seqb_temp eq '') {
@@ -264,83 +284,80 @@ sub main {
             $seqa_temp = $seqb_temp;
         }
 
-        $mdust_temp = <MDUST>;
+        $mdust_temp = <$mdust_fh>;
         chomp($mdust_temp);
         $mdust_temp =~ s/[^ACGTNab]$//;
         $dust_output = "";
         while (!($mdust_temp =~ /^>/)) {
             $dust_output = $dust_output . $mdust_temp;
-            $mdust_temp = <MDUST>;
+            $mdust_temp = <$mdust_fh>;
             chomp($mdust_temp);
             $mdust_temp =~ s/[^ACGTNab]$//;
             if ($mdust_temp eq '') {
                 last;
             }
         }
-        $sn = "seq.$seq_count" . "a";
+        $sn = $aln->as_forward->readid;
         $Ncount{$sn} = ($dust_output =~ tr/N//);
-        $cutoff{$sn} = $match_length_cutoff + $Ncount{$sn};
-        if ($cutoff{$sn} > $a_x[10] - 2) {
-            $cutoff{$sn} = $a_x[10] - 2;
+        $cutoff{$sn} = $self->{match_length_cutoff} + $Ncount{$sn};
+        if ($cutoff{$sn} > $aln->q_size - 2) {
+            $cutoff{$sn} = $aln->q_size - 2;
         }
-        if ($paired_end eq "true") {
-            $mdust_temp = <MDUST>;
+        if ($paired_end) {
+            $mdust_temp = <$mdust_fh>;
             chomp($mdust_temp);
             $mdust_temp =~ s/[^ACGTNab]$//;
             $dust_output = "";
             while (!($mdust_temp =~ /^>/)) {
                 $dust_output = $dust_output . $mdust_temp;
-                $mdust_temp = <MDUST>;
+                $mdust_temp = <$mdust_fh>;
                 chomp($mdust_temp);
                 $mdust_temp =~ s/[^ACGTNab]$//;
                 if ($mdust_temp eq '') {
                     last;
                 }
             }
-            $sn = "seq.$seq_count" . "b";
+            $sn = $aln->as_reverse->readid;
             $Ncount{$sn} = ($dust_output =~ tr/N//);
-            $cutoff{$sn} = $match_length_cutoff + $Ncount{$sn};
-            if ($cutoff{$sn} > $a_x[10] - 2) {
-                $cutoff{$sn} = $a_x[10] - 2;
+            $cutoff{$sn} = $self->{match_length_cutoff} + $Ncount{$sn};
+            if ($cutoff{$sn} > $aln->q_size - 2) {
+                $cutoff{$sn} = $aln->q_size - 2;
             }
         }
-        @a = split(/\t/,$line);
-        @a_x = split(/\t/,$line);
+
         while (defined($seqnum) && $seqnum == $seq_count) {
-            $LENGTH = getTotalSizeFromBlockSizes($a[18]);
-            $SCORE = $LENGTH - $a[1]; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
+            $LENGTH = sum(@{ $aln->block_sizes });
+            $SCORE = $LENGTH - $aln->mismatch; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
             if ($SCORE > $cutoff{$seqname}) { # so match is at least cutoff long (and this cutoff was set to be longer if there are a lot of N's (bad reads or low complexity masked by dust)
-                #	    if($a[11] <= 1) {   # so match starts at position zero or one in the query (allow '1' because first base can tend to be an N or low quality)
+                #	    if($aln->q_start <= 1) {   # so match starts at position zero or one in the query (allow '1' because first base can tend to be an N or low quality)
                 if (1 == 1) { # trying this with no condition to see if it helps... (it did!)
-                    if ($a[4] <= $num_insertions_allowed) { # then the aligment has at most $num_insertions_allowed gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
-                        if ($Ncount{$a[9]} <= ($a[10] / 2) || $a[17] <= 3) { # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY TO MATCH BY CHANCE.  
-                            if ($a[17] <= $num_blocks_allowed) { # NEVER ALLOW MORE THAN $num_blocks_allowed blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
+                    if ($aln->q_gap_count <= $self->{max_insertions}) { # then the aligment has at most $self->{max_insertions} gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
+                        if ($Ncount{$aln->readid} <= ($aln->q_size / 2) || $aln->block_count <= 3) { # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY TO MATCH BY CHANCE.  
+                            if ($aln->block_count <= $self->{num_blocks_allowed}) { # NEVER ALLOW MORE THAN $self->{num_blocks_allowed} blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
                                 # at this point we know it's a prefix match starting at pos 0 or 1 and with at most one gap in the query, and if low comlexity then not too fragemented...
                                 $gap_flag = 0;
-                                if ($a[4] == 1) { # there's a gap in the query, be stricter about allowing it
-                                    if ($a[1] > 2) { # ONLY 2 MISMATCHES
+                                if ($aln->q_gap_count == 1) { # there's a gap in the query, be stricter about allowing it
+                                    if ($aln->mismatch > 2) { # ONLY 2 MISMATCHES
                                         $gap_flag = 1;
                                     }
-                                    if ($a[12] < .85 * $a[10]) { # LONGER LENGTH MATCH (at least 85% length of read)
+                                    if ($aln->q_end < .85 * $aln->q_size) { # LONGER LENGTH MATCH (at least 85% length of read)
                                         $gap_flag = 1;
                                     }
-                                    if ($a[6] > 1) { # at most one gap in the target
+                                    if ($aln->t_gap_count > 1) { # at most one gap in the target
                                         $gap_flag = 1;
                                     }
-                                    $a[18]=~s/,$//;
-                                    $a[20]=~s/,$//;
-                                    @A=split(/,/,$a[18]);
-                                    @B=split(/,/,$a[20]);
+                                    @A = @{ $aln->block_sizes };
+                                    @B = @{ $aln->t_starts };
                                     for ($k=0;$k<@A-1;$k++) { # any gap in the target must be at least 32 bases
                                         if (($B[$k+1]-$A[$k]-$B[$k]<32) && ($B[$k+1]-$A[$k]-$B[$k]>0)) {
                                             $gap_flag = 1;
                                         }
                                     }
-                                    if ($a[5] > 3) { # gap in the query can be at most 3 bases
+                                    if ($aln->q_gap_bases > 3) { # gap in the query can be at most 3 bases
                                         $gap_flag = 1;
                                     }
-                                    @qs = split(/,/,$a[19]);
-                                    @bs = split(/,/,$a[18]);
+                                    @qs = @{ $aln->q_starts };
+                                    @bs = @{ $aln->block_sizes };
 				
                                     for ($h=0; $h<@qs-1; $h++) { # gap at least 8 bases from the end of a block
                                         if ($qs[$h]+$bs[$h] < $qs[$h+1]) {
@@ -349,50 +366,38 @@ sub main {
                                             }
                                         }
                                     }
-                                    if ($a[4]+$a[6] >= @qs) { # this makes sure gap in query and target not in same place
+                                    if ($aln->q_gap_count + $aln->t_gap_count >= @qs) { # this makes sure gap in query and target not in same place
                                         $gap_flag = 1;
                                     }
                                 }
                                 if ($gap_flag == 0) { # IF GOT TO HERE THEN READ PASSED ALL CRITERIA FOR A MATCH
-                                    $cnt{$seqname} = $cnt{$seqname} + 0;
-                                    $blathits{$seqname}[$cnt{$seqname}][0] = $SCORE; # the score of the match (see def above)
-                                    $blathits{$seqname}[$cnt{$seqname}][1] = $a[8]; # the strand
-                                    $blathits{$seqname}[$cnt{$seqname}][2] = $a[13]; # the name of the target seq
-                                    $blathits{$seqname}[$cnt{$seqname}][3] = $a[18]; # the block sizes
-                                    $blathits{$seqname}[$cnt{$seqname}][4] = $a[20]; # the t starts
-                                    $blathits{$seqname}[$cnt{$seqname}][5] = $a[1]; # the number of mismatches (not including N's)
-                                    $blathits{$seqname}[$cnt{$seqname}][6] = $a[19]; # the q starts
-				
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][0]=$blathits{$seqname}[$cnt{$seqname}][0]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][1]=$blathits{$seqname}[$cnt{$seqname}][1]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][2]=$blathits{$seqname}[$cnt{$seqname}][2]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][3]=$blathits{$seqname}[$cnt{$seqname}][3]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][4]=$blathits{$seqname}[$cnt{$seqname}][4]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][5]=$blathits{$seqname}[$cnt{$seqname}][5]\n";
-                                    #			    print "blathits{$seqname}[$cnt{$seqname}][6]=$blathits{$seqname}[$cnt{$seqname}][6]\n";
+                                    
+                                    push @{ $blathits{$seqname} ||= [] }, [
+                                        $SCORE,
+                                        $aln->strand,
+                                        $aln->t_name,
+                                        $aln->block_sizes_str,
+                                        $aln->t_starts_str,
+                                        $aln->mismatch,
+                                        $aln->q_starts_str
+                                    ];
+
                                     $N = @{$blathits{$seqname}};
-                                    if ($maxlength{$seqname}+0 < $a[12]) {
-                                        $maxlength{$seqname} = $a[12];
+                                    if ($maxlength{$seqname}+0 < $aln->q_end) {
+                                        $maxlength{$seqname} = $aln->q_end;
                                     }
-                                    if ($a[4] == 1) { # then query has a gap, write this to the insertions file I
-                                        $gapsize = $a[5];
-                                        $a[18] =~ s/,$//;
-                                        $a[19] =~ s/,$//;
-                                        $a[20] =~ s/,$//;
-                                        @blocksizes = split(/,/,$a[18]);
-                                        @qStarts = split(/,/,$a[19]);
-                                        @tStarts = split(/,/,$a[20]);
+                                    if ($aln->q_gap_count == 1) { # then query has a gap, write this to the insertions file I
+                                        $gapsize = $aln->q_gap_bases;
+                                        @blocksizes = @{ $aln->block_sizes };
+                                        @qStarts    = @{ $aln->q_starts };
+                                        @tStarts    = @{ $aln->t_starts };
                                         $n = @blocksizes;
                                         for ($block=0; $block < $n-1; $block++) {
                                             if ($blocksizes[$block] + $qStarts[$block] < $qStarts[$block+1]) {
                                                 $insertion_target_coord = $blocksizes[$block] + $tStarts[$block];
-                                                if ($seqname =~ /a/) {
-                                                    $temp = $seqa;
-                                                }
-                                                if ($seqname =~ /b/) {
-                                                    $temp = $seqb;
-                                                }
-                                                if ($a[8] eq "+") {
+                                                $temp = $aln->is_forward ? $seqa : $aln->is_reverse ? $seqb : '';
+
+                                                if ($aln->strand eq "+") {
                                                     @s = split(//,$temp);
                                                 } else {
                                                     @s2 = split(//,$temp);
@@ -426,11 +431,11 @@ sub main {
                                                     }
                                                 }
                                                 $insertion = "";
-                                                for ($c=0; $c<$a[5]; $c++) {
+                                                for ($c=0; $c<$aln->q_gap_bases; $c++) {
                                                     $insertion = $insertion . "$s[$c + $qStarts[$block] + $blocksizes[$block]]";
                                                 }
                                                 $inscoord_temp = $insertion_target_coord + 1;
-                                                $a[13] =~ /chr(.*):/;
+                                                $aln->t_name =~ /chr(.*):/;
                                                 $chr = $1;
                                                 $insertion = "chr" . $chr . ":" . $insertion_target_coord . ":" . $insertion . ":" . $inscoord_temp . "\n";
                                                 $blathits{$seqname}[$cnt{$seqname}][7] = $insertion;
@@ -445,33 +450,32 @@ sub main {
                     }
                 }
             }
-            skip_headers(\*BLATHITS);
-            $line = <BLATHITS>;
-            chomp $line;
-            @a = split(/\t/,$line);
-            @a_x = split(/\t/,$line);
-            $seqname = $a[9];
+
+            $aln = $blat_iter->next_val;
+
+            $seqname = $aln ? $aln->readid : '';
             $seqnum = $seqname;
             $seqnum =~ s/[^\d]//g;
             if ($seqnum == $seq_count) {
-                $readlength = $a[10];
+                $readlength = $aln->q_size;
                 if ($readlength < 80) {
                     $min_size_intersection_allowed = 35;
-                    if ($match_length_cutoff == 0) {
-                        $match_length_cutoff = 35;
+                    if ($self->{match_length_cutoff} == 0) {
+                        $self->{match_length_cutoff} = 35;
                     }
                 } else {
                     $min_size_intersection_allowed = 45;
-                    if ($match_length_cutoff == 0) {
-                        $match_length_cutoff = 50;
+                    if ($self->{match_length_cutoff} == 0) {
+                        $self->{match_length_cutoff} = 50;
                     }
                 }
                 if ($min_size_intersection_allowed >= .8 * $readlength) {
                     $min_size_intersection_allowed = int(.6 * $readlength);
-                    $match_length_cutoff = int(.6 * $readlength);
+                    $self->{match_length_cutoff} = int(.6 * $readlength);
                 }
             }
         }
+        
         $sname[0] = "seq." . $seq_count . "a";
         $sname[1] = "seq." . $seq_count . "b";
 
@@ -488,7 +492,7 @@ sub main {
                         $start = 1;
                     }
                     @a0 = split(/,/,$blathits{$sname[$t]}[$i1][4]);
-                    @b = split(/,/,$blathits{$sname[$t]}[$i1][3]);
+                    @b  = split(/,/,$blathits{$sname[$t]}[$i1][3]);
                     @qs = split(/,/,$blathits{$sname[$t]}[$i1][6]);
                     $l = $start + $a0[0];
                     $e = $l + $b[0] - 1;
@@ -519,6 +523,7 @@ sub main {
                     $loc =~ s/\t.*//;
                     $loc = $loc . "\t$fixedloc";
                     $loc =~ s/, $//;
+
                     $read_mapping_to_genome_blatoutput[$t][$cnt2] = "$sname[$t]\t$loc\t$blathits{$sname[$t]}[$i1][0]\t$blathits{$sname[$t]}[$i1][1]\t$blathits{$sname[$t]}[$i1][2]\t$blathits{$sname[$t]}[$i1][3]\t$blathits{$sname[$t]}[$i1][4]\t$blathits{$sname[$t]}[$i1][5]\t$blathits{$sname[$t]}[$i1][6]\t$blathits{$sname[$t]}[$i1][7]\t$i1";
 
                     # 0: sname
@@ -571,11 +576,7 @@ sub main {
                     }
                     $STRAND = $a4[4];
                     if ($t==1) {
-                        if ($STRAND eq "-") {
-                            $STRAND = "+";
-                        } else {
-                            $STRAND = "-";
-                        }
+                        $STRAND = $STRAND eq '-' ? '+' : '-';
                     }
 
                     $read_mapping_to_genome_coords[$t][$c2] = "$a4[0]\t$a4[1]\t$a4[2]\t$seq\t$STRAND";
@@ -605,11 +606,7 @@ sub main {
                 @a6 = split(/\t/,$maxkey);
                 $STRAND = $a6[4];
                 if ($t==1) {
-                    if ($STRAND eq "-") {
-                        $STRAND = "+";
-                    } else {
-                        $STRAND = "-";
-                    }
+                    $STRAND = $STRAND eq '-' ? '+' : '-';
                 }
                 if ($sname[$t] =~ /a/) {
                     $seq = getsequence($a6[6], $a6[9], $a6[4], $seqa);
@@ -624,12 +621,13 @@ sub main {
         $numb = @{$read_mapping_to_genome_coords[1]} + 0;
 
         if ($numa == 1 && $numb == 0) { # unique forward match, no reverse
-            print RESULTS "$read_mapping_to_genome_coords[0][0]\n";
+            print $unique_fh "$read_mapping_to_genome_coords[0][0]\n";
         }
         if ($numa > 1 && $numb == 0) {
+            
             $unique = 0;
             if ($one_dir_only_candidate[0] =~ /\S/) {
-                print RESULTS "$one_dir_only_candidate[0]\n";
+                print $unique_fh "$one_dir_only_candidate[0]\n";
                 $unique = 1;
             }
             undef @spans;
@@ -653,15 +651,17 @@ sub main {
                     $nchrs++;
                     $CHR = $ky;
                 }
-                $str = intersect(\@spans, $seq_temp);
+                $self->logger->debug("Intersecting spans @spans for $seq_count");
+                $str = $self->intersect(\@spans, $seq_temp);
+                $self->logger->debug("Intersection is $str");
                 if ($str ne "0\t" && $nchrs == 1) {
                     $str =~ s/^(\d+)\t/$CHR\t/;
                     $size = $1;
                     if ($size >= $min_size_intersection_allowed) {
                         @ss = split(/\t/,$str);
                         $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                        print RESULTS "seq.$seq_count";
-                        print RESULTS "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                        print $unique_fh "seq.$seq_count";
+                        print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                         $unique = 1;
                     }
                 }
@@ -670,18 +670,18 @@ sub main {
             undef @ss;
             undef @spans;
             if ($unique == 0) {
-                for ($i=0; $i<$numa; $i++) {
-                    print RESULTS2 "$read_mapping_to_genome_coords[0][$i]\n";
+                for my $mapping (@{ $read_mapping_to_genome_coords[0] }) {
+                    print $nu_fh "$mapping\n";
                 }
             }
         }
         if ($numb == 1 && $numa == 0) { # unique reverse match, no forward
-            print RESULTS "$read_mapping_to_genome_coords[1][0]\n";
+            print $unique_fh "$read_mapping_to_genome_coords[1][0]\n";
         }
         if ($numa == 0 && $numb > 1) {
             $unique = 0;
             if ($one_dir_only_candidate[1] =~ /\S/) {
-                print RESULTS "$one_dir_only_candidate[1]\n";
+                print $unique_fh "$one_dir_only_candidate[1]\n";
                 $unique = 1;
             }
             undef @spans;
@@ -705,15 +705,15 @@ sub main {
                     $nchrs++;
                     $CHR = $ky;
                 }
-                $str = intersect(\@spans, $seq_temp);
+                $str = $self->intersect(\@spans, $seq_temp);
                 if ($str ne "0\t" && $nchrs == 1) {
                     $str =~ s/^(\d+)\t/$CHR\t/;
                     $size = $1;
                     if ($size >= $min_size_intersection_allowed) {
                         @ss = split(/\t/,$str);
                         $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                        print RESULTS "seq.$seq_count";
-                        print RESULTS "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                        print $unique_fh "seq.$seq_count";
+                        print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                         $unique = 1;
                     }
                 }
@@ -723,7 +723,7 @@ sub main {
             undef @spans;
             if ($unique == 0) {
                 for ($i=0; $i<$numb; $i++) {
-                    print RESULTS2 "$read_mapping_to_genome_coords[1][$i]\n";
+                    print $nu_fh "$read_mapping_to_genome_coords[1][$i]\n";
                 }
             }
         }
@@ -802,10 +802,10 @@ sub main {
                     }
                     if ($achr eq $bchr && $proceedflag == 1) {
                         $ostrand = $astrand; # "o" for "original"
-                        if ($astrand eq "+" && $bstrand eq "+" && ($aend < $bstart-1) && ($bstart - $aend <= $max_distance_between_paired_reads)) {
+                        if ($astrand eq "+" && $bstrand eq "+" && ($aend < $bstart-1) && ($bstart - $aend <= $self->{max_pair_dist})) {
                             $consistent_mappers{"$read_mapping_to_genome_coords[0][$i]\n$read_mapping_to_genome_coords[1][$j]"}++;
                         }
-                        if ($astrand eq "-" && $bstrand eq "-" && ($bend < $astart-1) && ($astart - $bend <= $max_distance_between_paired_reads)) {
+                        if ($astrand eq "-" && $bstrand eq "-" && ($bend < $astart-1) && ($astart - $bend <= $self->{max_pair_dist})) {
                             $consistent_mappers{"$read_mapping_to_genome_coords[0][$i]\n$read_mapping_to_genome_coords[1][$j]"}++;
                         }
                         $swaphack = "false";
@@ -1057,14 +1057,14 @@ sub main {
                         $seq_new = addJunctionsToSeq($a[3], $a[2]);
                         if (@A == 2 && $n == 0) {
                             $outstring = "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
-                            print RESULTS $outstring;
+                            print $unique_fh $outstring;
                         }
                         if (@A == 2 && $n == 1) {
                             $outstring = "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
-                            print RESULTS $outstring;
+                            print $unique_fh $outstring;
                         }
                         if (@A == 1) {
-                            print RESULTS "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
+                            print $unique_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
                         }
                     }
                 }
@@ -1115,16 +1115,16 @@ sub main {
                 if ($num_absingle == 0 && $num_absplit > 0 && $nchrs == 1) {
                     $firstseq1 =~ s/://g;
                     $firstseq2 =~ s/://g;
-                    $str1 = intersect(\@spans1, $firstseq1);
-                    $str2 = intersect(\@spans2, $firstseq2);
+                    $str1 = $self->intersect(\@spans1, $firstseq1);
+                    $str2 = $self->intersect(\@spans2, $firstseq2);
                     if ($str1 ne "0\t" && $str2 eq "0\t") {
                         $str1 =~ s/^(\d+)\t/$CHR\t/;
                         $size1 = $1;
                         if ($size1 >= $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str1);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print RESULTS "seq.$seq_count";
-                            print RESULTS "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh "seq.$seq_count";
+                            print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                     }
@@ -1134,8 +1134,8 @@ sub main {
                         if ($size2 >= $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str2);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print RESULTS "seq.$seq_count";
-                            print RESULTS "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh "seq.$seq_count";
+                            print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                     }
@@ -1147,15 +1147,15 @@ sub main {
                         if ($size1 >= $min_size_intersection_allowed && $size2 < $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str1);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print RESULTS "seq.$seq_count";
-                            print RESULTS "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh "seq.$seq_count";
+                            print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                         if ($size2 >= $min_size_intersection_allowed && $size1 < $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str2);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print RESULTS "seq.$seq_count";
-                            print RESULTS "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh "seq.$seq_count";
+                            print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                         if ($size1 >= $min_size_intersection_allowed && $size2 >= $min_size_intersection_allowed) {
@@ -1165,29 +1165,29 @@ sub main {
                             $str2 =~ /^[^\t]+\t(\d+)[^\t+]-(\d+)\t/;
                             $start2 = $1;
                             $end2 = $2;
-                            if ((($start2 - $end1 > 0) && ($start2 - $end1 < $max_distance_between_paired_reads)) || (($start1 - $end2 > 0) && ($start1 - $end2 < $max_distance_between_paired_reads))) {
+                            if ((($start2 - $end1 > 0) && ($start2 - $end1 < $self->{max_pair_dist})) || (($start1 - $end2 > 0) && ($start1 - $end2 < $self->{max_pair_dist}))) {
                                 @ss = split(/\t/,$str1);
                                 $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                print RESULTS "seq.$seq_count";
-                                print RESULTS "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                print $unique_fh "seq.$seq_count";
+                                print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                                 @ss = split(/\t/,$str2);
                                 $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                print RESULTS "seq.$seq_count";
-                                print RESULTS "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                print $unique_fh "seq.$seq_count";
+                                print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                                 $nointersection = 0;
                             }
                         }
                     }
                 }
                 if ($num_absingle > 0 && $num_absplit == 0 && $nchrs == 1) {
-                    $str = intersect(\@spans1, $firstseq);
+                    $str = $self->intersect(\@spans1, $firstseq);
                     if ($str ne "0\t") {
                         $str =~ s/^(\d+)\t/$CHR\t/;
                         $size = $1;
                         if ($size >= $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print RESULTS "seq.$seq_count\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh "seq.$seq_count\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                     }
@@ -1200,13 +1200,13 @@ sub main {
                             @a = split(/\t/,$A[$n]);
                             $seq_new = addJunctionsToSeq($a[3], $a[2]);
                             if (@A == 2 && $n == 0) {
-                                print RESULTS2 "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
+                                print $nu_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
                             }
                             if (@A == 2 && $n == 1) {
-                                print RESULTS2 "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
+                                print $nu_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
                             }
                             if (@A == 1) {
-                                print RESULTS2 "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
+                                print $nu_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
                             }
                         }
                     }
@@ -1226,8 +1226,7 @@ sub main {
         undef @read_mapping_to_genome_pairing_candidate;
     }
 
-    close(BLATHITS);
-    close(RESULTS);
+    close($unique_fh);
     #close(INSERTIONFILE);
     
     # seq 12 in s_5 is an intersting marginal case for uniqueness...
@@ -1236,17 +1235,6 @@ sub main {
 
 }
 
-sub getTotalSizeFromBlockSizes () {
-    ($blocks) = @_;
-    $blocks =~ s/\s*,*\s*$//;
-    $blocks =~ s/^\s*,*\s*//;
-    @BL = split(/,/, $blocks);
-    $totalsize = "";
-    for ($bl=0; $bl<@BL; $bl++) {
-	$totalsize = $totalsize + $BL[$bl];
-    }
-    return $totalsize;
-}
 
 sub getsequence {
     ($blocksizes, $qstarts, $strand, $seq) = @_;
@@ -1305,7 +1293,7 @@ sub getsequence {
 }
 
 sub intersect () {
-    ($spans_ref, $seq) = @_;
+    ($self, $spans_ref, $seq) = @_;
 
     @spans = @{$spans_ref};
     $num_i = @spans;
@@ -1344,7 +1332,7 @@ sub intersect () {
 	    }
 	}
 	$prevkey = $key_i;
-    }
+    }    
     if ($flag_i == 1) {
 	if ($spanlength > $maxspanlength) {
 	    $maxspanlength = $spanlength;
@@ -1352,6 +1340,8 @@ sub intersect () {
 	    $maxspan_end = $prevkey;
 	}
     }
+    $self->logger->debug("Max span length is $maxspanlength");
+
     if ($maxspanlength > 0) {
 	@a_i = split(/, /,$spans[0]);
 	@b_i = split(/-/,$a_i[0]);
@@ -1428,3 +1418,17 @@ sub intersect () {
     }
 }
 
+__END__
+
+=head1 NAME
+
+RUM::Script::ParseBlatOut - Parse output of blat
+
+=head1 METHODS
+
+=over 4
+
+=item is_blat_file_sorted($blat_file)
+
+Return 'true' if the given filename appears to be sorted by location,
+otherwise 'false'.

@@ -3,6 +3,7 @@ package RUM::Script::Base;
 use strict;
 use warnings;
 
+use Carp;
 use Data::Dumper;
 use Scalar::Util qw(blessed);
 
@@ -32,6 +33,10 @@ sub option {
     my ($self, $name) = @_;
 
     return $self->{options}->{$name};
+}
+
+sub check_option {
+    my ($self, $name, $message);
 }
 
 1;

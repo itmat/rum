@@ -1,30 +1,26 @@
 package RUM::Script::SortRumByLocation;
 
 no warnings;
-
-use FindBin qw($Bin);
+use autodie;
 
 use Carp;
-use Getopt::Long;
 use RUM::Sort qw(by_chromosome);
 use RUM::Usage;
-use RUM::FileIterator qw(file_iterator sort_by_location merge_iterators);
+use RUM::RUMIO;
 use File::Copy qw(mv cp);
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
+
 $|=1;
 
 sub main {
-    GetOptions(
-        "output|o=s" => \(my $outfile),
-        "separate" => \(my $separate = 0),
-        "ram=s"    => \(my $ram = 6),
-        "max-chunk-size=s" => \(my $maxchunksize),
-        "allow-small-chunks" => \(my $allowsmallchunks = 0),
-        "name=s" => \(my $name),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+    my $self = __PACKAGE__->new;
+    $self->get_options(
+        "output|o=s"         => \(my $outfile),
+        "separate"           => \(my $separate = 0),
+        "ram=s"              => \(my $ram = 6),
+        "max-chunk-size=s"   => \(my $maxchunksize),
+        "allow-small-chunks" => \(my $allowsmallchunks = 0));
         
     my $infile = $ARGV[0] or RUM::Usage->bad(
         "Please specify an input file");
@@ -42,7 +38,6 @@ sub main {
     close(OUTFILE);
     
     my $maxchunksize_specified;
-    my $name;
 
     if (defined($ram)) {
         int($ram) > 0 or RUM::Usage->bad(
@@ -52,7 +47,7 @@ sub main {
     if (defined($maxchunksize)) {
         $maxchunksize_specified = 1;
         int($maxchunksize) > 0 or RUM::Usage->bad(
-            "--max-chunk-size must be a positive integer; you gave $ram");
+            "--max-chunk-size must be a positive integer; you gave $maxchunksize");
     }
     else {
         $maxchunksize = 9000000
@@ -88,7 +83,7 @@ sub main {
                    separate => $separate,
                    outfile => $outfile,
                    infile  => $infile);
-    my $chr_counts = doEverything(%options);
+    my $chr_counts = _do_everything(%options);
 
     my $size_input = -s $infile;
     my $size_output = -s $outfile;
@@ -96,9 +91,9 @@ sub main {
     my $clean = "false";
     for (my $i=0; $i<2; $i++) {
         if ($size_input != $size_output) {
-            $log->warn("Sorting \"$infile\":  failed, trying again.");
-            &doEverything(%options);
-            unlink($running_indicator_file);
+            $self->logger->warn("Sorting \"$infile\":  failed, trying again.");
+            &_do_everything(%options);
+            system "rm -f $running_indicator_file";
             $size_output = -s $outfile;
         } else {
             $i = 2;
@@ -111,40 +106,31 @@ sub main {
     }
 
     if ($clean eq "false") {
-        $log->error("While trying to sort \"$infile\": the size of the unsorted input ($size_input) and sorted output\nfiles ($size_output) are not equal.  I tried three times and it failed every\ntime.  Must be something strange about the input file");
+        $self->logger->error("While trying to sort \"$infile\": the size of the " .
+                    "unsorted input ($size_input) and sorted output files " .
+                    "($size_output) are not equal.  I tried three times and " .
+                    "it failed every time.  Must be something strange about " .
+                    "the input file");
     }
 
 }
 
-sub get_chromosome_counts {
+sub _get_chromosome_counts {
     use strict;
-    my ($infile) = @_;
-    open my $in, "<", $infile;
+    my ($filename) = @_;
+
+    my $in = RUM::RUMIO->new(-file => $filename)->aln_iterator->group_by(sub {$_[0]->is_mate($_[1])});
 
     my %counts;
 
-    my $num_prev = "0";
-    my $type_prev = "";
-    while (my $line = <$in>) {
-	chomp($line);
-	my @a = split(/\t/,$line);
-	$line =~ /^seq.(\d+)([^\d])/;
-	my $num = $1;
-	my $type = $2;
-	if ($num eq $num_prev && $type_prev eq "a" && $type eq "b") {
-	    $type_prev = $type;
-	    next;
-	}
-	if ($a[1] =~ /\S/) {
-	    $counts{$a[1]}++;
-	}
-	$num_prev = $num;
-	$type_prev = $type;
+    while (my $alns = $in->next_val) {
+        my $chr = $alns->next_val->chromosome;
+        $counts{$chr}++;
     }
     return %counts;
 }
 
-sub doEverything  {
+sub _do_everything  {
 
     use strict;
 
@@ -156,7 +142,7 @@ sub doEverything  {
 
     open(FINALOUT, ">", $outfile)
         or die "Can't open $outfile for writing: $!";
-    my %chr_counts = get_chromosome_counts($infile);
+    my %chr_counts = _get_chromosome_counts($infile);
 
 
     my (@CHR, %CHUNK);
@@ -226,7 +212,10 @@ sub doEverything  {
 	    open my $sorting_chunk_in, "<", $INFILE;
 
             # Open an iterator over the records in $sorting_chunk_in
-            my $it = file_iterator($sorting_chunk_in, separate => $separate);
+
+            my $grouper = $separate ? sub { undef } : \&RUM::Identifiable::is_mate;
+
+            my $it = RUM::RUMIO->new(-fh => $sorting_chunk_in)->group_by($grouper);
 	    my $FLAG = 0;
 	    my $chunk_num = 0;
 
@@ -236,9 +225,8 @@ sub doEverything  {
                 my $suffix = $chunk_num == 1 ? 0 : 1;
                 my $tempfilename = $CHR[$cnt] . "_temp.$suffix";
                 open my $this_chunk_out, ">", $tempfilename;
-                my $num_read = 
-                    sort_by_location($it, $this_chunk_out, 
-                                     max => $max_count_at_once);
+                my $num_read = RUM::RUMIO->sort_by_location(
+                    $it, $this_chunk_out, max => $max_count_at_once);
                 close($this_chunk_out);
                 unless ($num_read) {
                     $FLAG = 1;
@@ -250,17 +238,16 @@ sub doEverything  {
 
                     my @tempfiles = map "$CHR[$cnt]_temp.$_", (0,1,2);
 
-                    open my $in1, "<", $tempfiles[0]
-                        or croak "Can't open $tempfiles[0] for reading: $!";
-                    open my $in2, "<", $tempfiles[1]
-                        or croak "Can't open $tempfiles[1] for reading: $!";
-                    open my $temp_merged_out, ">", $tempfiles[2]
-                        or croak "Can't open $tempfiles[2] for writing: $!";
+                    open my $in1, "<", $tempfiles[0];
+                    open my $in2, "<", $tempfiles[1];
+                    open my $temp_merged_out, ">", $tempfiles[2];
 
-                    my @iters = (
-                        file_iterator($in1, separate => $separate),
-                        file_iterator($in2, separate => $separate));
-		    merge_iterators($temp_merged_out, @iters);
+                    my @iters = map { RUM::RUMIO->new(-file => $_) } @tempfiles;
+                    for (@iters) {
+                        $_ = $_->peekable;
+                    }
+
+		    RUM::RUMIO->merge_iterators($temp_merged_out, @iters);
                     close($temp_merged_out);
                     
                     mv $tempfiles[2], $tempfiles[0]
@@ -274,9 +261,9 @@ sub doEverything  {
 	    open(FINALOUT, ">>$outfile");
 	    unlink($tempfilename);
 	    $tempfilename = $CHR[$cnt] . "_temp.1";
-	    unlink($tempfilename);
+	    system "rm -f $tempfilename";
 	    $tempfilename = $CHR[$cnt] . "_temp.2";
-	    unlink($tempfilename);
+	    system "rm -f $tempfilename";
 	    $cnt++;
 	    $chunk++;
 	    next;
@@ -292,9 +279,9 @@ sub doEverything  {
 	    $cnt++;
 	}
 	my $INFILE = $infile . "_sorting_tempfile." . $chunk;
-	open(my $sorting_file_in, "<", $INFILE);
-        sort_by_location($sorting_file_in, *FINALOUT, 
-                         separate => $separate);
+        my $grouper = $separate ? sub { undef } : \&RUM::Identifiable::is_mate;
+        my $iter = RUM::RUMIO->new(-file => $INFILE)->group_by($grouper);
+        RUM::RUMIO->sort_by_location($iter, *FINALOUT);
 	$chunk++;
     }
     close(FINALOUT);
@@ -302,32 +289,36 @@ sub doEverything  {
     for ($chunk=0;$chunk<$numchunks;$chunk++) {
 	unlink($infile . "_sorting_tempfile." . $chunk);
     }
-    #$timeend = time();
-    #$timelapse = $timeend - $timestart;
-    #if($timelapse < 60) {
-    #    if($timelapse == 1) {
-    #	print "\nIt took one second to sort '$infile'.\n\n";
-    #    } else {
-    #	print "\nIt took $timelapse seconds to sort '$infile'.\n\n";
-    #    }
-    #}
-    #else {
-    #    $sec = $timelapse % 60;
-    #    $min = int($timelapse / 60);
-    #    if($min > 1 && $sec > 1) {
-    #	print "\nIt took $min minutes, $sec seconds to sort '$infile'.\n\n";
-    #    }
-    #    if($min == 1 && $sec > 1) {
-    #	print "\nIt took $min minute, $sec seconds to sort '$infile'.\n\n";
-    #    }
-    #    if($min > 1 && $sec == 1) {
-    #	print "\nIt took $min minutes, $sec second to sort '$infile'.\n\n";
-    #    }
-    #    if($min == 1 && $sec == 1) {
-    #	print "\nIt took $min minute, $sec second to sort '$infile'.\n\n";
-    #    }
-    #}
 
     return \%chr_counts;
 }
 
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::SortRumByLocation - Sort a RUM file by location
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::SortRumByLocation->main
+
+Run the script.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+=cut

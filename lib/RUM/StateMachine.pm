@@ -126,7 +126,8 @@ Return the list of all instructions
 =cut
 
 sub instructions {
-    return sort keys %{ shift->{transitions} };
+    my @res = sort keys %{ shift->{transitions} };
+    return @res;
 }
 
 =item flags

@@ -2,17 +2,20 @@ package RUM::Common;
 
 use strict;
 no warnings;
+use autodie;
 
 use RUM::Logging;
 
 our $log = RUM::Logging->get_logger;
 
+use List::Util qw(min);
 use Carp;
 use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
                     reversecomplement format_large_int spansTotalLength
-                    reversesignal read_chunk_id_mapping is_fasta is_fastq head
-                    num_digits shell make_paths is_on_cluster);
+                    reversesignal is_fasta is_fastq head
+                    num_digits shell is_on_cluster min_overlap_for_read_length
+                    min_overlap_for_seqs);
 
 =head1 FUNCTIONS
 
@@ -84,7 +87,7 @@ sub addJunctionsToSeq {
 Return the lower case roman numeral for N.
 
 =cut
-sub roman($) {
+sub roman {
     return lc(Roman(shift()));
 }
 
@@ -93,7 +96,7 @@ sub roman($) {
 Return a true value if N is a roman numeral, false otherwise.
 
 =cut
-sub isroman($) {
+sub isroman {
     my $arg = shift;
     return $arg ne '' and
         $arg =~ /^(?: M{0,3})
@@ -107,13 +110,13 @@ sub isroman($) {
 Return the arabic number for the given roman numeral.
 
 =cut
-sub arabic($) {
+sub arabic {
     my $arg = shift;
     my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
     my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
     my  @figure = reverse sort keys %roman_digit;
     $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    isroman $arg or return undef;
+    isroman $arg or return;
     my ($last_digit) = 1000;
     my $arabic=0;
     foreach (split(//, uc $arg)) {
@@ -129,13 +132,13 @@ sub arabic($) {
 Return the roman numeral for N.
 
 =cut
-sub Roman($) {
+sub Roman {
     my $arg = shift;
     my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
     my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
     my @figure = reverse sort keys %roman_digit;
     $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-    0 < $arg and $arg < 4000 or return undef;
+    0 < $arg and $arg < 4000 or return;
     my $roman = "";
     my $x;
     foreach (@figure) {
@@ -277,28 +280,6 @@ sub reversesignal {
     return $return_string;
 }
 
-=item read_chunk_id_mapping($filename)
-
-If $filename is defined and exists, reads a chunk id mapping from it
-and returns it as a hash, otherwise returns undef.
-
-=cut
-
-sub read_chunk_id_mapping {
-    my ($chunk_ids_file) = @_;
-    my %chunk_ids_mapping;
-    return unless $chunk_ids_file && -e $chunk_ids_file;
-
-    open my $infile, "$chunk_ids_file"
-        or die "Error: cannot open '$chunk_ids_file' for reading.\n\n";
-    while (defined(local $_ = <$infile>)) {
-        chomp;
-        my ($old, $new) = split /\t/;
-        $chunk_ids_mapping{$old} = $new unless $old eq 'chr_name';
-    }
-    return %chunk_ids_mapping;
-}
-
 =item head($filehandle, $n)
 
 Return the first $n lines from the given $filehandle as a list. If
@@ -426,8 +407,23 @@ sub is_executable_in_path {
     my ($bin_name) = @_;
     local $_ = `which $bin_name`;
     chomp;
-    return undef unless $_;
+    return unless $_;
     return -x;
+}
+
+sub min_overlap_for_read_length {
+    my ($read_length) = @_;
+    my $min_overlap = $read_length < 80 ? 35 : 45;
+    if ($min_overlap >= .8 * $read_length) {
+        $min_overlap = int(.6 * $read_length);
+    }
+    return $min_overlap;
+}
+
+sub min_overlap_for_seqs {
+    my ($x, $y) = @_;
+    my $len = min(length($x), length($y));
+    return min_overlap_for_read_length($len);
 }
 
 1;

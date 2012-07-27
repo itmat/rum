@@ -1,5 +1,8 @@
 package RUM::Script::FinalCleanup;
 
+
+
+use strict;
 no warnings;
 
 use Getopt::Long;
@@ -8,10 +11,17 @@ use File::Temp qw(tempfile);
 use RUM::Usage;
 use RUM::Logging;
 use RUM::Common qw(roman Roman isroman arabic);
+use RUM::RUMIO;
 use RUM::Sort qw(cmpChrs);
 
 our $log = RUM::Logging->get_logger();
 $|=1;
+
+our $match_length_cutoff;
+our %CHR2SEQ;
+our %samheader;
+our %chrsize;
+our $MAX_CHR_SIZE = 1_000_000_000;
 
 sub main {
 
@@ -22,7 +32,7 @@ sub main {
         "non-unique-out=s" => \(my $non_unique_out),
         "sam-header-out=s"   => \(my $sam_header_out),
         "genome=s" => \(my $genome),
-        "match-length-cutoff=s" => \(my $match_length_cutoff = 0),
+        "match-length-cutoff=s" => \($match_length_cutoff = 0),
         "faok"  => \(my $faok),
         "help|h"    => sub { RUM::Usage->help },
         "verbose|v" => sub { $log->more_logging(1) },
@@ -53,8 +63,8 @@ sub main {
                                  DIR => $dir);
 
         open(INFILE, $genome);
-        $flag = 0;
-        while ($line = <INFILE>) {
+        my $flag = 0;
+        while (my $line = <INFILE>) {
             if ($line =~ />/) {
                 if ($flag == 0) {
                     print $fh $line;
@@ -83,30 +93,30 @@ sub main {
     open(OUTFILE, ">$non_unique_out");
     close(OUTFILE);
 
-    $FLAG = 0;
+    my $FLAG = 0;
 
     $log->info("Cleaning mappers");
     while ($FLAG == 0) {
         undef %CHR2SEQ;
-        $sizeflag = 0;
-        $totalsize = 0;
+        my $sizeflag = 0;
+        my $totalsize = 0;
         while ($sizeflag == 0) {
-            $line = <GENOMESEQ>;
+            my $line = <GENOMESEQ>;
             if ($line eq '') {
                 $FLAG = 1;
                 $sizeflag = 1;
             } else {
                 chomp($line);
                 $line =~ />(.*)/;
-                $chr = $1;
+                my $chr = $1;
                 $log->debug("Working on chromosome $chr");
                 $chr =~ s/:[^:]*$//;
-                $ref_seq = <GENOMESEQ>;
+                my $ref_seq = <GENOMESEQ>;
                 chomp($ref_seq);
                 $chrsize{$chr} = length($ref_seq);
                 $CHR2SEQ{$chr} = $ref_seq;
                 $totalsize = $totalsize + length($ref_seq);
-                if ($totalsize > 1000000000) { # don't store more than 1 gb of sequence in memory at once...
+                if ($totalsize > $MAX_CHR_SIZE) { # don't store more than 1 gb of sequence in memory at once...
                     $sizeflag = 1;
                 }
             }
@@ -118,257 +128,253 @@ sub main {
 
     $log->info("Writing sam header");
     open(SAMHEADER, ">$sam_header_out");
-    foreach $chr (sort {cmpChrs($a,$b)} keys %samheader) {
-        $outstr = $samheader{$chr};
-        print SAMHEADER $outstr;
+    for my $chr (sort {cmpChrs($a,$b)} keys %samheader) {
+        print SAMHEADER $samheader{$chr};
     }
     close(SAMHEADER);
 
 }
 
-sub clean () {
-    ($infilename, $outfilename) = @_;
-    open(INFILE, $infilename);
-    open(OUTFILE, ">>$outfilename");
-    while ($line = <INFILE>) {
-	$flag = 0;
-	chomp($line);
-	@a = split(/\t/,$line);
-	$strand = $a[4];
-	$chr = $a[1];
-	@b2 = split(/, /,$a[2]);
-	$a[3] =~ s/://g;
-	$seq_temp = $a[3];
+sub clean {
+    my ($infilename, $outfilename) = @_;
+    my $iter = RUM::RUMIO->new(-file => $infilename,
+                               strand_last => 1);
+
+    open my $outfile, ">>", $outfilename;
+    
+    my $out = RUM::RUMIO->new(-fh => $outfile);
+
+    while (my $aln = $iter->next_val) {
+        my $line = $aln->raw;
+	my $chr = $aln->chromosome;
+        my $seq_in = $aln->seq;
+	$seq_in =~ s/://g;
+
+	my $seq_temp = $seq_in;
 	$seq_temp =~ s/\+//g;
+
 	if (length($seq_temp) < $match_length_cutoff) {
 	    next;
 	}
-	for ($i=0; $i<@b2; $i++) {
-	    @c2 = split(/-/,$b2[$i]);
-	    if ($c2[1] < $c2[0]) {
-		$flag = 1;
+        my $span_str = RUM::RUMIO->format_locs($aln);
+
+        local $_;
+
+        my $has_bad_span;
+
+	for my $span (@{ $aln->locs }) {
+	    my ($start, $end) = @{ $span };
+	    if ($end < $start) {
+		$has_bad_span = 1;
 	    }
 	}
-        if (defined $CHR2SEQ{$chr} && !(defined $samheader{$chr})) {
-	    $CS = $chrsize{$chr};
+        if (defined($CHR2SEQ{$chr}) && !defined($samheader{$chr})) {
+	    my $CS = $chrsize{$chr};
 	    $samheader{$chr} = "\@SQ\tSN:$chr\tLN:$CS\n";
 	}
-	if (defined $CHR2SEQ{$chr} && $flag == 0) {
-	    if ($line =~ /[^\t]\+[^\t]/) { # insertions will break things, have to fix this, for now not just cleaning these lines
-		@LINE = split(/\t/,$line);
-		print OUTFILE "$LINE[0]\t$LINE[1]\t$LINE[2]\t$LINE[4]\t$LINE[3]\n";
-	    } else {
-		@b = split(/, /, $a[2]);
-		$SEQ = "";
-		for ($i=0; $i<@b; $i++) {
- 		    @c = split(/-/,$b[$i]);
-		    $len = $c[1] - $c[0] + 1;
-		    $start = $c[0] - 1;
-		    $SEQ = $SEQ . substr($CHR2SEQ{$chr}, $start, $len);
+	if (defined $CHR2SEQ{$chr} && !$has_bad_span) {
+            # insertions will break things, have to fix this, for now
+            # not just cleaning these lines
+	    if ($seq_in =~ /\+/) {
+		$out->write_aln($aln);
+	    } 
+            else {
+		my $genome = "";
+		for my $span (@{ $aln->locs }) {
+ 		    my ($start, $end) = @{ $span };
+		    my $len = $end - $start + 1;
+                    $start--;
+		    $genome .= substr($CHR2SEQ{$chr}, $start, $len);
 		}
-		&trimleft($SEQ, $a[3], $a[2]) =~ /(.*)\t(.*)/;
-		$spans = $1;
-		$seq = $2;
-		$length1 = length($seq);
-		$length2 = length($SEQ);
-		for ($i=0; $i<$length2 - $length1; $i++) {
-		    $SEQ =~ s/^.//;
-		}
+                my ($spans, $seq) = trimleft($genome, $aln->seq, $span_str);
+
+                $genome = substr $genome, length($genome) - length($genome);
 		$seq =~ s/://g;
-		&trimright($SEQ, $seq, $spans) =~ /(.*)\t(.*)/;
-		$spans = $1;
-		$seq = $2;
+		my ($spans, $seq) = trimright($genome, $seq, $spans);
+                $spans = [ map { [ split /-/ ] } split(/, /, $spans) ];
 		$seq = addJunctionsToSeq($seq, $spans);
 
 		# should fix the following so it doesn't repeat the operation unnecessarily
 		# while processing the RUM_NU file
 		$seq_temp = $seq;
-		$seq_temp =~ s/://g;
-		$seq_temp =~ s/\+//g;
+		$seq_temp =~ s/[:+]//g;
 		if (length($seq_temp) >= $match_length_cutoff) {
-		    print OUTFILE "$a[0]\t$chr\t$spans\t$strand\t$seq\n";
+
+                    my $new_aln = $aln->copy(
+                        locs => $spans,
+                        seq => $seq
+                    );
+
+                    $out->write_aln($new_aln);
 		}
 	    }
 	}
     }
-    close(INFILE);
-    close(OUTFILE);
+
 }
 
-sub removefirst () {
-    ($n_1, $spans_1, $seq_1) = @_;
+sub removefirst {
+    my ($n_1, $spans_1, $seq_1) = @_;
     $seq_1 =~ s/://g;
-    @a_1 = split(/, /, $spans_1);
-    $length_1 = 0;
-    @b_1 = split(/-/,$a_1[0]);
-    $length_1 = $b_1[1] - $b_1[0] + 1;
+    my @spans = split(/, /, $spans_1);
+    my ($start, $end) = split /-/, $spans[0];
+    my $length_1 = $end - $start + 1;
+
     if ($length_1 <= $n_1) {
-	$m_1 = $n_1 - $length_1;
-	$spans2_1 = $spans_1;
+	my $m_1 = $n_1 - $length_1;
+	my $spans2_1 = $spans_1;
 	$spans2_1 =~ s/^\d+-\d+, //;
-	for ($j_1=0; $j_1<$length_1; $j_1++) {
+	for (my $j_1=0; $j_1<$length_1; $j_1++) {
 	    $seq_1 =~ s/^.//;
 	}
-	$return = removefirst($m_1, $spans2_1, $seq_1);
-	return $return;
+	return removefirst($m_1, $spans2_1, $seq_1);
     } else {
-	for ($j_1=0; $j_1<$n_1; $j_1++) {
+	for (my $j_1=0; $j_1<$n_1; $j_1++) {
 	    $seq_1 =~ s/^.//;
 	}
 	$spans_1 =~ /^(\d+)-/;
-	$start_1 = $1 + $n_1;
+	my $start_1 = $1 + $n_1;
 	$spans_1 =~ s/^(\d+)-/$start_1-/;
-	return $spans_1 . "\t" . $seq_1;
+	return ($spans_1, $seq_1);
     }
 }
 
-sub removelast () {
-    ($n_1, $spans_1, $seq_1) = @_;
-    $seq_1 =~ s/://g;
-    @a_1 = split(/, /, $spans_1);
-    @b_1 = split(/-/,$a_1[@a_1-1]);
-    $length_1 = $b_1[1] - $b_1[0] + 1;
-    if ($length_1 <= $n_1) {
-	$m_1 = $n_1 - $length_1;
-	$spans2_1 = $spans_1;
-	$spans2_1 =~ s/, \d+-\d+$//;
-	for ($j_1=0; $j_1<$length_1; $j_1++) {
-	    $seq_1 =~ s/.$//;
-	}
-	$return = removelast($m_1, $spans2_1, $seq_1);
-	return $return;
+sub removelast {
+    my ($n, $spans, $seq) = @_;
+    $seq =~ s/://g;
+    my @spans = split /, /, $spans;
+    my ($start, $end) = split /-/, $spans[$#spans];
+
+    my $length_1 = $end - $start + 1;
+
+    if ($length_1 <= $n) {
+	$n -= $length_1;
+	$spans =~ s/, \d+-\d+$//;
+        $seq = substr $seq, 0, length($seq) - $length_1;
+	return removelast($n, $spans, $seq);
     } else {
-	for ($j_1=0; $j_1<$n_1; $j_1++) {
-	    $seq_1 =~ s/.$//;
-	}
-	$spans_1 =~ /-(\d+)$/;
-	$end_1 = $1 - $n_1;
-	$spans_1 =~ s/-(\d+)$/-$end_1/;
-	return $spans_1 . "\t" . $seq_1;
+        $seq = substr $seq, 0, length($seq) - $n;
+	$spans =~ /-(\d+)$/;
+	my $end_1 = $1 - $n;
+	$spans =~ s/-(\d+)$/-$end_1/;
+	return ($spans, $seq);
     }
 }
 
-sub trimleft () {
-    ($seq1_2, $seq2_2, $spans_2) = @_;
+sub trimleft {
+    my ($genome, $read, $spans) = @_;
     # seq2_2 is the one that gets modified and returned
 
-    $seq1_2 =~ s/://g;
-    $seq1_2 =~ /^(.)(.)/;
-    $genomebase_2[0] = $1;
-    $genomebase_2[1] = $2;
-    $seq2_2 =~ s/://g;
-    $seq2_2 =~ /^(.)(.)/;
-    $readbase_2[0] = $1;
-    $readbase_2[1] = $2;
-    $mismatch_count_2 = 0;
-    for ($j_2=0; $j_2<2; $j_2++) {
-	if ($genomebase_2[$j_2] eq $readbase_2[$j_2]) {
-	    $equal_2[$j_2] = 1;
-	} else {
-	    $equal_2[$j_2] = 0;
-	    $mismatch_count_2++;
-	}
+    $genome =~ s/://g;
+    $genome =~ /^(.)(.)/;
+    my @genomebase = ($1, $2);
+
+    $read =~ s/://g;
+    $read =~ /^(.)(.)/;
+    my @readbase = ($1, $2);
+
+    my $trim_len = ($genomebase[1] ne $readbase[1] ? 2 :
+                    $genomebase[0] ne $readbase[0] ? 1 :
+                    0);
+
+    if ($trim_len) {
+	my ($spans_new_2, $seq2_new_2) = removefirst($trim_len, $spans, $read);
+	return trimleft(substr($genome, $trim_len), $seq2_new_2, $spans_new_2);
     }
-    if ($mismatch_count_2 == 0) {
-	return $spans_2 . "\t" . $seq2_2;
-    }
-    if ($mismatch_count_2 == 1 && $equal_2[0] == 0) {
-	&removefirst(1, $spans_2, $seq2_2) =~ /^(.*)\t(.*)/;
-	$spans_new_2 = $1;
-	$seq2_new_2 = $2;
-	$seq1_2 =~ s/^.//;
-	$return = &trimleft($seq1_2, $seq2_new_2, $spans_new_2);
-	return $return;
-    }
-    if ($equal_2[1] == 0 || $mismatch_count_2 == 2) {
-	&removefirst(2, $spans_2, $seq2_2) =~ /^(.*)\t(.*)/;
-	$spans_new_2 = $1;
-	$seq2_new_2 = $2;
-	$seq1_2 =~ s/^..//;
-	$return = &trimleft($seq1_2, $seq2_new_2, $spans_new_2);
-	return $return;
+    else {
+        return ($spans, $read);
     }
 }
 
-sub trimright () {
-    ($seq1_2, $seq2_2, $spans_2) = @_;
+sub trimright {
+    my ($genome, $read, $spans) = @_;
     # seq2_2 is the one that gets modified and returned
 
-    $seq1_2 =~ s/://g;
-    $seq1_2 =~ /(.)(.)$/;
-    $genomebase_2[0] = $2;
-    $genomebase_2[1] = $1;
-    $seq2_2 =~ s/://g;
-    $seq2_2 =~ /(.)(.)$/;
-    $readbase_2[0] = $2;
-    $readbase_2[1] = $1;
-    $mismatch_count_2 = 0;
+    $genome =~ s/://g;
+    $genome =~ /(.)(.)$/;
+    my @genomebase = ($2, $1);
 
-    for ($j_2=0; $j_2<2; $j_2++) {
-	if ($genomebase_2[$j_2] eq $readbase_2[$j_2]) {
-	    $equal_2[$j_2] = 1;
-	} else {
-	    $equal_2[$j_2] = 0;
-	    $mismatch_count_2++;
-	}
+    $read =~ s/://g;
+    $read =~ /(.)(.)$/;
+    my @readbase = ($2, $1);
+
+    my $trim_len = ($genomebase[1] ne $readbase[1] ? 2 :
+                    $genomebase[0] ne $readbase[0] ? 1 :
+                    0);
+
+    if ($trim_len) {
+	my ($spans_new_2, $seq2_new_2) = removelast($trim_len, $spans, $read);
+        my $new_len = length($genome) - $trim_len;
+	return trimright(substr($genome, 0, $new_len), $seq2_new_2, $spans_new_2);
     }
-    if ($mismatch_count_2 == 0) {
-	return $spans_2 . "\t" . $seq2_2;
-    }
-    if ($mismatch_count_2 == 1 && $equal_2[0] == 0) {
-	&removelast(1, $spans_2, $seq2_2) =~ /(.*)\t(.*)$/;
-	$spans_new_2 = $1;
-	$seq2_new_2 = $2;
-	$seq1_2 =~ s/.$//;
-	$return = &trimright($seq1_2, $seq2_new_2, $spans_new_2);
-	return $return;
-    }
-    if ($equal_2[1] == 0 || $mismatch_count_2 == 2) {
-	&removelast(2, $spans_2, $seq2_2) =~ /(.*)\t(.*)$/;
-	$spans_new_2 = $1;
-	$seq2_new_2 = $2;
-	$seq1_2 =~ s/..$//;
-	$return = &trimright($seq1_2, $seq2_new_2, $spans_new_2);
-	return $return;
+    else {
+        return ($spans, $read);
     }
 }
 
-sub addJunctionsToSeq () {
-    ($seq_in, $spans_in) = @_;
-    @s1 = split(//,$seq_in);
-    @b1 = split(/, /,$spans_in);
-    $seq_out = "";
-    $place = 0;
-    for ($j1=0; $j1<@b1; $j1++) {
-	@c1 = split(/-/,$b1[$j1]);
-	$len1 = $c1[1] - $c1[0] + 1;
-	if ($seq_out =~ /\S/) {
-	    $seq_out = $seq_out . ":";
+sub addJunctionsToSeq {
+    my ($seq_in, $spans_in) = @_;
+    my @spans = @{ $spans_in };
+    my $seq_out = "";
+    my $place = 0;
+
+    for my $span (@spans) {
+
+        my ($start, $end) = @$span;
+	my $len = $end - $start + 1;
+	if ($seq_out) {
+            $seq_out .= ":";
 	}
-	for ($k1=0; $k1<$len1; $k1++) {
-	    $seq_out = $seq_out . $s1[$place];
-	    $place++;
-	}
+        $seq_out .= substr $seq_in, $place, $len;
+        $place += $len;
     }
     return $seq_out;
 }
 
-sub countmismatches () {
-    ($seq1m, $seq2m) = @_;
-    # seq2m is the "read"
+1;
 
-    $seq1m =~ s/://g;
-    $seq2m =~ s/://g;
-    $seq2m =~ s/\+[^+]\+//g;
 
-    @C1 = split(//,$seq1m);
-    @C2 = split(//,$seq2m);
-    $NUM=0;
-    for ($k=0; $k<@C1; $k++) {
-	if ($C1[$k] ne $C2[$k]) {
-	    $NUM++;
-	}
-    }
-    return $NUM;
-}
+__END__
 
+=head1 NAME
+
+RUM::FinalCleanup - Clean up mappings
+
+=head1 SUBROUTINES
+
+=over 4
+
+=item clean($in, $out)
+
+Clean all the reads read from the file called $in and append them to
+the file called $out.
+
+=item trimleft($genome, $read, $spans)
+
+=item trimright($genome, $read, $spans)
+
+Trim any mismatching characters off the left or right end of the
+alignment. Return a list consisting of the resulting spans (as a
+string) and modified read sequence.
+
+=cut
+
+=item removefirst($n, $spans, $seq)
+
+=item removelast($n, $spans, $seq)
+
+Remove the first or last $n bases from the given $seq, adjusting
+$spans accordingly. Note that this might cause a span to get deleted
+if it is shorter than $n.
+
+=item addJunctionsToSeq($seq, $spans)
+
+Insert ':' into $seq at the points between adjacent spans.
+
+=cut
+
+=item main
+
+The main program.
+
+=back

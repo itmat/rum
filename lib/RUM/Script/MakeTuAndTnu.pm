@@ -1,14 +1,79 @@
 package RUM::Script::MakeTuAndTnu;
 
+use autodie;
 no warnings;
 
 use RUM::Logging;
 use RUM::Usage;
+use RUM::BowtieIO;
+use RUM::RUMIO;
 use Getopt::Long;
 
 $|=1;
 
 our $log = RUM::Logging->get_logger();
+
+sub read_annot_file {
+    my ($annot_fh) = @_;
+    $log->info("Reading gene annotation file");
+    while ($line = <$annot_fh>) {
+        chomp($line);
+        @a = split(/\t/,$line);
+        @ids = split(/::::/,$a[7]);
+        for ($i=0;$i<@ids;$i++) {
+            $ids[$i] =~ s/\([^\(]+$//;
+            $geneID2coords{$ids[$i]} = $line;
+        }
+    }
+    return %geneID2coords;
+    
+}
+
+sub mapping_to_aln {
+    my $mapping = shift;
+    my $readid = shift || "junk";
+    my ($chr, $locs, $strand, $seq) =  split /\t/, $mapping;
+    return RUM::Alignment->new(
+        readid => $readid,
+        chr => $chr,
+        locs => RUM::RUMIO->parse_locs($locs),
+        seq => $seq,
+        strand => $strand);
+}
+
+sub write_mapping_with_new_id_and_junctions {
+    my ($io, $mapping, $readid) = @_;
+    my ($chr, $locs, $strand, $seq) =  split /\t/, $mapping;
+    my $aln =  mapping_to_aln($mapping, $readid);
+    $io->write_aln(aln_with_junctions($aln));
+}
+
+sub make_mapping_with_new_id_and_junctions {
+    my ($mapping, $readid) = @_;
+    my ($chr, $locs, $strand, $seq) =  split /\t/, $mapping;
+    my $aln =  mapping_to_aln($mapping, $readid);
+    aln_with_junctions($aln);
+}
+
+sub aln_with_junctions {
+    my ($aln) = @_;
+    $aln->copy(seq => newAddJunctionsToSeq($aln));    
+}
+
+sub make_aln_with_intersection {
+    my (%options) = @_;
+    my        ($io, $locs, $seq, $readid, $strand, $chr) = 
+    @options{qw(io  locs    seq   readid   strand   chr)};
+
+    my $aln = RUM::Alignment->new(
+        readid => $readid,
+        chr    => $chr,
+        seq    => $seq,
+        strand => $strand,
+        locs   => RUM::RUMIO->parse_locs($locs));
+
+    return $aln->copy(seq => newAddJunctionsToSeq($aln));
+}
 
 sub main {
 
@@ -41,34 +106,17 @@ sub main {
 
     $paired_end = $paired ? "true" : "false";
 
-    open(INFILE, "<", $bowtie_output) 
-        or die "Can't open $bowtie_output for reading: $!";
-    $line = <INFILE>;
-    close(INFILE);
-    chomp($line);
-    @a = split(/\t/,$line);
+    open my $infile,    "<", $bowtie_output;
+    open my $annot_fh,  "<", $gene_annot_file;
+    open my $unique_fh, ">", $unique_out;
+    open my $nu_fh,     ">", $non_unique_out;
 
-    open(INFILE, "<", $bowtie_output) 
-        or die "Can't open $bowtie_output for reading: $!";
-    open(ANNOTFILE, "<", $gene_annot_file) 
-        or die "Can't open $gene_annot_file for reading: $!";
-
-    open(OUTFILE1, ">", $unique_out) 
-        or die "Can't open $unique_out for writing: $!";
-    open(OUTFILE2, ">", $non_unique_out) 
-        or die "Can't open $non_unique_out for writing: $!";
-
-    $log->info("Reading gene annotation file");
-    while ($line = <ANNOTFILE>) {
-        chomp($line);
-        @a = split(/\t/,$line);
-        @ids = split(/::::/,$a[7]);
-        for ($i=0;$i<@ids;$i++) {
-            $ids[$i] =~ s/\([^\(]+$//;
-            $geneID2coords{$ids[$i]} = $line;
-        }
-    }
-    close(ANNOTFILE);
+    my $unique_io = RUM::RUMIO->new(-fh => $unique_fh,
+                                    strand_last => 1);
+    my $nu_io = RUM::RUMIO->new(-fh => $nu_fh,
+                                strand_last => 1);
+    my $iter = RUM::BowtieIO->new(-fh => $infile);
+    my %geneID2coords = read_annot_file($annot_fh);
 
     $log->info("Parsing bowtie output");
 
@@ -76,53 +124,51 @@ sub main {
     # seq.1308a       -       mm9_NM_153168:chr9:123276058-123371782_+        3181    TAACTGTCTTGTGGCGGCCAAGCGTTCATAGCGACGTCTCTTTTTGATCCTTCGATGTCTGCTCTTCCTATCATTGTGAAGCAGAATTCACCAAGCGTTGGATTGTTC
 
     $linecnt = 0;
-    $seqnum = -1;
-    $numa=0;
-    $numb=0;
+
     $firstflag_a = 1;
     $firstflag_b = 1;
-    while (1 == 1) {
-        $line = <INFILE>;
+
+    my ($aln, $aln_prev);
+
+    while (1) {
+        $aln_prev = $aln;
+        $aln = $iter->next_val;
         $linecnt++;
-        chomp($line);
-        $seqnum_prev = $seqnum + 0;
-        $line =~ /^seq\.(\d+)(a|b)/;
-        $seqnum = $1;
-        $type = $2;
-        if ($seqnum != $seqnum_prev && $seqnum_prev >= 0) {
+
+        $type = $aln && $aln->is_forward ? 'a'
+              : $aln && $aln->is_reverse ? 'b' 
+              :                            '' ;
+
+        if ($aln_prev && ( ! $aln || $aln->order != $aln_prev->order)) {
             $firstflag_a = 1;
             $firstflag_b = 1;
-            undef %consistent_mappers;
+            my %consistent_mappers;
             # NOTE: the following three if's cover all cases we care about, because if numa > 1 and numb = 0, then that's
             # not really ambiguous, blat might resolve it
 
-            if ($numa == 1 && $numb == 0) { # unique forward match, no reverse, or single_end
-                $str = $a_read_mapping_to_genome[0];
-                @a = split(/\t/,$str);
-                $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                print OUTFILE1 "seq.$seqnum_prev";
-                print OUTFILE1 "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
+            if (@a_read_mapping_to_genome == 1 && ! @b_read_mapping_to_genome) { # unique forward match, no reverse, or single_end
+                my $aln = make_mapping_with_new_id_and_junctions($a_read_mapping_to_genome[0], $aln_prev->readid);
+                $unique_io->write_aln($aln->as_forward);
             }
-            if ($numb == 1 && $numa == 0) { # unique reverse match, no forward
-                $str = $b_read_mapping_to_genome[0];
-                @a = split(/\t/,$str);
-                $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                print OUTFILE1 "seq.$seqnum_prev";
-                print OUTFILE1 "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
+            if (@b_read_mapping_to_genome == 1 && ! @a_read_mapping_to_genome) { # unique reverse match, no forward
+                my $aln = make_mapping_with_new_id_and_junctions( $b_read_mapping_to_genome[0], $aln_prev->readid);
+                $unique_io->write_aln($aln->as_reverse);
             }
             if ($paired_end eq "false") { # write ambiguous mapper to NU file since there's no chance a later step
                 # will resolve this read, like it might if it was paired end
 		# BUT: first check for siginficant overlap, if so report the overlap to the "Unique" file,
                 #  otherwise report all alignments to the "NU" file
-                undef @spans_t;
-                undef %CHRS;
-                if ($numa > 1) { 
-                    for ($ii=0; $ii<@a_read_mapping_to_genome; $ii++) {
-                        $str = $a_read_mapping_to_genome[$ii];
-                        @a = split(/\t/,$str);
-                        $spans_t[$ii] = $a[1];
-                        $CHRS{$a[0]}++;
-                        $seq_temp = $a[3];
+                my @spans_t;
+                my %CHRS;
+                if (@a_read_mapping_to_genome > 1) {
+                    my $strand;
+                
+                    for my $str (@a_read_mapping_to_genome) {
+                        my $aln = mapping_to_aln($str);
+                        $strand = $aln->strand;
+                        push @spans_t, RUM::RUMIO->format_locs($aln);
+                        $CHRS{$aln->chromosome}++;
+                        $seq_temp = $aln->seq;
                     }
                     $nchrs = 0;
                     foreach $ky (keys %CHRS) {
@@ -131,34 +177,37 @@ sub main {
                     }
                     $str = intersect(\@spans_t, $seq_temp);
                     $uflag = 1;
-                    if ($str eq "NONE" || $nchrs > 1) {
+                    if ((!$str) || $nchrs > 1) {
                         $uflag = 0;
                     } else { # significant overlap, report to "Unique" file, if it's long enough
-                        @ss = split(/\t/,$str);
-                        if ($ss[0] >= $min_overlap_a) {
-                            $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print OUTFILE1 "seq.$seqnum_prev";
-                            print OUTFILE1 "a\t$CHR\t$ss[1]\t$seq_new\t$a[2]\n";
+                        my ($max_span_length, $new_spans, $new_seq) = split(/\t/,$str);
+                        if ($max_span_length >= $min_overlap_a) {
+                            my $aln = make_aln_with_intersection(
+                                readid => $aln_prev->readid,
+                                chr    => $CHR,
+                                seq    => $new_seq,
+                                strand => $strand,
+                                locs   => $new_spans
+                            )->as_forward;
+                            $unique_io->write_aln($aln);
                         } else {
                             $uflag = 0;
                         }
                     }
                     if ($uflag == 0) { # no significant overlap, report to "NU" file
-                        for ($ii=0; $ii<@a_read_mapping_to_genome; $ii++) {
-                            $str = $a_read_mapping_to_genome[$ii];
-                            @a = split(/\t/,$str);
-                            $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                            print OUTFILE2 "seq.$seqnum_prev";
-                            print OUTFILE2 "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
+                        for my $str (@a_read_mapping_to_genome) {
+                            my $aln = make_mapping_with_new_id_and_junctions($str, $aln_prev->readid);
+                            $nu_io->write_aln($aln->as_forward);
                         }
                     }
                 }
                 undef @spans_t;
-                undef %CHRS;
             }
 
-            if ($numa > 0 && $numb > 0 && $numa * $numb < 1000000) {
-                for ($i=0; $i<$numa; $i++) {
+            if (@a_read_mapping_to_genome &&
+                @b_read_mapping_to_genome &&
+                scalar(@a_read_mapping_to_genome) * scalar(@b_read_mapping_to_genome) < 1000000) {
+                for ($i=0; $i<@a_read_mapping_to_genome; $i++) {
                     @B1 = split(/\t/, $a_read_mapping_to_genome[$i]);
                     $achr = $B1[0];
                     $astrand = $B1[2];
@@ -180,7 +229,7 @@ sub main {
                     $astart_hold = $astart;
                     $aend = $aends[$e-1];
                     $aend_hold = $aend;
-                    for ($j=0; $j<$numb; $j++) {
+                    for ($j=0; $j<@b_read_mapping_to_genome; $j++) {
                         $astrand = $astrand_hold;
                         $astart = $astart_hold;
                         $aend = $aend_hold;
@@ -236,28 +285,11 @@ sub main {
                                 $bseq = $cseq;
                             }
                             if (($astrand eq "+") && ($bstrand eq "+") && ($aend == $bstart-1)) {
-                                $num_exons_merged = @astarts + @bstarts - 1;
-                                undef @mergedstarts;
-                                undef @mergedends;
-                                $H=0;
-                                for ($e=0; $e<@astarts; $e++) {
-                                    $mergedstarts[$H] = @astarts[$e];
-                                    $H++;
-                                }
-                                for ($e=1; $e<@bstarts; $e++) {
-                                    $mergedstarts[$H] = @bstarts[$e];
-                                    $H++;
-                                }
-                                $H=0;
-                                for ($e=0; $e<@aends-1; $e++) {
-                                    $mergedends[$H] = @aends[$e];
-                                    $H++;
-                                }
-                                for ($e=0; $e<@bends; $e++) {
-                                    $mergedends[$H] = @bends[$e];
-                                    $H++;
-                                }
-                                $num_exons_merged = $H;
+
+                                @mergedstarts = ( @astarts,                 @bstarts[1..$#bstarts] );
+                                @mergedends   = ( @aends[0 .. $#aends - 1], @bends                 );
+
+                                $num_exons_merged = @mergedends;
                                 $merged_length = $mergedends[0]-$mergedstarts[0]+1;
                                 $merged_spans = "$mergedstarts[0]-$mergedends[0]";
                                 for ($e=1; $e<$num_exons_merged; $e++) {
@@ -358,28 +390,23 @@ sub main {
                         }
                     }
                 }
-                $num_consistent_mappers=0;
-                foreach $key (keys %consistent_mappers) {
-                    $num_consistent_mappers++;
-                }
 
-                if ($num_consistent_mappers == 1) {
+                if (keys(%consistent_mappers) == 1) {
                     foreach $key (keys %consistent_mappers) {
-                        @A = split(/\n/,$key);
-                        for ($n=0; $n<@A; $n++) {
-                            @a = split(/\t/,$A[$n]);
-                            $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                            if (@A == 2 && $n == 0) {
-                                print OUTFILE1 "seq.$seqnum_prev";
-                                print OUTFILE1 "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                            }
-                            if (@A == 2 && $n == 1) {
-                                print OUTFILE1 "seq.$seqnum_prev";
-                                print OUTFILE1 "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                            }
-                            if (@A == 1) {
-                                print OUTFILE1 "seq.$seqnum_prev\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                            }
+
+                        my @mappers = split /\n/, $key;
+
+                        my @alns;
+                        for my $mapper (@mappers) {
+                            push @alns, make_mapping_with_new_id_and_junctions($mapper, $aln_prev->readid);
+                        }
+
+                        if (@alns == 2) {
+                            $unique_io->write_aln($alns[0]->as_forward);
+                            $unique_io->write_aln($alns[1]->as_reverse);                            
+                        }
+                        else {
+                            $unique_io->write_aln($alns[0]->as_unified);
                         }
                     }
                 } else {
@@ -388,7 +415,7 @@ sub main {
                     $num_absingle = 0;
                     undef @spans1;
                     undef @spans2;
-                    undef %CHRS;
+                    my %CHRS;
                     undef %STRANDhash;
                     $numstrands = 0;
                     foreach $key (keys %consistent_mappers) {
@@ -432,7 +459,7 @@ sub main {
                     if ($num_absingle == 0 && $num_absplit > 0 && $nchrs == 1 && $numstrands == 1) {
                         $str1 = intersect(\@spans1, $firstseq1);
                         $str2 = intersect(\@spans2, $firstseq2);
-                        if ($str1 ne "NONE" && $str2 ne "NONE") {
+                        if ($str1 && $str2) {
                             $str1 =~ s/^(\d+)\t/$CHR\t/;
                             $size1 = $1;
                             $str2 =~ s/^(\d+)\t/$CHR\t/;
@@ -444,16 +471,21 @@ sub main {
                                 $str2 =~ /^[^\t]+\t(\d+)[^\t+]-(\d+)\t/;
                                 $start2 = $1;
                                 $end2 = $2;
-                                if ((($start2 - $end1 > 0) && ($start2 - $end1 < $max_distance_between_paired_reads)) || (($start1 - $end2 > 0) && ($start1 - $end2 < $max_distance_between_paired_reads))) {
-                                    @ss = split(/\t/,$str1);
-                                    $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                    print OUTFILE1 "seq.$seqnum_prev";
-                                    print OUTFILE1 "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                if ((($start2 - $end1 > 0) && ($start2 - $end1 < $max_distance_between_paired_reads)) || 
+                                    (($start1 - $end2 > 0) && ($start1 - $end2 < $max_distance_between_paired_reads))) {
 
-                                    @ss = split(/\t/,$str2);
-                                    $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                    print OUTFILE1 "seq.$seqnum_prev";
-                                    print OUTFILE1 "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                    for my $str ($str1, $str2) {
+                                        my ($chr, $locs, $seq) = split /\t/, $str;
+                                        push @alns, make_aln_with_intersection(
+                                            readid => $aln_prev->readid,
+                                            chr    => $chr,
+                                            locs   => $locs,
+                                            seq    => $seq,
+                                            strand => $STRAND);
+                                    }
+                                    $unique_io->write_aln($alns[0]->as_forward);
+                                    $unique_io->write_aln($alns[1]->as_reverse);
+
                                 } else {
                                     $nointersection = 1;
                                 }
@@ -466,13 +498,18 @@ sub main {
                     }
                     if ($num_absingle > 0 && $num_absplit == 0 && $nchrs == 1 && $numstrands == 1) {
                         $str = intersect(\@spans1, $firstseq);
-                        if ($str ne "NONE") {
+                        if ($str) {
                             $str =~ s/^(\d+)\t/$CHR\t/;
                             $size = $1;
                             if ($size >= $min_overlap_a && $size >= $min_overlap_b) {
-                                @ss = split(/\t/,$str);
-                                $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                print OUTFILE1 "seq.$seqnum_prev\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                my ($chr, $locs, $seq) = split /\t/, $str;
+                                my $aln = make_aln_with_intersection(
+                                    readid => $aln_prev->readid,
+                                    chr    => $chr,
+                                    locs   => $locs,
+                                    seq    => $seq,
+                                    strand => $STRAND);
+                                $unique_io->write_aln($aln);
                             } else {
                                 $nointersection = 1;
                             }
@@ -481,22 +518,14 @@ sub main {
                         }
                     }
                     if (($nointersection == 1) || ($nchrs > 1) || ($num_absingle > 0 && $num_absplit > 0) || ($numstrands > 1)) {
-                        foreach $key (keys %consistent_mappers) {
-                            @A = split(/\n/,$key);
-                            for ($n=0; $n<@A; $n++) {
-                                @a = split(/\t/,$A[$n]);
-                                $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                                if (@A == 2 && $n == 0) {
-                                    print OUTFILE2 "seq.$seqnum_prev";
-                                    print OUTFILE2 "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                                }
-                                if (@A == 2 && $n == 1) {
-                                    print OUTFILE2 "seq.$seqnum_prev";
-                                    print OUTFILE2 "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                                }
-                                if (@A == 1) {
-                                    print OUTFILE2 "seq.$seqnum_prev\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
-                                }
+                        for my $key (keys %consistent_mappers) {
+                            my @alns = map { make_mapping_with_new_id_and_junctions($_, $aln_prev->readid) } split /\n/, $key;
+                            if (@alns == 1) {
+                                $nu_io->write_aln($alns[0]->as_unified);
+                            }
+                            else {
+                                $nu_io->write_aln($alns[0]->as_forward);
+                                $nu_io->write_aln($alns[1]->as_reverse);
                             }
                         }
                     }
@@ -506,22 +535,15 @@ sub main {
             # exons, then those exons will still get reported
             undef @a_read_mapping_to_genome;
             undef @b_read_mapping_to_genome;
-            $numa=0;
-            $numb=0;
             $min_overlap_a=0;
             $min_overlap_b=0;
         }
-        if (!($line =~ /\S/)) {
-            close(INFILE);
-            close(OUTFILE1);
-            close(OUTFILE2);
-            last;
-        }
-        @a = split(/\t/,$line);
+        last if ! $aln;
+        @a = split /\t/, $aln->raw;
     
-        if ($a[0] =~ /a/) {
+        if ($aln->is_forward) {
             if ($firstflag_a == 1) {
-                $readlength_a = length($a[4]);
+                $readlength_a = length($aln->seq);
                 if ($readlength_a < 80) {
                     $min_overlap_a = 35;
                 } else {
@@ -533,9 +555,9 @@ sub main {
                 $firstflag_a = 0;
             }
         }
-        if ($a[0] =~ /b/) {
+        if ($aln->is_reverse) {
             if ($firstflag_b == 1) {
-                $readlength_b = length($a[4]);
+                $readlength_b = length($aln->seq);
                 if ($readlength_b < 80) {
                     $min_overlap_b = 35;
                 } else {
@@ -553,6 +575,7 @@ sub main {
         # $a[2] looks like this: uc002bea.2:chr15:78885397-78913322_-
         #       or like this: PF08_tmp1:rRNA:Pf3D7_08:1285649-1288826_+
         $a[2] =~ /^(.*):([^:]+):[^:]+(.)$/;
+
         $geneid = $1;
         $chr = $2;
         $tstrand = $3;
@@ -618,7 +641,6 @@ sub main {
             $s[$i] = $s[$i-1] + $ends[$i-1] - $starts[$i-1];
             if ($i > 100000) {
                 die "Something is wrong, probably with the gene annotation file: $ARGV[1].  Are you sure it is zero-based, half-open?  Script make_TU_and_TNU is exiting due to this error.";
-                exit(1);
             }
         }
         $readstart[0] = $starts[$i-1] + $displacement - $s[$i-1] + 1;
@@ -631,7 +653,6 @@ sub main {
             $readstart[$cnt] = $starts[$i-1] + 1;
             if ($i > 100000) {
                 die "Something is wrong, probably with the gene annotation file: $ARGV[1].  Are you sure it is zero-based, half-open?  Script make_TU_and_TNU is exiting due to this error.";
-                exit(1);
             }
         }
         $readsend[$cnt] = $starts[$i-1] + $displacement + $seq_length - $s[$i-1];
@@ -641,43 +662,41 @@ sub main {
         for ($i=1; $i<$cnt+1; $i++) {
             $output = $output . ", $readstart[$i]-$readsend[$i]";
         }
+
+        my $new_strand;
+
         if ($qstrand eq $tstrand) {
-            if ($type eq "a") {
-                $output = $output . "\t+\t$seq";
-            } else {
-                $output = $output . "\t-\t$seq";
-            }
+            $new_strand = $aln->is_forward ? '+' : '-';
         } else {
-            if ($type eq "a") {
-                $output = $output . "\t-\t$seq";
-            } else {
-                $output = $output . "\t+\t$seq";
+            $new_strand = $aln->is_forward ? '-' : '+';
+        }
+        $output .= "\t$new_strand\t$seq";
+
+        my $aln_out = RUM::Alignment->new(
+            chr => $chr,
+            locs => [ map { [ $readstart[$_], $readsend[$_] ] } (0 .. $#readstart) ],
+            strand => $new_strand,
+            seq => $seq,
+            readid => "junk",
+            raw => $output
+        );
+
+        if ($aln->is_forward) {
+            if ( ! grep { $_ eq $output } @a_read_mapping_to_genome) {
+                push @a_read_mapping_to_genome, $output;
             }
         }
-        if ($type eq "a") {
-            $isnew = 1;
-            for ($i=0; $i<$numa; $i++) {
-                if ($a_read_mapping_to_genome[$i] eq $output) {
-                    $isnew = 0;
-                }
-            }
-            if ($isnew == 1) {
-                $a_read_mapping_to_genome[$numa] = $output;
-                $numa++;
+        if ($aln->is_reverse) {
+            if ( ! grep { $_ eq $output } @b_read_mapping_to_genome ) {
+                push @b_read_mapping_to_genome, $output;
             }
         }
-        if ($type eq "b") {
-            $isnew = 1;
-            for ($i=0; $i<$numb; $i++) {
-                if ($b_read_mapping_to_genome[$i] eq $output) {
-                    $isnew = 0;
-                }
-            }
-            if ($isnew == 1) {
-                $b_read_mapping_to_genome[$numb] = $output;
-                $numb++;
-            }
-        }
+    }
+
+    sub newAddJunctionsToSeq {
+        my ($aln) = @_;
+        addJunctionsToSeq($aln->seq, 
+                          RUM::RUMIO->format_locs($aln));
     }
 
     sub addJunctionsToSeq () {
@@ -786,7 +805,7 @@ sub main {
             }
             return "$maxspanlength\t$newspans\t$newseq";
         } else {
-            return "NONE";
+            return;
         }
     }
 }

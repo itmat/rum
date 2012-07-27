@@ -1,20 +1,20 @@
 package RUM::Script::RumToQuantifications;
 
 use strict;
+use autodie;
 no warnings;
 
 use RUM::Usage;
-use RUM::Logging;
-use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
+use RUM::Script::QuantifyExons;
+use RUM::RUMIO;
 
-our $log = RUM::Logging->get_logger();
+use base 'RUM::Script::Base';
 
 my $sepout = "false";
 my $posonly;
 my $countsonly;
-my $strand;
 my $anti;
 my $infofile;
 
@@ -22,8 +22,6 @@ my %TRANSCRIPT;
 my %EXON_temp;
 my %INTRON_temp;
 my %cnt;
-my @A;
-my @B;
 my %tcnt;
 my %ecnt;
 my %icnt;
@@ -32,13 +30,15 @@ my $UREADS=0;
 my %EXON;
 my %INTRON;
 
-sub new {
-    my ($class) = @_;
-    bless {}, $class;
-    
-}
+
+my %strand_for_user_strand = (
+    p => '+',
+    m => '-',
+    '' => undef);
 
 sub main {
+
+    my $self = __PACKAGE__->new;
 
     my $outfile2;
     
@@ -51,8 +51,6 @@ sub main {
     undef %EXON_temp;
     undef %INTRON_temp;
     undef %cnt;
-    undef @A;
-    undef @B;
     undef %tcnt;
     undef %ecnt;
     undef %icnt;
@@ -69,23 +67,19 @@ sub main {
     $sepout = "false";
     undef $posonly;
     undef $countsonly;
-    undef $strand;
     undef $anti;
 
-    GetOptions(
+    $self->get_options(
         "genes-in=s"      => \$annotfile,
         "unique-in=s"     => \$U_readsfile,
         "non-unique-in=s" => \$NU_readsfile,
         "output|o=s"      => \$outfile1,
         "sepout=s"        => \$outfile2,
-        "strand=s"        => \$strand,
+        "strand=s"        => \(my $strand),
         "posonly"         => \$posonly,
         "countsonly"      => \$countsonly,
         "anti"            => \$anti,
-        "info=s"          => \$infofile,
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+        "info=s"          => \$infofile);
 
     $annotfile or RUM::Usage->bad(
         "Please provide a gene annotation file with --genes-in");
@@ -101,14 +95,17 @@ sub main {
         $sepout = "true";
     }
 
-    !$strand || $strand eq 'p' || $strand eq 'm' or RUM::Usage->bad(
-        "--strand must be either 'p' or 'm', not '$strand'");
+
+    if ($strand) {
+        $strand = $strand_for_user_strand{$strand} or RUM::Usage->bad(
+            "--strand must be either 'p' or 'm', not '$strand'");
+    }
 
     # read in the info file, if given
 
     my %INFO;
     if ($infofile) {
-        open(INFILE, $infofile) or die "Can't open $infofile for reading";
+        open INFILE, "<", $infofile;
         while (my $line = <INFILE>) {
             chomp($line);
             my @a = split(/\t/,$line);
@@ -119,20 +116,13 @@ sub main {
 
     # read in the transcript models
 
-    open(INFILE, $annotfile) or die "Can't open $annotfile for reading";
+    open INFILE, "<", $annotfile;
     while (my $line = <INFILE>) {
         chomp($line);
         my @a = split(/\t/,$line);
 
         my $STRAND = $a[1];
-        if ($strand) {
-            if ($strand =~ /^p/ && $a[1] eq '-') {
-                next;
-            }
-            if ($strand =~ /^m/ && $a[1] eq '+') {
-                next;
-            }
-        }
+        next if $strand && $strand ne $STRAND;
 
         $a[5] =~ s/\s*,\s*$//;
         $a[6] =~ s/\s*,\s*$//;
@@ -188,8 +178,8 @@ sub main {
         }
     }
 
-    &readfile($U_readsfile, "Ucount");
-    &readfile($NU_readsfile, "NUcount");
+    &_readfile($U_readsfile, "Ucount", $strand);
+    &_readfile($NU_readsfile, "NUcount", $strand);
 
     my %EXONhash;
     foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
@@ -218,9 +208,9 @@ sub main {
         }
     }
 
-    open(OUTFILE1, ">$outfile1") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile1' for writing.\n\n";
+    open OUTFILE1, ">", $outfile1;
     if ($sepout eq "true") {
-        open(OUTFILE2, ">$outfile2") or die "ERROR: in script rum2quantifications.pl: cannot open file '$outfile2' for writing.\n\n";
+        open OUTFILE2, ">", $outfile2;
     }
 
     my $num_reads = $UREADS;
@@ -485,90 +475,50 @@ sub main {
 }
 
 
-sub readfile () {
-    my ($filename, $type) = @_;
-    open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
-    my %HASH;
-    my $counter=0;
-    my $line;
-    my %indexstart_t;
-    my %indexstart_e;
-    my %indexstart_i;
-    foreach my $chr (keys %TRANSCRIPT) {
-	$indexstart_t{$chr} = 0;
-	$indexstart_e{$chr} = 0;
-	$indexstart_i{$chr} = 0;
-    }
-    while ($line = <INFILE>) {
-	$counter++;
-        #	if($counter % 100000 == 0 && $countsonly eq "false") {
-        #	    print "$type: counter=$counter\n";
-        #	}
-	chomp($line);
-	if ($line eq '') {
-	    last;
-	}
-	my @a = split(/\t/,$line);
-	my $STRAND = $a[3];
-	$a[0] =~ /(\d+)/;
-	my $seqnum1 = $1;
+sub _readfile {
+    my ($filename, $type, $strand) = @_;
+    my $iter = RUM::RUMIO->new(-file => $filename)->peekable;
+
+    my %indexstart_t = map { ($_ => 0) } keys %TRANSCRIPT;
+    my %indexstart_e = map { ($_ => 0) } keys %TRANSCRIPT;
+    my %indexstart_i = map { ($_ => 0) } keys %TRANSCRIPT;
+
+    while (my $aln = $iter->next_val) {
+
+	my $CHR     = $aln->chromosome;
+        my $STRAND  = $aln->strand;
+
 	if ($type eq "NUcount") {
-	    $NUREADS{$seqnum1}=1;
+	    $NUREADS{$aln->order}=1;
 	} else {
 	    $UREADS++;
 	}
 	if ($strand) {
-	    if ($strand eq 'p' && $STRAND eq '-' && !$anti) {
-		next;
-	    }
-	    if ($strand eq 'm' && $STRAND eq '+' && !$anti) {
-		next;
-	    }
-	    if ($strand eq 'p' && $STRAND eq '+' && $anti) {
-		next;
-	    }
-	    if ($strand eq 'm' && $STRAND eq '-' && $anti) {
-		next;
-	    }
+            next if $strand eq $STRAND &&  $anti;
+            next if $strand ne $STRAND && !$anti;
 	}
-	my $CHR = $a[1];
-	$HASH{$CHR}++;
-        #	if($HASH{$CHR} == 1) {
-        #	    print "CHR: $CHR\n";
-        #	}
-	$a[2] =~ /^(\d+)-/;
-	my $start = $1;
-	my $end;
-	my $line2 = <INFILE>;
-	chomp($line2);
-	my @b = split(/\t/,$line2);
-	$b[0] =~ /(\d+)/;
-	my $seqnum2 = $1;
-	my $spans_union;
-	
-	if ($seqnum1 == $seqnum2 && $b[0] =~ /b/ && $a[0] =~ /a/) {
-	    my $SPANS;
-	    if ($a[3] eq "+") {
-		$b[2] =~ /-(\d+)$/;
-		$end = $1;
-		$SPANS = $a[2] . ", " . $b[2];
-	    } else {
-		$b[2] =~ /^(\d+)-/;
-		$start = $1;
-		$a[2] =~ /-(\d+)$/;
-		$end = $1;
-		$SPANS = $b[2] . ", " . $a[2];
-	    }
-            #	    my $SPANS = &union($a[2], $b[2]);
-	    @B = split(/[^\d]+/,$SPANS);
-	} else {
-	    $a[2] =~ /-(\d+)$/;
-	    $end = $1;
-	    # reset the file handle so the last line read will be read again
-	    my $len = -1 * (1 + length($line2));
-	    seek(INFILE, $len, 1);
-	    @B = split(/[^\d]+/,$a[2]);
-	}
+
+        my ($start, $end, @spans);
+        
+        if ($aln->is_mate($iter->peek)) {
+            
+            my $next_aln = $iter->next_val;
+            
+            if ($aln->strand eq "+") {
+                ($start, $end) = ($aln->start, $next_aln->end);
+                @spans = (@{ $aln->locs }, 
+                          @{ $next_aln->locs });
+            } else {
+                ($start, $end) = ($next_aln->start, $aln->end);
+                @spans = (@{ $next_aln->locs }, 
+                          @{ $aln->locs });
+            }
+        } else {
+            ($start, $end) = ($aln->start, $aln->end);
+            @spans = @{ $aln->locs };
+        }
+        my @flattened_spans = map { @$_ } @spans;
+
 	while ($TRANSCRIPT{$CHR}[$indexstart_t{$CHR}]{end} < $start && $indexstart_t{$CHR} <= $tcnt{$CHR}) {
 	    $indexstart_t{$CHR}++;	
 	}
@@ -582,12 +532,8 @@ sub readfile () {
 	my $flag = 0;
 	while ($flag == 0) {
 	    $tcnt{$CHR} = $tcnt{$CHR}+0;
-	    if ($end < $TRANSCRIPT{$CHR}[$i]{start} || $i >= $tcnt{$CHR}) {
-		last;
-	    }
-	    @A = @{$TRANSCRIPT{$CHR}[$i]{coords}};
-	    my $b = &do_they_overlap();
-	    if ($b == 1) {
+	    last if $end < $TRANSCRIPT{$CHR}[$i]{start} || $i >= $tcnt{$CHR};
+	    if (RUM::Script::QuantifyExons::do_they_overlap($TRANSCRIPT{$CHR}[$i]{coords}, \@flattened_spans)) {
 		$TRANSCRIPT{$CHR}[$i]{$type}++;
 	    }
 	    $i++;
@@ -596,14 +542,8 @@ sub readfile () {
 	$flag = 0;
 	while ($flag == 0) {
 	    $ecnt{$CHR} = $ecnt{$CHR}+0;
-	    if ($end < $EXON{$CHR}[$i]{start} || $i >= $ecnt{$CHR}) {
-		last;
-	    }
-	    undef @A;
-	    $A[0] = $EXON{$CHR}[$i]{start};
-	    $A[1] = $EXON{$CHR}[$i]{end};
-	    my $b = &do_they_overlap();
-	    if ($b == 1) {
+	    last if $end < $EXON{$CHR}[$i]{start} || $i >= $ecnt{$CHR};
+	    if (RUM::Script::QuantifyExons::do_they_overlap([$EXON{$CHR}[$i]{start}, $EXON{$CHR}[$i]{end}], \@flattened_spans)) {
 		$EXON{$CHR}[$i]{$type}++;
 	    }
 	    $i++;
@@ -612,14 +552,8 @@ sub readfile () {
 	$flag = 0;
 	while ($flag == 0) {
 	    $icnt{$CHR} = $icnt{$CHR}+0;
-	    if ($end < $INTRON{$CHR}[$i]{start} || $i >= $icnt{$CHR}) {
-		last;
-	    }
-	    undef @A;
-	    $A[0] = $INTRON{$CHR}[$i]{start};
-	    $A[1] = $INTRON{$CHR}[$i]{end};
-	    my $b = &do_they_overlap();
-	    if ($b == 1) {
+	    last if $end < $INTRON{$CHR}[$i]{start} || $i >= $icnt{$CHR};
+	    if (RUM::Script::QuantifyExons::do_they_overlap([$INTRON{$CHR}[$i]{start}, $INTRON{$CHR}[$i]{end}], \@flattened_spans)) {
 		$INTRON{$CHR}[$i]{$type}++;
 	    }
 	    $i++;
@@ -627,82 +561,32 @@ sub readfile () {
     }
 }
 
-sub do_they_overlap {
-    # going to pass in two arrays as global vars, because don't want them
-    # to be copied every time, this function is going to be called a lot.
-    # the global vars @A and @B
-
-    my $i=0;
-    my $j=0;
-
-    while (1==1) {
-	until (($B[$j] < $A[$i] && $i%2==0) || ($B[$j] <= $A[$i] && $i%2==1)) {
-	    $i++;
-	    if ($i == @A) {
-		if ($B[$j] == $A[@A-1]) {
-		    return 1;
-		} else {
-		    return 0;
-		}
-	    }
-	}
-	if (($i-1) % 2 == 0) {
-	    return 1;
-	} else {
-	    $j++;
-	    if ($j%2==1 && $A[$i] <= $B[$j]) {
-		return 1;
-	    }
-	    if ($j >= @B) {
-		return 0;
-	    }
-	}
-    }
-}
-
-
-sub union () {
-    my ($spans1_u, $spans2_u) = @_;
-
-    my %chash;
-    my @a = split(/, /,$spans1_u);
-    for (my $i=0;$i<@a;$i++) {
-	my @b = split(/-/,$a[$i]);
-	for (my $j=$b[0];$j<=$b[1];$j++) {
-	    $chash{$j}++;
-	}
-    }
-    @a = split(/, /,$spans2_u);
-    for (my $i=0;$i<@a;$i++) {
-	my @b = split(/-/,$a[$i]);
-	for (my $j=$b[0];$j<=$b[1];$j++) {
-	    $chash{$j}++;
-	}
-    }
-    my $first = 1;
-    my $spans_union;
-    my $pos_prev;
-    foreach my $pos (sort {$a<=>$b} keys %chash) {
-	if ($first == 1) {
-	    $spans_union = $pos;
-	    $first = 0;
-	} else {
-	    if ($pos > $pos_prev + 1) {
-		$spans_union = $spans_union . "-$pos_prev, $pos";
-	    }
-	}
-	$pos_prev = $pos;
-    }
-    $spans_union = $spans_union . "-$pos_prev";
-    return $spans_union;
-}
-
-# seq.35669       chr1    3206742-3206966 -       GCCCACCACCATGTCAAACACAATCTCTTCCCATTTGGTGATACAGAATTCTGTCTCACAGTGGACAATCCAGAAAGTCATGATGCACCAATGGAGGACAATAAATATCCCAAAATACAGCTGGAAAACCGAGGCAAAGAGGGCGAATGTGATGACCCTGGCAGCGATGGTGAAGAAATGCCAGCAGAACTGAATGATGACAGCCATTTAGCTGATGGGCTTTTT
-# 
-# 
-# chr1    -       3195981 3206425 2       3195981,3203689,        3197398,3206425,        OTTMUST00000086625(vega)
-
-
-
-
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::RumToQuantifications - Convert a RUM file to a quantifications file
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Script::RumToQuantifications->main
+
+Run the script.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+

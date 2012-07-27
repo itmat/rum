@@ -1,5 +1,6 @@
 package RUM::Script::GetInferredInternalExons;
 
+use autodie;
 no warnings;
 use RUM::Usage;
 use RUM::Logging;
@@ -43,7 +44,7 @@ sub main {
     my @inferredTranscript;
     my $firstchr = "true";
 
-    open(INFILE, $annotfile) or die "Can't open $annotfile for reading: $!";
+    open INFILE, "<", $annotfile;
 
     # read in the transcript models
 
@@ -115,8 +116,7 @@ sub main {
     #    print "$key\n";
     #}
 
-    open(INFILE, $junctionsinfile) 
-        or die "Can't open $junctionsinfile for reading: $!";
+    open INFILE, "<", $junctionsinfile;
     my $junctions_ref = &filter_junctions_file();
     my @ARR = @{$junctions_ref};
     my %junctions = %{$ARR[0]};
@@ -157,7 +157,7 @@ sub main {
             $icnt{$chr}++;
         }
     }
-    open(COVFILE, $covinfile) or die "Error: cannot open '$covinfile' for reading\n\n";
+    open COVFILE, "<", $covinfile;
     my $coverage = RUM::CoverageMap->new(*COVFILE);
 
     my $line = <INFILE>;

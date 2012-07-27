@@ -19,6 +19,7 @@ RUM::Script::MergeJunctions->main();
 
 use strict;
 use warnings;
+use autodie;
 
 use Carp;
 use RUM::Sort qw(by_chromosome);
@@ -55,12 +56,10 @@ sub main {
 
     for my $filename (@ARGV) {
         print "Reading $filename\n";
-        open my $in, "<", $filename 
-            or croak "Can't open $filename for reading: $!";
+        open my $in, "<", $filename;
         $self->read_file($in);
     }
-    open my $out, ">", $output_filename
-        or croak "Can't open $output_filename for writing: $!";
+    open my $out, ">", $output_filename;
     $self->print_output($out);
 }
 
@@ -130,8 +129,6 @@ sub read_file {
         my ($chr, $start, $end) = $intron =~ /^(.*):(\d*)-(\d*)$/g
             or carp "Invalid location: $_";
 
-#        $data->{$chr} ||= {};
-#        $data->{$chr}->{$start} ||= {};
         my $acc = $data->{$chr}->{$start}->{$end} ||= {};
 
         if (keys %$acc) {

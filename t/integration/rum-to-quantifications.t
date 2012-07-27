@@ -5,7 +5,7 @@ use warnings;
 
 use Test::More tests => 11;
 use FindBin qw($Bin);
-use lib "$Bin/../lib";
+use lib ("$Bin/../lib", "$Bin/../../lib");
 use_ok("RUM::Script::RumToQuantifications");
 use RUM::TestUtils;
 
@@ -93,3 +93,4 @@ sub posonly_strand_ok {
     is($neg_counts->{'+'}, 0, "Running with -strand m only outputs - strand");
 
 }
+
