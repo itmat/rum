@@ -330,121 +330,93 @@ sub run {
             $SCORE = $LENGTH - $aln->mismatch; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
             if ($SCORE > $cutoff{$seqname}) { # so match is at least cutoff long (and this cutoff was set to be longer if there are a lot of N's (bad reads or low complexity masked by dust)
                 #	    if($aln->q_start <= 1) {   # so match starts at position zero or one in the query (allow '1' because first base can tend to be an N or low quality)
-                if (1 == 1) { # trying this with no condition to see if it helps... (it did!)
-                    if ($aln->q_gap_count <= $self->{max_insertions}) { # then the aligment has at most $self->{max_insertions} gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
-                        if ($Ncount{$aln->readid} <= ($aln->q_size / 2) || $aln->block_count <= 3) { # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY TO MATCH BY CHANCE.  
-                            if ($aln->block_count <= $self->{num_blocks_allowed}) { # NEVER ALLOW MORE THAN $self->{num_blocks_allowed} blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
-                                # at this point we know it's a prefix match starting at pos 0 or 1 and with at most one gap in the query, and if low comlexity then not too fragemented...
-                                $gap_flag = 0;
-                                if ($aln->q_gap_count == 1) { # there's a gap in the query, be stricter about allowing it
-                                    if ($aln->mismatch > 2) { # ONLY 2 MISMATCHES
+                
+                if ($aln->q_gap_count <= $self->{max_insertions}) { # then the aligment has at most $self->{max_insertions} gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
+                    if ($Ncount{$aln->readid} <= ($aln->q_size / 2) || $aln->block_count <= 3) { # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY TO MATCH BY CHANCE.  
+                        if ($aln->block_count <= $self->{num_blocks_allowed}) { # NEVER ALLOW MORE THAN $self->{num_blocks_allowed} blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
+                            # at this point we know it's a prefix match starting at pos 0 or 1 and with at most one gap in the query, and if low comlexity then not too fragemented...
+                            $gap_flag = 0;
+                            if ($aln->q_gap_count == 1) { # there's a gap in the query, be stricter about allowing it
+                                if ($aln->mismatch > 2) { # ONLY 2 MISMATCHES
+                                    $gap_flag = 1;
+                                }
+                                if ($aln->q_end < .85 * $aln->q_size) { # LONGER LENGTH MATCH (at least 85% length of read)
+                                    $gap_flag = 1;
+                                }
+                                if ($aln->t_gap_count > 1) { # at most one gap in the target
+                                    $gap_flag = 1;
+                                }
+                                @A = @{ $aln->block_sizes };
+                                @B = @{ $aln->t_starts };
+                                for ($k=0;$k<@A-1;$k++) { # any gap in the target must be at least 32 bases
+                                    if (($B[$k+1]-$A[$k]-$B[$k]<32) && ($B[$k+1]-$A[$k]-$B[$k]>0)) {
                                         $gap_flag = 1;
                                     }
-                                    if ($aln->q_end < .85 * $aln->q_size) { # LONGER LENGTH MATCH (at least 85% length of read)
-                                        $gap_flag = 1;
-                                    }
-                                    if ($aln->t_gap_count > 1) { # at most one gap in the target
-                                        $gap_flag = 1;
-                                    }
-                                    @A = @{ $aln->block_sizes };
-                                    @B = @{ $aln->t_starts };
-                                    for ($k=0;$k<@A-1;$k++) { # any gap in the target must be at least 32 bases
-                                        if (($B[$k+1]-$A[$k]-$B[$k]<32) && ($B[$k+1]-$A[$k]-$B[$k]>0)) {
+                                }
+                                if ($aln->q_gap_bases > 3) { # gap in the query can be at most 3 bases
+                                    $gap_flag = 1;
+                                }
+                                @qs = @{ $aln->q_starts };
+                                @bs = @{ $aln->block_sizes };
+				
+                                for ($h=0; $h<@qs-1; $h++) { # gap at least 8 bases from the end of a block
+                                    if ($qs[$h]+$bs[$h] < $qs[$h+1]) {
+                                        if ($bs[$h] < 8 || $bs[$h+1] < 8) {
                                             $gap_flag = 1;
                                         }
                                     }
-                                    if ($aln->q_gap_bases > 3) { # gap in the query can be at most 3 bases
-                                        $gap_flag = 1;
-                                    }
-                                    @qs = @{ $aln->q_starts };
-                                    @bs = @{ $aln->block_sizes };
-				
-                                    for ($h=0; $h<@qs-1; $h++) { # gap at least 8 bases from the end of a block
-                                        if ($qs[$h]+$bs[$h] < $qs[$h+1]) {
-                                            if ($bs[$h] < 8 || $bs[$h+1] < 8) {
-                                                $gap_flag = 1;
-                                            }
+                                }
+                                if ($aln->q_gap_count + $aln->t_gap_count >= @qs) { # this makes sure gap in query and target not in same place
+                                    $gap_flag = 1;
+                                }
+                            }
+                            if ($gap_flag == 0) { # IF GOT TO HERE THEN READ PASSED ALL CRITERIA FOR A MATCH
+
+                                my @record = (
+                                    $SCORE,
+                                    $aln->strand,
+                                    $aln->t_name,
+                                    $aln->block_sizes_str,
+                                    $aln->t_starts_str,
+                                    $aln->mismatch,
+                                    $aln->q_starts_str);
+                                
+                                $N = @{$blathits{$seqname}};
+                                if ($maxlength{$seqname}+0 < $aln->q_end) {
+                                    $maxlength{$seqname} = $aln->q_end;
+                                }
+                                if ($aln->q_gap_count == 1) { # then query has a gap, write this to the insertions file I
+                                    $gapsize = $aln->q_gap_bases;
+                                    @blocksizes = @{ $aln->block_sizes };
+                                    @qStarts    = @{ $aln->q_starts };
+                                    @tStarts    = @{ $aln->t_starts };
+                                    $n = @blocksizes;
+                                  BLOCK: for my $block (0 .. $#blocksizes - 1) {
+
+                                        next BLOCK if $blocksizes[$block] + $qStarts[$block] >= $qStarts[$block+1];
+
+                                        $insertion_target_coord = $blocksizes[$block] + $tStarts[$block];
+                                        my $new_seq = $aln->is_forward ? $seqa : $aln->is_reverse ? $seqb : '';
+                                        
+                                        if ($aln->strand ne "+") {
+                                            $new_seq = reverse $new_seq;
+                                            $new_seq =~ tr/ACGT/TGCA/;
                                         }
-                                    }
-                                    if ($aln->q_gap_count + $aln->t_gap_count >= @qs) { # this makes sure gap in query and target not in same place
-                                        $gap_flag = 1;
+                                        
+                                        my $start = $qStarts[$block] + $blocksizes[$block];
+                                        my $end   = $start + $aln->q_gap_bases - 1;
+                                        
+                                        my $insertion = substr $new_seq, $start, $end;
+                                        $inscoord_temp = $insertion_target_coord + 1;
+                                        $aln->t_name =~ /chr(.*):/;
+                                        $chr = $1;
+                                        $insertion = "chr" . $chr . ":" . $insertion_target_coord . ":" . $insertion . ":" . $inscoord_temp . "\n";
+                                        $record[7] = $insertion;
+                                        $block = $n;
                                     }
                                 }
-                                if ($gap_flag == 0) { # IF GOT TO HERE THEN READ PASSED ALL CRITERIA FOR A MATCH
-                                    
-                                    push @{ $blathits{$seqname} ||= [] }, [
-                                        $SCORE,
-                                        $aln->strand,
-                                        $aln->t_name,
-                                        $aln->block_sizes_str,
-                                        $aln->t_starts_str,
-                                        $aln->mismatch,
-                                        $aln->q_starts_str
-                                    ];
 
-                                    $N = @{$blathits{$seqname}};
-                                    if ($maxlength{$seqname}+0 < $aln->q_end) {
-                                        $maxlength{$seqname} = $aln->q_end;
-                                    }
-                                    if ($aln->q_gap_count == 1) { # then query has a gap, write this to the insertions file I
-                                        $gapsize = $aln->q_gap_bases;
-                                        @blocksizes = @{ $aln->block_sizes };
-                                        @qStarts    = @{ $aln->q_starts };
-                                        @tStarts    = @{ $aln->t_starts };
-                                        $n = @blocksizes;
-                                        for ($block=0; $block < $n-1; $block++) {
-                                            if ($blocksizes[$block] + $qStarts[$block] < $qStarts[$block+1]) {
-                                                $insertion_target_coord = $blocksizes[$block] + $tStarts[$block];
-                                                $temp = $aln->is_forward ? $seqa : $aln->is_reverse ? $seqb : '';
-
-                                                if ($aln->strand eq "+") {
-                                                    @s = split(//,$temp);
-                                                } else {
-                                                    @s2 = split(//,$temp);
-                                                    $n2 = @s2-1;
-                                                    $TMP = "";
-                                                    for ($i=$n2; $i>=0; $i--) {
-                                                        $flag = 0;
-                                                        if ($s2[$i] eq 'A') {
-                                                            $s[$n2 - $i] =  "T";
-                                                            $flag = 1;
-                                                            $TMP = $TMP . "T";
-                                                        }
-                                                        if ($s2[$i] eq 'T') {
-                                                            $s[$n2 - $i] =  "A";
-                                                            $flag = 1;
-                                                            $TMP = $TMP . "A";
-                                                        }
-                                                        if ($s2[$i] eq 'G') {
-                                                            $s[$n2 - $i] =  "C";
-                                                            $flag = 1;
-                                                            $TMP = $TMP . "C";
-                                                        }
-                                                        if ($s2[$i] eq 'C') {
-                                                            $s[$n2 - $i] =  "G";
-                                                            $flag = 1;
-                                                            $TMP = $TMP . "G";
-                                                        }
-                                                        if ($flag == 0) {
-                                                            $s[$n2 - $i] =  $s2[$i];
-                                                        }
-                                                    }
-                                                }
-                                                $insertion = "";
-                                                for ($c=0; $c<$aln->q_gap_bases; $c++) {
-                                                    $insertion = $insertion . "$s[$c + $qStarts[$block] + $blocksizes[$block]]";
-                                                }
-                                                $inscoord_temp = $insertion_target_coord + 1;
-                                                $aln->t_name =~ /chr(.*):/;
-                                                $chr = $1;
-                                                $insertion = "chr" . $chr . ":" . $insertion_target_coord . ":" . $insertion . ":" . $inscoord_temp . "\n";
-                                                $blathits{$seqname}[$cnt{$seqname}][7] = $insertion;
-                                                $block = $n;
-                                            }
-                                        }
-                                    }
-                                    $cnt{$seqname}++; # this is the number of hits to this seq satisfying all criteria
-                                }
+                                push @{ $blathits{$seqname} ||= [] }, \@record;
                             }
                         }
                     }
