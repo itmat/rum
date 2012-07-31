@@ -40,6 +40,7 @@ sub run {
     $self->get_options();
     my $c = $self->config;
     my $d = $self->directives;
+
     $self->check_config;        
     $self->check_deps;
     $self->check_gamma;
@@ -442,8 +443,12 @@ sub check_config {
             "Can't read from ".$c->alt_quant_model.": $!";
     }
 
-    for my $fname (@{ $reads || [] }) {
-        -r $fname or die "Can't read from read file $fname";
+    # If we haven't yet split the input file, make sure that the raw
+    # read files exist.
+    if ( ! -r $c->preprocessed_reads ) {
+        for my $fname (@{ $reads || [] }) {
+            -r $fname or die "Can't read from read file $fname";
+        }
     }
 }
 
@@ -776,10 +781,18 @@ sub changed_settings_msg {
     my ($self, $filename) = @_;
     my $msg = <<"EOF";
 
-I found job settings in $filename, but you specified different settings on the command line. Changing the settings on a job that has already been partially run can result in unexpected behavior. If you want to use the saved settings, please don't provide any extra options on the command line, other than options that specify a specific phase or chunk (--preprocess, --process, --postprocess, --chunk). If you want to start the job over from scratch, you can do so by deleting the settings file ($filename). If you really want to change the settings, you can add a --force flag and try again.
+I found job settings in $filename, but you specified different
+settings on the command line. Changing the settings on a job that has
+already been partially run can result in unexpected behavior. If you
+want to use the saved settings, please don't provide any extra options
+on the command line, other than options that specify a specific phase
+or chunk (--preprocess, --process, --postprocess, --chunk). If you
+want to start the job over from scratch, you can do so by deleting the
+settings file ($filename). If you really want to change the settings,
+you can add a --force flag and try again.
 
 EOF
-    return wrap('', '', $msg) . "\n";
+    return fill('', '', $msg) . "\n";
     
 }
 
@@ -855,6 +868,10 @@ genome.
 
 Prompt the user to ask if we should proceed even though there doesn't
 seem to be enough RAM per chunk. Exits if the user doesn't say yes.
+
+=item changed_settings_msg
+
+Return a message indicating that the user changed some settings.
 
 =back
 
