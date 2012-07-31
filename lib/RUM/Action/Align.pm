@@ -375,13 +375,16 @@ sub check_config {
         "Please specify a rum index directory with --index-dir or -i");
     $c->load_rum_config_file if $c->rum_index;
 
-    my $reads = $c->reads;
+    $c->num_chunks or $usage->bad(
+        "Please tell me how many chunks to split the input into with the "
+        . "--chunks option.");
 
+    my $reads = $c->reads;
 
     if ($reads) {
         @$reads == 1 || @$reads == 2 or $usage->bad(
             "Please provide one or two read files. You provided " .
-                join(", ", @$reads));
+            join(", ", @$reads));
     }
     else {
         $usage->bad("Please provide one or two read files.");

@@ -9,9 +9,9 @@ rum_runner align - Run the RUM pipeline.
       --index-dir INDEX_DIR  
       --name      JOB_NAME   
       --output    OUTPUT_DIR 
-    [ --chunks    NUM_CHUNKS ]
-    [ OPTIONS ]
-    FORWARD_READS [ REVERSE_READS ]
+      --chunks    NUM_CHUNKS
+      FORWARD_READS [ REVERSE_READS ]
+      [ OPTIONS ]
 
   # Restart a stopped job based on output directory
   rum_runner align --output OUTPUT_DIR
@@ -64,7 +64,7 @@ rum_runner will read the job configuration file from this directory,
 so if you need to run the job again, you do not need to run it with
 the same options.
 
-=item B<--chunks> I<num_chunks> (optional, default=1)
+=item B<--chunks> I<num_chunks> (required)
 
 The number of pieces to break the job into (defaults to 1).  Use 1
 chunk unless you are on a cluster, or have multiple cores with lots of

@@ -27,7 +27,7 @@ RUM::Config - Configuration for a RUM job
 our %DEFAULTS = (
 
     # These properties are actually set by the user
-    num_chunks            => 1,
+    num_chunks            => undef,
     ram                   => undef,
     max_insertions        => 1,
     strand_specific       => 0,
