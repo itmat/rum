@@ -34,8 +34,44 @@ use warnings;
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 use File::Path qw(rmtree);
+use File::Spec qw(splitdir catfile);
 use List::Util qw(first);
 use RUM::Logging;
+
+sub archive_log_dir {
+    
+    my ($dir) = @_;
+
+    my $log_dir = RUM::Logging->log_dir_for_output_dir($dir);
+    return if ! -d $log_dir;
+
+    my $timestamp = scalar time;
+    my $child_dir = "log.$timestamp";
+    my $tarred    = "log.$timestamp.tar";
+    my $zipped    = "log.$timestamp.tar";
+
+    my $status;
+    
+    print "Archiving log directory $log_dir to $zipped\n";
+    
+    $status = system 'mv', $log_dir, "$dir/$child_dir";
+    if ( $status ) {
+        warn "Can't move log directory to $dir/$child_dir";
+        return;
+    }
+    
+    $status = system "tar cvf $dir/$tarred -C $dir $child_dir";
+    if ( $status ) {
+        warn "Can't tar log directory $dir/$child_dir";
+        return;
+    }
+    
+    $status = system "gzip $dir/$tarred";
+    if ( $status ) {
+        warn "Can't gzip log archive $dir/$tarred";
+        return;
+    }
+}
 
 # Initialize the logging system. We only want to log if the action is
 # 'align', as we're really only interested in log messages that come
@@ -56,27 +92,7 @@ if (@ARGV && $ARGV[0] eq 'align') {
     for (my $i = 0; $i < @ARGV; $i++) {
         local $_ = $ARGV[$i];
         if (/^(-o|--out)/) {
-
-            my $dir = $ARGV[$i + 1];
-            
-            my $log_dir = RUM::Logging->log_dir_for_output_dir($dir);
-
-            if (-d $log_dir) {
-                my $timestamp = scalar time;
-                my $tarball   = "$log_dir.$timestamp.tar.gz";
-                print "Archiving log directory $log_dir to $tarball\n";
-                
-                my $status = system "tar cvfz $tarball -s /^./log.$timestamp/ -C $log_dir .";
-
-                if ($status) {
-                    warn "Couldn't zip up old log directory $log_dir\n";
-                }
-                else {
-                    rmtree $log_dir;
-                }
-                
-            }
-
+            archive_log_dir($ARGV[$i + 1]);
             RUM::Logging->init($ARGV[$i + 1]);
         }
     }
