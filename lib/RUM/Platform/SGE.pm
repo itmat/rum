@@ -516,6 +516,7 @@ sub _write_shell_script {
 
 sub is_running {
     my ($self) = @_;
+    $self->update_status;
     my %jids_for_job_type= %{ $self->{jids} };
     for my $job_type (keys %jids_for_job_type) {
         my $jids = $jids_for_job_type{$job_type} || [];
@@ -528,11 +529,11 @@ sub is_running {
 
 sub show_running_status {
     my ($self) = @_;
-
+    $self->update_status;
     my $output = "";
 
     my %jids_for_job_type= %{ $self->{jids} };
-    delete $jids_for_job_type{parent};
+
     my @jids = map { @{ $_ || [] } } values %jids_for_job_type;
 
     if (@jids) {

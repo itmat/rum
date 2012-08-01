@@ -33,6 +33,7 @@ sub run {
     if ( ! $self->{loaded_config} ) {
         $self->say("There does not seem to be a RUM job in "
                    . $self->config->output_dir);
+        return;
     }
 
     $self->{workflows} = RUM::Workflows->new($self->config);
