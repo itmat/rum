@@ -6,23 +6,14 @@ use warnings;
 use Getopt::Long;
 use File::Path qw(rmtree);
 use File::Find;
-use base 'RUM::Base';
+use base 'RUM::Action';
 
 sub run {
     my ($class) = @_;
 
-    my $self = $class->new;
-    my $usage = RUM::Usage->new(action => 'clean');
-
-    GetOptions(
-        "o|output=s" => \(my $dir),
-        "very"         => \(my $very),
-        "help|h" => sub { $usage->help }
-    );
-    $dir or $usage->bad(
-        "The --output or -o option is required for \"rum_runner align\"");
-    $usage->check;
-    $self->{config} = RUM::Config->load($dir, 1);
+    my $self = $class->new(name => 'clean');
+    $self->get_options('--very' => \(my $very));
+    $self->check_usage;
     $self->clean($very);
 }
 
@@ -33,6 +24,7 @@ sub clean {
     local $_;
 
     # Remove any temporary files (those that end with .tmp.XXXXXXXX)
+    $self->logsay("Removing files");
     find sub {
         if (/\.tmp\.........$/) {
             unlink $File::Find::name;

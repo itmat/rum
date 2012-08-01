@@ -21,7 +21,7 @@ use RUM::Common qw(format_large_int);
 use RUM::Lock;
 use RUM::JobReport;
 
-use base 'RUM::Base';
+use base 'RUM::Action';
 
 our $log = RUM::Logging->get_logger;
 our $LOGO;
@@ -36,7 +36,7 @@ $SIG{INT} = $SIG{TERM} = sub {
 
 sub run {
     my ($class) = @_;
-    my $self = $class->new;
+    my $self = $class->new(name => 'align');
     $self->get_options();
     my $c = $self->config;
     my $d = $self->directives;
@@ -183,10 +183,9 @@ sub get_options {
     Getopt::Long::Configure(qw(no_ignore_case));
 
     my $d = $self->{directives} = RUM::Directives->new;
-
     my $usage = RUM::Usage->new('action' => 'align');
 
-    GetOptions(
+    $self->SUPER::get_options(
 
         # Advanced (user shouldn't run these)
         "child"        => sub { $d->set_child },
@@ -203,7 +202,6 @@ sub get_options {
 
         # Options typically entered by a user to define a job.
         "index-dir|i=s" => \(my $rum_index),
-        "output|o=s"    => \(my $output_dir),
         "name=s"        => \(my $name),
         "chunks=s"      => \(my $num_chunks),
         "qsub"          => \(my $qsub),
@@ -254,29 +252,11 @@ sub get_options {
         }
     }
 
-    $output_dir or $usage->bad(
-        "The --output or -o option is required for \"rum_runner align\"");
-
     if ($lock) {
         $log->info("Got lock argument ($lock)");
         $RUM::Lock::FILE = $lock;
     }
-
-    my $dir = $output_dir;
-    $ENV{RUM_OUTPUT_DIR} = $dir;
-    my $c = $dir ? RUM::Config->load($dir) : undef;
-    !$c or ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
-    my $did_load;
-    if ($c) {
-        $self->logsay("Using settings found in " . $c->settings_filename);
-        $did_load = 1;
-    }
-    else {
-        $c = RUM::Config->new unless $c;
-        $c->set('output_dir', File::Spec->rel2abs($dir));
-    }
-
-    ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
+    my $c = $self->config;
 
     # If a chunk is specified, that implies that the user wants to do
     # the 'processing' phase, so unset preprocess.
@@ -337,7 +317,7 @@ sub get_options {
     $set->('strand_specific', $strand_specific);
     $set->('user_quals', $quals_file);
     $set->('variable_length_reads', $variable_length_reads);
-
+    my $did_load = 0;
     if (@changed_settings && $did_load && !$force && !$d->child) {
         my $msg = $self->changed_settings_msg($c->settings_filename);
         $msg .= "You tried to make the following changes:\n\n";
@@ -347,7 +327,6 @@ sub get_options {
         die $msg;
     }
 
-    $self->{config} = $c;
     $usage->check;
 }
 

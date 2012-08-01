@@ -13,11 +13,10 @@ RUM::Action::Status - Print status of job
 use strict;
 use warnings;
 
-use Getopt::Long;
 use Text::Wrap qw(wrap fill);
 use Carp;
 use RUM::Action::Help;
-use base 'RUM::Base';
+use base 'RUM::Action';
 
 =item run
 
@@ -28,20 +27,8 @@ Run the action.
 sub run {
     my ($class) = @_;
 
-    my $self = $class->new;
-    my $d = $self->{directives} = RUM::Directives->new;
-
-    my $usage = RUM::Usage->new(action => 'status');
-
-    GetOptions(
-        "o|output=s" => \(my $dir),
-        "h|help" => sub { $usage->help }
-    );
-
-    $dir or $usage->bad(
-        "The --output or -o option is required for \"rum_runner status\"");
-    $usage->check;
-    $self->{config} = RUM::Config->load($dir, 1);
+    my $self = $class->new(name => 'status');
+    $self->get_options;
 
     $self->{workflows} = RUM::Workflows->new($self->config);
 

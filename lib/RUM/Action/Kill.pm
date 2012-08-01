@@ -3,34 +3,21 @@ package RUM::Action::Kill;
 use strict;
 use warnings;
 
-use Getopt::Long;
-use Text::Wrap qw(wrap fill);
-use RUM::Action::Clean;
-use base 'RUM::Base';
+use base 'RUM::Action';
 
 sub run {
     my ($class) = @_;
 
-    my $self = $class->new;
-    $self->{directives} = RUM::Directives->new;
-    my $usage = RUM::Usage->new(action => 'kill');
+    my $self = $class->new(name => 'kill');
+    $self->get_options;
+    $self->check_usage;
+    $self->do_kill;
+}
 
-    GetOptions(
-        "o|output=s" => \(my $dir),
-        "help|h"     => sub { $usage->help }
-    );
-    $dir or $usage->bad(
-        "The --output or -o option is required for \"rum_runner kill\"");
-    $usage->check;
-    $self->{config} = RUM::Config->load($dir, 1);
-    
-    $self->say("Stopping job in $dir");
+sub do_kill {
+    my ($self) = @_;
+    $self->say("Stopping job");
     $self->platform->stop;
-    
-    $self->say("Cleaning up output files");
-    RUM::Action::Clean->new($self->config)->clean(1);
-    $RUM::Lock::FILE = $self->config->in_output_dir(".rum/lock");
-    RUM::Lock->release;
 }
 
 1;

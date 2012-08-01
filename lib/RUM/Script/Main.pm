@@ -18,7 +18,8 @@ our %ACTIONS = (
     clean    => "RUM::Action::Clean",
     kill     => "RUM::Action::Kill",
     align    => "RUM::Action::Align",
-    profile  => "RUM::Action::Profile"
+    profile  => "RUM::Action::Profile",
+    reset    => 'RUM::Action::Reset'
 );
 
 sub main {
