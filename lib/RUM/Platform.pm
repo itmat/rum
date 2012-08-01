@@ -59,5 +59,5 @@ sub preprocess  { croak "Not implemented" }
 sub process     { croak "Not implemented" }
 sub postprocess { croak "Not implemented" }
 sub is_running  { croak "Not implemented" }
-
+sub clean       { }
 1;

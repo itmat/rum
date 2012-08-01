@@ -499,10 +499,16 @@ sub _parent_jids   { $_[0]->{jids}{parent} };
 sub _preproc_jids  { $_[0]->{jids}{preproc} };
 sub _proc_jids     { $_[0]->{jids}{proc} };
 
+sub _script_filename { 
+    my ($self, $phase) = @_;
+    return $self->config->in_output_dir(
+        $self->config->name . "_$phase" . ".sh");
+}
+
+
 sub _write_shell_script {
     my ($self, $phase) = @_;
-    my $filename = $self->config->in_output_dir(
-        $self->config->name . "_$phase" . ".sh");
+    my $filename = $self->_script_filename($phase);
     open my $out, ">", $filename or croak "Can't open $filename for writing: $!";
     my $cmd = $self->{cmd}{$phase} or croak "Don't have command for phase $phase";
 
@@ -543,6 +549,14 @@ sub show_running_status {
     else {
         $self->say("RUM is not running");
     }
+}
+
+sub clean {
+    my ($self) = @_;
+    for my $phase (@JOB_TYPES) {
+        unlink $self->_script_filename($phase);
+    }
+    unlink $self->config->in_output_dir($JOB_ID_FILE);    
 }
 
 1;
