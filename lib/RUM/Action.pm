@@ -18,6 +18,7 @@ sub new {
     my ($class, %params) = @_;
     my $self = $class->SUPER::new;
 
+    $self->{config} = $params{config};
     $self->{name}          = $params{name} or croak "Please give 'name' param";
     $self->{usage_errors}  = RUM::Usage->new(action => $self->{name});
 
@@ -45,7 +46,8 @@ sub get_options {
         $c = RUM::Config->new unless $c;
         $c->set('output_dir', File::Spec->rel2abs($output_dir));
     }
-    
+
+    $self->{loaded_config} = $did_load;
     $self->{config} = $c;
 }
 

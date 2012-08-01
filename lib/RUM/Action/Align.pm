@@ -34,9 +34,11 @@ $SIG{INT} = $SIG{TERM} = sub {
     exit 1;
 };
 
+sub new { shift->SUPER::new(name => 'align', @_) }
+
 sub run {
     my ($class) = @_;
-    my $self = $class->new(name => 'align');
+    my $self = $class->new;
     $self->get_options();
     my $c = $self->config;
     my $d = $self->directives;
@@ -760,7 +762,7 @@ sub _final_check {
         $self->logsay("No errors. Very good!");
         unless ($self->directives->no_clean) {
             $self->logsay("Cleaning up.");
-            RUM::Action::Clean->new($self->config)->clean;
+            RUM::Action::Clean->new(config => $self->config)->clean;
         }
     }
 }

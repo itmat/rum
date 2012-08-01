@@ -8,10 +8,12 @@ use File::Path qw(rmtree);
 use File::Find;
 use base 'RUM::Action';
 
+sub new { shift->SUPER::new(name => 'clean', @_) }
+
 sub run {
     my ($class) = @_;
 
-    my $self = $class->new(name => 'clean');
+    my $self = $class->new;
     $self->get_options('--very' => \(my $very));
     $self->check_usage;
     $self->clean($very);

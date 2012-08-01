@@ -42,6 +42,8 @@ sub run {
         $self->say("");
         $self->say("RUM Finished.");
     }
+
+    $self->platform->show_running_status;
 }
 
 =item print_processing_status

@@ -581,20 +581,31 @@ sub _reads {
     return @{ $_[0]->config->reads };
 }
 
+sub pid {
+    my ($self) = @_;
+
+    my $lock_file = $self->config->lock_file;
+
+    return if ! -e $lock_file;
+    open my $in, "<", $lock_file;
+    my $pid = int(<$in>) or die 
+    "The lock file $lock_file exists but does not contain a pid";
+
+}
+
 sub stop {
     my ($self) = @_;
 
-    if ( ! $self->is_running ) {
+
+    my $pid = $self->pid;
+
+    if (! defined $pid) {
         $self->alert(
             "There doesn't seem to be a RUM job running in ",
             $self->config->output_dir());
         return;
     }
-    my $lock_file = $self->config->lock_file;
-    open my $in, "<", $lock_file;
 
-    my $pid = int(<$in>) or die 
-    "The lock file $lock_file exists but does not contain a pid";
     $self->say("Killing process $pid");
     kill 15, $pid or die "I can't kill $pid: $!";
 }
@@ -606,8 +617,18 @@ sub job_report {
 
 sub is_running {
     my ($self) = @_;
-    my $lock_file = $self->config->lock_file;
-    return -e $lock_file;
+    return defined $self->pid;
+}
+
+sub show_running_status {
+    my ($self) = @_;
+    my $pid = $self->pid;
+    if (defined $pid) {
+        $self->say("RUM is currently running (PID $pid).");
+    }
+    else {
+        $self->say("RUM is not running.");
+    }
 }
 
 1;

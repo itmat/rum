@@ -5,10 +5,12 @@ use warnings;
 
 use base 'RUM::Action';
 
+sub new { shift->SUPER::new(name => 'kill', @_) }
+
 sub run {
     my ($class) = @_;
 
-    my $self = $class->new(name => 'kill');
+    my $self = $class->new;
     $self->get_options;
     $self->check_usage;
     $self->do_kill;
