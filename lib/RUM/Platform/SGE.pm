@@ -488,6 +488,7 @@ sub stop {
             $self->say("Don't seem to have any $name job ids running");
         }
     }
+    unlink $self->config->lock_file;
 }
 
 # These methods return the SGE job ids for the jobs that are currently
@@ -517,12 +518,30 @@ sub is_running {
     my ($self) = @_;
     my %jids_for_job_type= %{ $self->{jids} };
     for my $job_type (keys %jids_for_job_type) {
-        my $jids = $jids_for_job_type{$job_type};
+        my $jids = $jids_for_job_type{$job_type} || [];
         if (@{ $jids }) {
             return 1;
         }
     }
     return 0;
+}
+
+sub show_running_status {
+    my ($self) = @_;
+
+    my $output = "";
+
+    my %jids_for_job_type= %{ $self->{jids} };
+    delete $jids_for_job_type{parent};
+    my @jids = map { @{ $_ || [] } } values %jids_for_job_type;
+
+    if (@jids) {
+        $self->say("RUM is running (job ids "
+                   . join(', ', @jids) . ')');
+    }
+    else {
+        $self->say("RUM is not running");
+    }
 }
 
 1;
