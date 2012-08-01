@@ -32,7 +32,8 @@ $RUM::Platform::Cluster::CLUSTER_CHECK_INTERVAL=0;
 my $directives = RUM::Directives->new;
 
 our %DEFAULTS = (genome_size => 1000000,
-                 name => "cluster.t");
+                 name        => 'cluster.t',
+                 num_chunks  => 1);
 
 sub config { RUM::Config->new(%DEFAULTS) }
 

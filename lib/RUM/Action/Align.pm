@@ -375,10 +375,6 @@ sub check_config {
         "Please specify a rum index directory with --index-dir or -i");
     $c->load_rum_config_file if $c->rum_index;
 
-    $c->num_chunks or $usage->bad(
-        "Please tell me how many chunks to split the input into with the "
-        . "--chunks option.");
-
     my $reads = $c->reads;
 
     if ($reads) {
@@ -433,6 +429,9 @@ sub check_config {
         "--blat-min-identity or --minIdentity must be an integer between ".
             "0 and 100.");
 
+    $c->num_chunks or $usage->bad(
+        "Please tell me how many chunks to split the input into with the "
+        . "--chunks option.");
 
     $usage->check;
     

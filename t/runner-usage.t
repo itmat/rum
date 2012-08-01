@@ -141,17 +141,18 @@ like(run_rum("help", "config"),
 
 # Check that it fails if required arguments are missing
 rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf"],
-             qr/please.*read files/i, "Missing read files");
+             qr/please.*read files/im, "Missing read files");
 
 rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
               "1.fq", "2.fq", "3.fq"],
-             qr/please.*read files/i, "Too many read files");
+             qr/please.*read files/im, "Too many read files");
 
 rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
               "1.fq", "1.fq"],
              qr/same file for the forward and reverse/i,
              "Duplicate read file");
 rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
+              '--chunks', 1,
               $forward_64_fa, "$SHARED_INPUT_DIR/reads.fa"],
              qr/same size/i, "Read files are not the same size");
 
@@ -175,9 +176,10 @@ rum_fails_ok(
 
 # Check that we set some default values correctly
 {
-    my @argv = ("--index", $index,
-                "--output", "foo",
-                "--name", "asdf",
+    my @argv = ('--index',  $index,
+                '--output', 'foo',
+                '--name',   'asdf',
+                '--chunks', 1,
                 $forward_64_fq);
     
     my $rum = rum(@argv);
@@ -199,41 +201,60 @@ rum_fails_ok(
 }
 
 # Check that we clean up a name
-is(rum("--index", $index,
-       "--output", "foo",
+is(rum('--index', $index,
+       '--output', 'foo',
+       '--chunks', 1,
        $forward_64_fq, "--name", ",foo bar,baz,")->config->name,
    "foo_bar_baz",
    "Clean up name with invalid characters");
 
 # Check that rum fails if a read file is missing
 rum_fails_ok(["align","--index", $index, "--output", tmp_out(),
-              "--name", "asdf", "asdf.fq", "-q"],
+              "--name", "asdf", "asdf.fq", "-q", '--chunks', 1],
              qr/read from.*asdf.fq/i,
              "Read file doesn't exist");    
-rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
+rum_fails_ok(["align", 
+              '--index',  $index,
+              '--output', tmp_out(), 
+              '--name',   'asdf', 
+              '--chunks', 1,
               $forward_64_fq, "asdf.fq", "-q"],
              qr/read from.*asdf.fq/i, 
              "Read file doesn't exist");    
 
 # Check bad reads
-rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
-              $bad_reads, "-q"],
-             qr/you appear to have entries/i, "Bad reads");    
-rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf",
-              $bad_reads, $good_reads_same_size_as_bad, "-q"], 
-             qr/you appear to have entries/i, "Bad reads");    
-rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf",
-              $good_reads_same_size_as_bad, $bad_reads, "-q"],
-             qr/you appear to have entries/i, "Bad reads");    
+rum_fails_ok(['align',
+              '--index',  $index,
+              '--output', tmp_out(),
+              '--name',   'asdf', 
+              '--chunks', 1,
+              $bad_reads, '-q'],
+             qr/you appear to have entries/i, 'Bad reads');    
+
+rum_fails_ok(['align', 
+              '--index',  $index,
+              '--output', tmp_out(),
+              '--name',   'asdf',
+              '--chunks', 1,
+              $bad_reads, $good_reads_same_size_as_bad, '-q'], 
+             qr/you appear to have entries/i, 'Bad reads');    
+
+rum_fails_ok(['align',
+              '--index',  $index, 
+              '--output', tmp_out(),
+              '--name',   'asdf',
+              '--chunks', 1,
+              $good_reads_same_size_as_bad, $bad_reads, '-q'],
+             qr/you appear to have entries/i, 'Bad reads');    
 
 # Check that we preprocess a single paired-end fasta file correctly
 {
-    $log->warn("About to preprocess");
-    warn "Here";
-    my $rum = preprocess("--index", $index,
-                         "-o", tempdir(CLEANUP => 1),
-                         "--name", "asdf", "$SHARED_INPUT_DIR/reads.fa");
-    warn "Done";
+    $log->warn('About to preprocess');
+    my $rum = preprocess('--index', $index,
+                         '--output', tempdir(CLEANUP => 1),
+                         '--name', 'asdf', 
+                         '--chunks', 1,
+                         "$SHARED_INPUT_DIR/reads.fa");
     my $prefix = "1, paired, fa, no chunks";
     
     ok($rum->config->paired_end, "$prefix is paired end");
@@ -248,6 +269,7 @@ rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf
     my $rum = preprocess("--index", $index,
                          "-o", tempdir(CLEANUP => 1),
                          "--name", "asdf",
+                         '--chunks', 1,
                          "$SHARED_INPUT_DIR/forward_only.fa");
 
     my $prefix = "1, single, fa, no chunks";
@@ -266,7 +288,7 @@ rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf
 
 # Check that we process a pair of fastq files correctly
 {
-    my @argv = ("--index", $index, "--name", "asdf");
+    my @argv = ("--index", $index, "--name", "asdf", '--chunks', 1);
     my $rum = rum(@argv, "-o", tempdir(CLEANUP => 1),
                   $forward_64_fq, $reverse_64_fq);
     $rum->setup;
@@ -381,6 +403,7 @@ sub postproc_cmd_like {
 my @standard_args = ("--index", $index,
                      "--output", tempdir(CLEANUP => 1),
                      "--name", "asdf",
+                     '--chunks', 1,
                      $forward_64_fq, $reverse_64_fq);
 
 for (qw(genome transcriptome)) {
