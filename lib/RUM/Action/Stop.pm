@@ -18,7 +18,6 @@ sub run {
 
 sub do_stop {
     my ($self) = @_;
-    $self->say("Stopping job");
     $self->platform->stop;
 }
 

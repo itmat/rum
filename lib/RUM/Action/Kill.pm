@@ -15,17 +15,19 @@ sub run {
     $self->get_options;
     $self->check_usage;
 
+    my $dir = $self->config->output_dir;
+
     if ( ! $self->{loaded_config} ) {
-        $self->say("There does not appear to be a RUM job in "
-                   . $self->config->output_dir);
+        $self->say("There does not appear to be a RUM job in $dir.");
         return;
     }
 
-    my $stop_action  = RUM::Action::Stop->new(config => $self->config);
+    $self->platform->stop;
     my $clean_action = RUM::Action::Clean->new(config => $self->config);
-
-    $stop_action->do_stop;
     $clean_action->clean(1);
+
+    $self->say("RUM job in $dir has been killed.");
+
 }
 
 1;

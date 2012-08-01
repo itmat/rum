@@ -596,18 +596,16 @@ sub pid {
 sub stop {
     my ($self) = @_;
 
-
-    my $pid = $self->pid;
-
-    if (! defined $pid) {
+    if (defined(my $pid = $self->pid)) {
+        $self->say("Killing process $pid");
+        kill 15, $pid or die "I can't kill $pid: $!";
+    }
+    else {
         $self->alert(
             "There doesn't seem to be a RUM job running in ",
             $self->config->output_dir());
-        return;
     }
 
-    $self->say("Killing process $pid");
-    kill 15, $pid or die "I can't kill $pid: $!";
 }
 
 sub job_report {

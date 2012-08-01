@@ -30,7 +30,7 @@ sub run {
     my $self = $class->new(name => 'status');
     $self->get_options;
 
-    if ( ! $self->{did_load} ) {
+    if ( ! $self->{loaded_config} ) {
         $self->say("There does not seem to be a RUM job in "
                    . $self->config->output_dir);
     }
@@ -42,13 +42,14 @@ sub run {
     $self->say();
     $self->_chunk_error_logs_are_empty;
 
+    $self->say("");
+    $self->platform->show_running_status;
+
     my $postproc = $self->{workflows}->postprocessing_workflow;
     if ($postproc->is_complete) {
         $self->say("");
         $self->say("RUM Finished.");
     }
-
-    $self->platform->show_running_status;
 }
 
 =item print_processing_status

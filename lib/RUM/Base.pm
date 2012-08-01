@@ -175,7 +175,7 @@ sub _chunk_error_logs_are_empty {
     }
 
     if ($result) {
-        $self->logsay("All the chunk error log files were empty, that's good");
+        $self->logsay("All the chunk error log files are empty. That's good.");
     }
 
     my $log_file = File::Spec->catfile($dir, "rum_errors.log");
@@ -184,7 +184,7 @@ sub _chunk_error_logs_are_empty {
         $result = 0;
     }
     else {
-        $self->logsay("Main error log file is empty, that's good");
+        $self->logsay("Main error log file is empty. That's good.");
     }
     return $result;
 }
