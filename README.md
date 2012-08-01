@@ -162,15 +162,15 @@ rum_indexes
 rum_indexes --prefix ~/rum-indexes
 ```
 
-For every index you install, a file named like `rum.config_*` will be
-downloaded into the `conf` directory. You will need to specify one of
-these index configuration files when you run rum. For example, if you
+When you install an index, all the files for that organism will be
+placed in a new directory named after the organism. You will need to
+specify the index directory when you run RUM. For example, if you
 installed the mm9 index by running `rum_indexes --prefix
 ~/rum-indexes`, in order to align some reads using that index, you
 would run:
 
 ```
-rum_runner align --config ~/rum-indexes/conf/rum.config_mm9 ...
+rum_runner align --index ~/rum-indexes/mm9 ...
 ```
 
 Note that you will need a lot of available disk space in order to

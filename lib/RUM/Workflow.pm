@@ -631,9 +631,13 @@ sub clean {
     local $_;
 
     if ($clean_goal) {
-        for ($self->state_machine->flags()) {
-            $log->debug("veryclean: removing $_");
-            unlink;
+      FILE: for my $file ($self->state_machine->flags()) {
+            next FILE if ! -e $file;
+            $log->debug("veryclean: removing $file");
+            eval { unlink $file; };
+            if ($@) {
+                warn "Couldn't remove $file: $!";
+            }
         }        
     }
     else {

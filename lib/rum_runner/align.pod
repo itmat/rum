@@ -4,19 +4,27 @@ rum_runner align - Run the RUM pipeline.
 
 =head1 SYNOPSIS
 
-rum_runner align [OPTIONS] [FORWARD [REVERSE]]
+  # Start a job
+  rum_runner align           
+      --index-dir INDEX_DIR  
+      --name      JOB_NAME   
+      --output    OUTPUT_DIR 
+      --chunks    NUM_CHUNKS
+      FORWARD_READS [ REVERSE_READS ]
+      [ OPTIONS ]
+
+  # Restart a stopped job based on output directory
+  rum_runner align --output OUTPUT_DIR
 
 =head1 DESCRIPTION
 
 Runs the RUM pipeline. 
 
-=head2 Index Configuration
-
-Default config files are supplied with each organism.  If you need to
-make or modify one then running C<rum_runner help config> gives an
-explanation of the the file.
-
-=head2 Tips
+The first time you run C<rum_runner align -o I<dir> OPTIONS> on output
+directory I<dir>, rum_runner will save the options you ran it with in
+I<dir/.rum/job_settings>. Then if you need to rerun the job for any
+reason, you can run C<rum_runner align -o I<dir>> later and it will
+automatically pick up the options you specified originally.
 
 This program writes very large intermediate files.  If you have a
 large genome such as mouse or human then it is recommended to run in
@@ -28,43 +36,35 @@ it under a million reads per chunk will speed things considerably.
 
 =head2 Common Job Configuration Options
 
-You will probably specify all of these options for any given job. The
-first time you run C<rum_runner align -o I<dir> OPTIONS> on output
-directory I<dir>, rum_runner will save the options you ran it with in
-I<dir/.rum/job_settings>. Then if you need to rerun the job for any
-reason, you can run C<rum_runner align -o I<dir>> later and it will
-automatically pick up the options you specified originally.
-
-Once you start a job running, if you need to restart it, you should
-not attempt to change the values of these settings. Doing so may
-result in undefined behavior.
+You will probably specify all of these options for any given job. Once
+you start a job running, if you need to restart it, you should not
+attempt to change the values of these settings. Doing so may result in
+undefined behavior.
 
 =over 4
 
-=item B<FORWARD>
+=item B<FORWARD> (required)
 
-=item B<REVERSE>
+=item B<REVERSE> (optional)
 
 For unpaired data, the single file of reads.  For paired data the
-files of forward and reverse reads.
+files of forward and reverse reads. Files can be either fasta or
+fastq; the type is inferred.
 
-NOTE ON FILE FORMATS: Files can be either fasta or fastq, the type is
-inferred.
-
-=item B<-i>, B<--index-dir> I<index_dir>
+=item B<-i>, B<--index-dir> I<index_dir> (required)
 
 The path to the directory that contains the RUM index for the organism
 you want to align against.  Please use I<rum_indexes> to install
 indexes.
 
-=item B<-o>, B<--output-dir> I<output_dir>
+=item B<-o>, B<--output-dir> I<output_dir> (required)
 
 Where to write the temp, intermediate, and results files. Note that
 rum_runner will read the job configuration file from this directory,
 so if you need to run the job again, you do not need to run it with
 the same options.
 
-=item B<--chunks> I<num_chunks>
+=item B<--chunks> I<num_chunks> (required)
 
 The number of pieces to break the job into (defaults to 1).  Use 1
 chunk unless you are on a cluster, or have multiple cores with lots of
@@ -73,13 +73,13 @@ human will also need about 5 to 6 Gb of RAM per chunk.  Even with a
 small genome, if you have tens of millions of reads, you will still
 need a few Gb of RAM to get through the post-processing.
 
-=item B<--name> I<name>
+=item B<--name> I<name> (required)
 
 A string to identify this run - use only alphanumeric, underscores,
 and dashes.  No whitespace or other characters.  Must be less than 250
 characters.
 
-=item B<--platform> I<platform_name>
+=item B<--platform> I<platform_name> (optional)
 
 Specify the cluster platform that you are running on. If not supplied,
 I will assume that you are not running on a cluster. You can still

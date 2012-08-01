@@ -16,9 +16,10 @@ our %ACTIONS = (
     version  => "RUM::Action::Version",
     status   => "RUM::Action::Status",
     clean    => "RUM::Action::Clean",
-    kill     => "RUM::Action::Kill",
+    stop     => "RUM::Action::Stop",
     align    => "RUM::Action::Align",
-    profile  => "RUM::Action::Profile"
+    profile  => "RUM::Action::Profile",
+    kill     => 'RUM::Action::Kill'
 );
 
 sub main {

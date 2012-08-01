@@ -375,7 +375,6 @@ sub main {
         undef %badoverlapNU;
         undef %goodoverlapU;
         undef %goodoverlapNU;
-        undef %knownintron;
             
         open INFILE, "<", $rumU;
         #    print "please wait...\n";

@@ -13,11 +13,10 @@ RUM::Action::Status - Print status of job
 use strict;
 use warnings;
 
-use Getopt::Long;
 use Text::Wrap qw(wrap fill);
 use Carp;
 use RUM::Action::Help;
-use base 'RUM::Base';
+use base 'RUM::Action';
 
 =item run
 
@@ -28,20 +27,14 @@ Run the action.
 sub run {
     my ($class) = @_;
 
-    my $self = $class->new;
-    my $d = $self->{directives} = RUM::Directives->new;
+    my $self = $class->new(name => 'status');
+    $self->get_options;
 
-    my $usage = RUM::Usage->new(action => 'status');
-
-    GetOptions(
-        "o|output=s" => \(my $dir),
-        "h|help" => sub { $usage->help }
-    );
-
-    $dir or $usage->bad(
-        "The --output or -o option is required for \"rum_runner status\"");
-    $usage->check;
-    $self->{config} = RUM::Config->load($dir, 1);
+    if ( ! $self->{loaded_config} ) {
+        $self->say("There does not seem to be a RUM job in "
+                   . $self->config->output_dir);
+        return;
+    }
 
     $self->{workflows} = RUM::Workflows->new($self->config);
 
@@ -49,6 +42,9 @@ sub run {
     $self->print_postprocessing_status;
     $self->say();
     $self->_chunk_error_logs_are_empty;
+
+    $self->say("");
+    $self->platform->show_running_status;
 
     my $postproc = $self->{workflows}->postprocessing_workflow;
     if ($postproc->is_complete) {

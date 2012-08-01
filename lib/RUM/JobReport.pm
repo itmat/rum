@@ -107,7 +107,7 @@ EOF
         }
     }
 
-    my @lengths = grep { $_ } map { length($_) } values %name_for;
+    my @lengths = grep { $_ } map { defined $_ ? length($_) :0 } values %name_for;
     my $max_len_name = max(@lengths);
         
   PROPERTY: for my $key (@ordered_keys) {

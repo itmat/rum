@@ -27,7 +27,7 @@ RUM::Config - Configuration for a RUM job
 our %DEFAULTS = (
 
     # These properties are actually set by the user
-    num_chunks            => 1,
+    num_chunks            => undef,
     ram                   => undef,
     max_insertions        => 1,
     strand_specific       => 0,
@@ -366,6 +366,12 @@ sub save {
     my $filename = $self->in_output_dir($FILENAME);
     open my $fh, ">", $filename or croak "$filename: $!";
     print $fh Dumper($self);
+}
+
+sub destroy {
+    my ($self) = @_;
+    my $filename = $self->in_output_dir($FILENAME);
+    unlink $filename;
 }
 
 =item load($dir, $force)

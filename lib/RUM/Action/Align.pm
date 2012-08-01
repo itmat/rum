@@ -21,7 +21,7 @@ use RUM::Common qw(format_large_int);
 use RUM::Lock;
 use RUM::JobReport;
 
-use base 'RUM::Base';
+use base 'RUM::Action';
 
 our $log = RUM::Logging->get_logger;
 our $LOGO;
@@ -33,6 +33,8 @@ $SIG{INT} = $SIG{TERM} = sub {
     RUM::Lock->release;
     exit 1;
 };
+
+sub new { shift->SUPER::new(name => 'align', @_) }
 
 sub run {
     my ($class) = @_;
@@ -183,10 +185,9 @@ sub get_options {
     Getopt::Long::Configure(qw(no_ignore_case));
 
     my $d = $self->{directives} = RUM::Directives->new;
-
     my $usage = RUM::Usage->new('action' => 'align');
 
-    GetOptions(
+    $self->SUPER::get_options(
 
         # Advanced (user shouldn't run these)
         "child"        => sub { $d->set_child },
@@ -203,7 +204,6 @@ sub get_options {
 
         # Options typically entered by a user to define a job.
         "index-dir|i=s" => \(my $rum_index),
-        "output|o=s"    => \(my $output_dir),
         "name=s"        => \(my $name),
         "chunks=s"      => \(my $num_chunks),
         "qsub"          => \(my $qsub),
@@ -239,8 +239,7 @@ sub get_options {
 
         "force|f"   => \(my $force),
         "quiet|q"   => sub { $log->less_logging(1); $quiet = 1; },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "help|h" => sub { $usage->help }
+        "verbose|v" => sub { $log->more_logging(1) }
     );
 
     my @reads;
@@ -254,29 +253,11 @@ sub get_options {
         }
     }
 
-    $output_dir or $usage->bad(
-        "The --output or -o option is required for \"rum_runner align\"");
-
     if ($lock) {
         $log->info("Got lock argument ($lock)");
         $RUM::Lock::FILE = $lock;
     }
-
-    my $dir = $output_dir;
-    $ENV{RUM_OUTPUT_DIR} = $dir;
-    my $c = $dir ? RUM::Config->load($dir) : undef;
-    !$c or ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
-    my $did_load;
-    if ($c) {
-        $self->logsay("Using settings found in " . $c->settings_filename);
-        $did_load = 1;
-    }
-    else {
-        $c = RUM::Config->new unless $c;
-        $c->set('output_dir', File::Spec->rel2abs($dir));
-    }
-
-    ref($c) =~ /RUM::Config/ or confess("Not a config: $c");
+    my $c = $self->config;
 
     # If a chunk is specified, that implies that the user wants to do
     # the 'processing' phase, so unset preprocess.
@@ -337,7 +318,7 @@ sub get_options {
     $set->('strand_specific', $strand_specific);
     $set->('user_quals', $quals_file);
     $set->('variable_length_reads', $variable_length_reads);
-
+    my $did_load = 0;
     if (@changed_settings && $did_load && !$force && !$d->child) {
         my $msg = $self->changed_settings_msg($c->settings_filename);
         $msg .= "You tried to make the following changes:\n\n";
@@ -347,7 +328,6 @@ sub get_options {
         die $msg;
     }
 
-    $self->{config} = $c;
     $usage->check;
 }
 
@@ -377,11 +357,10 @@ sub check_config {
 
     my $reads = $c->reads;
 
-
     if ($reads) {
         @$reads == 1 || @$reads == 2 or $usage->bad(
             "Please provide one or two read files. You provided " .
-                join(", ", @$reads));
+            join(", ", @$reads));
     }
     else {
         $usage->bad("Please provide one or two read files.");
@@ -430,6 +409,9 @@ sub check_config {
         "--blat-min-identity or --minIdentity must be an integer between ".
             "0 and 100.");
 
+    $c->num_chunks or $usage->bad(
+        "Please tell me how many chunks to split the input into with the "
+        . "--chunks option.");
 
     $usage->check;
     
@@ -528,8 +510,15 @@ sub fix_name {
 sub check_gamma {
     my ($self) = @_;
     my $host = `hostname`;
-    if ($host =~ /login.genomics.upenn.edu/ && !$self->config->platform eq 'Local') {
-        die("you cannot run RUM on the PGFI cluster without using the --qsub option.");
+
+    my $on_gamma = `hostname` =~ / (?: login | gamma) 
+                                   \.genomics\.upenn\.edu/xm;
+
+    my $running_locally = $self->config->platform eq 'Local';
+    
+    if ($on_gamma && $running_locally) {
+        die("You cannot run RUM on the PGFI cluster "
+            . "without using the --qsub option.\n");
     }
 }
 
@@ -772,7 +761,7 @@ sub _final_check {
         $self->logsay("No errors. Very good!");
         unless ($self->directives->no_clean) {
             $self->logsay("Cleaning up.");
-            RUM::Action::Clean->new($self->config)->clean;
+            RUM::Action::Clean->new(config => $self->config)->clean;
         }
     }
 }

@@ -86,7 +86,8 @@ is($class->_parse_qstat_out("error: failed receiving gdi request response for ".
    undef);
 
 my $sge = RUM::Platform::SGE->new(
-    RUM::Config->new(output_dir => tempdir(CLEANUP => 1)),
+    RUM::Config->new(output_dir => tempdir(CLEANUP => 1),
+                     num_chunks => 1),
     RUM::Directives->new);
 
 push @{ $sge->_preproc_jids }, 628724;

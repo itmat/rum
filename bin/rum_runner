@@ -33,8 +33,45 @@ use warnings;
 
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");
-
+use File::Path qw(rmtree);
+use File::Spec qw(splitdir catfile);
+use List::Util qw(first);
 use RUM::Logging;
+
+sub archive_log_dir {
+    
+    my ($dir) = @_;
+
+    my $log_dir = RUM::Logging->log_dir_for_output_dir($dir);
+    return if ! -d $log_dir;
+
+    my $timestamp = scalar time;
+    my $child_dir = "log.$timestamp";
+    my $tarred    = "log.$timestamp.tar";
+    my $zipped    = "log.$timestamp.tar";
+
+    my $status;
+    
+    print "Archiving log directory $log_dir to $zipped\n";
+    
+    $status = system 'mv', $log_dir, "$dir/$child_dir";
+    if ( $status ) {
+        warn "Can't move log directory to $dir/$child_dir";
+        return;
+    }
+    
+    $status = system "tar cvf $dir/$tarred -C $dir $child_dir";
+    if ( $status ) {
+        warn "Can't tar log directory $dir/$child_dir";
+        return;
+    }
+    
+    $status = system "gzip $dir/$tarred";
+    if ( $status ) {
+        warn "Can't gzip log archive $dir/$tarred";
+        return;
+    }
+}
 
 # Initialize the logging system. We only want to log if the action is
 # 'align', as we're really only interested in log messages that come
@@ -49,9 +86,13 @@ use RUM::Logging;
 # command line and initialize the logging system so that it puts
 # output files there.
 if (@ARGV && $ARGV[0] eq 'align') {
+
+    my $is_top_level = ! first { / ^ (--parent | --child) $ /mx } @ARGV;
+
     for (my $i = 0; $i < @ARGV; $i++) {
         local $_ = $ARGV[$i];
         if (/^(-o|--out)/) {
+            archive_log_dir($ARGV[$i + 1]);
             RUM::Logging->init($ARGV[$i + 1]);
         }
     }
@@ -78,6 +119,7 @@ rum_runner - RNA-Seq Unified Mapper
   rum_runner clean   -o dir [--very]
   rum_runner kill    -o dir
   rum_runner status  -o dir
+  rum_runner stop    -o dir
   rum_runner version
   rum_runner help    [ACTION]
 
@@ -89,10 +131,22 @@ check the status of a job, kill a job, and clean up after a job.
 Every time you run rum_runner you must give it an action that tells it
 what to do. When you run the pipeline using C<rum_runner align>,
 rum_runner puts all of its output files in one directory, specified by
-the B<-o> or B<--output> option. While the job is running you can
-check the status by running C<rum_runner status -o I<dir>>, where
-I<dir> is the output directory. You can kill it by running
-C<rum_runner I<kill>> or C<rum_runner kill -o I<dir>>.
+the B<-o> or B<--output> option.
+
+While the job is running you can check the status by running
+C<rum_runner status -o I<dir>>, where I<dir> is the output
+directory.
+
+If you need to stop a job but leave all of its output intact so you
+can restart it from where it left off, use C<rum_runner stop -o
+I<dir>>. If you restart it with C<rum_runner align -o I<dir>>, it
+should start at the step it was on when it was stopped.
+
+If you realized you started a job with incorrect settings and you want
+to kill it and restart it from scratch, you can use C<rum_runner kill
+-o I<dir>>. This will stop the job and remove all output files
+associated with it, so you can safely run it again with different
+settings.
 
 B<Note>: Please run C<rum_runner help align> to see all of the options
 you can use when running an alignment.
@@ -115,14 +169,17 @@ Delete intermediate files in the specified output directory.
 
 =item B<kill>
 
-Attempt to kill the job running in the specified output
-directory. Note that if you're running a job in a terminal you also
-kill it using CTRL-C.
+Stop the job running in the specified output directory and remove all output files associated with it, so you can restart the job from scratch with different settings.
 
 =item B<status>
 
 Check the status of a job running in the output directory specified by
 -o or --output.
+
+=item B<stop>
+
+Stop the job running in the specified output directory. Note that if
+you're running a job in a terminal you also stop it using CTRL-C.
 
 =item B<version>
 
@@ -148,6 +205,8 @@ You can run C<rum_runner help ACTION> for help on a specific action:
 =item C<rum_runner help kill>
 
 =item C<rum_runner help status>
+
+=item C<rum_runner help stop>
 
 =item C<rum_runner help version>
 

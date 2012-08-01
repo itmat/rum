@@ -2,6 +2,7 @@ package RUM::Platform::Local;
 
 use strict;
 use warnings;
+use autodie;
 
 use Carp;
 use Text::Wrap qw(wrap fill);
@@ -580,25 +581,52 @@ sub _reads {
     return @{ $_[0]->config->reads };
 }
 
+sub pid {
+    my ($self) = @_;
+
+    my $lock_file = $self->config->lock_file;
+
+    return if ! -e $lock_file;
+    open my $in, "<", $lock_file;
+    my $pid = int(<$in>) or die 
+    "The lock file $lock_file exists but does not contain a pid";
+
+}
+
 sub stop {
     my ($self) = @_;
-    my $lock_file = $self->config->lock_file;
-    -e $lock_file or die
-        join(" ", 
-             "There doesn't seem to be a RUM pipeline running in",
-             $self->config->output_dir(), 
-             "(I can't open the lock file)");
-    open my $in, "<", $lock_file or die 
-        "I can't read a pid from the lock file $lock_file";
-    my $pid = int(<$in>) or die 
-        "The lock file $lock_file exists but does not contain a pid";
-    $self->say("Killing process $pid");
-    kill 15, $pid or die "I can't kill $pid: $!";
+
+    if (defined(my $pid = $self->pid)) {
+        $self->say("Killing process $pid");
+        kill 15, $pid or die "I can't kill $pid: $!";
+    }
+    else {
+        $self->alert(
+            "There doesn't seem to be a RUM job running in ",
+            $self->config->output_dir());
+    }
+
 }
 
 sub job_report {
     my ($self) = @_;
     return RUM::JobReport->new($self->config);
+}
+
+sub is_running {
+    my ($self) = @_;
+    return defined $self->pid;
+}
+
+sub show_running_status {
+    my ($self) = @_;
+    my $pid = $self->pid;
+    if (defined $pid) {
+        $self->say("RUM is currently running (PID $pid).");
+    }
+    else {
+        $self->say("RUM is not running.");
+    }
 }
 
 1;

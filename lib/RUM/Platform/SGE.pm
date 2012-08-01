@@ -488,6 +488,7 @@ sub stop {
             $self->say("Don't seem to have any $name job ids running");
         }
     }
+    unlink $self->config->lock_file;
 }
 
 # These methods return the SGE job ids for the jobs that are currently
@@ -498,10 +499,16 @@ sub _parent_jids   { $_[0]->{jids}{parent} };
 sub _preproc_jids  { $_[0]->{jids}{preproc} };
 sub _proc_jids     { $_[0]->{jids}{proc} };
 
+sub _script_filename { 
+    my ($self, $phase) = @_;
+    return $self->config->in_output_dir(
+        $self->config->name . "_$phase" . ".sh");
+}
+
+
 sub _write_shell_script {
     my ($self, $phase) = @_;
-    my $filename = $self->config->in_output_dir(
-        $self->config->name . "_$phase" . ".sh");
+    my $filename = $self->_script_filename($phase);
     open my $out, ">", $filename or croak "Can't open $filename for writing: $!";
     my $cmd = $self->{cmd}{$phase} or croak "Don't have command for phase $phase";
 
@@ -511,6 +518,45 @@ sub _write_shell_script {
     print $out $self->{cmd}{$phase};
     close $out;
     return $filename;
+}
+
+sub is_running {
+    my ($self) = @_;
+    $self->update_status;
+    my %jids_for_job_type= %{ $self->{jids} };
+    for my $job_type (keys %jids_for_job_type) {
+        my $jids = $jids_for_job_type{$job_type} || [];
+        if (@{ $jids }) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+sub show_running_status {
+    my ($self) = @_;
+    $self->update_status;
+    my $output = "";
+
+    my %jids_for_job_type= %{ $self->{jids} };
+
+    my @jids = map { @{ $_ || [] } } values %jids_for_job_type;
+
+    if (@jids) {
+        $self->say("RUM is running (job ids "
+                   . join(', ', @jids) . ')');
+    }
+    else {
+        $self->say("RUM is not running");
+    }
+}
+
+sub clean {
+    my ($self) = @_;
+    for my $phase (@JOB_TYPES) {
+        unlink $self->_script_filename($phase);
+    }
+    unlink $self->config->in_output_dir($JOB_ID_FILE);    
 }
 
 1;
