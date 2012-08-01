@@ -90,9 +90,10 @@ if (@ARGV && $ARGV[0] eq 'align') {
     my $is_top_level = ! first { / ^ (--parent | --child) $ /mx } @ARGV;
 
     for (my $i = 0; $i < @ARGV; $i++) {
-        local $_ = $ARGV[$i];
-        if (/^(-o|--out)/) {
-            archive_log_dir($ARGV[$i + 1]);
+        if ($ARGV[$i] =~ /^(-o|--out)/) {
+            if ($is_top_level) {
+                archive_log_dir($ARGV[$i + 1]);
+            }
             RUM::Logging->init($ARGV[$i + 1]);
         }
     }
