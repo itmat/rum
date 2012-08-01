@@ -239,8 +239,7 @@ sub get_options {
 
         "force|f"   => \(my $force),
         "quiet|q"   => sub { $log->less_logging(1); $quiet = 1; },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "help|h" => sub { $usage->help }
+        "verbose|v" => sub { $log->more_logging(1) }
     );
 
     my @reads;

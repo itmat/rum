@@ -119,6 +119,7 @@ rum_runner - RNA-Seq Unified Mapper
   rum_runner clean   -o dir [--very]
   rum_runner kill    -o dir
   rum_runner status  -o dir
+  rum_runner stop    -o dir
   rum_runner version
   rum_runner help    [ACTION]
 
@@ -132,27 +133,19 @@ what to do. When you run the pipeline using C<rum_runner align>,
 rum_runner puts all of its output files in one directory, specified by
 the B<-o> or B<--output> option.
 
-
 While the job is running you can check the status by running
 C<rum_runner status -o I<dir>>, where I<dir> is the output
 directory.
 
-
-If you need to stop the job, you can kill it by running C<rum_runner
-kill -o I<dir>>. If you kill a job and then restart it with
-C<rum_runner align I<dir>>, it should start up where it left off,
-rather than starting over from the very beginning.
+If you need to stop a job but leave all of its output intact so you
+can restart it from where it left off, use C<rum_runner stop -o
+I<dir>>. If you restart it with C<rum_runner align -o <dir>>, it
+should start at the step it was on when it was stopped.
 
 If you realized you started a job with incorrect settings and you want
-to stop it and restart it from scratch, you can run:
-
-  rum_runner kill -o <dir>
-  rum_runner clean --very -o <dir>
-  rum_runner align <options>
-
-C<rum_runner kill> will stop the current job. C<clean --very> will
-remove all of the output files associated with that job, so that the
-next time you run it it will run from the beginning.
+to kill it and restart it from scratch, you can use C<rum_runner kill
+-I<dir>>. This will stop the job and remove all output files
+associated with it, so you can safely run it again with different settings.
 
 B<Note>: Please run C<rum_runner help align> to see all of the options
 you can use when running an alignment.
@@ -175,14 +168,17 @@ Delete intermediate files in the specified output directory.
 
 =item B<kill>
 
-Attempt to kill the job running in the specified output
-directory. Note that if you're running a job in a terminal you also
-kill it using CTRL-C.
+Stop the job running in the specified output directory and remove all output files associated with it, so you can restart the job from scratch with different settings.
 
 =item B<status>
 
 Check the status of a job running in the output directory specified by
 -o or --output.
+
+=item B<stop>
+
+Stop the job running in the specified output directory. Note that if
+you're running a job in a terminal you also stop it using CTRL-C.
 
 =item B<version>
 
@@ -208,6 +204,8 @@ You can run C<rum_runner help ACTION> for help on a specific action:
 =item C<rum_runner help kill>
 
 =item C<rum_runner help status>
+
+=item C<rum_runner help stop>
 
 =item C<rum_runner help version>
 

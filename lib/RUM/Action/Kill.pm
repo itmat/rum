@@ -3,23 +3,29 @@ package RUM::Action::Kill;
 use strict;
 use warnings;
 
-use base 'RUM::Action';
+use RUM::Action::Stop;
+use RUM::Action::Clean;
 
-sub new { shift->SUPER::new(name => 'kill', @_) }
+use base 'RUM::Action';
 
 sub run {
     my ($class) = @_;
 
-    my $self = $class->new;
+    my $self = $class->new(name => 'stop');
     $self->get_options;
     $self->check_usage;
-    $self->do_kill;
-}
 
-sub do_kill {
-    my ($self) = @_;
-    $self->say("Stopping job");
-    $self->platform->stop;
+    if ( ! $self->{loaded_config} ) {
+        $self->say("There does not appear to be a RUM job in "
+                   . $self->config->output_dir);
+        return;
+    }
+
+    my $stop_action  = RUM::Action::Stop->new(config => $self->config);
+    my $clean_action = RUM::Action::Clean->new(config => $self->config);
+
+    $stop_action->do_stop;
+    $clean_action->clean(1);
 }
 
 1;
@@ -28,11 +34,11 @@ __END__
 
 =head1 NAME
 
-RUM::Action::Kill - Kill a rum job
+RUM::Action::Kill - Stop a rum job and remove all of its output
 
 =head1 DESCRIPTION
 
-Kills a running rum job.
+Stops a job if it's running, and removes all of its output files.
 
 =over 4
 
