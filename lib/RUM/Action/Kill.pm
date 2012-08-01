@@ -12,7 +12,7 @@ sub run {
     my ($class) = @_;
 
     my $self = $class->new;
-    my $d = $self->{directives} = RUM::Directives->new;
+    $self->{directives} = RUM::Directives->new;
     my $usage = RUM::Usage->new(action => 'kill');
 
     GetOptions(
@@ -23,14 +23,14 @@ sub run {
         "The --output or -o option is required for \"rum_runner kill\"");
     $usage->check;
     $self->{config} = RUM::Config->load($dir, 1);
-    $self->say("Stopping job");
+    
+    $self->say("Stopping job in $dir");
     $self->platform->stop;
-
+    
     $self->say("Cleaning up output files");
     RUM::Action::Clean->new($self->config)->clean(1);
     $RUM::Lock::FILE = $self->config->in_output_dir(".rum/lock");
     RUM::Lock->release;
-
 }
 
 1;

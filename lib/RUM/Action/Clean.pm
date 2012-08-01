@@ -1,30 +1,12 @@
 package RUM::Action::Clean;
 
-=head1 NAME
-
-RUM::Action::Clean - Clean up temp files from a rum job
-
-=head1 METHODS
-
-=over 4
-
-=cut
-
 use strict;
 use warnings;
 
-use Carp;
 use Getopt::Long;
 use File::Path qw(rmtree);
-use Text::Wrap qw(wrap fill);
 use File::Find;
 use base 'RUM::Base';
-
-=item run
-
-Run the action: parse @ARGV, cleanup temp files.
-
-=cut
 
 sub run {
     my ($class) = @_;
@@ -43,13 +25,6 @@ sub run {
     $self->{config} = RUM::Config->load($dir, 1);
     $self->clean($very);
 }
-
-
-=item clean
-
-Remove intermediate files.
-
-=cut
 
 sub clean {
     my ($self, $very) = @_;
@@ -82,5 +57,26 @@ sub clean {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Action::Clean - Clean up temp files from a rum job
+
+=head1 METHODS
+
+=over 4
+
+=item run
+
+Run the action: parse @ARGV, cleanup temp files.
+
+
+=item clean
+
+Remove intermediate files.
+
+=cut
 
 =back
