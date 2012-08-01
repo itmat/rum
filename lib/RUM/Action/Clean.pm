@@ -39,15 +39,18 @@ sub clean {
     # If we're doing a --very clean, also remove the log directory and
     # the final output.
     if ($very) {
-        push @dirs, $c->in_output_dir("log");
+        my $log_dir = $c->in_output_dir("log");
+        push @dirs, $log_dir, glob("$log_dir.*");
         RUM::Workflows->new($c)->postprocessing_workflow->clean(1);
         unlink($self->config->in_output_dir("quals.fa"),
                $self->config->in_output_dir("reads.fa"));
+        unlink $self->config->in_output_dir("rum_job_report.txt");
         $self->say("Destroying job settings file");
         $self->config->destroy;
     }
 
     rmtree(\@dirs);
+    $self->platform->clean;
 }
 
 1;
