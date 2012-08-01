@@ -30,6 +30,11 @@ sub run {
     my $self = $class->new(name => 'status');
     $self->get_options;
 
+    if ( ! $self->{did_load} ) {
+        $self->say("There does not seem to be a RUM job in "
+                   . $self->config->output_dir);
+    }
+
     $self->{workflows} = RUM::Workflows->new($self->config);
 
     $self->print_processing_status;
