@@ -513,4 +513,16 @@ sub _write_shell_script {
     return $filename;
 }
 
+sub is_running {
+    my ($self) = @_;
+    my %jids_for_job_type= %{ $self->{jids} };
+    for my $job_type (keys %jids_for_job_type) {
+        my $jids = $jids_for_job_type{$job_type};
+        if (@{ $jids }) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 1;

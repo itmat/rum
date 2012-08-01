@@ -55,9 +55,9 @@ use Carp;
 
 use base 'RUM::Base';
 
-sub preprocess { croak "Not implemented" }
-sub process { croak "Not implemented" }
+sub preprocess  { croak "Not implemented" }
+sub process     { croak "Not implemented" }
 sub postprocess { croak "Not implemented" }
-
+sub is_running  { croak "Not implemented" }
 
 1;

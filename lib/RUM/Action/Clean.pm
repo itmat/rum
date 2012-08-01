@@ -74,8 +74,8 @@ sub clean {
         RUM::Workflows->new($c)->postprocessing_workflow->clean(1);
         unlink($self->config->in_output_dir("quals.fa"),
                $self->config->in_output_dir("reads.fa"));
-
-
+        $self->say("Destroying job settings file");
+        $self->config->destroy;
     }
 
     rmtree(\@dirs);

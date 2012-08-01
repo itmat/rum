@@ -368,6 +368,12 @@ sub save {
     print $fh Dumper($self);
 }
 
+sub destroy {
+    my ($self) = @_;
+    my $filename = $self->in_output_dir($FILENAME);
+    unlink $filename;
+}
+
 =item load($dir, $force)
 
 Load a saved RUM::Config file.
