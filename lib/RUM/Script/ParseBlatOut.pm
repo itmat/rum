@@ -10,7 +10,7 @@ use RUM::BlatIO;
 use RUM::Common qw(getave addJunctionsToSeq);
 use RUM::Logging;
 use RUM::Usage;
-use List::Util qw(sum);
+use List::Util qw(sum min);
 
 use base 'RUM::Script::Base';
 
@@ -188,6 +188,14 @@ sub main {
     $self->run;
 }
 
+sub read_line_and_filter {
+    my ($fh) = @_;
+    my $line = <$fh>;
+    chomp $line;
+    $line =~ s/[^ACGTNab]$//;
+    return $line;
+}
+
 sub run {
     my ($self) = @_;
 
@@ -217,112 +225,85 @@ sub run {
 
     my $aln;
 
+    $aln = $blat_iter->next_val;
+    
+    $readlength = $aln->q_size;
+    if ($readlength < 80) {
+        $min_size_intersection_allowed = 35;
+        if ($self->{match_length_cutoff} == 0) {
+            $self->{match_length_cutoff} = 35;
+        }
+    } else {
+        $min_size_intersection_allowed = 45;
+        if ($self->{match_length_cutoff} == 0) {
+            $self->{match_length_cutoff} = 50;
+        }
+    }
+    if ($min_size_intersection_allowed >= .8 * $readlength) {
+        $min_size_intersection_allowed = int(.6 * $readlength);
+        $self->{match_length_cutoff}   = int(.6 * $readlength);
+    }
+    $seqnum = $aln->order;
+    $seqa_temp = read_line_and_filter($seq_fh);
+    $mdust_temp = read_line_and_filter($mdust_fh);
+
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
     for ($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
         $self->logger->debug("Seq count is $seq_count");
-        if ($seq_count == $first_seq_num) {
 
-            $aln = $blat_iter->next_val;
-
-            $readlength = $aln->q_size;
-            if ($readlength < 80) {
-                $min_size_intersection_allowed = 35;
-                if ($self->{match_length_cutoff} == 0) {
-                    $self->{match_length_cutoff} = 35;
-                }
-            } else {
-                $min_size_intersection_allowed = 45;
-                if ($self->{match_length_cutoff} == 0) {
-                    $self->{match_length_cutoff} = 50;
-                }
-            }
-            if ($min_size_intersection_allowed >= .8 * $readlength) {
-                $min_size_intersection_allowed = int(.6 * $readlength);
-                $self->{match_length_cutoff}   = int(.6 * $readlength);
-            }
-            $seqname = $aln->readid;
-            $seqnum = $seqname;
-            $seqnum =~ s/[^\d]//g;
-            $seqa_temp = <$seq_fh>;
-            chomp($seqa_temp);
-            $seqa_temp =~ s/[^ACGTNab]$//;
-            $mdust_temp = <$mdust_fh>;
-            chomp($mdust_temp);
-            $mdust_temp =~ s/[^ACGTNab]$//;
-        }
         $seqa_temp =~ /seq.(\d+)/;
         $seq_count = $1; # this way we skip over things that aren't in <seq file>
-        $seqa_temp = <$seq_fh>;
-        chomp($seqa_temp);
-        $seqa_temp =~ s/[^ACGTNab]$//;
+
+        $seqa_temp = read_line_and_filter($seq_fh);
+
         $seqa = "";
-        while (!($seqa_temp =~ /^>/)) {
+        while ($seqa_temp !~ /^>/) {
             $seqa_temp =~ s/[^A-Z]//gs;
             $seqa = $seqa . $seqa_temp;
-            $seqa_temp = <$seq_fh>;
-            chomp($seqa_temp);
-            $seqa_temp =~ s/[^ACGTNab]$//;
-            if ($seqa_temp eq '') {
-                last;
-            }
+            $seqa_temp = read_line_and_filter($seq_fh);
+            last if ! $seqa_temp;
         }
+        
         if ($paired_end) {
-            $seqb_temp = <$seq_fh>;
-            chomp($seqb_temp);
-            $seqb_temp =~ s/[^ACGTNab]$//;
+            $seqb_temp = read_line_and_filter($seq_fh);
+        
             $seqb = "";
             $seqb_temp =~ s/[^A-Z]//gs;
+            
             while (!($seqb_temp =~ /^>/)) {
                 $seqb = $seqb . $seqb_temp;
-                $seqb_temp = <$seq_fh>;
-                chomp($seqb_temp);
-                $seqb_temp =~ s/[^ACGTNab]$//;
-                if ($seqb_temp eq '') {
-                    last;
-                }
+                $seqb_temp = read_line_and_filter($seq_fh);
+                last if ! $seqb_temp;
             }
             $seqa_temp = $seqb_temp;
         }
 
-        $mdust_temp = <$mdust_fh>;
-        chomp($mdust_temp);
-        $mdust_temp =~ s/[^ACGTNab]$//;
+        $mdust_temp = read_line_and_filter($mdust_fh);
+
         $dust_output = "";
         while (!($mdust_temp =~ /^>/)) {
             $dust_output = $dust_output . $mdust_temp;
-            $mdust_temp = <$mdust_fh>;
-            chomp($mdust_temp);
-            $mdust_temp =~ s/[^ACGTNab]$//;
-            if ($mdust_temp eq '') {
-                last;
-            }
+            $mdust_temp = read_line_and_filter($mdust_fh);
+            last if ! $mdust_temp;
         }
         $sn = $aln->as_forward->readid;
         $Ncount{$sn} = ($dust_output =~ tr/N//);
-        $cutoff{$sn} = $self->{match_length_cutoff} + $Ncount{$sn};
-        if ($cutoff{$sn} > $aln->q_size - 2) {
-            $cutoff{$sn} = $aln->q_size - 2;
-        }
+        $cutoff{$sn} = min($self->{match_length_cutoff} + $Ncount{$sn},
+                           $aln->q_size - 2);
+
         if ($paired_end) {
-            $mdust_temp = <$mdust_fh>;
-            chomp($mdust_temp);
-            $mdust_temp =~ s/[^ACGTNab]$//;
+            
+            $mdust_temp = read_line_and_filter($mdust_fh);
             $dust_output = "";
-            while (!($mdust_temp =~ /^>/)) {
+            while ($mdust_temp !~ /^>/) {
                 $dust_output = $dust_output . $mdust_temp;
-                $mdust_temp = <$mdust_fh>;
-                chomp($mdust_temp);
-                $mdust_temp =~ s/[^ACGTNab]$//;
-                if ($mdust_temp eq '') {
-                    last;
-                }
+                $mdust_temp = read_line_and_filter($mdust_fh);
+                last if ! $mdust_temp;
             }
             $sn = $aln->as_reverse->readid;
             $Ncount{$sn} = ($dust_output =~ tr/N//);
-            $cutoff{$sn} = $self->{match_length_cutoff} + $Ncount{$sn};
-            if ($cutoff{$sn} > $aln->q_size - 2) {
-                $cutoff{$sn} = $aln->q_size - 2;
-            }
+            $cutoff{$sn} = min($self->{match_length_cutoff} + $Ncount{$sn},
+                               $aln->q_size - 2);
         }
 
         while (defined($seqnum) && $seqnum == $seq_count) {
