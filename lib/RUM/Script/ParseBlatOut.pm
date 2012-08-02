@@ -334,43 +334,8 @@ sub run {
                 if ($aln->q_gap_count <= $self->{max_insertions}) { # then the aligment has at most $self->{max_insertions} gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
                     if ($Ncount{$aln->readid} <= ($aln->q_size / 2) || $aln->block_count <= 3) { # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY TO MATCH BY CHANCE.  
                         if ($aln->block_count <= $self->{num_blocks_allowed}) { # NEVER ALLOW MORE THAN $self->{num_blocks_allowed} blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
-                            # at this point we know it's a prefix match starting at pos 0 or 1 and with at most one gap in the query, and if low comlexity then not too fragemented...
-                            $gap_flag = 0;
-                            if ($aln->q_gap_count == 1) { # there's a gap in the query, be stricter about allowing it
-                                if ($aln->mismatch > 2) { # ONLY 2 MISMATCHES
-                                    $gap_flag = 1;
-                                }
-                                if ($aln->q_end < .85 * $aln->q_size) { # LONGER LENGTH MATCH (at least 85% length of read)
-                                    $gap_flag = 1;
-                                }
-                                if ($aln->t_gap_count > 1) { # at most one gap in the target
-                                    $gap_flag = 1;
-                                }
-                                @A = @{ $aln->block_sizes };
-                                @B = @{ $aln->t_starts };
-                                for ($k=0;$k<@A-1;$k++) { # any gap in the target must be at least 32 bases
-                                    if (($B[$k+1]-$A[$k]-$B[$k]<32) && ($B[$k+1]-$A[$k]-$B[$k]>0)) {
-                                        $gap_flag = 1;
-                                    }
-                                }
-                                if ($aln->q_gap_bases > 3) { # gap in the query can be at most 3 bases
-                                    $gap_flag = 1;
-                                }
-                                @qs = @{ $aln->q_starts };
-                                @bs = @{ $aln->block_sizes };
-				
-                                for ($h=0; $h<@qs-1; $h++) { # gap at least 8 bases from the end of a block
-                                    if ($qs[$h]+$bs[$h] < $qs[$h+1]) {
-                                        if ($bs[$h] < 8 || $bs[$h+1] < 8) {
-                                            $gap_flag = 1;
-                                        }
-                                    }
-                                }
-                                if ($aln->q_gap_count + $aln->t_gap_count >= @qs) { # this makes sure gap in query and target not in same place
-                                    $gap_flag = 1;
-                                }
-                            }
-                            if ($gap_flag == 0) { # IF GOT TO HERE THEN READ PASSED ALL CRITERIA FOR A MATCH
+
+                            if ($self->is_gap_acceptable($aln)) { # IF GOT TO HERE THEN READ PASSED ALL CRITERIA FOR A MATCH
 
                                 my @record = (
                                     $SCORE,
@@ -432,18 +397,14 @@ sub run {
                 $readlength = $aln->q_size;
                 if ($readlength < 80) {
                     $min_size_intersection_allowed = 35;
-                    if ($self->{match_length_cutoff} == 0) {
-                        $self->{match_length_cutoff} = 35;
-                    }
+                    $self->{match_length_cutoff} ||= 35;
                 } else {
                     $min_size_intersection_allowed = 45;
-                    if ($self->{match_length_cutoff} == 0) {
-                        $self->{match_length_cutoff} = 50;
-                    }
+                    $self->{match_length_cutoff} ||= 50;
                 }
                 if ($min_size_intersection_allowed >= .8 * $readlength) {
                     $min_size_intersection_allowed = int(.6 * $readlength);
-                    $self->{match_length_cutoff} = int(.6 * $readlength);
+                    $self->{match_length_cutoff}   = int(.6 * $readlength);
                 }
             }
         }
@@ -1390,6 +1351,51 @@ sub intersect () {
     } else {
 	return;
     }
+}
+
+sub is_gap_acceptable {
+    my ($self, $aln) = @_;
+    use strict;
+
+    # If there's no gap, it's always acceptable
+    return 1 if ! $aln->q_gap_count;
+
+    # Reject if there's more than one gap, more than two mismatches,
+    # the gap is too sort relative to the query lengt, or the gap is
+    # more than three bases long.
+    return if $aln->q_gap_count > 1;
+    return if $aln->mismatch > 2;
+    return if $aln->q_end < .85 * $aln->q_size;
+    return if $aln->q_gap_bases > 3;
+
+    my @block_sizes     = @{ $aln->block_sizes };
+    my @template_starts = @{ $aln->t_starts };
+    my @query_starts    = @{ $aln->q_starts };
+    
+
+    # any gap in the target must be at least 32 bases
+    for my $k (0 .. $#block_sizes - 1) {
+        my $size = $template_starts[$k+1] - $block_sizes[$k] - $template_starts[$k];
+        if (0 < $size && $size < 32) {
+            return;
+        }
+    }
+
+    # gap at least 8 bases from the end of a block
+    for (my $h=0; $h<@query_starts-1; $h++) {
+        if ($query_starts[$h] + $block_sizes[$h] < $query_starts[$h+1]) {
+            if ($block_sizes[$h] < 8 || $block_sizes[$h+1] < 8) {
+                return;
+            }
+        }
+    }
+
+    # this makes sure gap in query and target not in same place
+    if ($aln->q_gap_count + $aln->t_gap_count >= @query_starts) {
+        return;
+    }
+
+    return 1;
 }
 
 __END__

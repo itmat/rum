@@ -18,6 +18,9 @@ my $non_unique = temp_filename(TEMPLATE => "non-unique.XXXXXX");
 
 # With sorted input
 
+$unique = 'u';
+$non_unique = 'nu';
+
 @ARGV = (
    "--reads-in", $reads,
    "--blat-in", $blat_results,
