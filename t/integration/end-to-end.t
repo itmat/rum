@@ -101,7 +101,7 @@ sub no_files_exist {
 
 sub check_defaults {
     my $name = "defaults";
-    run_end_to_end($name, @READS);
+    run_end_to_end($name, '--chunks', 1, @READS);
     all_files_exist($name, default_files($name));
     my $dir = output_dir("defaults");
     open my $stats, "$dir/mapping_stats.txt";
@@ -121,7 +121,7 @@ sub check_chunks {
 
 sub check_strand_specific {
     my $name = "strand-specific";
-    run_end_to_end($name, "--strand-specific", @READS);
+    run_end_to_end($name, '--chunks', 1, "--strand-specific", @READS);
 
     my @files = default_files($name);
     push @files, ("RUM_NU.plus.cov",
@@ -139,7 +139,7 @@ sub check_strand_specific {
 
 sub check_alt_quants {
     my $name = "alt-quants";
-    run_end_to_end($name, "--alt-quant", $GENE_INFO, @READS);
+    run_end_to_end($name, '--chunks', 1, "--alt-quant", $GENE_INFO, @READS);
     all_files_exist($name,
                     default_files($name),
                     "feature_quantifications_$name.altquant");
@@ -149,7 +149,9 @@ sub check_strand_specific_alt_quants {
     my $name = "strand-specific-alt-quants";
 
     run_end_to_end(
-        $name, "--strand-specific", "--alt-quant", $GENE_INFO, @READS);
+        $name, 
+        '--chunks', 1,
+        "--strand-specific", "--alt-quant", $GENE_INFO, @READS);
 
     my @files = default_files($name);
     push @files, ("RUM_NU.plus.cov",
@@ -168,7 +170,7 @@ sub check_strand_specific_alt_quants {
 
 sub check_dna {
     my $name = "dna";
-    run_end_to_end($name, "--dna", @READS);
+    run_end_to_end($name, '--chunks', 1, "--dna", @READS);
 
     my $rule = qr/quant|exons|junctions/;
 
@@ -183,7 +185,7 @@ sub check_dna {
 
 sub check_dna_quant {
     my $name = "dna-quant";
-    run_end_to_end($name, "--dna", "--quant", @READS);
+    run_end_to_end($name, '--chunks', 1, "--dna", "--quant", @READS);
 
     my $rule = qr/exons|junctions/;
 
@@ -197,7 +199,7 @@ sub check_dna_quant {
 
 sub check_dna_junctions {
     my $name = "dna-junctions";
-    run_end_to_end($name, "--dna", "--junctions", @READS);
+    run_end_to_end($name, '--chunks', 1, "--dna", "--junctions", @READS);
 
     my $rule = qr/quant/;
 
@@ -211,14 +213,14 @@ sub check_dna_junctions {
 
 sub check_dna_junctions_quant {
     my $name = "dna-junctions-quant";
-    run_end_to_end($name, "--dna", "--junctions", "--quant", @READS);
+    run_end_to_end($name, '--chunks', 1, "--dna", "--junctions", "--quant", @READS);
     all_files_exist($name, default_files($name));
 }
 
 
 sub check_genome_only {
     my $name = "genome-only";
-    run_end_to_end($name, "--genome-only", @READS);
+    run_end_to_end($name, '--chunks', 1, "--genome-only", @READS);
 
     my $rule = qr/quant/;
 
@@ -232,7 +234,7 @@ sub check_genome_only {
 
 sub check_blat_only {
     my $name = "blat-only";
-    run_end_to_end($name, @READS);
+    run_end_to_end($name, '--chunks', 1, @READS);
     all_files_exist($name, default_files($name));
 }
 
@@ -243,20 +245,20 @@ sub check_blat_only {
 
 sub check_one_fastq {
     my $name = "one-fastq";
-    run_end_to_end($name, $READS[0]);
+    run_end_to_end($name, '--chunks', 1, $READS[0]);
     all_files_exist($name, default_files($name));
 }
 
 sub check_two_fasta {
     my $name = "two-fasta";
-    run_end_to_end($name, @FASTA);
+    run_end_to_end($name, '--chunks', 1, @FASTA);
     my @files = grep { not /quals.fa/ } default_files($name);
     all_files_exist($name, @files);
 }
 
 sub check_one_fasta {
     my $name = "one-fasta";
-    run_end_to_end($name, $FASTA[0]);
+    run_end_to_end($name, '--chunks', 1, $FASTA[0]);
     my @files = grep { not /quals.fa/ } default_files($name);
     all_files_exist($name, @files);
 }
@@ -264,27 +266,27 @@ sub check_one_fasta {
 
 sub check_one_fasta_var_length {
     my $name = "one-fasta-var-length";
-    run_end_to_end($name, $FASTA_VAR[0]);
+    run_end_to_end($name, '--chunks', 1, $FASTA_VAR[0]);
     my @files = grep { not /quals.fa/ } default_files($name);
     all_files_exist($name, @files);
 }
 
 sub check_two_fasta_var_length {
     my $name = "one-fasta-var-length";
-    run_end_to_end($name, @FASTA_VAR);
+    run_end_to_end($name, '--chunks', 1, @FASTA_VAR);
     my @files = grep { not /quals.fa/ } default_files($name);
     all_files_exist($name, @files);
 }
 
 sub check_one_fastq_var_length {
     my $name = "one-fastq-var-length";
-    run_end_to_end($name, $FASTQ_VAR[0], "--limit-bowtie-nu");
+    run_end_to_end($name, '--chunks', 1, $FASTQ_VAR[0], "--limit-bowtie-nu");
     all_files_exist($name, default_files($name));
 }
 
 sub check_two_fastq_var_length {
     my $name = "one-fastq-var-length";
-    run_end_to_end($name, @FASTQ_VAR, "--limit-bowtie-nu");
+    run_end_to_end($name, '--chunks', 1, @FASTQ_VAR, "--limit-bowtie-nu");
     all_files_exist($name, default_files($name));
 }
 

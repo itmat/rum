@@ -81,7 +81,9 @@ lib/RUM/Action/Clean.pm
 lib/RUM/Action/Help.pm
 lib/RUM/Action/Kill.pm
 lib/RUM/Action/Profile.pm
+lib/RUM/Action/Reset.pm
 lib/RUM/Action/Status.pm
+lib/RUM/Action/Stop.pm
 lib/RUM/Action/Version.pm
 lib/RUM/Base.pm
 lib/RUM/BinDeps.pm
@@ -151,6 +153,7 @@ lib/rum_runner/align.pod
 lib/rum_runner/clean.pod
 lib/rum_runner/kill.pod
 lib/rum_runner/status.pod
+lib/rum_runner/stop.pod
 LICENSE
 Makefile.PL
 MANIFEST			This list of files

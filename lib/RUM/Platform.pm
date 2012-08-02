@@ -44,6 +44,15 @@ suitable RUM::Platform for running the workflows for the job.
 Subclasses must implement these three methods to execute the
 respective phases of the pipeline.
 
+=item clean
+
+Remove any platform-specific files associated with the job.
+
+=item is_running
+
+Return true of the RUM pipeline appears to be running, false
+otherwise.
+
 =back
 
 =cut

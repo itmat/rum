@@ -61,6 +61,14 @@ __END__
 
 RUM::Action::Clean - Clean up temp files from a rum job
 
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item RUM::Action::Align->new
+
+=back
+
 =head1 METHODS
 
 =over 4
