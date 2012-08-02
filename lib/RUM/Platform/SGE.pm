@@ -434,10 +434,10 @@ sub show_running_status {
 
     if (@jids) {
         $self->say("RUM is running (job ids "
-                   . join(', ', @jids) . ')');
+                   . join(', ', @jids) . ').');
     }
     else {
-        $self->say("RUM is not running");
+        $self->say("RUM is not running.");
     }
 }
 
