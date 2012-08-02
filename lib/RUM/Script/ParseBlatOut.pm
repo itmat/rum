@@ -447,25 +447,26 @@ sub run {
                 }
             }
         }
-        
-        $sname[0] = "seq." . $seq_count . "a";
-        $sname[1] = "seq." . $seq_count . "b";
 
-        for ($t=0; $t<2; $t++) { # $t=0 for the 'a' (forward) reads, $t=1 for the 'b' (reverse) reads
-            $cnt2=0;
-            $N = @{$blathits{$sname[$t]}};
-            for ($i1=0; $i1<$N; $i1++) {
-                if ($blathits{$sname[$t]}[$i1][0] >= $maxlength{$sname[$t]} - 10) {
-                    $chr = $blathits{$sname[$t]}[$i1][2]; # Should have the span, but the 'if' below allows it to not
+        my @sname = ("seq.${seq_count}a", "seq.${seq_count}b");
+
+        for my $sname (@sname) {
+
+            push @read_mapping_to_genome_blatoutput, [];
+            my $hitnum = -1;
+            for my $aref (@{ $blathits{$sname} }) {
+                $hitnum++;
+                if ($aref->[0] >= $maxlength{$sname} - 10) {
+                    $chr = $aref->[2]; # Should have the span, but the 'if' below allows it to not
                     if ($chr =~ /:(\d+)/) {
                         $start = $1;
                         $chr =~ s/:.*//;
                     } else {
                         $start = 1;
                     }
-                    @a0 = split(/,/,$blathits{$sname[$t]}[$i1][4]);
-                    @b  = split(/,/,$blathits{$sname[$t]}[$i1][3]);
-                    @qs = split(/,/,$blathits{$sname[$t]}[$i1][6]);
+                    @a0 = split /,/, $aref->[4];
+                    @b  = split /,/, $aref->[3];
+                    @qs = split /,/, $aref->[6];
                     $l = $start + $a0[0];
                     $e = $l + $b[0] - 1;
                     $loc = "$chr\t$l-$e";
@@ -496,7 +497,10 @@ sub run {
                     $loc = $loc . "\t$fixedloc";
                     $loc =~ s/, $//;
 
-                    $read_mapping_to_genome_blatoutput[$t][$cnt2] = "$sname[$t]\t$loc\t$blathits{$sname[$t]}[$i1][0]\t$blathits{$sname[$t]}[$i1][1]\t$blathits{$sname[$t]}[$i1][2]\t$blathits{$sname[$t]}[$i1][3]\t$blathits{$sname[$t]}[$i1][4]\t$blathits{$sname[$t]}[$i1][5]\t$blathits{$sname[$t]}[$i1][6]\t$blathits{$sname[$t]}[$i1][7]\t$i1";
+                    my @rec = ($sname, $loc, $aref->[0], $aref->[1], $aref->[2],
+                               $aref->[3], $aref->[4], $aref->[5], $aref->[6], 
+                               $aref->[7], $i1);
+                    push @{ $read_mapping_to_genome_blatoutput[-1] }, join "\t", @rec;
 
                     # 0: sname
                     # 1: chr
@@ -509,8 +513,6 @@ sub run {
                     # 8: num mismatches
                     # 9: q-starts
                     # 10: the number of the (kept) blat hit, starting counting at 0
-
-                    $cnt2++;
                 }
             }
         }
