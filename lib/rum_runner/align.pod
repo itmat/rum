@@ -226,7 +226,7 @@ Specify the length of the reads. By default I will determine it from the input.
 If the data are strand specific, then you can use this option to
 generate strand specific coverage plots and quantified values.
 
-=item B<--variable-read-lengths>
+=item B<--variable-length-reads>
 
 Set this if your reads are not all of the same length.
 
