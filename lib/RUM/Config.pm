@@ -18,12 +18,6 @@ FindBin->again;
 
 our $FILENAME = ".rum/job_settings";
 
-=head1 NAME
-
-RUM::Config - Configuration for a RUM job
-
-=cut
-
 our %DEFAULTS = (
 
     # These properties are actually set by the user
@@ -77,20 +71,6 @@ our %DEFAULTS = (
     genome_size           => undef,
 );
 
-=head1 CONSTRUCTOR
-
-=over 4
-
-=item new(%options)
-
-Create a new RUM::Config with the given options. %options can contain
-mappings from the keys in %DEFAULTS to the values to use for those
-keys.
-
-=back
-
-=cut
-
 sub new {
     my ($class, %options) = @_;
     my %data = %DEFAULTS;
@@ -107,19 +87,6 @@ sub new {
 
     return bless \%data, $class;
 }
-
-=head1 CLASS METHODS
-
-=over 4
-
-=item load_rum_config_file
-
-Load the settings from the rum index configuration file I am
-configured with. This allows you to call annotations, genome_bowtie,
-trans_bowtie, and genome_fa on me rather than loading the config
-object yourself.
-
-=cut
 
 sub load_rum_config_file {
     my ($self) = @_;
@@ -147,15 +114,265 @@ sub load_rum_config_file {
     }
 }
 
-=item script($name)
-
-Return the path to the rum script of the given name.
-
-=cut
-
 sub script {
     return File::Spec->catfile("$Bin/../bin", $_[1]);
 }
+
+sub postproc_dir {
+    my ($self, $file) = @_;
+    return File::Spec->catfile($self->output_dir, "postproc");
+}
+
+sub chunk_dir {
+    my ($self) = @_;
+    return File::Spec->catfile($self->output_dir, "chunks");
+}
+
+sub temp_dir {
+    my ($self) = @_;
+    return File::Spec->catfile($self->output_dir, "tmp");
+}
+
+sub in_output_dir {
+    my ($self, $file) = @_;
+    my $dir = $self->output_dir;
+    return $dir ? File::Spec->catfile($dir, $file) : $file;
+}
+
+sub in_chunk_dir {
+    my ($self, $name) = @_;
+    my $path = File::Spec->catfile($self->output_dir, "chunks", $name);
+}
+
+sub in_postproc_dir {
+    my ($self, $file) = @_;
+    my $dir = $self->postproc_dir;
+    mkpath $dir;
+    return File::Spec->catfile($dir, $file);
+}
+
+sub chunk_file {
+    my ($self, $name, $chunk) = @_;
+    $chunk or return undef;
+    return $self->in_chunk_dir("$name.$chunk");
+}
+
+sub opt {
+    my ($self, $opt, $arg) = @_;
+    return defined($arg) ? ($opt, $arg) : "";
+}
+
+sub read_length_opt         { $_[0]->opt("--read-length", $_[0]->read_length) }
+sub min_overlap_opt         { $_[0]->opt("--min-overlap", $_[0]->min_length) }
+sub max_insertions_opt      { $_[0]->opt("--max-insertions", $_[0]->max_insertions) }
+sub match_length_cutoff_opt { $_[0]->opt("--match-length-cutoff", $_[0]->min_length) }
+sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff", $_[0]->nu_limit) }
+sub bowtie_cutoff_opt       { my $x = $_[0]->bowtie_nu_limit; $x ? "-k $x" : "-a" }
+sub faok_opt                { $_[0]->{faok} ? "--faok" : ":" }
+sub count_mismatches_opt    { $_[0]->{count_mismatches} ? "--count-mismatches" : "" } 
+sub paired_end_opt          { $_[0]->{paired_end} ? "--paired" : "--single" }
+sub dna_opt                 { $_[0]->{dna} ? "--dna" : "" }
+sub name_mapping_opt   { "" } 
+sub ram_opt {
+    return $_[0]->ram ? ("--ram", $_[0]->ram || $_[0]->min_ram_gb) : ();
+}
+sub blat_opts {
+    my ($self) = @_;
+    my %opts = (
+        minIdentity => $self->blat_min_identity,
+        tileSize => $self->blat_tile_size,
+        stepSize => $self->blat_step_size,
+        repMatch => $self->blat_rep_match,
+        maxIntron => $self->blat_max_intron);
+
+    return map("-$_=$opts{$_}", sort keys %opts);
+}
+
+sub is_property {
+    my $name = shift;
+    exists $DEFAULTS{$name};
+}
+
+sub set {
+    my ($self, $key, $value) = @_;
+    confess "No such property $key" unless is_property($key);
+    $self->{$key} = $value;
+}
+
+sub save {
+    my ($self) = @_;
+    $log->debug("Saving config file, chunks is " . $self->num_chunks);
+    my $filename = $self->in_output_dir($FILENAME);
+    open my $fh, ">", $filename or croak "$filename: $!";
+    print $fh Dumper($self);
+}
+
+sub destroy {
+    my ($self) = @_;
+    my $filename = $self->in_output_dir($FILENAME);
+    unlink $filename;
+}
+
+sub load {
+    my ($class, $dir, $force) = @_;
+    my $filename = "$dir/$FILENAME";
+
+    unless (-e $filename) {
+        if ($force) {
+            die "$dir doesn't seem to be a RUM output directory\n";
+        }
+        else {
+            return;
+        }
+    }
+    my $conf = do $filename;
+    ref($conf) =~ /$class/ or croak "$filename did not return a $class";
+    return $conf;
+}
+
+sub get {
+    my ($self, $name) = @_;
+    is_property($name) or croak "No such property $name";
+    
+    exists $self->{$name} or croak "Property $name was not set";
+
+    return $self->{$name};
+}
+
+sub properties {
+    sort keys %DEFAULTS;
+}
+
+sub settings_filename {
+    my ($self) = @_;
+    return ($self->in_output_dir($FILENAME));
+}
+
+sub lock_file {
+    my ($self) = @_;
+    $self->in_output_dir(".rum/lock");
+}
+
+sub min_ram_gb {
+    my ($self) = @_;
+    my $genome_size = $self->genome_size;
+    defined($genome_size) or croak "Can't get min ram without genome size";
+    my $gsz = $genome_size / 1000000000;
+    my $min_ram = int($gsz * 1.67)+1;
+    return $min_ram;
+}
+
+sub should_quantify {
+    my ($self) = @_;
+    return !($self->dna || $self->genome_only) || $self->quantify;
+}
+
+sub should_do_junctions {
+    my ($self) = @_;
+    return !$self->dna || $self->genome_only || $self->junctions;
+}
+
+sub u_footprint { shift->in_postproc_dir("u_footprint.txt") }
+sub nu_footprint { shift->in_postproc_dir("nu_footprint.txt") }
+sub mapping_stats_final {
+    $_[0]->in_output_dir("mapping_stats.txt");
+}
+sub sam_header { 
+    my ($self, $chunk) = @_;
+    $self->chunk_file("sam_header", $chunk) or $self->in_postproc_dir("sam_header");
+}
+
+sub quant {
+    my ($self, %opts) = @_;
+
+    my $chunk = $opts{chunk};
+    my $strand = $opts{strand};
+    my $sense  = $opts{sense};
+    if ($strand && $sense) {
+        my $name = "quant.$strand$sense";
+        return $chunk ? $self->chunk_file($name, $chunk) : $self->in_output_dir($name);
+    }
+
+    if ($chunk) {
+        return $self->chunk_file("quant", $chunk);
+    }
+    return $self->in_output_dir("feature_quantifications_" . $self->name);
+}
+
+sub alt_quant {
+    my ($self, %opts) = @_;
+    my $chunk  = $opts{chunk};
+    my $strand = $opts{strand} || "";
+    my $sense  = $opts{sense}  || "";
+    my $name = $self->name;
+
+    if ($chunk) {
+        my @parts = ("quant", "$strand$sense", "altquant");
+        my $filename = join ".", grep { $_ } @parts;
+        return $self->chunk_file($filename, $chunk);
+    }
+    elsif ($strand && $sense) {
+        return $self->in_output_dir("feature_quantifications.altquant.$strand$sense");
+    }
+    else {
+        return $self->in_output_dir("feature_quantifications_$name.altquant");
+    }
+}
+sub novel_inferred_internal_exons_quantifications {
+    my ($self) = @_;
+    return $self->in_output_dir("novel_inferred_internal_exons_quantifications_"
+                                    .$self->name);
+}
+
+sub preprocessed_reads {
+    return shift->in_output_dir("reads.fa");
+}
+
+sub AUTOLOAD {
+    my ($self) = @_;
+    
+    my @parts = split /::/, $AUTOLOAD;
+    my $name = $parts[-1];
+    
+    return if $name eq "DESTROY";
+    
+    return $self->get($name);
+}
+
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::Config - Configuration for a RUM job
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new(%options)
+
+Create a new RUM::Config with the given options. %options can contain
+mappings from the keys in %DEFAULTS to the values to use for those
+keys.
+
+=back
+
+=head1 CLASS METHODS
+
+=over 4
+
+=item load_rum_config_file
+
+Load the settings from the rum index configuration file I am
+configured with. This allows you to call annotations, genome_bowtie,
+trans_bowtie, and genome_fa on me rather than loading the config
+object yourself.
+
+=item script($name)
+
+Return the path to the rum script of the given name.
 
 =back
 
@@ -175,23 +392,6 @@ These methods return the paths to some directories I need:
 
 =back
 
-=cut
-
-sub postproc_dir {
-    my ($self, $file) = @_;
-    return File::Spec->catfile($self->output_dir, "postproc");
-}
-
-sub chunk_dir {
-    my ($self) = @_;
-    return File::Spec->catfile($self->output_dir, "chunks");
-}
-
-sub temp_dir {
-    my ($self) = @_;
-    return File::Spec->catfile($self->output_dir, "tmp");
-}
-
 =head2 File paths
 
 These methods return paths to files relative to some of my directories.
@@ -202,65 +402,24 @@ These methods return paths to files relative to some of my directories.
 
 Return a path to a file with the given name, relative to our output directory.
 
-=cut
-
-sub in_output_dir {
-    my ($self, $file) = @_;
-    my $dir = $self->output_dir;
-    return $dir ? File::Spec->catfile($dir, $file) : $file;
-}
-
 =item in_chunk_dir($name)
 
 Return a path to a file with the given name, relative to our chunk
 directory.
 
-=cut
-
-sub in_chunk_dir {
-    my ($self, $name) = @_;
-    my $path = File::Spec->catfile($self->output_dir, "chunks", $name);
-}
-
 =item in_postproc_dir($file)
 
 Return a path to a file with the given name, relative to our postproc directory.
-
-=cut
-
-sub in_postproc_dir {
-    my ($self, $file) = @_;
-    my $dir = $self->postproc_dir;
-    mkpath $dir;
-    return File::Spec->catfile($dir, $file);
-}
 
 =item chunk_file
 
 Return a path to a file in our chunk directory, based on the given
 filename, with the given chunk as the suffix.
 
-=cut
-
-sub chunk_file {
-    my ($self, $name, $chunk) = @_;
-    $chunk or return undef;
-    return $self->in_chunk_dir("$name.$chunk");
-}
-
-# These functions return options that the user can control.
-
 =item opt($opt, $arg)
 
 Return a list of the option and its argument if argument is defined,
 otherwise an empty string.
-
-=cut
-
-sub opt {
-    my ($self, $opt, $arg) = @_;
-    return defined($arg) ? ($opt, $arg) : "";
-}
 
 =back
 
@@ -299,33 +458,27 @@ programs, based on the configuration:
 
 =back
 
-=cut
+=head2 Serializing the configuration
 
-sub read_length_opt         { $_[0]->opt("--read-length", $_[0]->read_length) }
-sub min_overlap_opt         { $_[0]->opt("--min-overlap", $_[0]->min_length) }
-sub max_insertions_opt      { $_[0]->opt("--max-insertions", $_[0]->max_insertions) }
-sub match_length_cutoff_opt { $_[0]->opt("--match-length-cutoff", $_[0]->min_length) }
-sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff", $_[0]->nu_limit) }
-sub bowtie_cutoff_opt       { my $x = $_[0]->bowtie_nu_limit; $x ? "-k $x" : "-a" }
-sub faok_opt                { $_[0]->{faok} ? "--faok" : ":" }
-sub count_mismatches_opt    { $_[0]->{count_mismatches} ? "--count-mismatches" : "" } 
-sub paired_end_opt          { $_[0]->{paired_end} ? "--paired" : "--single" }
-sub dna_opt                 { $_[0]->{dna} ? "--dna" : "" }
-sub name_mapping_opt   { "" } 
-sub ram_opt {
-    return $_[0]->ram ? ("--ram", $_[0]->ram || $_[0]->min_ram_gb) : ();
-}
-sub blat_opts {
-    my ($self) = @_;
-    my %opts = (
-        minIdentity => $self->blat_min_identity,
-        tileSize => $self->blat_tile_size,
-        stepSize => $self->blat_step_size,
-        repMatch => $self->blat_rep_match,
-        maxIntron => $self->blat_max_intron);
+=over 4
 
-    return map("-$_=$opts{$_}", sort keys %opts);
-}
+=item $config->settings_filename
+
+Return the name of the file I should be saved to.
+
+=item $config->save
+
+Save the configuration to a file in the $output_dir/.rum.
+
+=item RUM::Config->load($dir, $force)
+
+Load a saved RUM::Config file.
+
+=item $config->destroy
+
+Delete the config file.
+
+=back
 
 =head2 Other
 
@@ -335,130 +488,26 @@ sub blat_opts {
 
 Return true if the given name is a property that can be configured.
 
-=cut
-
-sub is_property {
-    my $name = shift;
-    exists $DEFAULTS{$name};
-}
-
 =item set($key, $value)
 
 Set the value of $key to $value.
-
-=cut
-
-sub set {
-    my ($self, $key, $value) = @_;
-    confess "No such property $key" unless is_property($key);
-    $self->{$key} = $value;
-}
-
-=item save
-
-Save the configuration to a file in the $output_dir/.rum.
-
-=cut
-
-sub save {
-    my ($self) = @_;
-    $log->debug("Saving config file, chunks is " . $self->num_chunks);
-    my $filename = $self->in_output_dir($FILENAME);
-    open my $fh, ">", $filename or croak "$filename: $!";
-    print $fh Dumper($self);
-}
-
-sub destroy {
-    my ($self) = @_;
-    my $filename = $self->in_output_dir($FILENAME);
-    unlink $filename;
-}
-
-=item load($dir, $force)
-
-Load a saved RUM::Config file.
-
-=cut
-
-sub load {
-    my ($class, $dir, $force) = @_;
-    my $filename = "$dir/$FILENAME";
-
-    unless (-e $filename) {
-        if ($force) {
-            die "$dir doesn't seem to be a RUM output directory\n";
-        }
-        else {
-            return;
-        }
-    }
-    my $conf = do $filename;
-    ref($conf) =~ /$class/ or croak "$filename did not return a $class";
-    return $conf;
-}
 
 =item get($name)
 
 Return the value of the property with the given name.
 
-=cut
-
-sub get {
-    my ($self, $name) = @_;
-    is_property($name) or croak "No such property $name";
-    
-    exists $self->{$name} or croak "Property $name was not set";
-
-    return $self->{$name};
-}
-
 =item properties
 
 Return a list of the names of my properties.
-
-=cut
-
-sub properties {
-    sort keys %DEFAULTS;
-}
-
-=item settings_filename
-
-Return the name of the file I should be saved to.
-
-=cut
-
-sub settings_filename {
-    my ($self) = @_;
-    return ($self->in_output_dir($FILENAME));
-}
 
 =item lock_file
 
 Return the path to the lock file that should prevent other instances
 of the pipeline from running in the same output directory.
 
-=cut
-
-sub lock_file {
-    my ($self) = @_;
-    $self->in_output_dir(".rum/lock");
-}
-
 =item min_ram_gb
 
 Return the minimum amount of ram that is needed, based on the genome size.
-
-=cut
-
-sub min_ram_gb {
-    my ($self) = @_;
-    my $genome_size = $self->genome_size;
-    defined($genome_size) or croak "Can't get min ram without genome size";
-    my $gsz = $genome_size / 1000000000;
-    my $min_ram = int($gsz * 1.67)+1;
-    return $min_ram;
-}
 
 =back
 
@@ -474,24 +523,10 @@ the defaults:
 Return true if the pipeline should do quantifications, based on the
 values of the I<dna>, I<genome_only>, and I<quantify> properties.
 
-=cut
-
-sub should_quantify {
-    my ($self) = @_;
-    return !($self->dna || $self->genome_only) || $self->quantify;
-}
-
 =item should_do_junctions
 
 Return true if the pipeline should do junctions, based on the values
 of the I<dna>, I<genome_only>, and I<junctions> properties.
-
-=cut
-
-sub should_do_junctions {
-    my ($self) = @_;
-    return !$self->dna || $self->genome_only || $self->junctions;
-}
 
 =back
 
@@ -511,18 +546,6 @@ These functions all return the paths to output files.
 
 =item sam_header($chunk)
 
-=cut
-
-sub u_footprint { shift->in_postproc_dir("u_footprint.txt") }
-sub nu_footprint { shift->in_postproc_dir("nu_footprint.txt") }
-sub mapping_stats_final {
-    $_[0]->in_output_dir("mapping_stats.txt");
-}
-sub sam_header { 
-    my ($self, $chunk) = @_;
-    $self->chunk_file("sam_header", $chunk) or $self->in_postproc_dir("sam_header");
-}
-
 =item quant(%options)
 
 =item alt_quant(%options)
@@ -541,78 +564,13 @@ options:
 
 =back
 
-=cut
-
-sub quant {
-    my ($self, %opts) = @_;
-
-    my $chunk = $opts{chunk};
-    my $strand = $opts{strand};
-    my $sense  = $opts{sense};
-    if ($strand && $sense) {
-        my $name = "quant.$strand$sense";
-        return $chunk ? $self->chunk_file($name, $chunk) : $self->in_output_dir($name);
-    }
-
-    if ($chunk) {
-        return $self->chunk_file("quant", $chunk);
-    }
-    return $self->in_output_dir("feature_quantifications_" . $self->name);
-}
-
-sub alt_quant {
-    my ($self, %opts) = @_;
-    my $chunk  = $opts{chunk};
-    my $strand = $opts{strand} || "";
-    my $sense  = $opts{sense}  || "";
-    my $name = $self->name;
-
-    if ($chunk) {
-        my @parts = ("quant", "$strand$sense", "altquant");
-        my $filename = join ".", grep { $_ } @parts;
-        return $self->chunk_file($filename, $chunk);
-    }
-    elsif ($strand && $sense) {
-        return $self->in_output_dir("feature_quantifications.altquant.$strand$sense");
-    }
-    else {
-        return $self->in_output_dir("feature_quantifications_$name.altquant");
-    }
-}
-
 =item novel_inferred_internal_exons_quantifications
 
 Return the name of the novel inferred internal exons quants file.
-
-=cut
-
-sub novel_inferred_internal_exons_quantifications {
-    my ($self) = @_;
-    return $self->in_output_dir("novel_inferred_internal_exons_quantifications_"
-                                    .$self->name);
-}
 
 =item preprocessed_reads
 
 Return the path to preprocessed reads file (reads.fa in the output
 directory).
 
-=cut
-
-sub preprocessed_reads {
-    return shift->in_output_dir("reads.fa");
-}
-
-sub AUTOLOAD {
-    my ($self) = @_;
-    
-    my @parts = split /::/, $AUTOLOAD;
-    my $name = $parts[-1];
-    
-    return if $name eq "DESTROY";
-    
-    return $self->get($name);
-}
-
-1;
 

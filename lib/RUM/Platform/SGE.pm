@@ -1,16 +1,5 @@
 package RUM::Platform::SGE;
 
-=head1 NAME
-
-RUM::Platform::SGE - Run the rum pipeline on the Sun Grid Engine.
-
-=head1 DESCRIPTION
-
-Provides methods for submitting phases of the rum pipeline to the Sun
-Grid Engine, and checking on their status.
-
-=cut
-
 use strict;
 use warnings;
 
@@ -32,21 +21,6 @@ our %JOB_TYPE_NAMES = (
     proc => "processing",
     postproc => "postprocessing"
 );
-
-
-=head1 CONSTRUCTORS
-
-=over 4
-
-=item new
-
-Construct a RUM::Cluster::SGE with the given configuration and
-directives. Loads the state of the jobs from .rum/sge_job_ids in the
-output directory, if such a file exists.
-
-=back
-
-=cut
 
 sub new {
     my ($class, $config, $directives) = @_;
@@ -74,25 +48,6 @@ sub new {
     return bless $self, $class;
 }
 
-=head1 METHODS
-
-=over 4
-
-=cut
-
-=item start_parent
-
-Submits a job to run rum_runner on this output directory with the
---parent option. This way, when the user runs rum_runner with --qsub
-or --platform SGE, that process calls start_parent and then exits
-quickly. When rum_runner is called with --parent, it monitors the
-status of the other tasks it submits.
-
-Updates $JOB_ID_FILE so that we keep track of which jobs we've
-submitted.
-
-=cut
-
 sub start_parent {
     my ($self) = @_;
 
@@ -109,24 +64,11 @@ sub start_parent {
     $self->save;
 }
 
-=item ram_args
-
-Return a list of ram-related arguments to pass to qsub.
-
-=cut
-
 sub ram_args {
     my ($self) = @_;
     my $ram = ($self->config->ram || $self->config->min_ram_gb) . "G";
     ("-l", "mem_free=$ram,h_vmem=$ram");
 }
-
-=item submit_preproc
-
-Submits the preprocessing task, adds the job ids to my state, and
-updates $JOB_ID_FILE.
-
-=cut
 
 sub submit_preproc {
     my ($self) = @_;
@@ -136,15 +78,6 @@ sub submit_preproc {
     push @{ $self->_preproc_jids }, $jid;
     $self->save;
 }
-
-=item submit_proc
-
-Submits an array job to run all of the chunks, adds the job id to my
-state, and updates $JOB_ID_FILE. The array job depends on the
-preprocessing job, if I have the job id of a preprocessing job on
-record.
-
-=cut
 
 sub submit_proc {
     my ($self, @chunks) = @_;
@@ -183,16 +116,6 @@ sub submit_proc {
     $self->save;
 }
 
-=item submit_postproc
-
-Submits a job for the postprocessing phase and updates
-$JOB_ID_FILE. Note that this does not add a dependency on the array
-job for the processing phase, since we may restart one or more of
-those array tasks if they fail. The caller must not call
-submit_postproc until the processing is done.
-
-=cut
-
 sub submit_postproc {
     my ($self, $c) = @_;
     # RUM::Platform::Cluster might call me to submit a new
@@ -201,13 +124,6 @@ sub submit_postproc {
     # actually submitting it.
     $self->submit_proc($self->config->num_chunks) unless $self->postproc_ok;
 }
-
-=item update_status
-
-Run qstat and parse the results, updating my internal model of the
-status of all jobs.
-
-=cut
 
 sub update_status {
     my ($self) = @_;
@@ -236,18 +152,6 @@ sub update_status {
         "failed every time.";
 }
 
-=item preproc_ok
-
-=item proc_ok
-
-=item postproc_ok
-
-These methods return true if the preproc, proc, or postproc phase is
-in an 'ok' status, meaning that it is running or at least in the queue
-in a state that indicates it can be run in the future.
-
-=cut
-
 sub preproc_ok {
     my ($self) = @_;
     return $self->_some_job_ok("preproc", $self->_preproc_jids);
@@ -263,12 +167,6 @@ sub postproc_ok {
     my ($self) = @_;
     return $self->proc_ok($self->config->num_chunks);
 }
-
-=item save
-
-Save the job ids to the $JOB_IDS_FILE.
-
-=cut
 
 sub save {
     my ($self) = @_;
@@ -454,14 +352,6 @@ sub _some_job_ok {
     return 0;
 }
 
-
-
-=item stop
-
-Delete all jobs associated with this output directory.
-
-=cut
-
 sub stop {
     my ($self) = @_;
     $self->update_status;
@@ -560,3 +450,112 @@ sub clean {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Platform::SGE - Run the rum pipeline on the Sun Grid Engine.
+
+=head1 DESCRIPTION
+
+Provides methods for submitting phases of the rum pipeline to the Sun
+Grid Engine, and checking on their status.
+
+=head1 CONSTRUCTORS
+
+=over 4
+
+=item new
+
+Construct a RUM::Cluster::SGE with the given configuration and
+directives. Loads the state of the jobs from .rum/sge_job_ids in the
+output directory, if such a file exists.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item start_parent
+
+Submits a job to run rum_runner on this output directory with the
+--parent option. This way, when the user runs rum_runner with --qsub
+or --platform SGE, that process calls start_parent and then exits
+quickly. When rum_runner is called with --parent, it monitors the
+status of the other tasks it submits.
+
+Updates $JOB_ID_FILE so that we keep track of which jobs we've
+submitted.
+
+=item ram_args
+
+Return a list of ram-related arguments to pass to qsub.
+
+=item submit_preproc
+
+Submits the preprocessing task, adds the job ids to my state, and
+updates $JOB_ID_FILE.
+
+=item submit_proc
+
+Submits an array job to run all of the chunks, adds the job id to my
+state, and updates $JOB_ID_FILE. The array job depends on the
+preprocessing job, if I have the job id of a preprocessing job on
+record.
+
+=item submit_postproc
+
+Submits a job for the postprocessing phase and updates
+$JOB_ID_FILE. Note that this does not add a dependency on the array
+job for the processing phase, since we may restart one or more of
+those array tasks if they fail. The caller must not call
+submit_postproc until the processing is done.
+
+=item update_status
+
+Run qstat and parse the results, updating my internal model of the
+status of all jobs.
+
+=item preproc_ok
+
+=item proc_ok
+
+=item postproc_ok
+
+These methods return true if the preproc, proc, or postproc phase is
+in an 'ok' status, meaning that it is running or at least in the queue
+in a state that indicates it can be run in the future.
+
+=item save
+
+Save the job ids to the $JOB_IDS_FILE.
+
+=item stop
+
+Delete all jobs associated with this output directory.
+
+=item clean
+
+Remove the shell script files used to submit the jobs to SGE.
+
+=item show_running_status
+
+Print a message to stdout indicating whether the job is running or
+not.
+
+=item is_running
+
+Return true of the job appears to be running, false otherwise.
+
+=back
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+

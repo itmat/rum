@@ -795,6 +795,14 @@ RUM::Action::Align - Align reads using the RUM Pipeline.
 
 This action is the one that actually runs the RUM Pipeline.
 
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item RUM::Action::Align->new
+
+=back
+
 =head1 METHODS
 
 =over 4

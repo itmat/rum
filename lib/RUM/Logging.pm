@@ -281,6 +281,11 @@ name if chunk is not a positive number.
 Return the error log file name for the given chunk, or the master
 error log file name if chunk is not a positive number.
 
+=item RUM::Logging->log_dir_for_output_dir($dir)
+
+Return the path to the log directory relative to the given output
+directory.
+
 =back
 
 =head1 AUTHOR

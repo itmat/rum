@@ -674,6 +674,20 @@ Attempt to stop a running pipeline by getting the pid from the
 Return a RUM::JobReport that can be used to print timestamps for
 milestones.
 
+=item is_running
+
+Return true if the job appears to be running (based on the presence of
+the lock file).
+
+=item pid
+
+Return the process id of the parent process.
+
+=item show_running_status
+
+Print a message to stdout indicating whether the job is running or
+not.
+
 =back
 
 =head1 AUTHOR
@@ -683,6 +697,3 @@ Mike DeLaurentis (delaurentis@gmail.com)
 =head1 COPYRIGHT
 
 Copyright 2012, University of Pennsylvania
-
-
-
