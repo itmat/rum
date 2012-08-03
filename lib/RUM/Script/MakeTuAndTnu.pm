@@ -57,7 +57,7 @@ sub make_mapping_with_new_id_and_junctions {
 
 sub aln_with_junctions {
     my ($aln) = @_;
-    $aln->copy(seq => newAddJunctionsToSeq($aln));    
+    $aln->with_junctions_in_seq;
 }
 
 sub make_aln_with_intersection {

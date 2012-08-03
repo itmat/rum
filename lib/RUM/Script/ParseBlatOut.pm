@@ -10,6 +10,7 @@ use RUM::BlatIO;
 use RUM::Common qw(getave addJunctionsToSeq);
 use RUM::Logging;
 use RUM::Usage;
+use RUM::RUMIO;
 use List::Util qw(sum min);
 
 use base 'RUM::Script::Base';
@@ -203,7 +204,11 @@ sub run {
     my $seq_fh    = $self->{seqfile_fh};
     my $mdust_fh  = $self->{mdustfile_fh};
     my $unique_fh = $self->{unique_out_fh};
+    my $unique_out = RUM::RUMIO->new(-fh => $unique_fh,
+                                     strand_last => 1);
     my $nu_fh     = $self->{nu_out_fh};
+    my $nu_out = RUM::RUMIO->new(-fh => $nu_fh,
+                                 strand_last => 1);
 
     my $blat_iter = RUM::BlatIO->new(-fh => $blat_hits);
 
@@ -249,6 +254,8 @@ sub run {
 
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
     for ($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
+        my @one_dir_only_candidate;
+        my %blathits;
         $self->logger->debug("Seq count is $seq_count");
 
         $seqa_temp =~ /seq.(\d+)/;
@@ -327,7 +334,6 @@ sub run {
                                     $aln->mismatch,
                                     $aln->q_starts_str);
                                 
-                                $N = @{$blathits{$seqname}};
                                 if ($maxlength{$seqname}+0 < $aln->q_end) {
                                     $maxlength{$seqname} = $aln->q_end;
                                 }
@@ -529,7 +535,12 @@ sub run {
                 } else {
                     $seq = getsequence($a6[6], $a6[9], $a6[4], $seqb);
                 }
-                $one_dir_only_candidate[$t] = "$a6[0]\t$a6[1]\t$a6[2]\t$seq\t$STRAND";
+                $one_dir_only_candidate[$t] = RUM::Alignment->new(
+                    readid => $a6[0],
+                    chr => $a6[1],
+                    locs => RUM::RUMIO->parse_locs($a6[2]),
+                    seq => $seq, 
+                    strand => $STRAND);
             }
         }
 
@@ -542,12 +553,12 @@ sub run {
         if ($numa > 1 && $numb == 0) {
             
             $unique = 0;
-            if ($one_dir_only_candidate[0] =~ /\S/) {
-                print $unique_fh "$one_dir_only_candidate[0]\n";
+            if ($one_dir_only_candidate[0]) {
+                $unique_out->write_aln($one_dir_only_candidate[0]);
                 $unique = 1;
             }
-            undef @spans;
-            undef %CHRS;
+            my @spans;
+            my %CHRS;
             if ($unique == 0) {
                 $nchrs = 0;
                 $STRAND = "-";
@@ -571,21 +582,23 @@ sub run {
                 $str = $self->intersect(\@spans, $seq_temp);
                 $self->logger->debug("Intersection is $str");
                 if ($str && $nchrs == 1) {
-                    $str =~ s/^(\d+)\t/$CHR\t/;
-                    $size = $1;
+                    my ($size, $locs, $seq_new) = split /\t/, $str;
                     if ($size >= $min_size_intersection_allowed) {
-                        @ss = split(/\t/,$str);
-                        $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                        print $unique_fh "seq.$seq_count";
-                        print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                        my $aln = RUM::Alignment->new(
+                            readid => "seq.${seq_count}a",
+                            chr => $CHR,
+                            locs => RUM::RUMIO->parse_locs($locs),
+                            seq => $seq_new,
+                            strand => $STRAND)->with_junctions_in_seq;
+                        $unique_out->write_aln($aln);
                         $unique = 1;
                     }
                 }
             }
             undef @B1;
             undef @ss;
-            undef @spans;
-            if ($unique == 0) {
+
+            if (!$unique) {
                 for my $mapping (@{ $read_mapping_to_genome_coords[0] }) {
                     print $nu_fh "$mapping\n";
                 }
@@ -596,8 +609,8 @@ sub run {
         }
         if ($numa == 0 && $numb > 1) {
             $unique = 0;
-            if ($one_dir_only_candidate[1] =~ /\S/) {
-                print $unique_fh "$one_dir_only_candidate[1]\n";
+            if ($one_dir_only_candidate[1]) {
+                $unique_out->write_aln($one_dir_only_candidate[1]);
                 $unique = 1;
             }
             undef @spans;
@@ -637,9 +650,9 @@ sub run {
             undef @B1;
             undef @ss;
             undef @spans;
-            if ($unique == 0) {
-                for ($i=0; $i<$numb; $i++) {
-                    print $nu_fh "$read_mapping_to_genome_coords[1][$i]\n";
+            if (!$unique) {
+                for my $mapping (@{ $read_mapping_to_genome_coords[1] }) {
+                    print $nu_fh "$mapping\n";
                 }
             }
         }
@@ -1114,15 +1127,10 @@ sub run {
                         @A = split(/\n/,$key);
                         for ($n=0; $n<@A; $n++) {
                             @a = split(/\t/,$A[$n]);
-                            $seq_new = addJunctionsToSeq($a[3], $a[2]);
-                            if (@A == 2 && $n == 0) {
-                                print $nu_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
-                            }
-                            if (@A == 2 && $n == 1) {
-                                print $nu_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
-                            }
-                            if (@A == 1) {
-                                print $nu_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
+                            if ((@A == 2 && $n == 0) ||
+                                (@A == 2 && $n == 1) ||
+                                @A == 1) {
+                                $nu_out->write_aln($nu_out->parse_aln($A[$n])->with_junctions_in_seq);
                             }
                         }
                     }
@@ -1134,10 +1142,8 @@ sub run {
         undef %consistent_mappers2;
         undef @read_mapping_to_genome_blatoutput;
         undef %maxlength;
-        undef %blathits;
         undef %Ncount;
         undef %cnt;
-        undef @one_dir_only_candidate;
         undef @read_mapping_to_genome_coords;
         undef @read_mapping_to_genome_pairing_candidate;
     }

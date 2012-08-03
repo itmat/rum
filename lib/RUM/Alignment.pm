@@ -3,6 +3,7 @@ package RUM::Alignment;
 use strict;
 use warnings;
 
+use RUM::Common qw(addJunctionsToSeq);
 use Carp;
 
 use base 'RUM::Identifiable';
@@ -101,5 +102,13 @@ sub opposite_direction {
 sub is_single {
     my @alns = @_;
     return @alns == 1 && ($alns[0]->is_forward || $alns[0]->is_reverse);
+}
+
+sub with_junctions_in_seq {
+    my ($self) = @_;
+    my @locs = @{ $self->{locs} };
+    my $junctions = join(', ', map { join('-', @{ $_ }) } @locs);
+    return $self->copy(
+        seq => addJunctionsToSeq($self->seq, $junctions));
 }
 1;
