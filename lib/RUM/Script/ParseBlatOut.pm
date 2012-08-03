@@ -544,119 +544,112 @@ sub run {
             }
         }
 
-        $numa = @{$read_mapping_to_genome_coords[0]} + 0;
-        $numb = @{$read_mapping_to_genome_coords[1]} + 0;
+        my $forward_mappings = $read_mapping_to_genome_coords[0] || [];
+        my $reverse_mappings = $read_mapping_to_genome_coords[1] || [];
+        $numa = @{ $forward_mappings };
+        $numb = @{ $reverse_mappings };
 
-        if ($numa == 1 && $numb == 0) { # unique forward match, no reverse
-            print $unique_fh "$read_mapping_to_genome_coords[0][0]\n";
+        my @forward_alns = map { $unique_out->parse_aln($_) } @{ $forward_mappings };
+        my @reverse_alns = map { $unique_out->parse_aln($_) } @{ $reverse_mappings };
+
+        if (@forward_alns == 1 && ! @reverse_alns) {
+            $unique_out->write_aln($forward_alns[0]);
         }
-        if ($numa > 1 && $numb == 0) {
+
+        elsif (@reverse_alns == 1 && ! @forward_alns) {
+            $unique_out->write_aln($reverse_alns[0]);
+        }
+
+        elsif ( @forward_alns > 1 && !@reverse_alns) {
             
-            $unique = 0;
+            my $unique;
+
             if ($one_dir_only_candidate[0]) {
                 $unique_out->write_aln($one_dir_only_candidate[0]);
                 $unique = 1;
             }
-            my @spans;
-            my %CHRS;
-            if ($unique == 0) {
-                $nchrs = 0;
+
+            if (! $unique) {
+                my @spans;
+                my %CHRS;
+
                 $STRAND = "-";
-                for ($i=0; $i<$numa; $i++) {
-                    @B1 = split(/\t/, $read_mapping_to_genome_coords[0][$i]);
-                    $spans[$i] = $B1[2];
-                    if ($i==0) {
-                        $seq_temp = $B1[3];
-                    }
-                    if ($B1[4] eq "+") {
+                for my $mapping (@forward_alns) {
+                    push @spans, RUM::RUMIO->format_locs($mapping);
+                    if ($mapping->strand eq "+") {
                         $STRAND = "+";
                     }
-                    $CHRS{$B1[1]}++;
+                    $CHRS{$mapping->chromosome}++;
                 }
-                $nchrs = 0;
-                foreach $ky (keys %CHRS) {
-                    $nchrs++;
-                    $CHR = $ky;
-                }
-                $self->logger->debug("Intersecting spans @spans for $seq_count");
-                $str = $self->intersect(\@spans, $seq_temp);
-                $self->logger->debug("Intersection is $str");
-                if ($str && $nchrs == 1) {
-                    my ($size, $locs, $seq_new) = split /\t/, $str;
-                    if ($size >= $min_size_intersection_allowed) {
-                        my $aln = RUM::Alignment->new(
-                            readid => "seq.${seq_count}a",
-                            chr => $CHR,
+
+                my ($size, $locs, $seq_new) = $self->new_intersect(\@spans, $forward_alns[0]->seq);
+
+                if ($locs
+                    && (scalar(keys(%CHRS)) == 1)
+                    && ($size >= $min_size_intersection_allowed)) {
+
+                    # Merge the alignments together, using the forward
+                    # read id, the intersected locations and sequence,
+                    # and whatever strand we found in the step above.
+                    $unique_out->write_aln(
+                        $forward_alns[0]
+                        ->as_forward
+                        ->copy(
                             locs => RUM::RUMIO->parse_locs($locs),
                             seq => $seq_new,
-                            strand => $STRAND)->with_junctions_in_seq;
-                        $unique_out->write_aln($aln);
-                        $unique = 1;
-                    }
+                            strand => $STRAND)->with_junctions_in_seq);
+                    $unique = 1;
                 }
             }
-            undef @B1;
-            undef @ss;
 
             if (!$unique) {
-                for my $mapping (@{ $read_mapping_to_genome_coords[0] }) {
-                    print $nu_fh "$mapping\n";
-                }
+                $nu_out->write_alns(\@forward_alns);
             }
         }
-        if ($numb == 1 && $numa == 0) { # unique reverse match, no forward
-            print $unique_fh "$read_mapping_to_genome_coords[1][0]\n";
-        }
-        if ($numa == 0 && $numb > 1) {
-            $unique = 0;
+
+        elsif (@reverse_alns && !@forward_alns) {
+            my $unique;
+            
             if ($one_dir_only_candidate[1]) {
                 $unique_out->write_aln($one_dir_only_candidate[1]);
                 $unique = 1;
             }
-            undef @spans;
-            undef %CHRS;
-            if ($unique == 0) {
-                $nchrs = 0;
+
+            if (!$unique) {
+                my @spans;
+                my %CHRS;
+
                 $STRAND = "-";
-                for ($i=0; $i<$numb; $i++) {
-                    @B1 = split(/\t/, $read_mapping_to_genome_coords[1][$i]);
-                    $spans[$i] = $B1[2];
-                    if ($i==0) {
-                        $seq_temp = $B1[3];
-                    }
-                    if ($B1[4] eq "+") {
+                my $seq_temp = @reverse_alns[0]->seq;
+                for my $mapping (@reverse_alns) {
+                    push @spans, RUM::RUMIO->format_locs($mapping);
+                    if ($mapping->strand eq "+") {
                         $STRAND = "+";
                     }
-                    $CHRS{$B1[1]}++;
+                    $CHRS{$mapping->chromosome}++;
                 }
-                $nchrs = 0;
-                foreach $ky (keys %CHRS) {
-                    $nchrs++;
-                    $CHR = $ky;
-                }
-                $str = $self->intersect(\@spans, $seq_temp);
-                if ($str && $nchrs == 1) {
-                    $str =~ s/^(\d+)\t/$CHR\t/;
-                    $size = $1;
-                    if ($size >= $min_size_intersection_allowed) {
-                        @ss = split(/\t/,$str);
-                        $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                        print $unique_fh "seq.$seq_count";
-                        print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
-                        $unique = 1;
-                    }
+
+                my ($size, $new_spans, $new_seq) = $self->new_intersect(\@spans, $seq_temp);
+                if ($new_spans 
+                    && (scalar(keys %CHRS) == 1)
+                    && ($size >= $min_size_intersection_allowed)) {
+
+                    $unique_out->write_aln(
+                        $reverse_alns[0]
+                        ->as_reverse
+                        ->copy(
+                            locs   => RUM::RUMIO->parse_locs($new_spans),
+                            seq    => $new_seq,
+                            strand => $STRAND)->with_junctions_in_seq);
+                    $unique = 1;
                 }
             }
-            undef @B1;
-            undef @ss;
-            undef @spans;
+
             if (!$unique) {
-                for my $mapping (@{ $read_mapping_to_genome_coords[1] }) {
-                    print $nu_fh "$mapping\n";
-                }
+                $nu_out->write_alns(\@reverse_alns);
             }
         }
-        if ($numa > 0 && $numb > 0 && $numa * $numb < 1000000) { # this is one very big case within which we search
+        elsif ($numa > 0 && $numb > 0 && $numa * $numb < 1000000) { # this is one very big case within which we search
             # for consistent a/b mappers
             for ($i=0; $i<$numa; $i++) {
                 @B1 = split(/\t/, $read_mapping_to_genome_pairing_candidate[0][$i]);
@@ -1212,6 +1205,13 @@ sub getsequence {
 	}
     }
     return $seq_out;
+}
+
+sub new_intersect {
+    my ($self, $spans_ref, $seq) = @_;
+    my $str = $self->intersect($spans_ref, $seq);
+    return if ! $str;
+    return split /\t/, $str;
 }
 
 sub intersect () {
