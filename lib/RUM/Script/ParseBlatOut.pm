@@ -52,7 +52,6 @@ sub ensure_blat_file_sorted {
     if ($self->is_blat_file_sorted) {
         $self->logger->info("The blat file is already sorted");
         $self->{blatfile_sorted} = $self->{blatfile};
-        warn "Blat file sorted is $self->{blatfile_sorted}\n";
         return;
     }
         
@@ -229,7 +228,7 @@ sub run {
     }
 
     my $aln;
-
+    my $last_aln;
     $aln = $blat_iter->next_val;
     
     $readlength = $aln->q_size;
@@ -258,6 +257,7 @@ sub run {
         my %blathits;
         $self->logger->debug("Seq count is $seq_count");
 
+        # CHANGE
         $seqa_temp =~ /seq.(\d+)/;
         $seq_count = $1; # this way we skip over things that aren't in <seq file>
 
@@ -374,9 +374,10 @@ sub run {
                     }
                 }
             }
-
+            $last_aln = $aln;
             $aln = $blat_iter->next_val;
 
+            # CHANGE
             $seqname = $aln ? $aln->readid : '';
             $seqnum = $seqname;
             $seqnum =~ s/[^\d]//g;
@@ -396,6 +397,7 @@ sub run {
             }
         }
 
+        # CHANGE
         my @sname = ("seq.${seq_count}a", "seq.${seq_count}b");
 
         for my $sname (@sname) {
@@ -501,7 +503,12 @@ sub run {
                         $STRAND = $STRAND eq '-' ? '+' : '-';
                     }
 
-                    $read_mapping_to_genome_coords[$t][$c2] = "$a4[0]\t$a4[1]\t$a4[2]\t$seq\t$STRAND";
+                    $read_mapping_to_genome_coords[$t][$c2] = RUM::Alignment->new(
+                        readid => $a4[0],
+                        chr    => $a4[1],
+                        locs   => RUM::RUMIO->parse_locs($a4[2]),
+                        seq    => $seq,
+                        strand => $STRAND);
                     $read_mapping_to_genome_pairing_candidate[$t][$c2] = $read_mapping_to_genome_blatoutput[$t][$c];
                     $c2++;
                 }
@@ -544,13 +551,10 @@ sub run {
             }
         }
 
-        my $forward_mappings = $read_mapping_to_genome_coords[0] || [];
-        my $reverse_mappings = $read_mapping_to_genome_coords[1] || [];
-        $numa = @{ $forward_mappings };
-        $numb = @{ $reverse_mappings };
-
-        my @forward_alns = map { $unique_out->parse_aln($_) } @{ $forward_mappings };
-        my @reverse_alns = map { $unique_out->parse_aln($_) } @{ $reverse_mappings };
+        my @forward_alns = @{ $read_mapping_to_genome_coords[0] };
+        my @reverse_alns = @{ $read_mapping_to_genome_coords[1] };
+        $numa = @forward_alns;
+        $numb = @reverse_alns;
 
         if (@forward_alns == 1 && ! @reverse_alns) {
             $unique_out->write_aln($forward_alns[0]);
@@ -652,12 +656,12 @@ sub run {
         elsif ($numa > 0 && $numb > 0 && $numa * $numb < 1000000) { # this is one very big case within which we search
             # for consistent a/b mappers
             for ($i=0; $i<$numa; $i++) {
+                my $a_aln = $read_mapping_to_genome_coords[0][$i];
                 @B1 = split(/\t/, $read_mapping_to_genome_pairing_candidate[0][$i]);
                 $achr = $B1[1];
-                @AR = split(/\t/,$read_mapping_to_genome_coords[0][$i]);
-                $astrand = $AR[4];
+                $astrand = $a_aln->strand;
                 $astrand_hold = $astrand;
-                $aseq = $AR[3];
+                $aseq = $a_aln->seq;
                 $aseq_hold = $aseq;
                 $aspans = $B1[2];
                 $aave = &getave($aspans);
@@ -693,9 +697,9 @@ sub run {
                     }
                     @B1 = split(/\t/, $read_mapping_to_genome_pairing_candidate[1][$j]);
                     $bchr = $B1[1];
-                    @BR = split(/\t/,$read_mapping_to_genome_coords[1][$j]);
-                    $bstrand = $BR[4];
-                    $bseq = $BR[3];
+                    my $b_aln = $read_mapping_to_genome_coords[1][$j];
+                    $bstrand = $b_aln->strand;
+                    $bseq = $b_aln->seq;
                     $bspans = $B1[2];
                     $bave = &getave($bspans);
                     @bexons = split(/, /,$B1[2]);
@@ -725,10 +729,12 @@ sub run {
                     if ($achr eq $bchr && $proceedflag == 1) {
                         $ostrand = $astrand; # "o" for "original"
                         if ($astrand eq "+" && $bstrand eq "+" && ($aend < $bstart-1) && ($bstart - $aend <= $self->{max_pair_dist})) {
-                            $consistent_mappers{"$read_mapping_to_genome_coords[0][$i]\n$read_mapping_to_genome_coords[1][$j]"}++;
+                            my $key = $unique_out->format_aln($a_aln) . "\n" . $unique_out->format_aln($b_aln);
+                            $consistent_mappers{$key}++;
                         }
                         if ($astrand eq "-" && $bstrand eq "-" && ($bend < $astart-1) && ($astart - $bend <= $self->{max_pair_dist})) {
-                            $consistent_mappers{"$read_mapping_to_genome_coords[0][$i]\n$read_mapping_to_genome_coords[1][$j]"}++;
+                            my $key = $unique_out->format_aln($a_aln) . "\n" . $unique_out->format_aln($b_aln);
+                            $consistent_mappers{$key}++;
                         }
                         $swaphack = "false";
                         if (($astrand eq "-") && ($bstrand eq "-") && ($bend >= $astart - 1) && ($astart >= $bstart) && ($aend >= $bend)) {
@@ -975,18 +981,10 @@ sub run {
                 foreach $key (keys %consistent_mappers2) {
                     @A = split(/\n/,$key);
                     for ($n=0; $n<@A; $n++) {
-                        @a = split(/\t/,$A[$n]);
-                        $seq_new = addJunctionsToSeq($a[3], $a[2]);
-                        if (@A == 2 && $n == 0) {
-                            $outstring = "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
-                            print $unique_fh $outstring;
-                        }
-                        if (@A == 2 && $n == 1) {
-                            $outstring = "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
-                            print $unique_fh $outstring;
-                        }
-                        if (@A == 1) {
-                            print $unique_fh "$a[0]\t$a[1]\t$a[2]\t$seq_new\t$a[4]\n";
+                        my $mapper = $unique_out->parse_aln($A[$n]);
+                        if ((@A == 1)
+                            || (@A == 2 && ($n == 0 || $n == 1))) {
+                            $unique_out->write_aln($mapper->with_junctions_in_seq);
                         }
                     }
                 }
@@ -1045,8 +1043,12 @@ sub run {
                         if ($size1 >= $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str1);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print $unique_fh "seq.$seq_count";
-                            print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            $unique_out->write_aln(
+                                $last_aln->as_forward->copy(
+                                    chr => $ss[0],
+                                    locs => RUM::RUMIO->parse_locs($ss[1]),
+                                    seq => $seq_new,
+                                    strand => $STRAND));
                             $nointersection = 0;
                         }
                     }
@@ -1056,12 +1058,17 @@ sub run {
                         if ($size2 >= $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str2);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print $unique_fh "seq.$seq_count";
-                            print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            $unique_out->write_aln(
+                                $last_aln->as_reverse->copy(
+                                    chr => $ss[0],
+                                    locs => RUM::RUMIO->parse_locs($ss[1]),
+                                    seq => $seq_new,
+                                    strand => $STRAND));
                             $nointersection = 0;
                         }
                     }
                     if ($str1 && $str2) {
+                        $log->info("I found it, for read " . $last_aln->readid);
                         $str1 =~ s/^(\d+)\t/$CHR\t/;
                         $size1 = $1;
                         $str2 =~ s/^(\d+)\t/$CHR\t/;
@@ -1069,15 +1076,15 @@ sub run {
                         if ($size1 >= $min_size_intersection_allowed && $size2 < $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str1);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print $unique_fh "seq.$seq_count";
-                            print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh $last_aln->as_forward->readid . "\t";
+                            print $unique_fh "$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                         if ($size2 >= $min_size_intersection_allowed && $size1 < $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str2);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print $unique_fh "seq.$seq_count";
-                            print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh $last_aln->as_reverse->readid . "\t";
+                            print $unique_fh "$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                         if ($size1 >= $min_size_intersection_allowed && $size2 >= $min_size_intersection_allowed) {
@@ -1090,12 +1097,12 @@ sub run {
                             if ((($start2 - $end1 > 0) && ($start2 - $end1 < $self->{max_pair_dist})) || (($start1 - $end2 > 0) && ($start1 - $end2 < $self->{max_pair_dist}))) {
                                 @ss = split(/\t/,$str1);
                                 $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                print $unique_fh "seq.$seq_count";
-                                print $unique_fh "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                print $unique_fh $last_aln->as_forward->readid . "\t";
+                                print $unique_fh "$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                                 @ss = split(/\t/,$str2);
                                 $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                print $unique_fh "seq.$seq_count";
-                                print $unique_fh "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                print $unique_fh $last_aln->as_reverse->readid . "\t";
+                                print $unique_fh "$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                                 $nointersection = 0;
                             }
                         }
@@ -1109,7 +1116,7 @@ sub run {
                         if ($size >= $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print $unique_fh "seq.$seq_count\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh $last_aln->as_unified->readid . "\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                     }
