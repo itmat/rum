@@ -11,6 +11,7 @@ use RUM::Common qw(getave addJunctionsToSeq);
 use RUM::Logging;
 use RUM::Usage;
 use RUM::RUMIO;
+use RUM::SeqIO;
 use List::Util qw(sum min);
 
 use base 'RUM::Script::Base';
@@ -248,67 +249,44 @@ sub run {
         $self->{match_length_cutoff}   = int(.6 * $readlength);
     }
     $seqnum = $aln->order;
-    $seqa_temp = read_line_and_filter($seq_fh);
-    $mdust_temp = read_line_and_filter($mdust_fh);
+
+    my $seq_iter   = RUM::SeqIO->new(-fh => $seq_fh)->peekable;
+    my $mdust_iter = RUM::SeqIO->new(-fh => $mdust_fh)->peekable;
 
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
-    for ($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
+  SEQ: for my $seq_count ($first_seq_num .. $last_seq_num) {
+        while ($seq_iter->peek && ($seq_iter->peek->order < $seq_count)) {
+            $seq_iter->next_val;
+            $mdust_iter->next_val;
+        }
+
+        next SEQ if !($seq_iter->peek && $seq_iter->peek->order == $seq_count);
+        
+        my $read_a = $seq_iter->next_val;
+
+        my $read_b;
+        if ($paired_end) {
+            $read_b = $seq_iter->next_val;
+            $seq_b  = $read_b->seq;
+        }
+
+        my $seqa = $read_a->seq;
+        my $seqb = $read_b->seq;
+
         my @one_dir_only_candidate;
         my %blathits;
         $self->logger->debug("Seq count is $seq_count");
 
-        # CHANGE
-        $seqa_temp =~ /seq.(\d+)/;
-        $seq_count = $1; # this way we skip over things that aren't in <seq file>
-
-        $seqa_temp = read_line_and_filter($seq_fh);
-
-        $seqa = "";
-        while ($seqa_temp !~ /^>/) {
-            $seqa_temp =~ s/[^A-Z]//gs;
-            $seqa = $seqa . $seqa_temp;
-            $seqa_temp = read_line_and_filter($seq_fh);
-            last if ! $seqa_temp;
-        }
-        
-        if ($paired_end) {
-            $seqb_temp = read_line_and_filter($seq_fh);
-        
-            $seqb = "";
-            $seqb_temp =~ s/[^A-Z]//gs;
-            
-            while (!($seqb_temp =~ /^>/)) {
-                $seqb = $seqb . $seqb_temp;
-                $seqb_temp = read_line_and_filter($seq_fh);
-                last if ! $seqb_temp;
-            }
-            $seqa_temp = $seqb_temp;
-        }
-
-        $mdust_temp = read_line_and_filter($mdust_fh);
-
-        $dust_output = "";
-        while (!($mdust_temp =~ /^>/)) {
-            $dust_output = $dust_output . $mdust_temp;
-            $mdust_temp = read_line_and_filter($mdust_fh);
-            last if ! $mdust_temp;
-        }
+        my $dust_output = $mdust_iter->next_val->seq;
         $sn = $aln->as_forward->readid;
-        $Ncount{$sn} = ($dust_output =~ tr/N//);
+        $Ncount{$sn} = $dust_output =~ tr/N//;
         $cutoff{$sn} = min($self->{match_length_cutoff} + $Ncount{$sn},
                            $aln->q_size - 2);
 
         if ($paired_end) {
-            
-            $mdust_temp = read_line_and_filter($mdust_fh);
-            $dust_output = "";
-            while ($mdust_temp !~ /^>/) {
-                $dust_output = $dust_output . $mdust_temp;
-                $mdust_temp = read_line_and_filter($mdust_fh);
-                last if ! $mdust_temp;
-            }
+            my $dust_output = $mdust_iter->next_val->seq;
             $sn = $aln->as_reverse->readid;
-            $Ncount{$sn} = ($dust_output =~ tr/N//);
+            $Ncount{$sn} = $dust_output =~ tr/N//;
             $cutoff{$sn} = min($self->{match_length_cutoff} + $Ncount{$sn},
                                $aln->q_size - 2);
         }
@@ -1366,7 +1344,6 @@ sub is_gap_acceptable {
     my @template_starts = @{ $aln->t_starts };
     my @query_starts    = @{ $aln->q_starts };
     
-
     # any gap in the target must be at least 32 bases
     for my $k (0 .. $#block_sizes - 1) {
         my $size = $template_starts[$k+1] - $block_sizes[$k] - $template_starts[$k];

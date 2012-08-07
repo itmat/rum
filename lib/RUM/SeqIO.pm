@@ -23,7 +23,22 @@ sub next_seq {
     chomp $header;
 
     my $seq = <$fh>;
-    chomp $seq;
+
+  LINE: while (1) {
+        my $pos = tell $fh;
+        my $line = <$fh>;
+        last LINE if ! $line;
+        if ($line =~ /^>/) {
+            seek $fh, $pos, 0;
+            last LINE;
+        }
+        else {
+            chomp $line;
+            $seq .= $line;
+        }
+        
+    }
+
     return RUM::Sequence->new(
         readid => substr($header, 1),
         seq    => $seq);

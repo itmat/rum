@@ -29,8 +29,12 @@ $non_unique = 'nu';
    "--non-unique-out", $non_unique);
 warn "Running it";
 RUM::Script::ParseBlatOut->main();
+
 no_diffs($unique, "$EXPECTED_DIR/BlatUnique.1", "Unique sorted");
-no_diffs($non_unique, "$EXPECTED_DIR/BlatNU.1", "Non-uniqe sorted");
+
+my @expected_nu = `sort $EXPECTED_DIR/BlatNU.1`;
+my @got_nu      = `sort $non_unique`;
+is_deeply \@got_nu, \@expected_nu, 'Non-unique sorted';
 
 # With unsorted input
 
