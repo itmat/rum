@@ -10,14 +10,14 @@ use base 'RUM::Identifiable';
 
 sub new {
     my ($class, %params) = @_;
-    my $self = {};
 
-    for my $field (qw(readid chr strand seq)) {
+    my $self = $class->SUPER::new(%params);
+
+    for my $field (qw(chr strand seq)) {
         defined($self->{$field} = delete $params{$field}) 
         or croak "Need $field";
     }
     $self->{raw} = delete $params{raw};
-
 
     my $locs = delete $params{locs};
     my $loc  = delete $params{loc};
@@ -61,31 +61,11 @@ sub end {
     return $self->locs->[$nlocs - 1][1];
 }
 
-sub order {
-    my ($self) = @_;
-    $self->readid =~ /seq.(\d+)/ and return $1;
-}
+sub as_forward { shift->copy(direction => 'a') }
 
-sub as_forward {
-    my ($self) = @_;
-    my $readid = $self->readid;
-    $readid =~ s/(a|b)$//;
-    return $self->copy(readid => $readid . "a");
-}
+sub as_reverse { shift->copy(direction => 'b') }
 
-sub as_reverse {
-    my ($self) = @_;
-    my $readid = $self->readid;
-    $readid =~ s/(a|b)$//;
-    return $self->copy(readid => $readid . "b");
-}
-
-sub as_unified {
-    my ($self) = @_;
-    my $readid = $self->readid;
-    $readid =~ s/(a|b)$//;
-    return $self->copy(readid => $readid);
-}
+sub as_unified { shift->copy(direction => '') }
 
 sub same_direction {
     my ($self, $other) = @_;

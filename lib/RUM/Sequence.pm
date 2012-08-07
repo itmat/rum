@@ -17,4 +17,12 @@ sub new {
 
 sub seq { $_[0]->{seq} }
 
+sub copy {
+    my ($self, %params) = @_;
+    my %copy = %{ $self };
+    while (my ($k, $v) = each %params) {
+        $copy{$k} = $v;
+    }
+    return __PACKAGE__->new(%copy);
+}
 1;

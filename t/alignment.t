@@ -23,7 +23,7 @@ is $fwd->as_reverse->readid, "seq.123b";
 is $fwd->as_unified->readid, "seq.123";
 
 
-my $rev = $fwd->copy(readid => "seq.123b");
+my $rev = $fwd->copy(direction => 'b');
 
 ok ! $rev->is_forward,       "is not forward";
 ok   $rev->is_reverse,        "is reverse";
@@ -34,7 +34,7 @@ is $rev->as_reverse->readid, "seq.123b";
 is $rev->as_unified->readid, "seq.123";
 
 
-my $both = $fwd->copy(readid => "seq.123");
+my $both = $fwd->copy(direction => '');
 
 ok ! $both->is_forward,       "is not forward";
 ok ! $both->is_reverse,       "is not reverse";

@@ -231,7 +231,6 @@ sub run {
     my $aln;
     my $last_aln;
     $aln = $blat_iter->next_val;
-    
     $readlength = $aln->q_size;
     if ($readlength < 80) {
         $min_size_intersection_allowed = 35;
@@ -248,6 +247,7 @@ sub run {
         $min_size_intersection_allowed = int(.6 * $readlength);
         $self->{match_length_cutoff}   = int(.6 * $readlength);
     }
+
     $seqnum = $aln->order;
 
     my $seq_iter   = RUM::SeqIO->new(-fh => $seq_fh)->peekable;
@@ -255,6 +255,7 @@ sub run {
 
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
   SEQ: for my $seq_count ($first_seq_num .. $last_seq_num) {
+
         my @one_dir_only_candidate;
         my %blathits;
 
@@ -286,7 +287,6 @@ sub run {
             $cutoff{$sn} = min($self->{match_length_cutoff} + $Ncount{$sn},
                                $aln->q_size - 2);
         }
-
         # CHANGE
         my @sname = ($aln->as_forward->readid,
                      $aln->as_reverse->readid);
@@ -358,7 +358,6 @@ sub run {
             # CHANGE
             $seqname = $aln ? $aln->readid : '';
             $seqnum  = $aln ? $aln->order  : '';
-
             if ($seqnum == $seq_count) {
                 $readlength = $aln->q_size;
                 if ($readlength < 80) {

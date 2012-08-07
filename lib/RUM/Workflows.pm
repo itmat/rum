@@ -273,7 +273,7 @@ sub chunk_workflow {
          "--unique-in", pre($rum_unique),
          "--non-unique-in", pre($rum_nu),
          "--reads-in", $reads_fa,
-         "--quals-in", $quals_fa,
+         -e $quals_fa ? ("--quals-in", $quals_fa) : (),
          "--sam-out", post($sam_file),
          $c->name_mapping_opt]);
     

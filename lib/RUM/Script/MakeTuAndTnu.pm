@@ -31,7 +31,7 @@ sub read_annot_file {
 
 sub mapping_to_aln {
     my $mapping = shift;
-    my $readid = shift || "junk";
+    my $readid = shift || "seq.0";
     my ($chr, $locs, $strand, $seq) =  split /\t/, $mapping;
     return RUM::Alignment->new(
         readid => $readid,
@@ -677,7 +677,8 @@ sub main {
             locs => [ map { [ $readstart[$_], $readsend[$_] ] } (0 .. $#readstart) ],
             strand => $new_strand,
             seq => $seq,
-            readid => "junk",
+            order => 0,
+            direction => '',
             raw => $output
         );
 

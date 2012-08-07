@@ -13,6 +13,7 @@ use RUM::Logging;
 use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
 use RUM::Workflow;
 use RUM::JobReport;
+use RUM::Script::SplitReads;
 
 use base 'RUM::Platform';
 
@@ -309,8 +310,24 @@ sub _reformat_reads {
     }
  
     elsif ($is_fasta && !$config->variable_length_reads && !$preformatted) {
+
+        my %params = (
+            chunks => $num_chunks,
+            forward => $reads[0],
+            all_reads_filename => $reads_fa,
+            chunk_reads_format => $config->in_chunk_dir("reads.fa.%d"),
+            before_chunk_callback => sub { 
+                my %params = @_;
+                print "Writing chunk $params{chunk}".
+                " (starting at read $params{first_read}) to".
+                " to $params{filename}\n";
+            },
+        );
+        if (@reads == 2) {
+            $params{reverse} = $reads[1];
+        }
         $self->say("Splitting fasta file into $num_chunks chunks");
-        shell("perl $parse_fasta $reads_in $num_chunks $reads_fa $name_mapping_opt 2>> $error_log");
+        RUM::Script::SplitReads::split_reads(%params);
         $have_quals = 0;
         $self->{input_needs_splitting} = 0;
         return;

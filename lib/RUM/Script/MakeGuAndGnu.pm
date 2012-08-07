@@ -3,7 +3,7 @@ package RUM::Script::MakeGuAndGnu;
 use strict;
 no warnings;
 use autodie;
-
+use Data::Dumper;
 use RUM::Usage;
 use RUM::Logging;
 use RUM::BowtieIO;
@@ -242,7 +242,9 @@ sub run {
 
     while (my $group = $it->next_val) {
         my $mappers = $self->handle_group($group->to_array);
+        warn "Mappers are " . Dumper($mappers);
         my $fh = @$mappers == 1 ? $gu : $gnu;
+        warn "Number of mappers is " . scalar(@$mappers);
         for my $aln (@$mappers) {
             my @reads = ref($aln) =~ /^ARRAY/ ? @{ $aln } : $aln;
             $fh->write_alns(\@reads);

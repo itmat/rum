@@ -1,7 +1,7 @@
 #!perl
 # -*- cperl -*-
 
-use Test::More tests => 22;
+use Test::More tests => 17;
 use FindBin qw($Bin);
 use lib "lib";
 
