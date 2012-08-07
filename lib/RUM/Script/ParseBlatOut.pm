@@ -255,6 +255,9 @@ sub run {
 
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
   SEQ: for my $seq_count ($first_seq_num .. $last_seq_num) {
+        my @one_dir_only_candidate;
+        my %blathits;
+
         while ($seq_iter->peek && ($seq_iter->peek->order < $seq_count)) {
             $seq_iter->next_val;
             $mdust_iter->next_val;
@@ -263,18 +266,11 @@ sub run {
         next SEQ if !($seq_iter->peek && $seq_iter->peek->order == $seq_count);
         
         my $read_a = $seq_iter->next_val;
-
-        my $read_b;
-        if ($paired_end) {
-            $read_b = $seq_iter->next_val;
-            $seq_b  = $read_b->seq;
-        }
+        my $read_b = $paired_end ? $seq_iter->next_val : undef;
 
         my $seqa = $read_a->seq;
-        my $seqb = $read_b->seq;
+        my $seqb = $read_b ? $read_b->seq : undef;
 
-        my @one_dir_only_candidate;
-        my %blathits;
         $self->logger->debug("Seq count is $seq_count");
 
         my $dust_output = $mdust_iter->next_val->seq;
@@ -290,6 +286,10 @@ sub run {
             $cutoff{$sn} = min($self->{match_length_cutoff} + $Ncount{$sn},
                                $aln->q_size - 2);
         }
+
+        # CHANGE
+        my @sname = ($aln->as_forward->readid,
+                     $aln->as_reverse->readid);
 
         while (defined($seqnum) && $seqnum == $seq_count) {
             $LENGTH = sum(@{ $aln->block_sizes });
@@ -357,8 +357,8 @@ sub run {
 
             # CHANGE
             $seqname = $aln ? $aln->readid : '';
-            $seqnum = $seqname;
-            $seqnum =~ s/[^\d]//g;
+            $seqnum  = $aln ? $aln->order  : '';
+
             if ($seqnum == $seq_count) {
                 $readlength = $aln->q_size;
                 if ($readlength < 80) {
@@ -374,9 +374,6 @@ sub run {
                 }
             }
         }
-
-        # CHANGE
-        my @sname = ("seq.${seq_count}a", "seq.${seq_count}b");
 
         for my $sname (@sname) {
 
