@@ -310,7 +310,8 @@ sub run {
                                     $aln->block_sizes_str,
                                     $aln->t_starts_str,
                                     $aln->mismatch,
-                                    $aln->q_starts_str);
+                                    $aln->q_starts_str,
+                                    '');
                                 
                                 if ($maxlength{$seqname}+0 < $aln->q_end) {
                                     $maxlength{$seqname} = $aln->q_end;
@@ -379,18 +380,22 @@ sub run {
             push @read_mapping_to_genome_blatoutput, [];
             my $hitnum = -1;
             for my $aref (@{ $blathits{$sname} }) {
+                my @record = @{ $aref };
+                my ($score, $strand, $t_name, $block_sizes_str,
+                    $t_starts_str, $mismatch, $q_starts_str, $insertion) = @record;
+
                 $hitnum++;
-                if ($aref->[0] >= $maxlength{$sname} - 10) {
-                    $chr = $aref->[2]; # Should have the span, but the 'if' below allows it to not
+                if ($score >= $maxlength{$sname} - 10) {
+                    $chr = $t_name; # Should have the span, but the 'if' below allows it to not
                     if ($chr =~ /:(\d+)/) {
                         $start = $1;
                         $chr =~ s/:.*//;
                     } else {
                         $start = 1;
                     }
-                    @a0 = split /,/, $aref->[4];
-                    @b  = split /,/, $aref->[3];
-                    @qs = split /,/, $aref->[6];
+                    @a0 = split /,/, $t_starts_str;
+                    @b  = split /,/, $block_sizes_str;
+                    @qs = split /,/, $q_starts_str;
                     $l = $start + $a0[0];
                     $e = $l + $b[0] - 1;
                     $loc = "$chr\t$l-$e";
@@ -421,9 +426,9 @@ sub run {
                     $loc = $loc . "\t$fixedloc";
                     $loc =~ s/, $//;
 
-                    my @rec = ($sname, $loc, $aref->[0], $aref->[1], $aref->[2],
-                               $aref->[3], $aref->[4], $aref->[5], $aref->[6], 
-                               $aref->[7], $i1);
+                    my @rec = ($sname, $loc, $score, $strand, $t_name,
+                               $block_sizes_str, $t_starts_str, $mismatch, $q_starts_str, 
+                               $insertion, $i1);
                     push @{ $read_mapping_to_genome_blatoutput[-1] }, join "\t", @rec;
 
                     # 0: sname
