@@ -130,13 +130,17 @@ sub process {
                 $log->warn("Chunk $chunk is not running or waiting. ".
                            "I've checked on it $t->{not_ok_count} " .
                            ($t->{not_ok_count} == 1 ? "time" : "times") .
-                           ". I'll give it a few more minutes");
+                           ". I'll give it a few more minutes. Details of " .
+                           "job status:");
+                $self->log_last_status_warning;
             }
 
             # If it reported a failed status $NUM_CHECKS_BEFORE_RESTART times 
             # in a row, go ahead and start again.
             elsif ($runner->run) {
-                $log->error("Chunk $chunk is not queued; started it");
+                $log->error("Chunk $chunk is not queued; started it. " .
+                            "Details of job status:");
+                $self->log_last_status_warning;
                 $t->{not_ok_count} = 0;
             }
 
@@ -194,7 +198,9 @@ sub postprocess {
         }
 
         elsif ($runner->run) {
-            $log->error("Postprocessing is not queued; starting it");
+            $log->error("Postprocessing is not queued; starting it. ".
+                        "Details of job status:");
+            $self->log_last_status_warning;
         }
         else {
             $log->error("Restarted postprocessing too many times; giving up");
