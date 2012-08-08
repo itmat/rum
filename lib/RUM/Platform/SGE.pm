@@ -125,6 +125,14 @@ sub submit_postproc {
     $self->submit_proc($self->config->num_chunks) unless $self->postproc_ok;
 }
 
+sub log_last_status_warning { 
+    my ($self) = @_;
+    my @lines = @{ $self->{last_qstat_output} || []};
+    for my $line (@lines) {
+        $log->warn("qstat: $line");
+    }
+}
+
 sub update_status {
     my ($self) = @_;
 
@@ -133,7 +141,7 @@ sub update_status {
     while ($tries++ < $MAX_UPDATE_STATUS_TRIES) {
         my @qstat = `qstat`;
         $log->debug("qstat: $_") foreach @qstat;
-        
+        $self->{last_qstat_output} = \@qstat;
         if ($?) {
             $log->info("qstat command failed with status: $?");
             next;
