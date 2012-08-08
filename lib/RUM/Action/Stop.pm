@@ -29,6 +29,14 @@ __END__
 
 RUM::Action::Stop - Stop a rum job
 
+=head1 CONSTRUCTORS
+
+=over 4
+
+=item RUM::Action::Stop->new
+
+=back
+
 =head1 DESCRIPTION
 
 Stops a running rum job.
@@ -36,6 +44,10 @@ Stops a running rum job.
 =over 4
 
 =item run
+
+Stop the job.
+
+=item do_stop
 
 Stop the job.
 
