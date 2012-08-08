@@ -47,8 +47,12 @@ sub main {
     $self->logger->debug("Reading unique mappers");
     while (my $aln = $unique->next_aln) {
         my $id = $aln->readid_directionless;
-        $unique_counts{$id}++ if $aln->contains_forward;
-        $unique_counts{$id}++ if $aln->contains_reverse;
+        if ($aln->contains_forward) {
+            $unique_counts{$id}++;
+        }
+        if ($aln->contains_reverse) {
+            $unique_counts{$id}++;
+        }
     }
 
     $self->logger->debug("Reading non-unique mappers");

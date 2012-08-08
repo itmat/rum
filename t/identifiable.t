@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 25;
+use Test::More tests => 24;
 use Test::Exception;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
@@ -80,6 +80,3 @@ for my $test (@tests) {
     is $seq->readid,     $readid,    "readid from $name";
 }
 
-throws_ok {
-    RUM::Identifiable->new(readid => 'foobar')
-} qr/parse.*order.*direction.*foobar/, 'need order and direction';

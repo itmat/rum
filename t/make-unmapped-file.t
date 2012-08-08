@@ -30,7 +30,7 @@ make_unmapped_file(
     "--paired",
     "-q");
 
-no_diffs($unmapped, "$EXPECTED_DIR/R.1");
+no_diffs($unmapped, "$EXPECTED_DIR/R.1", 'paired');
 
 make_unmapped_file(
     "--reads-in", "$INPUT_DIR/reads-single.fa",
@@ -40,7 +40,7 @@ make_unmapped_file(
     "--single",
     "-q");
 
-no_diffs($unmapped_single, "$EXPECTED_DIR/R-single");
+no_diffs($unmapped_single, "$EXPECTED_DIR/R-single", 'single');
 
 throws_ok {
     make_unmapped_file(

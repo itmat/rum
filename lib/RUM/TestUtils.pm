@@ -77,11 +77,16 @@ two files.
 =cut
 
 sub no_diffs {
-    my ($file1, $file2, $name, $options) = @_;
-    $options ||= "";
-    my $diffs = `diff $options $file2 $file1 > foo`;
-    my $status = $? >> 8;
-    ok($status == 0, $name);
+    @_ == 3 or croak "Wrong number of args for no_diffs";
+    my ($file1, $file2, $name) = @_;
+
+    open my $in1, '<', $file1;
+    open my $in2, '<', $file2;
+
+    my @lines1 = (<$in1>);
+    my @lines2 = (<$in2>);
+
+    is_deeply(\@lines1, \@lines2, $name);
 }
 
 sub same_contents_sorted {

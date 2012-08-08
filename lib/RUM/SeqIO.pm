@@ -19,21 +19,20 @@ sub next_seq {
     my $fh = $self->filehandle;
     my $header = <$fh>;
     return unless defined $header;
-
     chomp $header;
 
-    my $seq = <$fh>;
+    my $seq = '';
 
   LINE: while (1) {
         my $pos = tell $fh;
         my $line = <$fh>;
-        last LINE if ! $line;
+        last LINE if ! defined $line;
+        chomp $line;
         if ($line =~ /^>/) {
             seek $fh, $pos, 0;
             last LINE;
         }
         else {
-            chomp $line;
             $seq .= $line;
         }
         
