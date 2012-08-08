@@ -125,6 +125,14 @@ sub submit_postproc {
     $self->submit_proc($self->config->num_chunks) unless $self->postproc_ok;
 }
 
+sub log_last_status_warning { 
+    my ($self) = @_;
+    my @lines = @{ $self->{last_qstat_output} || []};
+    for my $line (@lines) {
+        $log->warn("qstat: $line");
+    }
+}
+
 sub update_status {
     my ($self) = @_;
 
@@ -133,7 +141,7 @@ sub update_status {
     while ($tries++ < $MAX_UPDATE_STATUS_TRIES) {
         my @qstat = `qstat`;
         $log->debug("qstat: $_") foreach @qstat;
-        
+        $self->{last_qstat_output} = \@qstat;
         if ($?) {
             $log->info("qstat command failed with status: $?");
             next;
@@ -434,10 +442,10 @@ sub show_running_status {
 
     if (@jids) {
         $self->say("RUM is running (job ids "
-                   . join(', ', @jids) . ')');
+                   . join(', ', @jids) . ').');
     }
     else {
-        $self->say("RUM is not running");
+        $self->say("RUM is not running.");
     }
 }
 
@@ -548,6 +556,10 @@ not.
 =item is_running
 
 Return true of the job appears to be running, false otherwise.
+
+=item log_last_status_warning
+
+Log some messages at warning level showing the last output of qstat.
 
 =back
 
