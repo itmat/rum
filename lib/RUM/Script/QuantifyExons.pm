@@ -44,21 +44,21 @@ sub main {
     # %INFO hash, but don't ever use it.
     # my %INFO;
     # if ($infofile) {
-    #     open INFILE, "<", $infofile;
-    #     while (my $line = <INFILE>) {
+    #     open $in_fh, "<", $infofile;
+    #     while (my $line = <$in_fh>) {
     #         chomp($line);
     #         my @a = split(/\t/,$line);
     #         $INFO{$a[0]} = $a[1];
     #     }
-    #     close(INFILE);
+    #     close($in_fh);
     # }
 
     # read in the transcript models
     
-    open INFILE, "<", $annotfile;
+    open my $in_fh, '<', $annotfile;
     my %EXON;
 
-    while (my $line = <INFILE>) {
+    while (my $line = <$in_fh>) {
         chomp($line);
         my @fields = split(/\t/,$line);
         next if $novel && $fields[1] eq "annotated";
@@ -79,9 +79,9 @@ sub main {
     readfile($U_readsfile, "Ucount", sub { $ureads++ }, \%EXON, $userstrand, $anti, $countsonly);
     readfile($NU_readsfile, "NUcount", sub { $nureads{$_[0]->order} = 1 }, \%EXON, $userstrand, $anti, $countsonly);
 
-    open OUTFILE1, ">", $outfile1;
+    open my $out_fh_1, ">", $outfile1;
     if ($countsonly) {
-        printf OUTFILE1 "num_reads = %d\n", $ureads + keys(%nureads);
+        printf $out_fh_1 "num_reads = %d\n", $ureads + keys(%nureads);
     }
     for my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
         my $num_exons = $ecnt{$chr};
@@ -92,7 +92,7 @@ sub main {
             my $s    = $exon->{start};
             my $e    = $exon->{end};
             my $elen = $e - $s + 1;
-            print OUTFILE1 "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
+            print $out_fh_1 "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
         }
     }
 

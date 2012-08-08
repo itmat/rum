@@ -28,7 +28,7 @@ if (1) {
         "--stats",  $got_nu_stats,
         $nu);
     
-    no_diffs($got_nu_cov, $exp_nu_cov, "NU cov", "-I 'track type=bedGraph'");
+    no_diffs($got_nu_cov, $exp_nu_cov, "NU cov", skip => 1);
     
     open my $stats, "<", $got_nu_stats;
     my $line = <$stats>;
@@ -49,7 +49,7 @@ if (1) {
         "--stats",  $got_stats,
         $in);
     
-    no_diffs($got_cov, $exp_cov, "Unique cov", "-I 'track type=bedGraph'");
+    no_diffs($got_cov, $exp_cov, "Unique cov", skip => 1);
     system("cat $got_cov > u_cov");
     open my $stats, "<", $got_stats;
     my $line = <$stats>;

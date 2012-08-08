@@ -77,14 +77,18 @@ two files.
 =cut
 
 sub no_diffs {
-    @_ == 3 or croak "Wrong number of args for no_diffs";
-    my ($file1, $file2, $name) = @_;
+    my ($file1, $file2, $name, %params) = @_;
 
     open my $in1, '<', $file1;
     open my $in2, '<', $file2;
 
     my @lines1 = (<$in1>);
     my @lines2 = (<$in2>);
+
+    if (my $skip = $params{skip}) {
+        @lines1 = @lines1[$skip .. -1];
+        @lines2 = @lines2[$skip .. -1];
+    }
 
     is_deeply(\@lines1, \@lines2, $name);
 }

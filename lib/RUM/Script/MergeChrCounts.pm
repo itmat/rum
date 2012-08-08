@@ -1,6 +1,7 @@
 package RUM::Script::MergeChrCounts;
 
 use strict;
+use autodie;
 no warnings;
 
 use RUM::Usage;
@@ -22,29 +23,26 @@ sub main {
     @file > 0 or RUM::Usage->bad(
         "Please list the input files on the command line");
     
-    open(OUTFILE, ">>", $outfile) or die "Can't open $outfile for appending";
+    open my $out_fh, '>>', $outfile;
     
     my %chrcnt;
     for my $filename (@file) {
-        open(INFILE, $filename) or die "Can't open $filename for reading: $!";
-        local $_ = <INFILE>;
-        $_ = <INFILE>;
-        $_ = <INFILE>;
-        $_ = <INFILE>;
-        while (defined ($_ = <INFILE>)) {
+        open my $in_fh, '<', $filename;
+        local $_ = <$in_fh>;
+        $_ = <$in_fh>;
+        $_ = <$in_fh>;
+        $_ = <$in_fh>;
+        while (defined ($_ = <$in_fh>)) {
             chomp;
             my @a1 = split /\t/;
             $chrcnt{$a1[0]} = $chrcnt{$a1[0]} + $a1[1];
         }
-        close(INFILE);
     }
     
     for my $chr (sort by_chromosome keys %chrcnt) {
         my $cnt = $chrcnt{$chr};
-        print OUTFILE "$chr\t$cnt\n";
+        print $out_fh "$chr\t$cnt\n";
     }
-    
-    
 }
 
 1;

@@ -15,6 +15,11 @@ my $out_fh;
 open $out_fh, ">", $out;
 *OLD = *STDOUT;
 *STDOUT = $out_fh;
+
+# Turn on autoflush because no_diffs will need to read in the file,
+# and we want all the output to be flushed to it.
+$| = 1;
+
 @ARGV = map { "$INPUT_DIR/nu_stats.$_" } (1, 2);
 RUM::Script::MergeNuStats->main();
 *STDOUT = *OLD;

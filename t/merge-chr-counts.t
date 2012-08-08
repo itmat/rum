@@ -14,4 +14,3 @@ my $out = temp_filename(TEMPLATE => "merged-chr-counts.XXXXXX", UNLINK => 0);
 @ARGV = ("-o", $out, "$INPUT_DIR/chr_counts_u.1", "$INPUT_DIR/chr_counts_u.2");
 RUM::Script::MergeChrCounts->main();
 no_diffs($out, "$EXPECTED_DIR/merged");
-
