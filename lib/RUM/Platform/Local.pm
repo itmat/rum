@@ -313,9 +313,10 @@ sub _reformat_reads {
 
         my %params = (
             chunks => $num_chunks,
-            forward => $reads[0],
+            filenames => \@reads,
             all_reads_filename => $reads_fa,
             chunk_reads_format => $config->in_chunk_dir("reads.fa.%d"),
+            
             before_chunk_callback => sub { 
                 my %params = @_;
                 print "Writing chunk $params{chunk}".
@@ -323,9 +324,7 @@ sub _reformat_reads {
                 " to $params{filename}\n";
             },
         );
-        if (@reads == 2) {
-            $params{reverse} = $reads[1];
-        }
+
         $self->say("Splitting fasta file into $num_chunks chunks");
         RUM::Script::SplitReads::split_reads(%params);
         $have_quals = 0;

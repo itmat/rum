@@ -40,6 +40,27 @@ sub main {
 
     $usage->check;
 
+    split_reads(
+        chunks => $chunks,
+        all_reads_filename => $all_reads_filename,
+        all_quals_filename => $all_quals_filename,
+        chunk_reads_format => $chunk_reads_format,
+        chunk_quals_format => $chunk_quals_format,
+        filenames          => \@filenames);
+
+}
+
+sub split_reads {
+
+    my (%params) = @_;
+
+    my $chunks = delete $params{chunks};
+    my $all_reads_filename = delete $params{all_reads_filename};
+    my $all_quals_filename = delete $params{all_quals_filename};
+    my $chunk_reads_format = delete $params{chunk_reads_format};
+    my $chunk_quals_format = delete $params{chunk_quals_format};
+    my $before_chunk_callback = delete $params{before_chunk_callback};
+    my @filenames          = @{ delete $params{filenames} || [] };
 
     my @fhs = map { open my $fh, '<', $_; $fh } @filenames;
     my @iters = map { RUM::SeqIO->new(-fh => $_) } @fhs;
@@ -59,6 +80,12 @@ sub main {
   CHUNK: for my $chunk (1 .. $chunks) {
         my $stop = $chunk * $size_per_chunk;
         my $out_filename = sprintf $chunk_reads_format, $chunk;
+        if ($before_chunk_callback) {
+            $before_chunk_callback->(chunk => $chunk,
+                                     filename => $out_filename,
+                                     first_read => $seq_num + 1);
+        }
+
         open my $chunk_fh, '>', $out_filename;
         my $out = RUM::SeqIO->new(-fh => $chunk_fh);
         
