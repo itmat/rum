@@ -129,11 +129,10 @@ sub main {
     $reads_file or RUM::Usage->bad(
         "Please specify a reads file with --reads-in");
 
-    my $allow 
-    = $suppress1 ? \&some_segment_mapped
-    : $suppress2 ? \&this_segment_mapped
-    : $suppress3 ? \&both_segments_mapped
-    :              sub { 1 };
+    my $allow = $suppress1 ? \&some_segment_mapped
+              : $suppress2 ? \&this_segment_mapped
+              : $suppress3 ? \&both_segments_mapped
+         :              sub { 1 };
     
     if ($genome_infile) {
         open my $genome_in, "<", $genome_infile;

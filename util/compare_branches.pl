@@ -6,11 +6,13 @@ use autodie qw(:all);
 
 use Getopt::Long;
 use File::Copy;
+use File::Temp;
 
 my @files = (
     {
         name => "RUM.sam",
-        transform => \&remove_id_prefix_and_sort,
+        transform => chain(\&remove_id_prefix_and_sort,
+                           \&strip_hi_field),
         compare => \&diff
     },
     {
@@ -25,12 +27,12 @@ my @files = (
     },
     {
         name => "RUM_Unique.cov",
-        transform => \&copy,
+        transform => skip_headers(1),
         compare => \&diff
     },
     {
         name => "RUM_NU.cov",
-        transform => \&copy,
+        transform => skip_headers(1),
         compare => \&diff
     },
     {
@@ -122,7 +124,33 @@ sub main {
     }
 }
 
+sub skip_headers {
+    my ($num_lines) = @_;
+    return sub {
+        open my $in, '<', shift;
+        open my $out, '>', shift;
+        for my $line_num (1 .. $num_lines) {
+            <$in>;
+        }
+        while (my $line = <$in>) {
+            print $out $line;
+        }
+    };
+}
 
+sub chain {
+    my (@transforms) = @_;
+
+    return sub {
+        my ($in_filename , $out_filename) = @_;
+        my @temp_files = map { File::Temp->new->filename } (0 .. $#transforms - 1);
+        my @filenames = ($in_filename, @temp_files, $out_filename);
+        for my $i (0 .. $#transforms) {
+            print "  transforming $filenames[$i] to $filenames[$i+1]\n";
+            $transforms[$i]->($filenames[$i], $filenames[$i + 1]);
+        }
+    };
+}
 
 sub code_dir {
     my ($branch) = @_;
@@ -141,6 +169,16 @@ sub transformed_dir {
 
 sub diff_dir {
     "diffs";
+}
+
+sub strip_hi_field {
+    my ($in_filename, $out_filename) = @_;
+    open my $in, '<', $in_filename;
+    open my $out, '>', $out_filename;
+    while (my $line = <$in>) {
+        $line =~ s/\tHI:i:\d*// or warn "Didn't find HI field on $line\n";
+        print $out $line;
+    }
 }
 
 sub run_rum {
