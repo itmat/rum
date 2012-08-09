@@ -6,21 +6,17 @@ use autodie;
 
 use File::Copy;
 use RUM::Usage;
-use RUM::Logging;
 use RUM::RUMIO;
-use Getopt::Long;
 
-our $log = RUM::Logging->get_logger();
-$|=1;
+use base 'RUM::Script::Base';
 
 sub main {
     
-    GetOptions(
+    my $self = __PACKAGE__->new;
+
+    $self->get_options(
         "output|o=s" => \(my $outfile_name),
-        "cutoff|n=s" => \(my $cutoff),
-        "help|h"     => sub { RUM::Usage->help },
-        "verbose|v"  => sub { $log->more_logging(1) },
-        "quiet|q"    => sub { $log->less_logging(1) });
+        "cutoff|n=s" => \(my $cutoff));
 
     $outfile_name or RUM::Usage->bad(
         "Please specify an output file with --output or -o");
@@ -28,12 +24,12 @@ sub main {
         "Please provide an input file");
 
     if (!int($cutoff)) {
-        $log->info("Not filtering out mappers");
+        $self->logger->info("Not filtering out mappers");
         copy($infile_name, $outfile_name);
         return 0;
     }
 
-    $log->info("Filtering out mappers that appear $cutoff times or more");
+    $self->logger->info("Filtering out mappers that appear $cutoff times or more");
    
     my (%fwd, %rev);
 
@@ -60,4 +56,31 @@ sub main {
         }
     }
 }
+
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::Script::LimitNU - Remove some non-unique mappers.
+
+=head1 METHODS
+
+=over 4
+
+=item main
+
+The main program.
+
+=back
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
 
