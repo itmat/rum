@@ -176,8 +176,9 @@ rum_fails_ok(
 
 # Check that we set some default values correctly
 {
+    my $out_dir = tmp_out();
     my @argv = ('--index',  $index,
-                '--output', 'foo',
+                '--output', $out_dir,
                 '--name',   'asdf',
                 '--chunks', 1,
                 $forward_64_fq);
@@ -185,7 +186,7 @@ rum_fails_ok(
     my $rum = rum(@argv);
     my $c = $rum->config or BAIL_OUT("Can't get RUM");
     is($c->name, "asdf", "Name");
-    like($c->output_dir, qr/foo$/, "Output dir");
+    like($c->output_dir, qr/$out_dir$/, "Output dir");
     like($c->rum_index, qr/$index/, "Index");
     is($c->min_length, undef, "min length");
     is($c->max_insertions, 1, "max insertions");
@@ -202,7 +203,7 @@ rum_fails_ok(
 
 # Check that we clean up a name
 is(rum('--index', $index,
-       '--output', 'foo',
+       '--output', tmp_out(),
        '--chunks', 1,
        $forward_64_fq, "--name", ",foo bar,baz,")->config->name,
    "foo_bar_baz",
