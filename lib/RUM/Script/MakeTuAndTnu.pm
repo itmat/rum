@@ -7,7 +7,7 @@ use RUM::Logging;
 use RUM::Usage;
 use RUM::BowtieIO;
 use RUM::RUMIO;
-use Getopt::Long;
+use base 'RUM::Script::Base';
 
 $|=1;
 
@@ -41,23 +41,11 @@ sub mapping_to_aln {
         strand => $strand);
 }
 
-sub write_mapping_with_new_id_and_junctions {
-    my ($io, $mapping, $readid) = @_;
-    my ($chr, $locs, $strand, $seq) =  split /\t/, $mapping;
-    my $aln =  mapping_to_aln($mapping, $readid);
-    $io->write_aln(aln_with_junctions($aln));
-}
-
 sub make_mapping_with_new_id_and_junctions {
     my ($mapping, $readid) = @_;
     my ($chr, $locs, $strand, $seq) =  split /\t/, $mapping;
     my $aln =  mapping_to_aln($mapping, $readid);
-    aln_with_junctions($aln);
-}
-
-sub aln_with_junctions {
-    my ($aln) = @_;
-    $aln->with_junctions_in_seq;
+    return $aln->with_junctions_in_seq;
 }
 
 sub make_aln_with_intersection {
@@ -71,24 +59,21 @@ sub make_aln_with_intersection {
         seq    => $seq,
         strand => $strand,
         locs   => RUM::RUMIO->parse_locs($locs));
-
-    return $aln->copy(seq => newAddJunctionsToSeq($aln));
+    return $aln->with_junctions_in_seq;
 }
 
 sub main {
+    my $self = __PACKAGE__->new;
 
-    GetOptions(
+    $self->get_options(
         "bowtie-output=s" => \(my $bowtie_output),
         "genes=s"         => \(my $gene_annot_file),
         "unique=s"        => \(my $unique_out),
         "non-unique=s"    => \(my $non_unique_out),
         "single"          => \(my $single),
         "paired"          => \(my $paired),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
-        
+        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000));
+
     $bowtie_output or RUM::Usage->bad(
         "Please specify the bowtie output file to read with --bowtie-output");
 
@@ -694,32 +679,6 @@ sub main {
         }
     }
 
-    sub newAddJunctionsToSeq {
-        my ($aln) = @_;
-        addJunctionsToSeq($aln->seq, 
-                          RUM::RUMIO->format_locs($aln));
-    }
-
-    sub addJunctionsToSeq () {
-        ($seq, $spans) = @_;
-        @s_j = split(//,$seq);
-        @b_j = split(/, /,$spans);
-        $seq_out = "";
-        $place_j = 0;
-        for ($j_j=0; $j_j<@b_j; $j_j++) {
-            @c_j = split(/-/,$b_j[$j_j]);
-            $len_j = $c_j[1] - $c_j[0] + 1;
-            if ($seq_out =~ /\S/) {
-                $seq_out = $seq_out . ":";
-            }
-            for ($k_j=0; $k_j<$len_j; $k_j++) {
-                $seq_out = $seq_out . $s_j[$place_j];
-                $place_j++;
-            }
-        }
-        return $seq_out;
-    }
-
     sub intersect () {
         ($spans_ref, $seq) = @_;
         @spans = @{$spans_ref};
@@ -810,3 +769,58 @@ sub main {
         }
     }
 }
+
+=head1 NAME
+
+RUM::Script::SplitReads - Process the output of Bowtie run on the
+transcriptome
+
+=head1 METHODS
+
+=over 4
+
+=item read_annot_file
+
+Read in the annotation file and return a hash ref mapping each gene
+name to the line of the annotation file.
+
+=item mapping_to_aln
+
+Create a RUM::Alignment from a line of Bowtie output.
+
+=item intersect
+
+$spans_ref is an array ref of array refs, where each sub array ref
+contains two values: start and end of a span. $seq is a
+sequence. Collapses intersecting spans and returns the length of the
+longest span, the new spans and the new sequence, as a tab-joined
+string.
+
+=item main
+
+Parse command line and run the rest of the script.
+
+=item make_aln_with_intersection
+
+Given the params 'locs', 'seq', 'readid', 'strand', and 'chr',
+construct a RUM::Alignment, add intersection markers into its
+sequence, and return it.
+
+=item make_mapping_with_new_id_and_junctions
+
+Given a line of Bowtie output and a new read id, make a RUM::Alignment
+for it and insert junction markers into the sequence.
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
