@@ -127,3 +127,50 @@ sub split_reads {
 }    
     
 1;
+
+=head1 NAME
+
+RUM::Script::SplitReads - Split the input files into chunks
+
+=head1 METHODS
+
+=over 4
+
+=item main
+
+Parses command line, validates arguments, split reads.
+
+=item split_reads(%params)
+
+Splits the files, which should be described by the given %params:
+
+=over 4
+
+=item chunks
+
+Number of chunks to create.
+
+all_reads_filename
+
+Filename to write all of the reads to. This will contain just the
+reads (not the qualities) from the input file, and both directions if
+the input data is paired-end. All read ids will have a sequence number
+and direction appended.
+
+all_quals_filename
+
+Filename to write all the quality strings to.
+
+chunk_reads_format
+
+Format as expected by sprintf to create the read file for each
+chunk. Should contain a '%d' field.
+
+chunk_quals_format
+
+Format as expected by sprintf to create the quals file for each
+chunk. Should contain a '%d' field.
+
+filenames
+
+=back
