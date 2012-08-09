@@ -16,14 +16,6 @@ use List::Util qw(sum min);
 
 use base 'RUM::Script::Base';
 
-# Given a filehandle, skip over all rows that appear to be header
-# rows. After I return, the filehandle will be positioned at the first
-# data row.
-sub skip_headers {
-    my ($fh) = @_;
-    my $blatio = RUM::BlatIO->new(-fh => $fh);
-}
-
 sub is_blat_file_sorted {
     use strict;
     my ($self) = @_;
@@ -129,7 +121,7 @@ $| = 1;
 # Blat should be run with the following parameters for speed:
 # -ooc=11.ooc -minScore=M -minIdentity=93
 
-sub open_files {
+sub _open_files {
     my ($self) = @_;
     
     for my $key (qw(blatfile seqfile mdustfile)) {
@@ -184,18 +176,11 @@ sub main {
     my $self = __PACKAGE__->new;
 
     $self->parse_command_line;
-    $self->open_files;
+    $self->_open_files;
     $self->ensure_blat_file_sorted;
     $self->run;
 }
 
-sub read_line_and_filter {
-    my ($fh) = @_;
-    my $line = <$fh>;
-    chomp $line;
-    $line =~ s/[^ACGTNab]$//;
-    return $line;
-}
 
 sub run {
     my ($self) = @_;
@@ -1384,3 +1369,65 @@ RUM::Script::ParseBlatOut - Parse output of blat
 
 Return 'true' if the given filename appears to be sorted by location,
 otherwise 'false'.
+
+=item ensure_blat_file_sorted
+
+If $self->{blat_file} is not already sorted, sorts it into a temporary
+file and sets $self->{blat_file_sorted} to the path of that file. If
+it's already sorted, just sets $self->{blat_file_sorted} to the path
+of the original file.
+
+=item getsequence($blocksizes, $qstarts, $strand, $seq)
+
+$blocksizes is a string containing a comma-delimited list of the sizes
+of matching ranges, and $qstarts is a similarly formatted string with
+the starts of those ranges. $strans is '+' or '-', and $seq is the
+sequence. Returns the matching subsequence (with ':' and '+'
+characters) based on the input. Uses the reverse complement if it's
+the '-' strand.
+
+=item $self->intersect($spans_ref, $seq)
+
+$spans_ref is an array ref of array refs, where each sub array ref
+contains two values: start and end of a span. $seq is a
+sequence. Collapses intersecting spans and returns the length of the
+longest span, the new spans and the new sequence, as a tab-joined
+string.
+
+=item $self->is_gap_acceptable($aln)
+
+Given a blat alignment, return false if the alignment contains a gap
+that would make it unacceptable as a hit.
+
+=item main
+
+The main function. Parses command line args and runs the rest of the
+program.
+
+=item new_intersect
+
+A variant of I<intersect> that returns an array rather than a string.
+
+=item $self->parse_command_line
+
+Parse the command-line args and set fields in $self.
+
+=item $self->run
+
+The guts of the script.
+
+=item 
+
+=back
+
+=head1 AUTHORS
+
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
