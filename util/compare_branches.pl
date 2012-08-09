@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use autodie;
+use autodie qw(:all);
 
 use Getopt::Long;
 use File::Copy;
@@ -35,6 +35,41 @@ my @files = (
     },
     {
         name => sub { "feature_quantifications_$_[0]" },
+        transform => \&copy,
+        compare => \&diff
+    },
+    {
+        name => "inferred_internal_exons.txt",
+        transform => \&copy,
+        compare => \&diff
+    },
+    {
+        name => "inferred_internal_exons.bed",
+        transform => \&copy,
+        compare => \&diff
+    },
+    {
+        name => "junctions_all.rum",
+        transform => \&copy,
+        compare => \&diff
+    },
+    {
+        name => "junctions_all.bed",
+        transform => \&copy,
+        compare => \&diff
+    },
+    {
+        name => "junctions_high-quality.bed",
+        transform => \&copy,
+        compare => \&diff
+    },
+    {
+        name => "mapping_stats.txt",
+        transform => \&copy,
+        compare => \&diff
+    },
+    {
+        name => sub { "novel_inferred_internal_exons_quantifications_$_[0]" },
         transform => \&copy,
         compare => \&diff
     },
@@ -115,6 +150,8 @@ sub run_rum {
     if ( ! -d $dir ) {
         system 'git', 'clone', 'https://github.com/PGFI/rum.git', $dir;
         system "cd $dir; git checkout $branch; perl Makefile.PL";
+    }
+    if ( ! -e sam_file($data_dir)) {
         system "perl $dir/bin/rum_runner align -o $data_dir @ARGV --name $branch";
     }
 }
@@ -138,7 +175,10 @@ sub remove_id_prefix_and_sort {
 
 sub diff {
     my ($old, $new, $out) = @_;
-    system "diff $old $new > $out";
+    my $status = system [0, 1], "diff $old $new > $out";
+    if ($status) {
+        warn "  They differ\n";
+    }
 }
 
 main;
