@@ -42,3 +42,30 @@ sub main {
         RUM::Usage->bad("Unknown action '$action'");
     }
 }
+
+__END__
+
+=head1 NAME
+
+RUM::Script::Main - Main program for rum_runner
+
+=head1 METHODS
+
+=over 4
+
+=item main
+
+Select the action the user wants based on the first argument on the
+command line, and run that action.
+
+=back
+
+=head1 AUTHOR
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+
