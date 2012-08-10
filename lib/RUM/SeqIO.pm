@@ -69,7 +69,9 @@ sub write_seq {
 sub write_qual_as_seq {
     my ($self, $rec)  = @_;
     my $fh = $self->filehandle;
-    printf $fh ">%s\n%s\n", $rec->readid, $rec->seq;
+    my $readid = $rec->readid;
+    my $qual   = $rec->qual;
+    print $fh ">$readid\n$qual\n";
 }
 
 1;

@@ -35,20 +35,18 @@ sub main {
     if (!$chunk_reads_format) {
         $usage->bad('Please give me a format for the read files with --chunk-reads-format');
     }
-    if (!@filenames) {
+    if (!@filenames ) {
         $usage->bad('Please give one or two read files on the command line');
     }
-
+    $usage->check;
     
     if (!defined($quals)) {
-        $log->info("Neither --quals nor --noquals was specified, so I'll ".
+        $self->logger->info("Neither --quals nor --noquals was specified, so I'll ".
                    "try to determine whether the input is fastq.");
         $quals = $filenames[0] =~ /\.(fq|fastq)$/;
-        $log->info('Input does' . ($quals ? ' ' : ' not ') . 
+        $self->logger->info('Input does' . ($quals ? ' ' : ' not ') . 
                    'appear to be fastq');
     }
-
-    $usage->check;
 
     split_reads(
         chunks => $chunks,
@@ -56,7 +54,8 @@ sub main {
         all_quals_filename => $all_quals_filename,
         chunk_reads_format => $chunk_reads_format,
         chunk_quals_format => $chunk_quals_format,
-        filenames          => \@filenames);
+        filenames          => \@filenames,
+        has_quals          => $quals);
 
 }
 
@@ -73,8 +72,9 @@ sub split_reads {
     my @filenames             = @{ delete $params{filenames} || [] };
     my $has_quals             =    delete $params{has_quals};
 
+    my $fmt = $has_quals ? 'fastq' : 'fasta';
     my @fhs = map { open my $fh, '<', $_; $fh } @filenames;
-    my @iters = map { RUM::SeqIO->new(-fh => $_) } @fhs;
+    my @iters = map { RUM::SeqIO->new(-fh => $_, fmt => $fmt) } @fhs;
     
     my $total_size = -s $fhs[0];
     my $size_per_chunk = $total_size / $chunks;
@@ -84,6 +84,19 @@ sub split_reads {
     my $seq_num = 0;
     
     open my $all_fh, '>', $all_reads_filename;
+    my $all_out = RUM::SeqIO->new(-fh => $all_fh);
+    my $all_quals_out;
+    if ($has_quals) {
+
+        if (!$all_quals_filename || !$chunk_quals_format) {
+            die("The input file has qualities by I don't know where " .
+                "to write the qualities to.");
+        }
+
+        warn "This one has quals\n";
+        open my $quals_fh, '>', $all_quals_filename;
+        $all_quals_out = RUM::SeqIO->new(-fh => $quals_fh);
+    }
 
     my %num_fwd_reads_for_length;
     my %num_rev_reads_for_length;
@@ -98,21 +111,42 @@ sub split_reads {
         }
 
         open my $chunk_fh, '>', $out_filename;
-        my $out = RUM::SeqIO->new(-fh => $chunk_fh);
-        
+        my $chunk_out = RUM::SeqIO->new(-fh => $chunk_fh);
+
+        my @quals_out;
+
+        if ($has_quals) {
+            open my $chunk_quals_fh, '>', $out_filename;
+            my $chunk_quals_out = RUM::SeqIO->new(-fh => $chunk_quals_fh);
+            @quals_out = ($all_quals_out, $chunk_quals_out);
+        }
+
+        my @seq_out = ($all_out, $chunk_out);
+
       READ: while (my $fwd = $iters[0]->next_val) {
             $seq_num++;
 
-            printf $chunk_fh ">%s|seq.%da\n%s\n", $fwd->readid, $seq_num, $fwd->seq;
-            printf $all_fh   ">%s|seq.%da\n%s\n", $fwd->readid, $seq_num, $fwd->seq;
+            my @recs = ($fwd->copy(order => $seq_num, direction => 'a'));
             $num_fwd_reads_for_length{length $fwd->seq}++;
 
             if (@filenames == 2) {
-                my $rev = $iters[1]->next_val;
+                my $rev = $iters[1]->next_val->copy(order => $seq_num, direction => 'b');
+                push @recs, $rev;
                 $num_rev_reads_for_length{length $rev->seq}++;
-                printf $chunk_fh ">%s|seq.%db\n%s\n", $rev->readid, $seq_num, $rev->seq;
-                printf $all_fh   ">%s|seq.%db\n%s\n", $rev->readid, $seq_num, $rev->seq;
             }
+
+            for my $out (@seq_out) {
+                for my $rec (@recs) {
+                    $out->write_seq($rec);
+                }
+            }
+
+            for my $out (@quals_out) {
+                for my $rec (@recs) {
+                    $out->write_qual_as_seq($rec);
+                }
+            }
+
             next CHUNK if tell($fhs[0]) > $stop && $chunk != $chunks;
         }
     }
