@@ -14,63 +14,73 @@ sub main {
     my $self = __PACKAGE__->new;
 
     $self->get_options(
-        "chunks=s"             => \(my $chunks),
-        "all-reads=s"          => \(my $all_reads_filename),
-        "all-quals=s"          => \(my $all_quals_filename),
-        "chunk-reads-format=s" => \(my $chunk_reads_format),
-        "chunk-quals-format=s" => \(my $chunk_quals_format),
-        "quals!"                => \(my $quals),
+        "chunks=s"              => \($self->{chunks}),
+        "all-reads=s"           => \($self->{all_reads_filename}),
+        "all-quals=s"           => \($self->{all_quals_filename}),
+        "chunk-reads-format=s"  => \($self->{chunk_reads_format}),
+        "chunk-quals-format=s"  => \($self->{chunk_quals_format}),
+        "quals!"                => \($self->{quals}),
     );
 
     my @filenames = @ARGV;
 
     my $usage = RUM::Usage->new;
     
-    if (!$chunks) {
+    if (!$self->{chunks}) {
         $usage->bad('Please tell me how many chunks to create with --chunks');
     }
-    if (!$all_reads_filename) {
+    if (!$self->{all_reads_filename}) {
         $usage->bad('Please tell me where to write all reads with --all-reads');
     }
-    if (!$chunk_reads_format) {
+    if (!$self->{chunk_reads_format}) {
         $usage->bad('Please give me a format for the read files with --chunk-reads-format');
     }
-    if (!@filenames ) {
+    if ( ! (@filenames == 1 ||
+            @filenames == 2 ) ) {
         $usage->bad('Please give one or two read files on the command line');
     }
     $usage->check;
     
-    if (!defined($quals)) {
-        $self->logger->info("Neither --quals nor --noquals was specified, so I'll ".
-                   "try to determine whether the input is fastq.");
-        $quals = $filenames[0] =~ /\.(fq|fastq)$/;
-        $self->logger->info('Input does' . ($quals ? ' ' : ' not ') . 
-                   'appear to be fastq');
-    }
+    $self->{filenames} = \@filenames;
+    
+    $self->split_reads;
+}
 
-    split_reads(
-        chunks => $chunks,
-        all_reads_filename => $all_reads_filename,
-        all_quals_filename => $all_quals_filename,
-        chunk_reads_format => $chunk_reads_format,
-        chunk_quals_format => $chunk_quals_format,
-        filenames          => \@filenames,
-        has_quals          => $quals);
+sub new {
+    my ($class, %params) = @_;
+    
+    my $self = $class->SUPER::new;
+    $self->{chunks}                = delete $params{chunks};
+    $self->{all_reads_filename}    = delete $params{all_reads_filename};
+    $self->{all_quals_filename}    = delete $params{all_quals_filename};
+    $self->{chunk_reads_format}    = delete $params{chunk_reads_format};
+    $self->{chunk_quals_format}    = delete $params{chunk_quals_format};
+    $self->{before_chunk_callback} = delete $params{before_chunk_callback};
+    $self->{filenames}             = delete $params{filenames} || [];
+    $self->{has_quals}             = delete $params{has_quals};
 
+    return $self;
 }
 
 sub split_reads {
 
-    my (%params) = @_;
+    my ($self, %params) = @_;
+    my $chunks                =    $self->{chunks};
+    my $all_reads_filename    =    $self->{all_reads_filename};
+    my $all_quals_filename    =    $self->{all_quals_filename};
+    my $chunk_reads_format    =    $self->{chunk_reads_format};
+    my $chunk_quals_format    =    $self->{chunk_quals_format};
+    my $before_chunk_callback =    $self->{before_chunk_callback};
+    my @filenames             = @{ $self->{filenames} || [] };
+    my $has_quals             =    $self->{has_quals};
 
-    my $chunks = delete $params{chunks};
-    my $all_reads_filename    =    delete $params{all_reads_filename};
-    my $all_quals_filename    =    delete $params{all_quals_filename};
-    my $chunk_reads_format    =    delete $params{chunk_reads_format};
-    my $chunk_quals_format    =    delete $params{chunk_quals_format};
-    my $before_chunk_callback =    delete $params{before_chunk_callback};
-    my @filenames             = @{ delete $params{filenames} || [] };
-    my $has_quals             =    delete $params{has_quals};
+    if (!defined($has_quals)) {
+        $self->logger->info("quals was not defined, so I'll ".
+                            "try to determine whether the input is fastq.");
+        $has_quals = $filenames[0] =~ /\.(fq|fastq)$/;
+        $self->logger->info('Input does' . ($has_quals ? ' ' : ' not ') . 
+                            'appear to be fastq');
+    }
 
     my $fmt = $has_quals ? 'fastq' : 'fasta';
     my @fhs = map { open my $fh, '<', $_; $fh } @filenames;

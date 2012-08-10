@@ -265,8 +265,6 @@ sub _reformat_reads {
 
     my $config = $self->config;
     my $output_dir = $config->output_dir;
-    my $parse_fastq = $config->script("parsefastq.pl");
-    my $parse_fasta = $config->script("parsefasta.pl");
     my $parse_2_fasta = $config->script("parse2fasta.pl");
     my $parse_2_quals = $config->script("fastq2qualities.pl");
     my $num_chunks = $config->num_chunks || 1;
@@ -301,6 +299,7 @@ sub _reformat_reads {
     if($is_fastq && !$config->variable_length_reads) {
         $self->say("Splitting fastq file into $num_chunks chunks ",
                    "with separate reads and quals");
+
         shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $error_log");
         my @errors = `grep -A 2 "something wrong with line" $error_log`;
         die "@errors" if @errors;
