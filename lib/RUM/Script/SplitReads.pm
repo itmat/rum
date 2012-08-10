@@ -14,11 +14,12 @@ sub main {
     my $self = __PACKAGE__->new;
 
     $self->get_options(
-        "chunks=s"           => \(my $chunks),
-        "all-reads=s"        => \(my $all_reads_filename),
-        "all-quals=s"        => \(my $all_quals_filename),
+        "chunks=s"             => \(my $chunks),
+        "all-reads=s"          => \(my $all_reads_filename),
+        "all-quals=s"          => \(my $all_quals_filename),
         "chunk-reads-format=s" => \(my $chunk_reads_format),
-        "chunk-quals-format=s" => \(my $chunk_quals_format)
+        "chunk-quals-format=s" => \(my $chunk_quals_format),
+        "quals!"                => \(my $quals),
     );
 
     my @filenames = @ARGV;
@@ -38,6 +39,15 @@ sub main {
         $usage->bad('Please give one or two read files on the command line');
     }
 
+    
+    if (!defined($quals)) {
+        $log->info("Neither --quals nor --noquals was specified, so I'll ".
+                   "try to determine whether the input is fastq.");
+        $quals = $filenames[0] =~ /\.(fq|fastq)$/;
+        $log->info('Input does' . ($quals ? ' ' : ' not ') . 
+                   'appear to be fastq');
+    }
+
     $usage->check;
 
     split_reads(
@@ -55,12 +65,13 @@ sub split_reads {
     my (%params) = @_;
 
     my $chunks = delete $params{chunks};
-    my $all_reads_filename = delete $params{all_reads_filename};
-    my $all_quals_filename = delete $params{all_quals_filename};
-    my $chunk_reads_format = delete $params{chunk_reads_format};
-    my $chunk_quals_format = delete $params{chunk_quals_format};
-    my $before_chunk_callback = delete $params{before_chunk_callback};
-    my @filenames          = @{ delete $params{filenames} || [] };
+    my $all_reads_filename    =    delete $params{all_reads_filename};
+    my $all_quals_filename    =    delete $params{all_quals_filename};
+    my $chunk_reads_format    =    delete $params{chunk_reads_format};
+    my $chunk_quals_format    =    delete $params{chunk_quals_format};
+    my $before_chunk_callback =    delete $params{before_chunk_callback};
+    my @filenames             = @{ delete $params{filenames} || [] };
+    my $has_quals             =    delete $params{has_quals};
 
     my @fhs = map { open my $fh, '<', $_; $fh } @filenames;
     my @iters = map { RUM::SeqIO->new(-fh => $_) } @fhs;
