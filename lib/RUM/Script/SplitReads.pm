@@ -17,8 +17,8 @@ sub main {
         "chunks=s"              => \($self->{chunks}),
         "all-reads=s"           => \($self->{all_reads_filename}),
         "all-quals=s"           => \($self->{all_quals_filename}),
-        "chunk-reads-format=s"  => \($self->{chunk_reads_format}),
         "chunk-quals-format=s"  => \($self->{chunk_quals_format}),
+        "chunk-reads-format=s"  => \($self->{chunk_reads_format}),
         "quals!"                => \($self->{quals}),
     );
 
@@ -46,6 +46,7 @@ sub main {
     $self->split_reads;
 }
 
+
 sub new {
     my ($class, %params) = @_;
     
@@ -66,10 +67,6 @@ sub split_reads {
 
     my ($self, %params) = @_;
     my $chunks                =    $self->{chunks};
-    my $all_reads_filename    =    $self->{all_reads_filename};
-    my $all_quals_filename    =    $self->{all_quals_filename};
-    my $chunk_reads_format    =    $self->{chunk_reads_format};
-    my $chunk_quals_format    =    $self->{chunk_quals_format};
     my $before_chunk_callback =    $self->{before_chunk_callback};
     my @filenames             = @{ $self->{filenames} || [] };
     my $has_quals             =    $self->{has_quals};
@@ -93,40 +90,43 @@ sub split_reads {
     
     my $seq_num = 0;
     
-    open my $all_fh, '>', $all_reads_filename;
+    open my $all_fh, '>', $self->{all_reads_filename};
     my $all_out = RUM::SeqIO->new(-fh => $all_fh);
     my $all_quals_out;
     if ($has_quals) {
-
-        if (!$all_quals_filename || !$chunk_quals_format) {
+        $self->logger->info('Treating file as FASTQ');
+        if (!$self->{all_quals_filename} || 
+            !$self->{chunk_quals_format}) {
             die("The input file has qualities by I don't know where " .
                 "to write the qualities to.");
         }
 
-        warn "This one has quals\n";
-        open my $quals_fh, '>', $all_quals_filename;
+        open my $quals_fh, '>', $self->{all_quals_filename};
         $all_quals_out = RUM::SeqIO->new(-fh => $quals_fh);
     }
-
+    else {
+        $self->logger->info('Treating file as FASTA');
+    }
     my %num_fwd_reads_for_length;
     my %num_rev_reads_for_length;
 
   CHUNK: for my $chunk (1 .. $chunks) {
         my $stop = $chunk * $size_per_chunk;
-        my $out_filename = sprintf $chunk_reads_format, $chunk;
+        my $reads_out_filename = sprintf $self->{chunk_reads_format}, $chunk;
         if ($before_chunk_callback) {
             $before_chunk_callback->(chunk => $chunk,
-                                     filename => $out_filename,
+                                     filename => $reads_out_filename,
                                      first_read => $seq_num + 1);
         }
 
-        open my $chunk_fh, '>', $out_filename;
+        open my $chunk_fh, '>', $reads_out_filename;
         my $chunk_out = RUM::SeqIO->new(-fh => $chunk_fh);
 
         my @quals_out;
 
         if ($has_quals) {
-            open my $chunk_quals_fh, '>', $out_filename;
+            my $quals_out_filename = sprintf $self->{chunk_quals_format}, $chunk;
+            open my $chunk_quals_fh, '>', $quals_out_filename;
             my $chunk_quals_out = RUM::SeqIO->new(-fh => $chunk_quals_fh);
             @quals_out = ($all_quals_out, $chunk_quals_out);
         }
@@ -229,3 +229,4 @@ chunk. Should contain a '%d' field.
 filenames
 
 =back
+

@@ -453,7 +453,7 @@ sub _run_step {
             # This will redirect my (the child's) output to the temp
             # file obtained above.
             open STDERR, ">", $err_fname;
-            
+            $log->info("Executing '@to'");
             exec(@to) or die(
                 "Couldn't exec '@to': $!\n" .
                 "This probably means that the program $to[0] doesn't exist " .

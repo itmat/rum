@@ -296,21 +296,35 @@ sub _reformat_reads {
 
     my $have_quals = 0;
 
-    if($is_fastq && !$config->variable_length_reads) {
+    if ($is_fastq && !$config->variable_length_reads) {
+        warn "It's fastq!\n";
+        my $splitter = RUM::Script::SplitReads->new(
+            chunks => $num_chunks,
+            filenames => \@reads,
+            all_reads_filename => $reads_fa,
+            all_quals_filename => $quals_fa,
+            chunk_reads_format => $config->in_chunk_dir("reads.fa.%d"),
+            chunk_quals_format => $config->in_chunk_dir("quals.fa.%d"),
+            
+            before_chunk_callback => sub { 
+                my %params = @_;
+                print "Writing chunk $params{chunk}".
+                " (starting at read $params{first_read}) to".
+                " to $params{filename}\n";
+            }
+        );
+
         $self->say("Splitting fastq file into $num_chunks chunks ",
                    "with separate reads and quals");
-
-        shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $error_log");
-        my @errors = `grep -A 2 "something wrong with line" $error_log`;
-        die "@errors" if @errors;
+        $splitter->split_reads;
         $have_quals = 1;
         $self->{input_needs_splitting} = 0;
         return;
     }
- 
-    elsif ($is_fasta && !$config->variable_length_reads && !$preformatted) {
 
-        my %params = (
+    elsif ($is_fasta && !$config->variable_length_reads && !$preformatted) {
+        warn "It's fasta!\n";
+        my $splitter = RUM::Script::SplitReads->new(
             chunks => $num_chunks,
             filenames => \@reads,
             all_reads_filename => $reads_fa,
@@ -321,11 +335,11 @@ sub _reformat_reads {
                 print "Writing chunk $params{chunk}".
                 " (starting at read $params{first_read}) to".
                 " to $params{filename}\n";
-            },
+            }
         );
 
         $self->say("Splitting fasta file into $num_chunks chunks");
-        RUM::Script::SplitReads::split_reads(%params);
+        $splitter->split_reads;
         $have_quals = 0;
         $self->{input_needs_splitting} = 0;
         return;
