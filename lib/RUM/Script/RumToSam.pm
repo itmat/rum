@@ -1,5 +1,7 @@
 package RUM::Script::RumToSam;
 
+my $BAD_SEQ_NUM = 68;
+
 use autodie;
 no warnings;
 
@@ -662,6 +664,7 @@ sub main {
                             $y = $ruf[4];
                             $Flag=0;
                             while ($Flag == 0) {
+
                                 $Flag = 1;
                                 until ($x =~ /^$y/) {
                                     $x =~ s/^.//;
@@ -774,8 +777,14 @@ sub main {
                             $y = $rur[4];
                             $Flag=0;
                             while ($Flag == 0) {
+                                if ($seqnum == $BAD_SEQ_NUM) {
+                                    warn "In this loop with $x and $y\n";
+                                }
                                 $Flag = 1;
                                 until ($x =~ /^$y/ || $Flag == 0) {
+                                    if ($seqnum == $BAD_SEQ_NUM) {
+                                        warn "  In this loop with $x and $y\n";
+                                    }
                                     $x =~ s/^.//;
                                     $prefix_offset_reverse++;
                                     if ($x eq '') {
