@@ -209,6 +209,9 @@ sub run {
 
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
   SEQ: while (my $alns = $blat_iter->next_val) {
+        my %cutoff;
+        my %Ncount;
+        my %maxlength;
         my @alns = @{ $alns };
         my $aln = $alns[0];
         my $seqnum = $alns[0]->order;
@@ -264,69 +267,79 @@ sub run {
         my @read_mapping_to_genome_coords;
 
       ALN: for my $aln (@alns) {
+            use strict;
             my $seqname = $aln->readid;
-            $LENGTH = sum(@{ $aln->block_sizes });
-            $SCORE = $LENGTH - $aln->mismatch; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
+            my $LENGTH = sum(@{ $aln->block_sizes });
+            my $SCORE = $LENGTH - $aln->mismatch; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
 
-            if ($SCORE > $cutoff{$seqname}) { # so match is at least cutoff long (and this cutoff was set to be longer if there are a lot of N's (bad reads or low complexity masked by dust)
-                #	    if($aln->q_start <= 1) {   # so match starts at position zero or one in the query (allow '1' because first base can tend to be an N or low quality)
-                if ($aln->q_gap_count <= $self->{max_insertions}) { # then the aligment has at most $self->{max_insertions} gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
+            next ALN if $SCORE <= $cutoff{$seqname};
 
-                    if ($Ncount{$aln->readid} <= ($aln->q_size / 2) || $aln->block_count <= 3) { # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY TO MATCH BY CHANCE.  
+            #	    if($aln->q_start <= 1) { # so match starts at
+            #	    position zero or one in the query (allow '1'
+            #	    because first base can tend to be an N or low
+            #	    quality)
 
-                        if ($aln->block_count <= $self->{num_blocks_allowed}) { # NEVER ALLOW MORE THAN $self->{num_blocks_allowed} blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
-
-                            if ($self->is_gap_acceptable($aln)) { # IF GOT TO HERE THEN READ PASSED ALL CRITERIA FOR A MATCH
-
-                                my @record = (
-                                    $SCORE,
-                                    $aln->strand,
-                                    $aln->t_name,
-                                    $aln->block_sizes_str,
-                                    $aln->t_starts_str,
-                                    $aln->mismatch,
-                                    $aln->q_starts_str,
-                                    '');
-                                
-                                if ($maxlength{$seqname}+0 < $aln->q_end) {
-                                    $maxlength{$seqname} = $aln->q_end;
-                                }
-                                if ($aln->q_gap_count == 1) { # then query has a gap, write this to the insertions file I
-                                    $gapsize = $aln->q_gap_bases;
-                                    @blocksizes = @{ $aln->block_sizes };
-                                    @qStarts    = @{ $aln->q_starts };
-                                    @tStarts    = @{ $aln->t_starts };
-                                    $n = @blocksizes;
-                                  BLOCK: for my $block (0 .. $#blocksizes - 1) {
-
-                                        next BLOCK if $blocksizes[$block] + $qStarts[$block] >= $qStarts[$block+1];
-
-                                        $insertion_target_coord = $blocksizes[$block] + $tStarts[$block];
-                                        my $new_seq = $aln->is_forward ? $seqa : $aln->is_reverse ? $seqb : '';
-                                        
-                                        if ($aln->strand ne "+") {
-                                            $new_seq = reverse $new_seq;
-                                            $new_seq =~ tr/ACGT/TGCA/;
-                                        }
-                                        
-                                        my $start = $qStarts[$block] + $blocksizes[$block];
-                                        my $end   = $start + $aln->q_gap_bases - 1;
-                                        
-                                        my $insertion = substr $new_seq, $start, $end;
-                                        $inscoord_temp = $insertion_target_coord + 1;
-                                        $aln->t_name =~ /chr(.*):/;
-                                        $chr = $1;
-                                        $insertion = "chr" . $chr . ":" . $insertion_target_coord . ":" . $insertion . ":" . $inscoord_temp . "\n";
-                                        $record[7] = $insertion;
-                                        $block = $n;
-                                    }
-                                }
-                                push @{ $blathits{$seqname} ||= [] }, \@record;
-                            }
-                        }
+            # then the aligment has at most $self->{max_insertions}
+            # gaps (default = 1) in the query, allowing for
+            # insertion(s) in the sample, throw out this alignment
+            # otherwise (we typipcally don't believe more than one
+            # separate insertions in such a short span).
+            next ALN if $aln->q_gap_count > $self->{max_insertions};
+            
+            # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE
+            # THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY
+            # TO MATCH BY CHANCE.
+            next ALN if ! ($Ncount{$aln->readid} <= ($aln->q_size / 2) || $aln->block_count <= 3);
+                
+            # NEVER ALLOW MORE THAN $self->{num_blocks_allowed}
+            # blocks, which is set to 1 for dna and 1000 (the equiv of
+            # infinity) for rnaseq
+            next ALN if $aln->block_count > $self->{num_blocks_allowed};
+            
+            next ALN if ! $self->is_gap_acceptable($aln);
+            # IF GOT TO HERE THEN READ PASSED ALL CRITERIA FOR A MATCH
+            
+            my @record = (
+                $SCORE,
+                $aln->strand,
+                $aln->t_name,
+                $aln->block_sizes_str,
+                $aln->t_starts_str,
+                $aln->mismatch,
+                $aln->q_starts_str,
+                '');
+            
+            if ($maxlength{$seqname}+0 < $aln->q_end) {
+                $maxlength{$seqname} = $aln->q_end;
+            }
+            if ($aln->q_gap_count == 1) { # then query has a gap, write this to the insertions file I
+                my @blocksizes = @{ $aln->block_sizes };
+                my @qStarts    = @{ $aln->q_starts };
+                my @tStarts    = @{ $aln->t_starts };
+              BLOCK: for my $block (0 .. $#blocksizes - 1) {
+                    
+                    next BLOCK if $blocksizes[$block] + $qStarts[$block] >= $qStarts[$block+1];
+                    
+                    my $insertion_target_coord = $blocksizes[$block] + $tStarts[$block];
+                    my $new_seq = $aln->is_forward ? $seqa : $aln->is_reverse ? $seqb : '';
+                    
+                    if ($aln->strand ne "+") {
+                        $new_seq = reverse $new_seq;
+                        $new_seq =~ tr/ACGT/TGCA/;
                     }
+                    
+                    my $start = $qStarts[$block] + $blocksizes[$block];
+                    my $end   = $start + $aln->q_gap_bases - 1;
+                    
+                    my $insertion = substr $new_seq, $start, $end;
+                    my $inscoord_temp = $insertion_target_coord + 1;
+                    $aln->t_name =~ /chr(.*):/;
+                    my $chr = $1;
+                    $record[7] = "chr" . $chr . ":" . $insertion_target_coord . ":" . $insertion . ":" . $inscoord_temp . "\n";
+                    last BLOCK;
                 }
             }
+            push @{ $blathits{$seqname} ||= [] }, \@record;
         }
 
         for my $sname (@sname) {
@@ -1080,8 +1093,6 @@ sub run {
         undef %consistent_mappers;
         undef %consistent_mappers2;
         undef @read_mapping_to_genome_blatoutput;
-        undef %maxlength;
-        undef %Ncount;
         undef %cnt;
         undef @read_mapping_to_genome_pairing_candidate;
     }
