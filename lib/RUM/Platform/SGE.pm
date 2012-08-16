@@ -198,12 +198,19 @@ sub _qsub {
     my ($self, @args) = @_;
     my $dir = $RUM::Logging::LOGGING_DIR;
     my $dir_opt = $dir ? "-o $dir -e $dir" : "";
-    my $cmd = "qsub -V -cwd -j y $dir_opt @args";
+    my $cmd = "qsub -V -cwd -j y $dir_opt @args 2>&1";
     $log->info("Submitting job to SGE: '$cmd'");
     my $out = `$cmd`;
-    $log->debug("'$cmd' produced output $out");
+    if ($log->is_debug) {
+        for my $line (split /\n/, $out) {
+            $log->debug("qsub: $line");
+        }
+    }
     if ($?) {
-        croak "Error running qsub @args: $!";
+        for my $line (split /\n/, $out) {
+            $log->error("qsub: $line");
+        }
+        croak "Error running $cmd";
     }
 
     return $self->_parse_qsub_out($out);
@@ -400,7 +407,7 @@ sub _proc_jids     { $_[0]->{jids}{proc} };
 sub _script_filename { 
     my ($self, $phase) = @_;
     return $self->config->in_output_dir(
-        $self->config->name . "_$phase" . ".sh");
+        "rum_" . $self->config->name . "_$phase" . ".sh");
 }
 
 
