@@ -157,14 +157,15 @@ sub process {
         # still waiting for them.
         my @waiting = grep { !defined } @results[@chunks];
 
-        unless ( @waiting ) {
+        if (@waiting) {
+            sleep $CLUSTER_CHECK_INTERVAL;
+        }
+        else {
             if ($status->outstanding_chunks) {
                 $log->error("It looks like we've given up on all the chunks");
             }
             last;
         }
-
-        sleep $CLUSTER_CHECK_INTERVAL;
     }
     return \@results;
 }
