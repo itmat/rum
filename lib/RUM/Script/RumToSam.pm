@@ -90,7 +90,9 @@ sub check_rum_input {
     
     my $aln = $rum_unique_iter->next_val;
 
-    $flag = 0;
+    if (!$aln) {
+        return;
+    }
     if (!$aln->readid) {
         $flag = 1;
     }
@@ -103,7 +105,7 @@ sub check_rum_input {
     if ($aln->seq !~ /^[ACGTN:+]+$/) {
         $flag = 1;
     }
-    if ($flag && $line) {
+    if ($flag) {
         die("The first line of the file '$filename' is "
             . "misformatted; it does not look like a RUM output file.");
     }

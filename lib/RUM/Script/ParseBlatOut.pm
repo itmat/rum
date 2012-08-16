@@ -261,11 +261,13 @@ sub run {
         # CHANGE
         my @sname = ($alns[0]->as_forward->readid,
                      $alns[0]->as_reverse->readid);
+        my @read_mapping_to_genome_coords;
 
-        for my $aln (@alns) {
+      ALN: for my $aln (@alns) {
             my $seqname = $aln->readid;
             $LENGTH = sum(@{ $aln->block_sizes });
             $SCORE = $LENGTH - $aln->mismatch; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
+
             if ($SCORE > $cutoff{$seqname}) { # so match is at least cutoff long (and this cutoff was set to be longer if there are a lot of N's (bad reads or low complexity masked by dust)
                 #	    if($aln->q_start <= 1) {   # so match starts at position zero or one in the query (allow '1' because first base can tend to be an N or low quality)
                 if ($aln->q_gap_count <= $self->{max_insertions}) { # then the aligment has at most $self->{max_insertions} gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
@@ -332,9 +334,8 @@ sub run {
             push @read_mapping_to_genome_blatoutput, [];
             my $hitnum = -1;
             for my $aref (@{ $blathits{$sname} }) {
-                my @record = @{ $aref };
                 my ($score, $strand, $t_name, $block_sizes_str,
-                    $t_starts_str, $mismatch, $q_starts_str, $insertion) = @record;
+                    $t_starts_str, $mismatch, $q_starts_str, $insertion) = @{ $aref };
 
                 $hitnum++;
                 if ($score >= $maxlength{$sname} - 10) {
@@ -424,7 +425,8 @@ sub run {
                 if ($a4[3] > $max_length - 2 && $a4[8] <= $maxkey_nummismatch + 2) {
                     # might want to change $max_length - 2 to  $max_length - n for n>2 or even n=1,
                     # should do some rigorous benchmarking to figure this out
-                    if ($sname[$t] =~ /a/) {
+
+                    if ($t == 0) {
                         $seq = getsequence($a4[6], $a4[9], $a4[4], $seqa);
                     } else {
                         $seq = getsequence($a4[6], $a4[9], $a4[4], $seqb);
@@ -468,7 +470,7 @@ sub run {
                 if ($t==1) {
                     $STRAND = $STRAND eq '-' ? '+' : '-';
                 }
-                if ($sname[$t] =~ /a/) {
+                if ($t == 0) {
                     $seq = getsequence($a6[6], $a6[9], $a6[4], $seqa);
                 } else {
                     $seq = getsequence($a6[6], $a6[9], $a6[4], $seqb);
@@ -584,10 +586,13 @@ sub run {
                 $nu_out->write_alns(\@reverse_alns);
             }
         }
-        elsif ($numa > 0 && $numb > 0 && $numa * $numb < 1000000) { # this is one very big case within which we search
+        elsif (@forward_alns && 
+               @reverse_alns && 
+               scalar(@forward_alns) * scalar(@reverse_alns) < 1000000) {
+            # this is one very big case within which we search
             # for consistent a/b mappers
             for ($i=0; $i<$numa; $i++) {
-                my $a_aln = $read_mapping_to_genome_coords[0][$i];
+                my $a_aln = $forward_alns[$i];
                 @B1 = split(/\t/, $read_mapping_to_genome_pairing_candidate[0][$i]);
                 $achr = $B1[1];
                 $astrand = $a_aln->strand;
@@ -628,7 +633,7 @@ sub run {
                     }
                     @B1 = split(/\t/, $read_mapping_to_genome_pairing_candidate[1][$j]);
                     $bchr = $B1[1];
-                    my $b_aln = $read_mapping_to_genome_coords[1][$j];
+                    my $b_aln = $reverse_alns[$j];
                     $bstrand = $b_aln->strand;
                     $bseq = $b_aln->seq;
                     $bspans = $B1[2];
@@ -643,12 +648,6 @@ sub run {
                     }
                     $bstart = $bstarts[0];
                     $bend = $bends[$e-1];
-		
-                    #		    print "----------------\n";
-                    #		    print "$read_mapping_to_genome_coords[0][$i]\n";
-                    #		    print "$read_mapping_to_genome_coords[1][$j]\n";
-                    #		    print "aave = $aave\n";
-                    #		    print "bave = $bave\n";
 		
                     $proceedflag = 0;
                     if ($astrand eq "+" && $bstrand eq "+" && $aave <= $bave) {
@@ -719,7 +718,13 @@ sub run {
                                 $merged_spans = $merged_spans . ", $mergedstarts[$e]-$mergedends[$e]";
                             }
                             $merged_seq = $aseq . $bseq;
-                            $consistent_mappers{"seq.$seqnum\t$achr\t$merged_spans\t$merged_seq\t$ostrand"}++;
+                            my $key = join("\t",
+                                           $forward_alns[0]->as_unified->readid,
+                                           $achr,
+                                           $merged_spans,
+                                           $merged_seq, 
+                                           $ostrand);
+                            $consistent_mappers{$key}++;
                         }
                         if (($astrand eq "+") && ($bstrand eq "+") && ($aend >= $bstart) && ($bstart >= $astart) && ($bend >= $aend)) {
                             $f = 0;
@@ -866,7 +871,10 @@ sub run {
                                         $merged_seq =~ s/$bpostfix$/$ins$bpostfix/;
                                     }
                                 }
-                                $consistent_mappers{"seq.$seqnum\t$achr\t$merged_spans\t$merged_seq\t$ostrand"}++;
+                                my $key = join("\t",
+                                               $forward_alns[0]->as_unified->readid,
+                                               $achr, $merged_spans, $merged_seq, $ostrand);
+                                $consistent_mappers{$key}++;
                             }
                             if ($swaphack eq "true") {
                                 $astrand = "-";
@@ -1075,7 +1083,6 @@ sub run {
         undef %maxlength;
         undef %Ncount;
         undef %cnt;
-        undef @read_mapping_to_genome_coords;
         undef @read_mapping_to_genome_pairing_candidate;
     }
 
@@ -1090,7 +1097,8 @@ sub run {
 
 
 sub getsequence {
-    ($blocksizes, $qstarts, $strand, $seq) = @_;
+    my ($blocksizes, $qstarts, $strand, $seq) = @_;
+
     chomp($seq);
     if ($strand eq "-") {
 	@a_g = split(//,$seq);
