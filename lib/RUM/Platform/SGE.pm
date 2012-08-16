@@ -564,6 +564,10 @@ not.
 
 Return true of the job appears to be running, false otherwise.
 
+=item log_last_status_warning
+
+Log some messages at warning level showing the last output of qstat.
+
 =back
 
 =head1 AUTHOR
