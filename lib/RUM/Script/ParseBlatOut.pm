@@ -12,7 +12,7 @@ use RUM::Logging;
 use RUM::Usage;
 use RUM::RUMIO;
 use RUM::SeqIO;
-use List::Util qw(sum min);
+use List::Util qw(sum min max);
 
 use base 'RUM::Script::Base';
 
@@ -181,7 +181,6 @@ sub main {
     $self->run;
 }
 
-
 sub run {
     my ($self) = @_;
 
@@ -195,7 +194,10 @@ sub run {
     my $nu_out = RUM::RUMIO->new(-fh => $nu_fh,
                                  strand_last => 1);
 
-    my $blat_iter = RUM::BlatIO->new(-fh => $blat_hits);
+    my $old_blat_iter  = RUM::BlatIO->new(-fh => $blat_hits);
+    my $blat_iter = $old_blat_iter->peekable->group_by(\&RUM::Identifiable::is_same_or_mate, sub { shift });
+    my $seq_iter   = RUM::SeqIO->new( -fh => $seq_fh)->peekable;
+    my $mdust_iter = RUM::SeqIO->new( -fh => $mdust_fh)->peekable;
 
     # Get the first and last sequence number and determine if the
     # reads are paired end.
@@ -207,49 +209,41 @@ sub run {
     $head =~ /seq.(\d+)/;
     $first_seq_num = $1;
     $tail = `tail -1 $self->{blatfile_sorted}`;
-    my $last_seq_num = $blat_iter->parse_aln($tail)->order;
+    my $last_seq_num = $old_blat_iter->parse_aln($tail)->order;
 
     if ($self->{max_insertions} > 1 && $paired_end) {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
     }
 
-    my $aln;
-    my $last_aln;
-    $aln = $blat_iter->next_val;
-    $readlength = $aln->q_size;
-    if ($readlength < 80) {
-        $min_size_intersection_allowed = 35;
-        if ($self->{match_length_cutoff} == 0) {
-            $self->{match_length_cutoff} = 35;
-        }
-    } else {
-        $min_size_intersection_allowed = 45;
-        if ($self->{match_length_cutoff} == 0) {
-            $self->{match_length_cutoff} = 50;
-        }
-    }
-    if ($min_size_intersection_allowed >= .8 * $readlength) {
-        $min_size_intersection_allowed = int(.6 * $readlength);
-        $self->{match_length_cutoff}   = int(.6 * $readlength);
-    }
-
-    $seqnum = $aln->order;
-
-    my $seq_iter   = RUM::SeqIO->new(-fh => $seq_fh)->peekable;
-    my $mdust_iter = RUM::SeqIO->new(-fh => $mdust_fh)->peekable;
-
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
-  SEQ: for my $seq_count ($first_seq_num .. $last_seq_num) {
+  SEQ: while (my $alns = $blat_iter->next_val) {
+        my @alns = @{ $alns };
+        my $aln = $alns[0];
+        my $seqnum = $alns[0]->order;
 
         my @one_dir_only_candidate;
         my %blathits;
-
-        while ($seq_iter->peek && ($seq_iter->peek->order < $seq_count)) {
-            $seq_iter->next_val;
-            $mdust_iter->next_val;
+        
+        for my $iter ($seq_iter, $mdust_iter) {
+            while ($iter->peek && ($iter->peek->order < $seqnum)) {
+                $iter->next_val;
+            }
         }
+        last SEQ if !$seq_iter->peek;
+        next SEQ if $seq_iter->peek->order > $seqnum;
 
-        next SEQ if !($seq_iter->peek && $seq_iter->peek->order == $seq_count);
+        $readlength = $alns[0]->q_size;
+        if ($readlength < 80) {
+            $min_size_intersection_allowed = 35;
+            $self->{match_length_cutoff} ||= 35;
+        } else {
+            $min_size_intersection_allowed = 45;
+            $self->{match_length_cutoff} ||= 50;
+        }
+        if ($min_size_intersection_allowed >= .8 * $readlength) {
+            $min_size_intersection_allowed = int(.6 * $readlength);
+            $self->{match_length_cutoff}   = int(.6 * $readlength);
+        }
         
         my $read_a = $seq_iter->next_val;
         my $read_b = $paired_end ? $seq_iter->next_val : undef;
@@ -257,33 +251,35 @@ sub run {
         my $seqa = $read_a->seq;
         my $seqb = $read_b ? $read_b->seq : undef;
 
-        $self->logger->debug("Seq count is $seq_count");
+        $self->logger->debug("Seq count is $seqnum");
 
         my $dust_output = $mdust_iter->next_val->seq;
-        $sn = $aln->as_forward->readid;
+        $sn = $alns[0]->as_forward->readid;
         $Ncount{$sn} = $dust_output =~ tr/N//;
         $cutoff{$sn} = min($self->{match_length_cutoff} + $Ncount{$sn},
-                           $aln->q_size - 2);
+                           $alns[0]->q_size - 2);
 
         if ($paired_end) {
             my $dust_output = $mdust_iter->next_val->seq;
-            $sn = $aln->as_reverse->readid;
+            $sn = $alns[0]->as_reverse->readid;
             $Ncount{$sn} = $dust_output =~ tr/N//;
             $cutoff{$sn} = min($self->{match_length_cutoff} + $Ncount{$sn},
-                               $aln->q_size - 2);
+                               $alns[0]->q_size - 2);
         }
         # CHANGE
-        my @sname = ($aln->as_forward->readid,
-                     $aln->as_reverse->readid);
+        my @sname = ($alns[0]->as_forward->readid,
+                     $alns[0]->as_reverse->readid);
 
-        while (defined($seqnum) && $seqnum == $seq_count) {
+        for my $aln (@alns) {
+            my $seqname = $aln->readid;
             $LENGTH = sum(@{ $aln->block_sizes });
             $SCORE = $LENGTH - $aln->mismatch; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
             if ($SCORE > $cutoff{$seqname}) { # so match is at least cutoff long (and this cutoff was set to be longer if there are a lot of N's (bad reads or low complexity masked by dust)
                 #	    if($aln->q_start <= 1) {   # so match starts at position zero or one in the query (allow '1' because first base can tend to be an N or low quality)
-                
                 if ($aln->q_gap_count <= $self->{max_insertions}) { # then the aligment has at most $self->{max_insertions} gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
+
                     if ($Ncount{$aln->readid} <= ($aln->q_size / 2) || $aln->block_count <= 3) { # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY TO MATCH BY CHANCE.  
+
                         if ($aln->block_count <= $self->{num_blocks_allowed}) { # NEVER ALLOW MORE THAN $self->{num_blocks_allowed} blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
 
                             if ($self->is_gap_acceptable($aln)) { # IF GOT TO HERE THEN READ PASSED ALL CRITERIA FOR A MATCH
@@ -331,31 +327,10 @@ sub run {
                                         $block = $n;
                                     }
                                 }
-
                                 push @{ $blathits{$seqname} ||= [] }, \@record;
                             }
                         }
                     }
-                }
-            }
-            $last_aln = $aln;
-            $aln = $blat_iter->next_val;
-
-            # CHANGE
-            $seqname = $aln ? $aln->readid : '';
-            $seqnum  = $aln ? $aln->order  : '';
-            if ($seqnum == $seq_count) {
-                $readlength = $aln->q_size;
-                if ($readlength < 80) {
-                    $min_size_intersection_allowed = 35;
-                    $self->{match_length_cutoff} ||= 35;
-                } else {
-                    $min_size_intersection_allowed = 45;
-                    $self->{match_length_cutoff} ||= 50;
-                }
-                if ($min_size_intersection_allowed >= .8 * $readlength) {
-                    $min_size_intersection_allowed = int(.6 * $readlength);
-                    $self->{match_length_cutoff}   = int(.6 * $readlength);
                 }
             }
         }
@@ -752,7 +727,7 @@ sub run {
                                 $merged_spans = $merged_spans . ", $mergedstarts[$e]-$mergedends[$e]";
                             }
                             $merged_seq = $aseq . $bseq;
-                            $consistent_mappers{"seq.$seq_count\t$achr\t$merged_spans\t$merged_seq\t$ostrand"}++;
+                            $consistent_mappers{"seq.$seqnum\t$achr\t$merged_spans\t$merged_seq\t$ostrand"}++;
                         }
                         if (($astrand eq "+") && ($bstrand eq "+") && ($aend >= $bstart) && ($bstart >= $astart) && ($bend >= $aend)) {
                             $f = 0;
@@ -899,7 +874,7 @@ sub run {
                                         $merged_seq =~ s/$bpostfix$/$ins$bpostfix/;
                                     }
                                 }
-                                $consistent_mappers{"seq.$seq_count\t$achr\t$merged_spans\t$merged_seq\t$ostrand"}++;
+                                $consistent_mappers{"seq.$seqnum\t$achr\t$merged_spans\t$merged_seq\t$ostrand"}++;
                             }
                             if ($swaphack eq "true") {
                                 $astrand = "-";
@@ -1008,7 +983,7 @@ sub run {
                             @ss = split(/\t/,$str1);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
                             $unique_out->write_aln(
-                                $last_aln->as_forward->copy(
+                                $aln->as_forward->copy(
                                     chr => $ss[0],
                                     locs => RUM::RUMIO->parse_locs($ss[1]),
                                     seq => $seq_new,
@@ -1023,7 +998,7 @@ sub run {
                             @ss = split(/\t/,$str2);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
                             $unique_out->write_aln(
-                                $last_aln->as_reverse->copy(
+                                $aln->as_reverse->copy(
                                     chr => $ss[0],
                                     locs => RUM::RUMIO->parse_locs($ss[1]),
                                     seq => $seq_new,
@@ -1032,7 +1007,7 @@ sub run {
                         }
                     }
                     if ($str1 && $str2) {
-                        $log->info("I found it, for read " . $last_aln->readid);
+                        $log->info("I found it, for read " . $aln->readid);
                         $str1 =~ s/^(\d+)\t/$CHR\t/;
                         $size1 = $1;
                         $str2 =~ s/^(\d+)\t/$CHR\t/;
@@ -1040,14 +1015,14 @@ sub run {
                         if ($size1 >= $min_size_intersection_allowed && $size2 < $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str1);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print $unique_fh $last_aln->as_forward->readid . "\t";
+                            print $unique_fh $aln->as_forward->readid . "\t";
                             print $unique_fh "$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                         if ($size2 >= $min_size_intersection_allowed && $size1 < $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str2);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print $unique_fh $last_aln->as_reverse->readid . "\t";
+                            print $unique_fh $aln->as_reverse->readid . "\t";
                             print $unique_fh "$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
@@ -1061,11 +1036,11 @@ sub run {
                             if ((($start2 - $end1 > 0) && ($start2 - $end1 < $self->{max_pair_dist})) || (($start1 - $end2 > 0) && ($start1 - $end2 < $self->{max_pair_dist}))) {
                                 @ss = split(/\t/,$str1);
                                 $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                print $unique_fh $last_aln->as_forward->readid . "\t";
+                                print $unique_fh $aln->as_forward->readid . "\t";
                                 print $unique_fh "$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                                 @ss = split(/\t/,$str2);
                                 $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                print $unique_fh $last_aln->as_reverse->readid . "\t";
+                                print $unique_fh $aln->as_reverse->readid . "\t";
                                 print $unique_fh "$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                                 $nointersection = 0;
                             }
@@ -1080,7 +1055,7 @@ sub run {
                         if ($size >= $min_size_intersection_allowed) {
                             @ss = split(/\t/,$str);
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print $unique_fh $last_aln->as_unified->readid . "\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                            print $unique_fh $aln->as_unified->readid . "\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             $nointersection = 0;
                         }
                     }
