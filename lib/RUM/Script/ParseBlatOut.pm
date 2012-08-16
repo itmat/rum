@@ -199,17 +199,9 @@ sub run {
     my $seq_iter   = RUM::SeqIO->new( -fh => $seq_fh)->peekable;
     my $mdust_iter = RUM::SeqIO->new( -fh => $mdust_fh)->peekable;
 
-    # Get the first and last sequence number and determine if the
-    # reads are paired end.
-    $head  = `head -1 $self->{seqfile}`;
+    # Determine if the reads are paired end.
     $head2 = `head -3 $self->{seqfile}`;
-
     $paired_end = $head2 =~ /seq.\d+b/;
-
-    $head =~ /seq.(\d+)/;
-    $first_seq_num = $1;
-    $tail = `tail -1 $self->{blatfile_sorted}`;
-    my $last_seq_num = $old_blat_iter->parse_aln($tail)->order;
 
     if ($self->{max_insertions} > 1 && $paired_end) {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
