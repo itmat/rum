@@ -158,7 +158,9 @@ sub process {
         my @waiting = grep { !defined } @results[@chunks];
 
         unless ( @waiting ) {
-            $log->error("It looks like we've given up on all the chunks");
+            if ($status->outstanding_chunks) {
+                $log->error("It looks like we've given up on all the chunks");
+            }
             last;
         }
 
@@ -250,6 +252,11 @@ A subclass should implement these methods so that they return a true
 value if the processing or postprocessing phase (respectively) is in
 an 'ok' state, where it is either running or waiting to be run.
 
+=item postproc_ok
+
+A subclass should implement this to log a message describing the last
+status update it got from the underlying system.
+
 =cut
 
 sub submit_preproc { croak "submit_preproc not implemented" }
@@ -258,6 +265,6 @@ sub submit_postproc { croak "submit_postproc not implemented" }
 sub update_status { croak "update_status not implemented" }
 sub proc_ok { croak "proc_ok not implemented" }
 sub postproc_ok { croak "postproc_ok not implemented" }
-
+sub log_last_status_warning { }
 
 1;
