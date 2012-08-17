@@ -41,20 +41,20 @@ my @tests = (
         order => 123,
     },    
     {
-        params => { readid => 'foobar|seq.123a' },
+        params => { readid => 'seq.123a foobar' },
         name => 'enhanced read id',
         direction => 'a',
         order => 123,
-        readid => 'foobar|seq.123a',
+        readid => 'seq.123a foobar',
     },
     {
-        params => { readid => 'foobar|seq.456b',
+        params => { readid => 'seq.456b foobar',
                     order => 123,
                     direction => 'a'},
         name => 'enhanced read id with override',
         direction => 'a',
         order => 123,
-        readid => 'foobar|seq.123a',
+        readid => 'seq.123a foobar',
     },
     {
         params => { readid => 'foobar',
@@ -63,7 +63,7 @@ my @tests = (
         name => 'raw read id with override',
         direction => 'a',
         order => 123,
-        readid => 'foobar|seq.123a',
+        readid => 'seq.123a foobar',
     },
 );
 

@@ -31,23 +31,23 @@ sub new {
             croak "If direction is supplied, it must be 'a', 'b', or ''";
         }
         if ($readid) {
-            $readid =~ s/\|?seq.(\d+)([ab]?)$//g;
+            $readid =~ s/^seq.(\d+)([ab]?)\s*//g;
         }
     }
 
     else {
-        if ($readid =~ s/\|?seq.(\d+)([ab]?)$//) {
+        if ($readid =~ s/^seq.(\d+)([ab]?)\s*//) {
             $order = $1;
             $direction = $2;
         }
     }
 
     if (defined($order)) {
-
+        my @parts = ("seq.${order}${direction}");
         if ($readid) {
-            $readid .= '|';
+            push @parts, $readid;
         }
-        $readid .= "seq.${order}${direction}";
+        $readid = join ' ', @parts;
     }        
 
     $self->{readid}    = $readid;
@@ -78,7 +78,7 @@ sub _direction { shift->{direction} }
 sub readid_directionless {
     my ($self) = @_;
     local $_ = $self->readid;
-    s/(a|b)$//;
+    s/^seq.(\d+)(a|b)/seq.$1/;
     return $_;
 }
 
