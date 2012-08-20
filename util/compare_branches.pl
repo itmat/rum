@@ -204,7 +204,7 @@ sub remove_id_prefix_and_sort {
     open my $out, '>', $out_filename;
     my @lines = (<$in>);
     for my $line (@lines) {
-        $line =~ s/^.*\|//;
+        $line =~ s/ .*?\t/\t/;
     }
     for my $line (sort @lines) {
         print $out $line;
