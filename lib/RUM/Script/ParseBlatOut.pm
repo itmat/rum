@@ -209,23 +209,26 @@ sub run {
 
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
   SEQ: while (my $alns = $blat_iter->next_val) {
-        my %cutoff;
-        my %Ncount;
         my %maxlength;
         my @alns = @{ $alns };
         my $aln = $alns[0];
-        my $seqnum = $alns[0]->order;
 
-        my @one_dir_only_candidate;
-        my %blathits;
-        
+
+        # Advance the iterators over the raw sequences and the mdust
+        # output so that they're both looking at this alignment.
+        my $seqnum = $alns[0]->order;
+        $self->logger->debug("Seq count is $seqnum");
         for my $iter ($seq_iter, $mdust_iter) {
             while ($iter->peek && ($iter->peek->order < $seqnum)) {
                 $iter->next_val;
             }
         }
+
         last SEQ if !$seq_iter->peek;
         next SEQ if $seq_iter->peek->order > $seqnum;
+
+        my @one_dir_only_candidate;
+        my %blathits;
 
         $readlength = $alns[0]->q_size;
         if ($readlength < 80) {
@@ -239,40 +242,36 @@ sub run {
             $min_size_intersection_allowed = int(.6 * $readlength);
             $self->{match_length_cutoff}   = int(.6 * $readlength);
         }
-        
-        my $read_a = $seq_iter->next_val;
-        my $read_b = $paired_end ? $seq_iter->next_val : undef;
 
-        my $seqa = $read_a->seq;
-        my $seqb = $read_b ? $read_b->seq : undef;
-
-        $self->logger->debug("Seq count is $seqnum");
-
-        my $dust_output = $mdust_iter->next_val->seq;
-        $sn = $alns[0]->as_forward->readid;
-        $Ncount{$sn} = $dust_output =~ tr/N//;
-        $cutoff{$sn} = min($self->{match_length_cutoff} + $Ncount{$sn},
-                           $alns[0]->q_size - 2);
+        my @reads = ($seq_iter->next_val);
 
         if ($paired_end) {
-            my $dust_output = $mdust_iter->next_val->seq;
-            $sn = $alns[0]->as_reverse->readid;
-            $Ncount{$sn} = $dust_output =~ tr/N//;
-            $cutoff{$sn} = min($self->{match_length_cutoff} + $Ncount{$sn},
-                               $alns[0]->q_size - 2);
+            push @reads, $seq_iter->next_val;
         }
-        # CHANGE
-        my @sname = ($alns[0]->as_forward->readid,
-                     $alns[0]->as_reverse->readid);
+
+        my (@n_count, @cutoff);
+
+        for my $read (@reads) {
+            my $masked = $mdust_iter->next_val->seq;
+            my $ns = $masked =~ tr/N//;
+            push @n_count, $ns;
+            push @cutoff, min($self->{match_length_cutoff} + $ns,
+                              $alns[0]->q_size - 2);
+        }
+
+        my @sname = map { $_->readid } @reads;
         my @read_mapping_to_genome_coords;
 
       ALN: for my $aln (@alns) {
             use strict;
-            my $seqname = $aln->readid;
+            my $seqname = $aln->is_forward ? $sname[0] : $sname[1];
             my $LENGTH = sum(@{ $aln->block_sizes });
             my $SCORE = $LENGTH - $aln->mismatch; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
 
-            next ALN if $SCORE <= $cutoff{$seqname};
+            my $n_count = $aln->is_forward ? $n_count[0] : $n_count[1];
+            my $cutoff  = $aln->is_forward ? $cutoff[0]  : $cutoff[1];
+
+            next ALN if $SCORE <= $cutoff;
 
             #	    if($aln->q_start <= 1) { # so match starts at
             #	    position zero or one in the query (allow '1'
@@ -289,7 +288,7 @@ sub run {
             # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE
             # THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY
             # TO MATCH BY CHANCE.
-            next ALN if ! ($Ncount{$aln->readid} <= ($aln->q_size / 2) || $aln->block_count <= 3);
+            next ALN if ! ($n_count <= ($aln->q_size / 2) || $aln->block_count <= 3);
                 
             # NEVER ALLOW MORE THAN $self->{num_blocks_allowed}
             # blocks, which is set to 1 for dna and 1000 (the equiv of
@@ -321,7 +320,7 @@ sub run {
                     next BLOCK if $blocksizes[$block] + $qStarts[$block] >= $qStarts[$block+1];
                     
                     my $insertion_target_coord = $blocksizes[$block] + $tStarts[$block];
-                    my $new_seq = $aln->is_forward ? $seqa : $aln->is_reverse ? $seqb : '';
+                    my $new_seq = $aln->is_forward ? $reads[0]->seq : $aln->is_reverse ? $reads[1]->seq : '';
                     
                     if ($aln->strand ne "+") {
                         $new_seq = reverse $new_seq;
@@ -440,9 +439,9 @@ sub run {
                     # should do some rigorous benchmarking to figure this out
 
                     if ($t == 0) {
-                        $seq = getsequence($a4[6], $a4[9], $a4[4], $seqa);
+                        $seq = getsequence($a4[6], $a4[9], $a4[4], $reads[0]->seq);
                     } else {
-                        $seq = getsequence($a4[6], $a4[9], $a4[4], $seqb);
+                        $seq = getsequence($a4[6], $a4[9], $a4[4], $reads[1]->seq);
                     }
                     $STRAND = $a4[4];
                     if ($t==1) {
@@ -484,9 +483,9 @@ sub run {
                     $STRAND = $STRAND eq '-' ? '+' : '-';
                 }
                 if ($t == 0) {
-                    $seq = getsequence($a6[6], $a6[9], $a6[4], $seqa);
+                    $seq = getsequence($a6[6], $a6[9], $a6[4], $reads[0]->seq);
                 } else {
-                    $seq = getsequence($a6[6], $a6[9], $a6[4], $seqb);
+                    $seq = getsequence($a6[6], $a6[9], $a6[4], $reads[1]->seq);
                 }
                 $one_dir_only_candidate[$t] = RUM::Alignment->new(
                     readid => $a6[0],
@@ -1020,7 +1019,6 @@ sub run {
                         }
                     }
                     if ($str1 && $str2) {
-                        $log->info("I found it, for read " . $aln->readid);
                         $str1 =~ s/^(\d+)\t/$CHR\t/;
                         $size1 = $1;
                         $str2 =~ s/^(\d+)\t/$CHR\t/;
