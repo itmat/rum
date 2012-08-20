@@ -45,6 +45,11 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 
 =cut
 
+BEGIN{
+    use RUM::Logging;
+    RUM::Logging->init('.');
+}
+
 use strict;
 use autodie;
 use warnings;
@@ -59,6 +64,10 @@ use RUM::Index;
 use RUM::Repository;
 use RUM::Script qw(get_options show_usage);
 
+my $log = RUM::Logging->get_logger;
+my $ui = RUM::Logging->get_logger('RUM::UI');
+
+
 # Parse command line options
 get_options("debug" => \(my $debug));
 my ($infile, $NAME) = @ARGV;
@@ -67,9 +76,9 @@ show_usage unless @ARGV == 2;
 sub unlink_temp_files {
   my @files = @_;
   return if $debug;
-  warn "Removing temporary files @files";
+  $log->info("Removing temporary files @files");
   for my $filename (@files) {
-    unlink $filename;
+#    unlink $filename;
   }
 }
 
@@ -81,13 +90,21 @@ sub import_scripts_with_logging {
     my $new_name  = "main::$name";
     *{$new_name} = sub {
       my @args = @_;
-      warn "START $name @args";
+      $ui->info("START $name @args");
       &$long_name(@args);
-      warn "END $name @args";
+      $ui->info("END $name @args");
     };
   }
 }
 import_scripts_with_logging();
+
+sub warn_if_empty {
+    while (my $filename = shift) {
+        if ( ! -s $filename ) {
+            $ui->warn("$filename is empty, this is a bad sign");
+        }
+    }
+}
 
 my @parts = split /_/, $NAME;
 my $organism = $parts[0];
@@ -117,23 +134,47 @@ my $master_list_of_exons = "master_list_of_exons.txt";
 # Strip extra characters off the headers, join adjacent sequence lines
 # together, and sort the genome by chromosome.
 
-modify_fa_to_have_seq_on_one_line($genome_txt, $genome_one_line_seqs_temp);
+ modify_fasta_header_for_genome_seq_database($genome_txt, $genome_fa);
+
+modify_fa_to_have_seq_on_one_line($genome_fa, $genome_one_line_seqs_temp);
+warn_if_empty($genome_one_line_seqs_temp);
+
 sort_genome_fa_by_chr($genome_one_line_seqs_temp, $genome_one_line_seqs);
+warn_if_empty($genome_one_line_seqs);
+
 unlink_temp_files($genome_one_line_seqs_temp);
+
 make_master_file_of_genes($gene_info_files, $gene_info_merged_unsorted);
+warn_if_empty($gene_info_merged_unsorted);
+
 fix_geneinfofile_for_neg_introns($gene_info_merged_unsorted,
                                  $gene_info_merged_unsorted_fixed,
                                  5, 6, 4);
+warn_if_empty($gene_info_merged_unsorted_fixed);
+
 sort_geneinfofile($gene_info_merged_unsorted_fixed,
                   $gene_info_merged_sorted_fixed);
+warn_if_empty($gene_info_merged_sorted_fixed);
+
 make_ids_unique4geneinfofile($gene_info_merged_sorted_fixed, $gene_info_orig);
+warn_if_empty($gene_info_orig);
+
 get_master_list_of_exons_from_geneinfofile($gene_info_orig,
                                            $master_list_of_exons);
+warn_if_empty($master_list_of_exons);
+
 make_fasta_files_for_master_list_of_genes(
   [$genome_one_line_seqs, $master_list_of_exons, $gene_info_orig],
   [$gene_info_unsorted, $genes_unsorted]);
+warn_if_empty($gene_info_unsorted,
+              $genes_unsorted);
+
 sort_gene_info($gene_info_unsorted, $gene_info);
+warn_if_empty($gene_info);
+
 sort_gene_fa_by_chr($genes_unsorted, $genes_fa);
+warn_if_empty($genes_fa);
+
 unlink_temp_files($genes_unsorted, $gene_info_unsorted);
 
 sub basename {

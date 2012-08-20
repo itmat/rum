@@ -162,6 +162,7 @@ would be easy to write a fasta parser, or we could use BioPerl.
 
 sub modify_fa_to_have_seq_on_one_line {
   my @args = @_;
+
   my ($in, $out) = _open_in_and_out(@args);
 
   my $flag = 0;
@@ -652,7 +653,6 @@ we can easily convert it to a tied hash.
 sub get_master_list_of_exons_from_geneinfofile {
   my @args = @_;
   my ($in, $out) = _open_in_and_out(@args);
-
   my %EXONS;
 
   while (defined (my $line = <$in>)) {
