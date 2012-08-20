@@ -5,7 +5,7 @@ use warnings;
 
 use Test::More tests => 4;
 use FindBin qw($Bin);
-use lib "$Bin/../../lib";
+use lib "$Bin/../lib";
 use RUM::Script::ParseBlatOut;
 use RUM::TestUtils;
 use File::Copy qw(cp);
