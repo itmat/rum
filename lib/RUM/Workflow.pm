@@ -367,13 +367,14 @@ sub _run_step {
     my $sm = $self->state_machine;
     my $comment = $self->comment($step);
     my @cmds = $self->commands($step);
-    
+
     # Format the comment
     $comment =~ s/\n//g;
     
+    $log->info("START: $step");
+
     for my $cmd (@cmds) {
-        $log->debug("Running @$cmd ");
-            
+        
         my $stdout;
         my $stdout_mode;
         my @from = @ { $cmd };
@@ -405,6 +406,8 @@ sub _run_step {
         my $err_fname = $err_fh->filename;
         close $err_fh;
 
+        $log->info("FORK: $step");
+
         if (my $pid = fork) {
             
             my $oldhandler = $SIG{TERM};
@@ -422,6 +425,7 @@ sub _run_step {
             
             waitpid($pid, 0);
             $SIG{TERM} = $oldhandler;
+            $log->info("REAP: $step");
 
             if ($?) {
                 # The stderr from the child process should have been
@@ -453,13 +457,15 @@ sub _run_step {
             # This will redirect my (the child's) output to the temp
             # file obtained above.
             open STDERR, ">", $err_fname;
-            $log->info("Executing '@to'");
+            $log->info("EXEC: $step (@to)");
             exec(@to) or die(
                 "Couldn't exec '@to': $!\n" .
                 "This probably means that the program $to[0] doesn't exist " .
                 "or isn't executable");
         }
     }
+
+    $log->info("FINISH: $step");
 
     for ($new->and_not($old)->flags) {
 

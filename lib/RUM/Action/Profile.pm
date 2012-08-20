@@ -12,12 +12,15 @@ RUM::Action::Profile - Action for printing performance stats
 
 use strict;
 use warnings;
-
+use autodie;
+use Data::Dumper;
+use File::Find;
 use Getopt::Long;
 use Text::Wrap qw(wrap fill);
 use base 'RUM::Action';
 use POSIX qw(mktime);
 use Carp;
+use List::Util qw(max sum);
 
 =item run
 
@@ -27,18 +30,32 @@ the specified job, builds timing counts, and prints stats.
 =cut
 
 sub run {
-
-    my $self = __PACKAGE__->new;
+    my ($class) = @_;
+    my $self = $class->new(name => 'profile');
 
     GetOptions(
         "output|o=s" => \(my $dir)
     );
 
     my $config = RUM::Config->load($dir);
+
+    my @all_events;
     
-    for my $chunk ( 1 .. $config->num_chunks) {
-        my $file = RUM::Logging->log_file($chunk);
-        print "Chunk is $file\n";
+    find sub {
+        return if ! /rum(_\d\d\d)?\.log/;
+        print "$_\n";
+        my $events = $self->parse_log_file($File::Find::name);
+        push @all_events, @{ $events };
+    }, "$dir/log";
+
+    my $timings = $self->build_timings(\@all_events);
+    warn "Timings is " . Dumper($timings);
+    my $names = $self->ordered_steps($timings);
+    my $times = $self->times_by_step($timings);
+
+    for my $name (@{ $names }) {
+        my @times = @{ $times->{$name} };
+        printf "%50s %6d %6d %6d\n", $name, max(@times), sum(@times), sum(@times) / @times;
     }
 }
 
@@ -53,17 +70,23 @@ the given time.
 =cut
 
 sub parse_log_file {
-    my ($self, $in) = @_;
-    local $_;
+    my ($self, $filename) = @_;
+
+    open my $in, '<', $filename;
+
     my $time_re = qr((\d{4})/(\d{2})/(\d{2}) (\d{2}):(\d{2}):(\d{2}));
 
     my @events;
 
-    while (defined($_ = <$in>)) {
-        my @parts = /$time_re.*ScriptRunner.*(START|FINISHED) ([\w:]+) /g or next;
-        my ($year, $month, $day,  $hour, $minute, $second, $type, $module) = @parts;
+    while (defined(my $line = <$in>)) {
+        my @parts = $line =~ /$time_re.*RUM\.Workflow.*(START|FINISH): (.*)/g or next;
+        my ($year, $month, $day,  $hour, $minute, $second, $type, $step) = @parts;
         my $time = mktime($second, $minute, $hour, $day, $month - 1, $year + 1900);
-        push @events, [$time, $type, $module];
+        push @events, {
+            time => $time,
+            type => $type,
+            step => $step
+        };
     }
     return \@events;
 }
@@ -80,22 +103,58 @@ sub build_timings {
     
     my @stack;
 
-    my %times;
+    my @timings;
 
     for my $event (@{ $events }) {
-        my ($time, $type, $module) = @{ $event };
-        if ($type eq "START") {
+        my $time = $event->{time};
+        my $type = $event->{type};
+        my $step = $event->{step};
+        warn "Type is $type\n";
+        if ($type eq 'START') {
             push @stack, $event;
         }
-        elsif ($type eq "FINISHED") {
+        elsif ($type eq 'FINISH') {
             my $prev = pop @stack or croak "No start event for $@event";
-            my ($prev_time, $prev_type, $prev_module) = @{ $prev };
-            if ($prev_module ne $module) {
+            my $prev_time = $prev->{time};
+            my $prev_step = $prev->{step};
+
+            if ($prev_step ne $step) {
                 croak "Can't build timings from log file";
             }
-            $times{$module} ||= 0;
-            $times{$module} += ($time - $prev_time);
+            
+            push @timings, {
+                step => $step,
+                time => $time - $prev_time
+            };
         }
+    }
+    return \@timings;
+}
+
+sub ordered_steps {
+    my ($self, $timings) = @_;
+
+    my @steps;
+    my %seen;
+
+    for my $timing (@{ $timings }) {
+        my $step = $timing->{step};
+        if (!$seen{$step}++) {
+            push @steps, $step;
+        }
+    }
+    return \@steps;
+}
+
+sub times_by_step {
+    my ($self, $timings, $f) = @_;
+
+    my %times;
+
+    for my $timing (@{ $timings }) {
+        my $step = $timing->{step};
+        my $time = $timing->{time};
+        push @{ $times{$step} ||= [] }, $time;
     }
     return \%times;
 }
