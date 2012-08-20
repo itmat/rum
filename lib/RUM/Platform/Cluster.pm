@@ -253,7 +253,7 @@ A subclass should implement these methods so that they return a true
 value if the processing or postprocessing phase (respectively) is in
 an 'ok' state, where it is either running or waiting to be run.
 
-=item postproc_ok
+=item log_last_status_warning
 
 A subclass should implement this to log a message describing the last
 status update it got from the underlying system.
