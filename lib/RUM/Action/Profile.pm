@@ -53,9 +53,23 @@ sub run {
     my $names = $self->ordered_steps($timings);
     my $times = $self->times_by_step($timings);
 
-    for my $name (@{ $names }) {
+    my @names = @{ $names };
+    my (@max, @sum, @avg);
+
+    for my $name (@names) {
         my @times = @{ $times->{$name} };
-        printf "%50s %6d %6d %6d\n", $name, max(@times), sum(@times), sum(@times) / @times;
+        push @max, max(@times);
+        push @sum, sum(@times);
+        push @avg, sum(@times) / @times;
+    }
+
+    push @names, 'Whole job';
+    push @max,   sum(@max);
+    push @sum,   sum(@sum);
+    push @avg,   sum(@avg);
+
+    for my $i (0 .. $#names) {
+        printf "%50s %6d %6d %6d\n", $names[$i], $max[$i], $sum[$i], $avg[$i];
     }
 }
 
@@ -123,11 +137,14 @@ sub build_timings {
             }
             
             push @timings, {
-                step => $step,
-                time => $time - $prev_time
+                step  => $step,
+                start => $prev_time,
+                stop  => $time
             };
         }
     }
+
+    @timings = sort { $a->{start} <=> $b->{start} } @timings;
     return \@timings;
 }
 
@@ -153,7 +170,7 @@ sub times_by_step {
 
     for my $timing (@{ $timings }) {
         my $step = $timing->{step};
-        my $time = $timing->{time};
+        my $time = $timing->{stop} - $timing->{start};
         push @{ $times{$step} ||= [] }, $time;
     }
     return \%times;
