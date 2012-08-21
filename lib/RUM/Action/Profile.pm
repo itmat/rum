@@ -21,6 +21,7 @@ use base 'RUM::Action';
 use POSIX qw(mktime);
 use Carp;
 use List::Util qw(max sum);
+use Cwd qw(realpath);
 
 =item run
 
@@ -43,13 +44,11 @@ sub run {
     
     find sub {
         return if ! /rum(_\d\d\d)?\.log/;
-        print "$_\n";
         my $events = $self->parse_log_file($File::Find::name);
         push @all_events, @{ $events };
     }, "$dir/log";
 
     my $timings = $self->build_timings(\@all_events);
-    warn "Timings is " . Dumper($timings);
     my $names = $self->ordered_steps($timings);
     my $times = $self->times_by_step($timings);
 
@@ -123,7 +122,6 @@ sub build_timings {
         my $time = $event->{time};
         my $type = $event->{type};
         my $step = $event->{step};
-        warn "Type is $type\n";
         if ($type eq 'START') {
             push @stack, $event;
         }
