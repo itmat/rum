@@ -186,7 +186,7 @@ sub run_rum {
     my $dir = code_dir($branch);
     my $data_dir = output_dir($branch);
     if ( ! -d $dir ) {
-        system 'git', 'clone', 'https://github.com/PGFI/rum.git', $dir;
+        system 'git', 'clone', 'git@github.com:PGFI/rum.git', $dir;
         system "cd $dir; git checkout $branch; perl Makefile.PL";
     }
     if ( ! -e sam_file($data_dir)) {
