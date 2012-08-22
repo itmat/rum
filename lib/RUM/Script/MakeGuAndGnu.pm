@@ -1,9 +1,11 @@
 package RUM::Script::MakeGuAndGnu;
 
 no warnings;
+use autodie;
 
 use RUM::Usage;
 use RUM::Logging;
+use RUM::Bowtie;
 use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
@@ -40,34 +42,21 @@ sub main {
 
     $paired_end = $paired ? "true" : "false";
 
-    open(INFILE, $infile) or die("Can't open $infile for reading: $!");
-    $t = `tail -1 $infile`;
-    $t =~ /seq.(\d+)/;
-    $num_seqs = $1;
-    $line = <INFILE>;
-    chomp($line);
-    open(OUTFILE1, ">$outfile1") 
-        or die("Can't open $outfile1 for writing: $!");
-    open(OUTFILE2, ">$outfile2") 
-        or die("Can't open $outfile2 for writing: $!");
+    open my $in_fh, '<', $infile;
+    open my $gu,    '>', $outfile1;
+    open my $gnu,   '>', $outfile2;
     
-    for($seqnum=1; $seqnum<=$num_seqs; $seqnum++) {
-        $numa=0;
-        $numb=0;
+  READ: while (my ($forward, $reverse) = RUM::Bowtie::read_bowtie_mapping_set($in_fh)) {
+        
+        my @seqs_a = @{ $forward };
+        my @seqs_b = @{ $reverse };
+
+        my $numa = @seqs_a;
+        my $numb = @seqs_b;
+
         undef %a_reads;
         undef %b_reads;
-        while($line =~ /seq.($seqnum)a/) {
-            $seqs_a[$numa] = $line;
-            $numa++;
-            $line = <INFILE>;
-            chomp($line);
-        }
-        while($line =~ /seq.($seqnum)b/) {
-            $seqs_b[$numb] = $line;
-            $numb++;
-            $line = <INFILE>;
-            chomp($line);
-        }
+
         if($numa > 0 || $numb > 0) {
             $num_different_a = 0;
             for($i=0; $i<$numa; $i++) {
@@ -138,7 +127,7 @@ sub main {
                 $yy = $xx;
                 $xx =~ s/\t/-/;  # this puts the dash between the start and end
                 $key =~ s/$yy/$xx/;
-                print OUTFILE1 "$key\t$strand\n";
+                print $gu "$key\t$strand\n";
             }
         }
         if($num_different_a == 0 && $num_different_b == 1) { # unique reverse match, no forward
@@ -158,7 +147,7 @@ sub main {
                 $yy = $xx;
                 $xx =~ s/\t/-/;  # this puts the dash between the start and end
                 $key =~ s/$yy/$xx/;
-                print OUTFILE1 "$key\t$strand\n";
+                print $gu "$key\t$strand\n";
             }
         }
         if($paired_end eq "false") {
@@ -173,7 +162,7 @@ sub main {
                     $yy = $xx;
                     $xx =~ s/\t/-/;  # this puts the dash between the start and end
                     $key =~ s/$yy/$xx/;
-                    print OUTFILE2 "$key\t$strand\n";
+                    print $gnu "$key\t$strand\n";
                 }
             }
         }
@@ -181,8 +170,10 @@ sub main {
             # forward and reverse matches, must check for consistency, but not if more than 1,000,000 possibilities,
             # in that case skip...
             undef %consistent_mappers;
-            foreach $akey (keys %a_reads) {
+            for my $a_key_in (keys %a_reads) {
+                
                 foreach $bkey (keys %b_reads) {
+                    my $akey = $a_key_in;
                     @a = split(/\t/,$akey);
                     $aid = $a[0];
                     $astrand = $a[1];
@@ -273,19 +264,18 @@ sub main {
                 $str = $key;
             }
             if ($count == 1) {
-                print OUTFILE1 $str;
+                print $gu $str;
             }
             if ($count > 1) {
                 # add something here so that if all consistent mappers agree on some
                 # exons, then those exons will still get reported, each on its own line
                 foreach $key (keys %consistent_mappers) {
-                    print OUTFILE2 $key;
+                    print $gnu $key;
                 }
             }
         }
     }
-    close(OUTFILE1);
-    close(OUTFILE2);
+
 }
 
 1;

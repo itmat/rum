@@ -36,6 +36,7 @@ use RUM::Repository qw(download);
 
 our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR
                  $INDEX_CONFIG $SHARED_INPUT_DIR is_sorted_by_location same_line_count
+                 same_contents_sorted
                  $RUM_HOME $GENE_INFO $INDEX_DIR);
 our @EXPORT_OK = qw(no_diffs is_sorted_by_location);
 our %EXPORT_TAGS = (
@@ -191,6 +192,19 @@ sub make_paths {
 
     }
 }
+
+sub same_contents_sorted {
+    my ($got_filename, $exp_filename, $name) = @_;
+    open my $got, "<", $got_filename;
+    open my $exp, "<", $exp_filename;
+
+    my @got = sort (<$got>);
+    my @exp = sort (<$exp>);
+
+    is_deeply(\@got, \@exp, $name)
+}
+
+
 
 =back
 
