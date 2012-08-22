@@ -8,25 +8,33 @@ use RUM::Logging;
 use RUM::Bowtie;
 use Getopt::Long;
 
+use base 'RUM::Script::Base';
+
 our $log = RUM::Logging->get_logger();
 
 $|=1;
 
 sub main {
 
-    GetOptions(
-        "unique=s" => \(my $outfile1),
-        "non-unique=s" => \(my $outfile2),
-        "type=s"       => \(my $type),
-        "paired"     => \(my $paired),
-        "single"     => \(my $single),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+    use strict;
+    my $self = __PACKAGE__->new;
 
-    @ARGV == 1 or RUM::Usage->bad(
-        "Please specify an input file");
+    $self->get_options(
+        "unique=s"        => \(my $outfile1),
+        "non-unique=s"    => \(my $outfile2),
+        "type=s"          => \(my $type),
+        "paired"          => \($self->{paired}),
+        "single"          => \($self->{single}),
+        "max-pair-dist=s" => \($self->{max_distance_between_paired_reads} = 500000),
+        'limit=s'         => \(my $limit = 100),
+        'index=s'         => \(my $index),
+        'query=s'         => \(my $query));
+
+    $index or RUM::Usage->bad(
+        "Please specify an index with --index");
+
+    $query or RUM::Usage->bad(
+        "Please specify a query with --query");
     
     $outfile1 or RUM::Usage->bad(
         "Please specify output file for unique mappers with --unique");
@@ -34,19 +42,27 @@ sub main {
     $outfile2 or RUM::Usage->bad(
         "Please specify output file for non-unique mappers with --non-unique");
 
-    ($single xor $paired) or RUM::Usage->bad(
+    ($self->{single} xor $self->{paired}) or RUM::Usage->bad(
         "Please specify exactly one type with either --single or --paired");
 
-    my ($infile) = @ARGV;
-    pod2usage("Please specify an input file") unless $infile;
-
-    $paired_end = $paired ? "true" : "false";
-
-    open my $in_fh, '<', $infile;
     open my $gu,    '>', $outfile1;
     open my $gnu,   '>', $outfile2;
+
+    my $bowtie = RUM::Bowtie::run_bowtie(
+        limit => $limit,
+        index => $index,
+        query => $query);
+
+    $self->parse_output($bowtie, $gu, $gnu);
+}
+
+sub parse_output {
+
+    my ($self, $bowtie, $gu, $gnu) = @_;
+
+    $log->info("Parsing bowtie output (genome)");
     
-  READ: while (my ($forward, $reverse) = RUM::Bowtie::read_bowtie_mapping_set($in_fh)) {
+  READ: while (my ($forward, $reverse) = RUM::Bowtie::read_bowtie_mapping_set($bowtie)) {
         
         my @seqs_a = @{ $forward };
         my @seqs_b = @{ $reverse };
@@ -150,7 +166,7 @@ sub main {
                 print $gu "$key\t$strand\n";
             }
         }
-        if($paired_end eq "false") {
+        if (!$self->{paired}) {
             if($num_different_a > 1) { 
                 foreach $key (keys %a_reads) {
                     $key =~ /^[^\t]+\t(.)\t/;
@@ -188,7 +204,7 @@ sub main {
                     $bend = $a[4];
                     $bseq = $a[5];
                     if ($astrand eq "+" && $bstrand eq "-") {
-                        if ($achr eq $bchr && $astart <= $bstart && $bstart - $astart < $max_distance_between_paired_reads) {
+                        if ($achr eq $bchr && $astart <= $bstart && $bstart - $astart < $self->{max_distance_between_paired_reads}) {
                             if ($bstart > $aend + 1) {
                                 $akey =~ s/\t\+//;
                                 $akey =~ s/\t-//;
@@ -222,7 +238,7 @@ sub main {
                         }
                     }
                     if ($astrand eq "-" && $bstrand eq "+") {
-                        if ($achr eq $bchr && $bstart <= $astart && $astart - $bstart < $max_distance_between_paired_reads) {
+                        if ($achr eq $bchr && $bstart <= $astart && $astart - $bstart < $self->{max_distance_between_paired_reads}) {
                             if ($astart > $bend + 1) {
                                 $akey =~ s/\t\+//;
                                 $akey =~ s/\t-//;

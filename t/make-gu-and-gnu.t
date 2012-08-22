@@ -18,11 +18,14 @@ my %inputs = (
 for my $type (qw(paired single)) {
     my $u  = temp_filename(TEMPLATE => "$type-unique.XXXXXX", UNLINK => 0);
     my $nu = temp_filename(TEMPLATE => "$type-non-unique.XXXXXX", UNLINK => 0);
-    @ARGV = ($inputs{$type},
-             "--unique", $u,
-             "--non-unique", $nu,
-             "--$type");
-    RUM::Script::MakeGuAndGnu->main();
+
+    my $script = RUM::Script::MakeGuAndGnu->new;
+    open my $in, '<', $inputs{$type};
+    $script->{paired} = 1 if $type eq 'paired';
+    $script->{max_distance_between_paired_reads} = 500000 if $type eq 'paired';
+    $script->parse_output($in, $u, $nu);
+    close $u;
+    close $nu;
     same_contents_sorted($u,  "$EXPECTED_DIR/$type-unique", "$type unique");
     same_contents_sorted($nu, "$EXPECTED_DIR/$type-non-unique", "$type non-unique");
 }

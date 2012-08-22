@@ -34,7 +34,6 @@ sub chunk_workflow {
 
     local *chunk_file = sub { $c->chunk_file($_[0], $chunk) };
 
-    my $genome_bowtie_out = chunk_file("X");
     my $trans_bowtie_out = chunk_file("Y");
     my $bowtie_unmapped = chunk_file("R");
     my $blat_output = chunk_file("R.blat");
@@ -71,22 +70,9 @@ sub chunk_workflow {
     my $mdust_bin  = $deps->mdust;
     my $bowtie_cutoff_opt = $c->bowtie_cutoff_opt;
 
-    # From the start state we can run bowtie on either the genome or
-    # the transcriptome
-    unless ($c->blat_only) {
-        $m->step(
-            "Run bowtie on genome",
-            [$bowtie_bin,
-             $c->bowtie_cutoff_opt,
-             "--best", 
-             "--strata",
-             "-f", $c->genome_bowtie,
-             $reads_fa,
-             "-v", 3,
-             "--suppress", "6,7,8",
-             "-p", 1,
-             "--quiet",
-             "> ", post($genome_bowtie_out)]);
+    my @bowtie_limit_opt;
+    if (defined $c->bowtie_nu_limit) {
+        push @bowtie_limit_opt, '--limit', $c->bowtie_nu_limit;
     }
 
     unless ($c->dna || $c->blat_only || $c->genome_only) {
@@ -117,12 +103,14 @@ sub chunk_workflow {
     # non-unique files for it.
     unless ($c->blat_only) {
         $m->step(
-            "Parse genome Bowtie output",
+            "Run Bowtie on genome",
             ["perl", $c->script("make_GU_and_GNU.pl"), 
              "--unique", post($gu),
              "--non-unique", post($gnu),
              $c->paired_end_opt(),
-             pre($genome_bowtie_out)]);
+             '--index', $c->genome_bowtie,
+             '--query', $reads_fa,
+             @bowtie_limit_opt]);
     }
     
     # If we have the transcriptome bowtie output, we can make the

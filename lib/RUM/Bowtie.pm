@@ -3,6 +3,8 @@ package RUM::Bowtie;
 use strict;
 use warnings;
 
+use RUM::BinDeps;
+
 use Carp;
 
 sub read_bowtie_mapping_set {
@@ -54,6 +56,42 @@ sub read_bowtie_mapping_set {
         return;
     }
 
+}
+
+sub run_bowtie {
+    my (%params) = @_;
+
+    my @missing;
+    
+    my $limit    = delete $params{limit};
+    my $index = delete $params{index} or push @missing, 'index';
+    my $reads     = delete $params{query} or push @missing, 'query';
+    
+    if (@missing) {
+        croak "Missing required args " . join(', ', @missing);
+    }
+
+    my @cmd = (RUM::BinDeps->new->bowtie,
+                '--best',
+                '--strata',
+                '-f', $index,
+                $reads,
+                '-v', 3,
+                '--suppress', '6,7,8',
+                '-p', 1,
+                '--quiet');
+               
+    if ($limit) {
+        push @cmd, '-k', $limit;
+    }
+    else {
+        push @cmd, '-a';
+    }
+
+    my $cmd = join ' ', @cmd;
+    warn "Command is $cmd\n";
+    open my $bowtie_out, '-|', $cmd;
+    return $bowtie_out;
 }
 
 1;
