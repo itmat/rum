@@ -25,13 +25,7 @@ SKIP: {
 
         my $u  = temp_filename(TEMPLATE => "TU-$type.XXXXXX");
         my $nu = temp_filename(TEMPLATE => "TNU-$type.XXXXXX");
-        
-        @ARGV = ("--bowtie", 
-                 "--genes", $gene_info,
-                 "--unique", $u, 
-                 "--non-unique", $nu, 
-                 "--$type", "-q");
-        
+                
         my $script = RUM::Script::MakeTuAndTnu->new;
         $script->{max_distance_between_paired_reads} = 500000;
         $script->{paired} = $type eq 'paired';

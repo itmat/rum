@@ -6,6 +6,8 @@ use autodie;
 use RUM::Logging;
 use RUM::Usage;
 use Getopt::Long;
+use RUM::Bowtie;
+
 use base 'RUM::Script::Base';
 $|=1;
 
@@ -16,16 +18,21 @@ sub main {
     my $self = __PACKAGE__->new;
 
     $self->get_options(
-        "bowtie-output=s" => \(my $bowtie_output),
         "genes=s"         => \(my $gene_annot_file),
         "unique=s"        => \(my $unique_out),
         "non-unique=s"    => \(my $non_unique_out),
         "single"          => \($self->{single}),
         "paired"          => \($self->{paired}),
-        "max-pair-dist=s" => \($self->{max_distance_between_paired_reads} = 500000));
-        
-    $bowtie_output or RUM::Usage->bad(
-        "Please specify the bowtie output file to read with --bowtie-output");
+        "max-pair-dist=s" => \($self->{max_distance_between_paired_reads} = 500000),
+        'limit=s'         => \(my $limit = 100),
+        'index=s'         => \(my $index),
+        'query=s'         => \(my $query));
+
+    $index or RUM::Usage->bad(
+        "Please specify an index with --index");
+
+    $query or RUM::Usage->bad(
+        "Please specify a query with --query");
 
     $gene_annot_file or RUM::Usage->bad(
         "Please specify the gene annotation file with --genes");
@@ -39,10 +46,15 @@ sub main {
     ($self->{single} xor $self->{paired}) or RUM::Usage->bad(
         "Please specify exactly one type with either --single or --paired");
 
-    open my $infile,    "<", $bowtie_output;
+    my $infile = RUM::Bowtie::run_bowtie(
+        limit => $limit,
+        index => $index,
+        query => $query);
+
     open my $annotfile, "<", $gene_annot_file;
     open my $tu,        ">", $unique_out;
     open my $tnu,       ">", $non_unique_out;
+
     $self->parse_output($annotfile, $infile, $tu, $tnu);
 }
 

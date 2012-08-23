@@ -34,7 +34,6 @@ sub chunk_workflow {
 
     local *chunk_file = sub { $c->chunk_file($_[0], $chunk) };
 
-    my $trans_bowtie_out = chunk_file("Y");
     my $bowtie_unmapped = chunk_file("R");
     my $blat_output = chunk_file("R.blat");
     my $mdust_output = chunk_file("R.mdust");
@@ -75,22 +74,6 @@ sub chunk_workflow {
         push @bowtie_limit_opt, '--limit', $c->bowtie_nu_limit;
     }
 
-    unless ($c->dna || $c->blat_only || $c->genome_only) {
-        $m->step(
-            "Run bowtie on transcriptome",
-            [$bowtie_bin,
-             $c->bowtie_cutoff_opt,
-             "--best", 
-             "--strata",
-             "-f", $c->trans_bowtie,
-             $reads_fa,
-             "-v", 3,
-             "--suppress", "6,7,8",
-             "-p", 1,
-             "--quiet",
-             "> ", post($trans_bowtie_out)]);
-    }
-    
     # IF we're running in DNA mode, we don't run bowtie against the
     # transcriptome, so just send the output from make_GU_and_GNU.pl
     # straight to BowtieUnique and BowtieNU.
@@ -112,18 +95,18 @@ sub chunk_workflow {
              '--query', $reads_fa,
              @bowtie_limit_opt]);
     }
-    
-    # If we have the transcriptome bowtie output, we can make the
-    # unique and non-unique files for it.
+
     unless ($c->dna || $c->blat_only || $c->genome_only) {
         $m->step(
-            "Parse transcriptome Bowtie output",
-            ["perl", $c->script("make_TU_and_TNU.pl"), 
+            "Run bowtie on transcriptome",
+            ['perl', $c->script('make_TU_and_TNU.pl'),
              "--unique",        post($tu),
              "--non-unique",    post($tnu),
-             "--bowtie-output", pre($trans_bowtie_out),
              "--genes",         $c->annotations,
-             $c->paired_end_opt]);
+             $c->paired_end_opt,
+             @bowtie_limit_opt,
+             '--index', $c->trans_bowtie,
+             '--query', $reads_fa]);
     
         # If we have the non-unique files for both the genome and the
         # transcriptome, we can merge them.
@@ -229,7 +212,6 @@ sub chunk_workflow {
          "-o", post($rum_nu_id_sorted),
          pre($cleaned_nu)]);
     
-
     $m->step(
         "Remove duplicates from NU",
         
