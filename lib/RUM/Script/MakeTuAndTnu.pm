@@ -1,6 +1,7 @@
 package RUM::Script::MakeTuAndTnu;
 
 no warnings;
+use autodie;
 
 use RUM::Logging;
 use RUM::Usage;
@@ -41,25 +42,13 @@ sub main {
 
     $paired_end = $paired ? "true" : "false";
 
-    open(INFILE, "<", $bowtie_output) 
-        or die "Can't open $bowtie_output for reading: $!";
-    $line = <INFILE>;
-    close(INFILE);
-    chomp($line);
-    @a = split(/\t/,$line);
-
-    open(INFILE, "<", $bowtie_output) 
-        or die "Can't open $bowtie_output for reading: $!";
-    open(ANNOTFILE, "<", $gene_annot_file) 
-        or die "Can't open $gene_annot_file for reading: $!";
-
-    open(OUTFILE1, ">", $unique_out) 
-        or die "Can't open $unique_out for writing: $!";
-    open(OUTFILE2, ">", $non_unique_out) 
-        or die "Can't open $non_unique_out for writing: $!";
+    open my $infile,    "<", $bowtie_output;
+    open my $annotfile, "<", $gene_annot_file;
+    open my $tu,        ">", $unique_out;
+    open my $tnu,       ">", $non_unique_out;
 
     $log->info("Reading gene annotation file");
-    while ($line = <ANNOTFILE>) {
+    while ($line = <$annotfile>) {
         chomp($line);
         @a = split(/\t/,$line);
         @ids = split(/::::/,$a[7]);
@@ -68,7 +57,7 @@ sub main {
             $geneID2coords{$ids[$i]} = $line;
         }
     }
-    close(ANNOTFILE);
+    close($annotfile);
 
     $log->info("Parsing bowtie output");
 
@@ -82,7 +71,7 @@ sub main {
     $firstflag_a = 1;
     $firstflag_b = 1;
     while (1 == 1) {
-        $line = <INFILE>;
+        $line = <$infile>;
         $linecnt++;
         chomp($line);
         $seqnum_prev = $seqnum + 0;
@@ -100,15 +89,15 @@ sub main {
                 $str = $a_read_mapping_to_genome[0];
                 @a = split(/\t/,$str);
                 $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                print OUTFILE1 "seq.$seqnum_prev";
-                print OUTFILE1 "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
+                print $tu "seq.$seqnum_prev";
+                print $tu "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
             }
             if ($numb == 1 && $numa == 0) { # unique reverse match, no forward
                 $str = $b_read_mapping_to_genome[0];
                 @a = split(/\t/,$str);
                 $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                print OUTFILE1 "seq.$seqnum_prev";
-                print OUTFILE1 "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
+                print $tu "seq.$seqnum_prev";
+                print $tu "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
             }
             if ($paired_end eq "false") { # write ambiguous mapper to NU file since there's no chance a later step
                 # will resolve this read, like it might if it was paired end
@@ -137,8 +126,8 @@ sub main {
                         @ss = split(/\t/,$str);
                         if ($ss[0] >= $min_overlap_a) {
                             $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                            print OUTFILE1 "seq.$seqnum_prev";
-                            print OUTFILE1 "a\t$CHR\t$ss[1]\t$seq_new\t$a[2]\n";
+                            print $tu "seq.$seqnum_prev";
+                            print $tu "a\t$CHR\t$ss[1]\t$seq_new\t$a[2]\n";
                         } else {
                             $uflag = 0;
                         }
@@ -148,8 +137,8 @@ sub main {
                             $str = $a_read_mapping_to_genome[$ii];
                             @a = split(/\t/,$str);
                             $seq_new = addJunctionsToSeq($a[3], $a[1]);
-                            print OUTFILE2 "seq.$seqnum_prev";
-                            print OUTFILE2 "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
+                            print $tnu "seq.$seqnum_prev";
+                            print $tnu "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
                         }
                     }
                 }
@@ -370,15 +359,15 @@ sub main {
                             @a = split(/\t/,$A[$n]);
                             $seq_new = addJunctionsToSeq($a[3], $a[1]);
                             if (@A == 2 && $n == 0) {
-                                print OUTFILE1 "seq.$seqnum_prev";
-                                print OUTFILE1 "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
+                                print $tu "seq.$seqnum_prev";
+                                print $tu "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
                             }
                             if (@A == 2 && $n == 1) {
-                                print OUTFILE1 "seq.$seqnum_prev";
-                                print OUTFILE1 "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
+                                print $tu "seq.$seqnum_prev";
+                                print $tu "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
                             }
                             if (@A == 1) {
-                                print OUTFILE1 "seq.$seqnum_prev\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
+                                print $tu "seq.$seqnum_prev\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
                             }
                         }
                     }
@@ -447,13 +436,13 @@ sub main {
                                 if ((($start2 - $end1 > 0) && ($start2 - $end1 < $max_distance_between_paired_reads)) || (($start1 - $end2 > 0) && ($start1 - $end2 < $max_distance_between_paired_reads))) {
                                     @ss = split(/\t/,$str1);
                                     $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                    print OUTFILE1 "seq.$seqnum_prev";
-                                    print OUTFILE1 "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                    print $tu "seq.$seqnum_prev";
+                                    print $tu "a\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
 
                                     @ss = split(/\t/,$str2);
                                     $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                    print OUTFILE1 "seq.$seqnum_prev";
-                                    print OUTFILE1 "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                    print $tu "seq.$seqnum_prev";
+                                    print $tu "b\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                                 } else {
                                     $nointersection = 1;
                                 }
@@ -472,7 +461,7 @@ sub main {
                             if ($size >= $min_overlap_a && $size >= $min_overlap_b) {
                                 @ss = split(/\t/,$str);
                                 $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
-                                print OUTFILE1 "seq.$seqnum_prev\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
+                                print $tu "seq.$seqnum_prev\t$ss[0]\t$ss[1]\t$seq_new\t$STRAND\n";
                             } else {
                                 $nointersection = 1;
                             }
@@ -487,15 +476,15 @@ sub main {
                                 @a = split(/\t/,$A[$n]);
                                 $seq_new = addJunctionsToSeq($a[3], $a[1]);
                                 if (@A == 2 && $n == 0) {
-                                    print OUTFILE2 "seq.$seqnum_prev";
-                                    print OUTFILE2 "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
+                                    print $tnu "seq.$seqnum_prev";
+                                    print $tnu "a\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
                                 }
                                 if (@A == 2 && $n == 1) {
-                                    print OUTFILE2 "seq.$seqnum_prev";
-                                    print OUTFILE2 "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
+                                    print $tnu "seq.$seqnum_prev";
+                                    print $tnu "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
                                 }
                                 if (@A == 1) {
-                                    print OUTFILE2 "seq.$seqnum_prev\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
+                                    print $tnu "seq.$seqnum_prev\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n";
                                 }
                             }
                         }
@@ -512,9 +501,6 @@ sub main {
             $min_overlap_b=0;
         }
         if (!($line =~ /\S/)) {
-            close(INFILE);
-            close(OUTFILE1);
-            close(OUTFILE2);
             last;
         }
         @a = split(/\t/,$line);

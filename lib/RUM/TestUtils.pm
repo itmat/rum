@@ -66,7 +66,7 @@ our $GENOME_FA    = "$INDEX_DIR/Arabidopsis_thaliana_TAIR10_genome_one-line-seqs
 our $GENE_INFO    = "$INDEX_DIR/Arabidopsis_thaliana_TAIR10_ensembl_gene_info.txt";
 our $SHARED_INPUT_DIR = "$RUM_HOME/t/data/shared";
 our $INPUT_DIR        = "$RUM_HOME/t/data/$PROGRAM_NAME";
-our $EXPECTED_DIR      = "$RUM_HOME/t/expected/$PROGRAM_NAME";
+our $EXPECTED_DIR     = "$RUM_HOME/t/expected/$PROGRAM_NAME";
 
 our $PFAL_INDEX_DIR = "$RUM_INDEXES/pfalciparum";
 our $PFAL_GENE_INFO = "$PFAL_INDEX_DIR/pfal_gene_info.txt";
