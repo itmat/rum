@@ -23,18 +23,23 @@ SKIP: {
 
         my $job_dir = $type eq 'single' ? $single_dir : $paired_dir;
 
-        my $u  = temp_filename(
-            TEMPLATE => "TU-$type.XXXXXX");
-        my $nu = temp_filename(
-            TEMPLATE => "TNU-$type.XXXXXX");
+        my $u  = temp_filename(TEMPLATE => "TU-$type.XXXXXX");
+        my $nu = temp_filename(TEMPLATE => "TNU-$type.XXXXXX");
         
-        @ARGV = ("--bowtie", "$job_dir/chunks/Y.1",
+        @ARGV = ("--bowtie", 
                  "--genes", $gene_info,
                  "--unique", $u, 
                  "--non-unique", $nu, 
                  "--$type", "-q");
         
-        RUM::Script::MakeTuAndTnu->main();
+        my $script = RUM::Script::MakeTuAndTnu->new;
+        $script->{max_distance_between_paired_reads} = 500000;
+        $script->{paired} = $type eq 'paired';
+
+        open my $annotfile, '<', $gene_info;
+        open my $infile,    '<', "$job_dir/chunks/Y.1";
+
+        $script->parse_output($annotfile, $infile, $u, $nu);
 
         no_diffs($u,  "$job_dir/chunks/TU.1",   "$type TU");
         no_diffs($nu, "$job_dir/chunks/TNU.1", "$type TNU");

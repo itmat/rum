@@ -6,24 +6,23 @@ use autodie;
 use RUM::Logging;
 use RUM::Usage;
 use Getopt::Long;
-
+use base 'RUM::Script::Base';
 $|=1;
 
 our $log = RUM::Logging->get_logger();
 
 sub main {
 
-    GetOptions(
+    my $self = __PACKAGE__->new;
+
+    $self->get_options(
         "bowtie-output=s" => \(my $bowtie_output),
         "genes=s"         => \(my $gene_annot_file),
         "unique=s"        => \(my $unique_out),
         "non-unique=s"    => \(my $non_unique_out),
-        "single"          => \(my $single),
-        "paired"          => \(my $paired),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+        "single"          => \($self->{single}),
+        "paired"          => \($self->{paired}),
+        "max-pair-dist=s" => \($self->{max_distance_between_paired_reads} = 500000));
         
     $bowtie_output or RUM::Usage->bad(
         "Please specify the bowtie output file to read with --bowtie-output");
@@ -37,15 +36,19 @@ sub main {
     $non_unique_out or RUM::Usage->bad(
         "Please specify file to write non-unique mappers with --non-unique");
 
-    ($single xor $paired) or RUM::Usage->bad(
+    ($self->{single} xor $self->{paired}) or RUM::Usage->bad(
         "Please specify exactly one type with either --single or --paired");
-
-    $paired_end = $paired ? "true" : "false";
 
     open my $infile,    "<", $bowtie_output;
     open my $annotfile, "<", $gene_annot_file;
     open my $tu,        ">", $unique_out;
     open my $tnu,       ">", $non_unique_out;
+    $self->parse_output($annotfile, $infile, $tu, $tnu);
+}
+
+sub parse_output {
+
+    my ($self, $annotfile, $infile, $tu, $tnu) = @_;
 
     $log->info("Reading gene annotation file");
     while ($line = <$annotfile>) {
@@ -99,7 +102,7 @@ sub main {
                 print $tu "seq.$seqnum_prev";
                 print $tu "b\t$a[0]\t$a[1]\t$seq_new\t$a[2]\n"
             }
-            if ($paired_end eq "false") { # write ambiguous mapper to NU file since there's no chance a later step
+            if (!$self->{paired}) { # write ambiguous mapper to NU file since there's no chance a later step
                 # will resolve this read, like it might if it was paired end
 		# BUT: first check for siginficant overlap, if so report the overlap to the "Unique" file,
                 #  otherwise report all alignments to the "NU" file
@@ -196,10 +199,10 @@ sub main {
                         $bend = $bends[$e-1];
 
                         if ($achr eq $bchr && $astrand eq $bstrand) {
-                            if ($astrand eq "+" && $bstrand eq "+" && ($aend < $bstart-1) && ($bstart - $aend <= $max_distance_between_paired_reads)) {
+                            if ($astrand eq "+" && $bstrand eq "+" && ($aend < $bstart-1) && ($bstart - $aend <= $self->{max_distance_between_paired_reads})) {
                                 $consistent_mappers{"$a_read_mapping_to_genome[$i]\n$b_read_mapping_to_genome[$j]"}++;
                             }
-                            if ($astrand eq "-" && $bstrand eq "-" && ($bend < $astart-1) && ($astart - $bend <= $max_distance_between_paired_reads)) {
+                            if ($astrand eq "-" && $bstrand eq "-" && ($bend < $astart-1) && ($astart - $bend <= $self->{max_distance_between_paired_reads})) {
                                 $consistent_mappers{"$a_read_mapping_to_genome[$i]\n$b_read_mapping_to_genome[$j]"}++;
                             }
                             $swapped = "false";
@@ -433,7 +436,7 @@ sub main {
                                 $str2 =~ /^[^\t]+\t(\d+)[^\t+]-(\d+)\t/;
                                 $start2 = $1;
                                 $end2 = $2;
-                                if ((($start2 - $end1 > 0) && ($start2 - $end1 < $max_distance_between_paired_reads)) || (($start1 - $end2 > 0) && ($start1 - $end2 < $max_distance_between_paired_reads))) {
+                                if ((($start2 - $end1 > 0) && ($start2 - $end1 < $self->{max_distance_between_paired_reads})) || (($start1 - $end2 > 0) && ($start1 - $end2 < $self->{max_distance_between_paired_reads}))) {
                                     @ss = split(/\t/,$str1);
                                     $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
                                     print $tu "seq.$seqnum_prev";
