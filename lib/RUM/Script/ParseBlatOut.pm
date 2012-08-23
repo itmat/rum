@@ -1,12 +1,13 @@
 package RUM::Script::ParseBlatOut;
 
 no warnings;
+use autodie;
 
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
 use RUM::Common qw(getave addJunctionsToSeq);
-
+use base 'RUM::Script::Base';
 our $log = RUM::Logging->get_logger();
 
 # Given a filehandle, skip over all rows that appear to be header
@@ -35,6 +36,34 @@ sub skip_headers {
     seek $fh, $off, 0;
 }
 
+sub is_blat_file_sorted {
+    my $blatfile = shift;
+    open my $blathits, "<", $blatfile;
+
+    skip_headers($blathits);
+    $line = <$blathits>;
+    chomp $line;
+    $line1 = $line;
+
+    $log->info("Checking to see if blat file is sorted");
+    while ($line2 = <$blathits>) {
+        $line1 =~ /seq.(\d+)(.)/;
+        $seqnum1 = $1;
+        $type1 = $2;
+        $line2 =~ /seq.(\d+)(.)/;
+        $seqnum2 = $1;
+        $type2 = $2;
+
+        if ($seqnum1>$seqnum2 || ($seqnum1==$seqnum2 && $type1 eq 'b' && $type2 eq 'a')) {
+            return 0;
+            $flag = 1;
+            last;
+        }
+        $line1 = $line2;
+    }
+    return 1;
+}
+
 $| = 1;
 # blat run on forward/reverse reads separately, reported in order
 # first make hash 'blathits' which is all alignments of the read that we would accept (indexed by t=0,1 for forward/reverse)
@@ -52,19 +81,18 @@ $| = 1;
 
 sub main {
 
-    GetOptions(
-        "reads-in=s" => \(my $seqfile),
-        "blat-in=s" => \(my $blatfile),
-        "mdust-in=s" => \(my $mdustfile),
-        "unique-out=s" => \(my $outfile1),
-        "non-unique-out=s" => \(my $outfile2),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "max-insertions=s" => \(my $num_insertions_allowed = 1),
-        "match-length-cutoff=s"    => \(my $match_length_cutoff = 0),
+    my $self = __PACKAGE__->new;
+
+    $self->get_options(
+        "reads-in=s"            => \(my $seqfile),
+        "blat-in=s"             => \(my $blatfile),
+        "mdust-in=s"            => \(my $mdustfile),
+        "unique-out=s"          => \(my $outfile1),
+        "non-unique-out=s"      => \(my $outfile2),
+        "max-pair-dist=i"       => \($self->{max_distance_between_paired_reads} = 500000),
+        "max-insertions=i"      => \($self->{num_insertions_allowed} = 1),
+        "match-length-cutoff=i" => \($self->{match_length_cutoff} = 0),
         "dna" => \(my $dna),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) },
     );
 
     $seqfile or RUM::Usage->bad(
@@ -78,41 +106,11 @@ sub main {
     $outfile2 or RUM::Usage->bad(
         "Specify an output file for non-unique mappers with --non-unique-out");
     
-    # Check command-line args
-    $num_insertions_allowed =~ /^\d+$/ or RUM::Usage->bad(
-        "If you provide --num-insertions-allowed, it must be an integer");
-    $match_length_cutoff =~ /^\d+$/ or RUM::Usage->bad(
-        "If you provide --match-length-cutoff, it must be an integer");
+    $self->{num_blocks_allowed} = $dna ? 1 : 1000;
 
-    $num_blocks_allowed = $dna ? 1 : 1000;
+    my $blatsorted = is_blat_file_sorted($blatfile);
 
-    open(BLATHITS, "<", $blatfile) 
-        or die "Can't open $blatfile for reading: $!";
-
-    skip_headers(\*BLATHITS);
-    $line = <BLATHITS>;
-    chomp $line;
-    $line1 = $line;
-    $blatsorted = "true";
-    $log->info("Checking to see if blat file is sorted");
-    while ($line2 = <BLATHITS>) {
-        $line1 =~ /seq.(\d+)(.)/;
-        $seqnum1 = $1;
-        $type1 = $2;
-        $line2 =~ /seq.(\d+)(.)/;
-        $seqnum2 = $1;
-        $type2 = $2;
-
-        if ($seqnum1>$seqnum2 || ($seqnum1==$seqnum2 && $type1 eq 'b' && $type2 eq 'a')) {
-            $blatsorted = "false";
-            $flag = 1;
-            last;
-        }
-        $line1 = $line2;
-    }
-    close(BLATHITS);
-
-    if ($blatsorted eq "false") {
+    if (!$blatsorted) {
         $log->warn("The blat file is not sorted properly, I'm sorting it now.  This could indicate an error");
         $blatfile_sorted = $blatfile . ".sorted";
 
@@ -180,7 +178,7 @@ sub main {
     $last_seq_num = $a[9];
     $last_seq_num =~ s/[^\d]//g;
 
-    open(BLATHITS, "<", $blatfile)
+    open($blathits, "<", $blatfile)
         or die "Can't open $blatfile for reading: $!";
     open(SEQFILE, "<", $seqfile) 
         or die "Can't open $seqfile for rading: $!";
@@ -191,7 +189,7 @@ sub main {
     open(RESULTS2, ">", $outfile2) 
         or die "Can't open $outfile2 for writing: $!";
 
-    if ($num_insertions_allowed > 1 && $paired_end eq "true") {
+    if ($self->{num_insertions_allowed} > 1 && $paired_end eq "true") {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
     }
 
@@ -199,25 +197,25 @@ sub main {
     for ($seq_count=$first_seq_num; $seq_count<=$last_seq_num; $seq_count++) {
         if ($seq_count == $first_seq_num) {
 
-            skip_headers(\*BLATHITS);
-            $line = <BLATHITS>;
+            skip_headers($blathits);
+            $line = <$blathits>;
             chomp $line;
             @a = split(/\t/,$line);
             $readlength = $a[10];
             if ($readlength < 80) {
                 $min_size_intersection_allowed = 35;
-                if ($match_length_cutoff == 0) {
-                    $match_length_cutoff = 35;
+                if ($self->{match_length_cutoff} == 0) {
+                    $self->{match_length_cutoff} = 35;
                 }
             } else {
                 $min_size_intersection_allowed = 45;
-                if ($match_length_cutoff == 0) {
-                    $match_length_cutoff = 50;
+                if ($self->{match_length_cutoff} == 0) {
+                    $self->{match_length_cutoff} = 50;
                 }
             }
             if ($min_size_intersection_allowed >= .8 * $readlength) {
                 $min_size_intersection_allowed = int(.6 * $readlength);
-                $match_length_cutoff = int(.6 * $readlength);
+                $self->{match_length_cutoff} = int(.6 * $readlength);
             }
             @a_x = split(/\t/,$line);
             $seqname = $a[9];
@@ -279,7 +277,7 @@ sub main {
         }
         $sn = "seq.$seq_count" . "a";
         $Ncount{$sn} = ($dust_output =~ tr/N//);
-        $cutoff{$sn} = $match_length_cutoff + $Ncount{$sn};
+        $cutoff{$sn} = $self->{match_length_cutoff} + $Ncount{$sn};
         if ($cutoff{$sn} > $a_x[10] - 2) {
             $cutoff{$sn} = $a_x[10] - 2;
         }
@@ -299,7 +297,7 @@ sub main {
             }
             $sn = "seq.$seq_count" . "b";
             $Ncount{$sn} = ($dust_output =~ tr/N//);
-            $cutoff{$sn} = $match_length_cutoff + $Ncount{$sn};
+            $cutoff{$sn} = $self->{match_length_cutoff} + $Ncount{$sn};
             if ($cutoff{$sn} > $a_x[10] - 2) {
                 $cutoff{$sn} = $a_x[10] - 2;
             }
@@ -312,9 +310,9 @@ sub main {
             if ($SCORE > $cutoff{$seqname}) { # so match is at least cutoff long (and this cutoff was set to be longer if there are a lot of N's (bad reads or low complexity masked by dust)
                 #	    if($a[11] <= 1) {   # so match starts at position zero or one in the query (allow '1' because first base can tend to be an N or low quality)
                 if (1 == 1) { # trying this with no condition to see if it helps... (it did!)
-                    if ($a[4] <= $num_insertions_allowed) { # then the aligment has at most $num_insertions_allowed gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
+                    if ($a[4] <= $self->{num_insertions_allowed}) { # then the aligment has at most $self->{num_insertions_allowed} gaps (default = 1) in the query, allowing for insertion(s) in the sample, throw out this alignment otherwise (we typipcally don't believe more than one separate insertions in such a short span).
                         if ($Ncount{$a[9]} <= ($a[10] / 2) || $a[17] <= 3) { # IF SEQ IS MORE THAN 50% LOW COMPLEXITY, DON'T ALLOW MORE THAN 3 BLOCKS, OTHERWISE GIVING IT TOO MUCH OPPORTUNITY TO MATCH BY CHANCE.  
-                            if ($a[17] <= $num_blocks_allowed) { # NEVER ALLOW MORE THAN $num_blocks_allowed blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
+                            if ($a[17] <= $self->{num_blocks_allowed}) { # NEVER ALLOW MORE THAN $self->{num_blocks_allowed} blocks, which is set to 1 for dna and 1000 (the equiv of infinity) for rnaseq
                                 # at this point we know it's a prefix match starting at pos 0 or 1 and with at most one gap in the query, and if low comlexity then not too fragemented...
                                 $gap_flag = 0;
                                 if ($a[4] == 1) { # there's a gap in the query, be stricter about allowing it
@@ -445,8 +443,8 @@ sub main {
                     }
                 }
             }
-            skip_headers(\*BLATHITS);
-            $line = <BLATHITS>;
+            skip_headers(\*$blathits);
+            $line = <$blathits>;
             chomp $line;
             @a = split(/\t/,$line);
             @a_x = split(/\t/,$line);
@@ -457,18 +455,18 @@ sub main {
                 $readlength = $a[10];
                 if ($readlength < 80) {
                     $min_size_intersection_allowed = 35;
-                    if ($match_length_cutoff == 0) {
-                        $match_length_cutoff = 35;
+                    if ($self->{match_length_cutoff} == 0) {
+                        $self->{match_length_cutoff} = 35;
                     }
                 } else {
                     $min_size_intersection_allowed = 45;
-                    if ($match_length_cutoff == 0) {
-                        $match_length_cutoff = 50;
+                    if ($self->{match_length_cutoff} == 0) {
+                        $self->{match_length_cutoff} = 50;
                     }
                 }
                 if ($min_size_intersection_allowed >= .8 * $readlength) {
                     $min_size_intersection_allowed = int(.6 * $readlength);
-                    $match_length_cutoff = int(.6 * $readlength);
+                    $self->{match_length_cutoff} = int(.6 * $readlength);
                 }
             }
         }
@@ -802,10 +800,10 @@ sub main {
                     }
                     if ($achr eq $bchr && $proceedflag == 1) {
                         $ostrand = $astrand; # "o" for "original"
-                        if ($astrand eq "+" && $bstrand eq "+" && ($aend < $bstart-1) && ($bstart - $aend <= $max_distance_between_paired_reads)) {
+                        if ($astrand eq "+" && $bstrand eq "+" && ($aend < $bstart-1) && ($bstart - $aend <= $self->{max_distance_between_paired_reads})) {
                             $consistent_mappers{"$read_mapping_to_genome_coords[0][$i]\n$read_mapping_to_genome_coords[1][$j]"}++;
                         }
-                        if ($astrand eq "-" && $bstrand eq "-" && ($bend < $astart-1) && ($astart - $bend <= $max_distance_between_paired_reads)) {
+                        if ($astrand eq "-" && $bstrand eq "-" && ($bend < $astart-1) && ($astart - $bend <= $self->{max_distance_between_paired_reads})) {
                             $consistent_mappers{"$read_mapping_to_genome_coords[0][$i]\n$read_mapping_to_genome_coords[1][$j]"}++;
                         }
                         $swaphack = "false";
@@ -1165,7 +1163,7 @@ sub main {
                             $str2 =~ /^[^\t]+\t(\d+)[^\t+]-(\d+)\t/;
                             $start2 = $1;
                             $end2 = $2;
-                            if ((($start2 - $end1 > 0) && ($start2 - $end1 < $max_distance_between_paired_reads)) || (($start1 - $end2 > 0) && ($start1 - $end2 < $max_distance_between_paired_reads))) {
+                            if ((($start2 - $end1 > 0) && ($start2 - $end1 < $self->{max_distance_between_paired_reads})) || (($start1 - $end2 > 0) && ($start1 - $end2 < $self->{max_distance_between_paired_reads}))) {
                                 @ss = split(/\t/,$str1);
                                 $seq_new = addJunctionsToSeq($ss[2], $ss[1]);
                                 print RESULTS "seq.$seq_count";
@@ -1226,7 +1224,7 @@ sub main {
         undef @read_mapping_to_genome_pairing_candidate;
     }
 
-    close(BLATHITS);
+    close($blathits);
     close(RESULTS);
     #close(INSERTIONFILE);
     
