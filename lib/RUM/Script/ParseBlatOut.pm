@@ -2,40 +2,36 @@ package RUM::Script::ParseBlatOut;
 
 no warnings;
 use autodie;
+use base 'RUM::Script::Base';
 
 use Carp;
+use File::Temp;
+use POSIX qw(mkfifo);
+
+use RUM::Blat;
 use RUM::Usage;
 use RUM::Logging;
-use Getopt::Long;
 use RUM::Common qw(getave addJunctionsToSeq);
-use base 'RUM::Script::Base';
-our $log = RUM::Logging->get_logger();
 
 # Given a filehandle, skip over all rows that appear to be header
 # rows. After I return, the filehandle will be positioned at the first
 # data row.
-sub skip_headers {
+sub next_non_header_line {
     my ($fh) = @_;
-
-    my $off;
-    local $_;
     # Skip over header lines
-    while (1) {
-        
-        $off = tell $fh;
 
-        defined ($_ = <$fh>) or last;
-
-        unless (/--------------------------------/ ||
-                /psLayout/ || 
-                /blockSizes/ || 
-                /match\s+match/ || 
-                !/\S/) {
-            last;
-        }
+    my $line = <$fh>;
+    if ($line =~ /^psLayout/) {
+        <$fh>;
+        <$fh>;
+        <$fh>;
+        <$fh>;
     }
-    seek $fh, $off, 0;
+    $line = <$fh>;
+    return $line;
 }
+
+
 
 $| = 1;
 # blat run on forward/reverse reads separately, reported in order
@@ -57,6 +53,7 @@ sub main {
     my $self = __PACKAGE__->new;
 
     $self->get_options(
+        'genome=s'              => \(my $genome),
         "reads-in=s"            => \(my $seqfile),
         "blat-in=s"             => \(my $blatfile),
         "mdust-in=s"            => \(my $mdustfile),
@@ -65,13 +62,13 @@ sub main {
         "max-pair-dist=i"       => \($self->{max_distance_between_paired_reads} = 500000),
         "max-insertions=i"      => \($self->{num_insertions_allowed} = 1),
         "match-length-cutoff=i" => \($self->{match_length_cutoff} = 0),
-        "dna" => \(my $dna),
+        "dna"                   => \(my $dna),
     );
+
+    my @blat_args = @ARGV;
 
     $seqfile or RUM::Usage->bad(
         "Please provide a file of unmapped reads with --reads-in");
-    $blatfile or RUM::Usage->bad(
-        "Please provide the file produced by blat with --blat-in");
     $mdustfile or RUM::Usage->bad(
         "Please provide the file produced by mdust with --mdust-in");
     $outfile1 or RUM::Usage->bad(
@@ -89,12 +86,11 @@ sub main {
         $paired_end = "false";
     }
     $head =~ /seq.(\d+)/;
-    $first_seq_num = $1;
+    $self->{first_seq_num} = $1;
     my @tail = `tail -n 2 $seqfile`;
     $tail[0] =~ />seq.(\d+)/ or croak "Can't parse last read number from $seqfile (line is $tail[0])";
     $self->{last_seq_num} = $1;
 
-    open my $blathits,    "<", $blatfile;
     open my $seq_fh,      "<", $seqfile;
     open my $mdust_fh,    "<", $mdustfile;
     open my $blat_unique, ">", $outfile1;
@@ -104,9 +100,13 @@ sub main {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
     }
 
-    my $blat_fh;
-
-    $self->parse_output($blathits, $seq_fh, $mdust_fh, $blat_unique, $blat_nu);
+    my ($blat_fh, $pid) = RUM::Blat::run_blat(
+        database => $genome,
+        query    => $seqfile,
+        blat_args => \@blat_args);
+        
+    $self->parse_output($blat_fh, $seq_fh, $mdust_fh, $blat_unique, $blat_nu);
+    waitpid $pid, 0;
 }
 
 sub parse_output {
@@ -114,11 +114,11 @@ sub parse_output {
     my ($self, $blathits, $seq_fh, $mdust_fh, $blat_unique, $blat_nu) = @_;
 
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
-    for ($seq_count=$first_seq_num; $seq_count<=$self->{last_seq_num}; $seq_count++) {
-        if ($seq_count == $first_seq_num) {
+    for ($seq_count=$self->{first_seq_num}; $seq_count<=$self->{last_seq_num}; $seq_count++) {
 
-            skip_headers($blathits);
-            $line = <$blathits>;
+        if ($seq_count == $self->{first_seq_num}) {
+
+            $line = next_non_header_line($blathits);
             chomp $line;
             @a = split(/\t/,$line);
             $readlength = $a[10];
@@ -148,6 +148,7 @@ sub parse_output {
             chomp($mdust_temp);
             $mdust_temp =~ s/[^ACGTNab]$//;
         }
+
         $seqa_temp =~ /seq.(\d+)/;
         $seq_count = $1; # this way we skip over things that aren't in <seq file>
         $seqa_temp = <$seq_fh>;
@@ -224,6 +225,7 @@ sub parse_output {
         }
         @a = split(/\t/,$line);
         @a_x = split(/\t/,$line);
+
         while (defined($seqnum) && $seqnum == $seq_count) {
             $LENGTH = getTotalSizeFromBlockSizes($a[18]);
             $SCORE = $LENGTH - $a[1]; # This is the number of matches minus the number of mismatches, ignoring N's and gaps
@@ -363,13 +365,13 @@ sub parse_output {
                     }
                 }
             }
-            skip_headers(\*$blathits);
-            $line = <$blathits>;
+            $line = next_non_header_line($blathits);
             chomp $line;
             @a = split(/\t/,$line);
             @a_x = split(/\t/,$line);
             $seqname = $a[9];
             $seqnum = $seqname;
+
             $seqnum =~ s/[^\d]//g;
             if ($seqnum == $seq_count) {
                 $readlength = $a[10];

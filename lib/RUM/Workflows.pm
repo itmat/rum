@@ -154,14 +154,6 @@ sub chunk_workflow {
          $c->paired_end_opt]);
     
     $m->step(
-        "Run blat on unmapped reads",
-        [$blat_bin,
-         $c->genome_fa,
-         pre($bowtie_unmapped),
-         post($blat_output),
-         $c->blat_opts]);
-    
-    $m->step(
          "Run mdust on unmapped reads",
          [$mdust_bin,
           pre($bowtie_unmapped),
@@ -169,10 +161,10 @@ sub chunk_workflow {
           post($mdust_output)]);
     
     $m->step(
-        "Parse blat output",
+        "Run BLAT",
         ["perl", $c->script("parse_blat_out.pl"),
          "--reads-in",    pre($bowtie_unmapped),
-         "--blat-in",     pre($blat_output), 
+         "--genome",      $c->genome_fa,
          "--mdust-in",    pre($mdust_output),
          "--unique-out", post($blat_unique),
          "--non-unique-out", post($blat_nu),
