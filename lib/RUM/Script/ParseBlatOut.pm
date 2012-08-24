@@ -9,6 +9,7 @@ use File::Temp;
 use POSIX qw(mkfifo);
 
 use RUM::Blat;
+use RUM::Mdust;
 use RUM::Usage;
 use RUM::Logging;
 use RUM::Common qw(getave addJunctionsToSeq);
@@ -57,8 +58,12 @@ sub main {
         "reads-in=s"            => \(my $seqfile),
         "blat-in=s"             => \(my $blatfile),
         "mdust-in=s"            => \(my $mdustfile),
-        "unique-out=s"          => \(my $outfile1),
-        "non-unique-out=s"      => \(my $outfile2),
+
+        'unique-out=s'          => \(my $outfile1),
+        'non-unique-out=s'      => \(my $outfile2),
+        'blat-out=s'            => \(my $blat_out),
+        'mdust-out=s'           => \(my $mdust_out),
+
         "max-pair-dist=i"       => \($self->{max_distance_between_paired_reads} = 500000),
         "max-insertions=i"      => \($self->{num_insertions_allowed} = 1),
         "match-length-cutoff=i" => \($self->{match_length_cutoff} = 0),
@@ -69,8 +74,6 @@ sub main {
 
     $seqfile or RUM::Usage->bad(
         "Please provide a file of unmapped reads with --reads-in");
-    $mdustfile or RUM::Usage->bad(
-        "Please provide the file produced by mdust with --mdust-in");
     $outfile1 or RUM::Usage->bad(
         "Specify an output file for unique mappers with --unique-out");
     $outfile2 or RUM::Usage->bad(
@@ -92,7 +95,6 @@ sub main {
     $self->{last_seq_num} = $1;
 
     open my $seq_fh,      "<", $seqfile;
-    open my $mdust_fh,    "<", $mdustfile;
     open my $blat_unique, ">", $outfile1;
     open my $blat_nu,     ">", $outfile2;
 
@@ -104,6 +106,8 @@ sub main {
         database => $genome,
         query    => $seqfile,
         blat_args => \@blat_args);
+
+    my $mdust_fh = RUM::Mdust::run_mdust($seqfile);
         
     $self->parse_output($blat_fh, $seq_fh, $mdust_fh, $blat_unique, $blat_nu);
     waitpid $pid, 0;

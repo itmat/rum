@@ -452,6 +452,7 @@ sub _run_step {
 
             # This will redirect my (the child's) output to the temp
             # file obtained above.
+
             open STDERR, ">", $err_fname;
             
             exec(@to) or die(

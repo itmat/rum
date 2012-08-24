@@ -3,6 +3,8 @@ package RUM::Blat;
 use strict;
 use warnings;
 use autodie;
+
+use File::Temp qw(tempdir);
 use RUM::BinDeps;
 use POSIX qw(mkfifo);
 use Carp;
@@ -24,16 +26,18 @@ sub run_blat {
 
     
 
-    mkfifo($temp_file, 0700) or croak "mkfifo($temp_file): $!";
+    my $dir = tempdir(CLEANUP => 1);
+    my $fifo = "$dir/blat_output";
+    mkfifo($fifo, 0700) or croak "mkfifo($fifo): $!";
     
     my @cmd = (RUM::BinDeps->new->blat,
                $params{database},
                $params{query},
-               $temp_file,
+               $fifo,
                @blat_args);
 
     if (my $pid = fork) {
-        open my $fh, '<', $temp_file;
+        open my $fh, '<', $fifo;
         return ($fh, $pid);
     }
     else {
