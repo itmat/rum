@@ -104,6 +104,15 @@ sub main {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
     }
 
+    my $blat_fh;
+
+    $self->parse_output($blathits, $seq_fh, $mdust_fh, $blat_unique, $blat_nu);
+}
+
+sub parse_output {
+
+    my ($self, $blathits, $seq_fh, $mdust_fh, $blat_unique, $blat_nu) = @_;
+
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
     for ($seq_count=$first_seq_num; $seq_count<=$self->{last_seq_num}; $seq_count++) {
         if ($seq_count == $first_seq_num) {
