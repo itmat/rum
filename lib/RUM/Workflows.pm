@@ -153,16 +153,14 @@ sub chunk_workflow {
          "-o", post($bowtie_unmapped),
          $c->paired_end_opt]);
     
-    $m->step(
-        "Run BLAT",
-        ["perl", $c->script("parse_blat_out.pl"),
-         "--reads-in",    pre($bowtie_unmapped),
-         "--genome",      $c->genome_fa,
-         "--unique-out", post($blat_unique),
-         "--non-unique-out", post($blat_nu),
-         $c->max_insertions_opt,
-         $c->match_length_cutoff_opt,
-         $c->dna_opt]);
+    my @blat_cmd = (
+        "perl", $c->script("parse_blat_out.pl"),
+        "--reads-in",    pre($bowtie_unmapped),
+        "--genome",      $c->genome_fa,
+        "--unique-out", post($blat_unique),
+        "--non-unique-out", post($blat_nu));
+    
+    $m->step("Run BLAT", \@blat_cmd);
     
     $m->step(
         "Merge bowtie and blat results",

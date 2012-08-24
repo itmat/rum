@@ -70,8 +70,19 @@ sub main {
         "dna"                   => \(my $dna),
     );
 
-    my @blat_args = @ARGV;
+    
+    my @blat_args;
+    my $found;
+    while (my $arg = shift @ARGV) {
+        if ($arg eq '--') {
+            $found = 1;
+        }
+        elsif ($found) {
+            push @blat_args, $arg;
+        }
+    }
 
+    $self->logger->debug("Blat args are '@blat_args'");
     $seqfile or RUM::Usage->bad(
         "Please provide a file of unmapped reads with --reads-in");
     $outfile1 or RUM::Usage->bad(

@@ -9,6 +9,8 @@ use RUM::BinDeps;
 use POSIX qw(mkfifo);
 use Carp;
 
+my $log = RUM::Logging->get_logger;
+
 sub run_blat {
     my (%params) = @_;
 
@@ -28,6 +30,7 @@ sub run_blat {
 
     my $dir = tempdir(CLEANUP => 1);
     my $fifo = "$dir/blat_output";
+    $log->debug("Making fifo at $fifo");
     mkfifo($fifo, 0700) or croak "mkfifo($fifo): $!";
     
     my @cmd = (RUM::BinDeps->new->blat,
@@ -36,6 +39,7 @@ sub run_blat {
                $fifo,
                @blat_args);
 
+    $log->debug("Execing @cmd");    
     if (my $pid = fork) {
         open my $fh, '<', $fifo;
         return ($fh, $pid);
