@@ -50,24 +50,3 @@ for my $test (@tests) {
     is_deeply \@got_nu, \@expected_nu, 'Non-unique';
     
 }
-
-__END__
-
-# With unsorted input
-
-@ARGV = (
-   "--reads-in", $reads,
-   "--blat-in", "$blat_results.unsorted",
-   "--mdust-in", $mdust_results,
-   "--unique-out", $unique,
-   "--non-unique-out", $non_unique);
-RUM::Script::ParseBlatOut->main();
-
-no_diffs($unique, "$EXPECTED_DIR/BlatUnique.1", "Unique unsorted");
-cp $unique, "sorted-u";
-cp $non_unique, "sorted-nu";
-
-my @expected_reads = `cut -f 1 $EXPECTED_DIR/BlatNU.1`;
-my @got_reads      = `cut -f 1 $non_unique`;
-
-is_deeply(\@got_reads, \@expected_reads, "Non-unique read ids");
