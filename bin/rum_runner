@@ -60,7 +60,7 @@ sub archive_log_dir {
         return;
     }
     
-    $status = system "tar cvf $dir/$tarred -C $dir $child_dir";
+    $status = system "tar cf $dir/$tarred -C $dir $child_dir";
     if ( $status ) {
         warn "Can't tar log directory $dir/$child_dir";
         return;
