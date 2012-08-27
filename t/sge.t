@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 20;
+use Test::More tests => 21;
 
 use FindBin qw($Bin);
 use File::Temp qw(tempdir);
@@ -80,6 +80,10 @@ is_deeply($class->_parse_qstat_out(@QSTAT_GROUPED2),
            {job_id => 636813, state => 'qw', task_id => 2},
            {job_id => 636814, state => 'hqw'}],
           "qstat ungrouped");
+
+is_deeply($class->_parse_qstat_out(),
+          [],
+          "qstat empty");
 
 is($class->_parse_qstat_out("error: failed receiving gdi request response for ".
                                 "mid=1 (got syncron message receive timeout error)."), 
