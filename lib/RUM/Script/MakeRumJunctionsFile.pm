@@ -73,6 +73,12 @@ sub main {
     $acceptor[10] = "AT";
     $acceptor_rev[10] = "AT";
 
+    #  TAGA
+    $donor[11] = "TA";
+    $donor_rev[11] = "TA";
+    $acceptor[11] = "GA";
+    $acceptor_rev[11] = "TC";
+
     $|=1;
 
     # print "\nMaking junctions files...\n";
