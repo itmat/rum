@@ -18,44 +18,68 @@ sub main {
     my $self = __PACKAGE__->new;
 
     $self->get_options(
-        "genes=s"         => \(my $gene_annot_file),
-        "unique=s"        => \(my $unique_out),
-        "non-unique=s"    => \(my $non_unique_out),
-        "single"          => \($self->{single}),
-        "paired"          => \($self->{paired}),
-        "max-pair-dist=s" => \($self->{max_distance_between_paired_reads} = 500000),
-        'limit=s'         => \(my $limit),
+        # Input files
+        'genes=s'         => \(my $gene_annot_file),
         'index=s'         => \(my $index),
-        'query=s'         => \(my $query));
+        'query=s'         => \(my $query),
+
+        # Intermediate files
+        'bowtie-out=s'    => \(my $bowtie_out),
+
+        # Output files
+        'unique=s'        => \(my $unique_out),
+        'non-unique=s'    => \(my $non_unique_out),
+
+        # Other params
+        'debug'           => \(my $debug),
+        'single'          => \($self->{single}),
+        'paired'          => \($self->{paired}),
+        'max-pair-dist=s' => \($self->{max_distance_between_paired_reads} = 500000),
+        'limit=s'         => \(my $limit),
+
+
+    );
 
     $index or RUM::Usage->bad(
-        "Please specify an index with --index");
+        'Please specify an index with --index');
 
     $query or RUM::Usage->bad(
-        "Please specify a query with --query");
+        'Please specify a query with --query');
 
     $gene_annot_file or RUM::Usage->bad(
-        "Please specify the gene annotation file with --genes");
+        'Please specify the gene annotation file with --genes');
 
     $unique_out or RUM::Usage->bad(
-        "Please specify file to write unique mappers with --unique");
+        'Please specify file to write unique mappers with --unique');
 
     $non_unique_out or RUM::Usage->bad(
-        "Please specify file to write non-unique mappers with --non-unique");
+        'Please specify file to write non-unique mappers with --non-unique');
 
     ($self->{single} xor $self->{paired}) or RUM::Usage->bad(
-        "Please specify exactly one type with either --single or --paired");
+        'Please specify exactly one type with either --single or --paired');
 
-    my $infile = RUM::Bowtie::run_bowtie(
+    my %bowtie_opts = (
         limit => $limit,
         index => $index,
         query => $query);
 
+    if ($debug) {
+        if ($bowtie_out) {
+            $bowtie_opts{tee} = $bowtie_out;
+        }
+        else {
+            RUM::Usage->bad('If you give the --debug option, please tell me '.
+                            'where to put the bowtie output file, with '.
+                            '--bowtie-out');
+        }
+    }
+
+    my $bowtie = RUM::Bowtie::run_bowtie(%bowtie_opts);
     open my $annotfile, "<", $gene_annot_file;
     open my $tu,        ">", $unique_out;
     open my $tnu,       ">", $non_unique_out;
 
-    $self->parse_output($annotfile, $infile, $tu, $tnu);
+    $self->parse_output($annotfile, $bowtie, $tu, $tnu);
 }
 
 sub parse_output {
