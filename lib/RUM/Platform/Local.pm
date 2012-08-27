@@ -569,6 +569,12 @@ sub postprocess {
     $self->say("Postprocessing");
     $self->say("--------------");
 
+    $log->info("---");
+    $log->info("---");
+    $log->info("--- Postprocessing starts here");
+    $log->info("---");
+    $log->info("---");
+
     $self->job_report->print_start_postproc;
 
     my $w = $self->postprocessing_workflow;

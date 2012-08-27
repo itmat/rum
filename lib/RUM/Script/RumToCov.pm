@@ -48,7 +48,7 @@ sub run {
         # If we just finished a chromosome, print out the coverage
         if ($chr ne $last_chr) {
             if ($last_chr) {
-                $self->logger->info("Printing coverage for chromosome $last_chr\n");
+                $self->logger->debug("Printing coverage for chromosome $last_chr\n");
             }
           COVERAGE: for my $rec (@{ $self->purge_spans() }) {
                 my ($start, $end, $cov) = @{ $rec };
@@ -62,7 +62,7 @@ sub run {
                 $footprint += $end - $start;
             }
             if ($chr) {
-                $self->logger->info("Calculating coverage for $chr\n");
+                $self->logger->debug("Calculating coverage for $chr\n");
             }
             $last_chr = $chr;
         }

@@ -371,10 +371,9 @@ sub _run_step {
     # Format the comment
     $comment =~ s/\n//g;
 
-    $log->info("START: $step");
+    $log->info("START\t$step");
     
     for my $cmd (@cmds) {
-        $log->debug("Running @$cmd ");
             
         my $stdout;
         my $stdout_mode;
@@ -458,14 +457,14 @@ sub _run_step {
             # file obtained above.
 
             open STDERR, ">", $err_fname;
-            $log->info("EXEC: @to");
+            $log->info("EXEC\t@to");
             exec(@to) or die(
                 "Couldn't exec '@to': $!\n" .
                 "This probably means that the program $to[0] doesn't exist " .
                 "or isn't executable");
         }
     }
-    $log->info("FINISH: $step");
+    $log->info("FINISH\t$step");
     for ($new->and_not($old)->flags) {
 
         if (my $temp = $self->_get_temp($_)) {

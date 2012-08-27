@@ -1008,19 +1008,8 @@ sub run_with_logging {
     my $cmd =  "$0 @ARGV";
     my $log = RUM::Logging->get_logger("RUM.ScriptRunner");
 
-    $log->info("START $script ($cmd)");
-
-    eval {
-        require $path;
-        $script->main();
-    };
-    if ($@) {
-        $log->fatal("FAILED $script ($cmd): $@");
-        die($@);
-    }
-    else {
-        $log->info("FINISHED $script ($cmd)");
-    }
+    require $path;
+    $script->main();
 }
 
 =item import_scripts_with_logging
