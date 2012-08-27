@@ -25,7 +25,6 @@ sub run_blat {
     my @blat_args = @{ $params{blat_args} || [] };
 
     my $temp_file = 'pipe';
-
     
 
     my $dir = tempdir(CLEANUP => 1);
@@ -39,13 +38,15 @@ sub run_blat {
                $fifo,
                @blat_args);
 
+    my $cmd = join ' ', @cmd;
+
     $log->debug("Execing @cmd");    
     if (my $pid = fork) {
         open my $fh, '<', $fifo;
         return ($fh, $pid);
     }
     else {
-        exec @cmd;
+        exec $cmd;
     }
 }
 

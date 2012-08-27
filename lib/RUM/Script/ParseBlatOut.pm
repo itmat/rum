@@ -18,18 +18,25 @@ use RUM::Common qw(getave addJunctionsToSeq);
 # rows. After I return, the filehandle will be positioned at the first
 # data row.
 sub next_non_header_line {
-    my ($fh) = @_;
+    my ($fh, $out) = @_;
     # Skip over header lines
 
     my $line = <$fh>;
     return if ! defined $line;
+    print $out $line if $out;
+
     chomp $line;
     if ($line =~ /^psLayout/) {
-        <$fh>;
-        <$fh>;
-        <$fh>;
-        <$fh>;
         $line = <$fh>;
+        print $out $line if $out;
+        $line = <$fh>;
+        print $out $line if $out;
+        $line = <$fh>;
+        print $out $line if $out;
+        $line = <$fh>;
+        print $out $line if $out;
+        $line = <$fh>;
+        print $out $line if $out;
         chomp $line;
     }
     return $line;
@@ -76,6 +83,8 @@ sub main {
         "max-insertions=i"      => \($self->{num_insertions_allowed} = 1),
         "match-length-cutoff=i" => \($self->{match_length_cutoff} = 0),
         "dna"                   => \(my $dna),
+
+        'debug' => \(my $debug),
     );
 
     
@@ -121,10 +130,24 @@ sub main {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
     }
 
-    my ($blat_fh, $pid) = RUM::Blat::run_blat(
+    my %blat_opts = (
         database => $genome,
         query    => $seqfile,
         blat_args => \@blat_args);
+
+    if ($debug) {
+        if (!$blat_out) {
+            RUM::Usage->bad("If you give the --debug option, please tell me ".
+                            "where to put the output file, with --blat-out");
+        }
+        else {
+            open my $blat_out_fh, '>', $blat_out;
+            $self->{blat_out} = $blat_out_fh;
+        }
+
+    }
+
+    my ($blat_fh, $pid) = RUM::Blat::run_blat(%blat_opts);
 
     my $mdust_fh = RUM::Mdust::run_mdust($seqfile);
         
@@ -141,7 +164,7 @@ sub parse_output {
 
         if ($seq_count == $self->{first_seq_num}) {
 
-            $line = next_non_header_line($blathits);
+            $line = next_non_header_line($blathits, $self->{blat_out});
             @a = split(/\t/,$line);
             $readlength = $a[10];
             if ($readlength < 80) {
@@ -387,7 +410,7 @@ sub parse_output {
                     }
                 }
             }
-            $line = next_non_header_line($blathits);
+            $line = next_non_header_line($blathits, $self->{blat_out});
             @a = split(/\t/,$line);
             @a_x = split(/\t/,$line);
             $seqname = $a[9];
