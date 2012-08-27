@@ -66,7 +66,7 @@ sub run_bowtie {
     my $limit = delete $params{limit};
     my $index = delete $params{index} or push @missing, 'index';
     my $reads = delete $params{query} or push @missing, 'query';
-    
+    my $tee   = delete $params{tee};
     if (@missing) {
         croak "Missing required args " . join(', ', @missing);
     }
@@ -89,6 +89,9 @@ sub run_bowtie {
     }
 
     my $cmd = join ' ', @cmd;
+    if (defined $tee) {
+        $cmd .= " | tee $tee";
+    }
     warn "Command is $cmd\n";
     open my $bowtie_out, '-|', $cmd;
     return $bowtie_out;

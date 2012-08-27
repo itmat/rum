@@ -20,15 +20,26 @@ sub main {
     my $self = __PACKAGE__->new;
 
     $self->get_options(
+
+        # Input files
+        'index=s'         => \(my $index),
+        'query=s'         => \(my $query),
+
+        # Intermediate files
+        'bowtie-out=s'    => \(my $bowtie_out),
+
+        # Output files
         "unique=s"        => \(my $outfile1),
         "non-unique=s"    => \(my $outfile2),
+
+        # Other params
         "type=s"          => \(my $type),
         "paired"          => \($self->{paired}),
         "single"          => \($self->{single}),
+        'debug'           => \(my $debug),
         "max-pair-dist=s" => \($self->{max_distance_between_paired_reads} = 500000),
         'limit=s'         => \(my $limit),
-        'index=s'         => \(my $index),
-        'query=s'         => \(my $query));
+    );
 
     $index or RUM::Usage->bad(
         "Please specify an index with --index");
@@ -45,14 +56,27 @@ sub main {
     ($self->{single} xor $self->{paired}) or RUM::Usage->bad(
         "Please specify exactly one type with either --single or --paired");
 
-    open my $gu,    '>', $outfile1;
-    open my $gnu,   '>', $outfile2;
-
-    my $bowtie = RUM::Bowtie::run_bowtie(
+    my %bowtie_opts = (
         limit => $limit,
         index => $index,
         query => $query);
 
+    if ($debug) {
+        if ($bowtie_out) {
+            $bowtie_opts{tee} = $bowtie_out;
+        }
+        else {
+            RUM::Usage->bad("If you give the --debug option, please tell me ".
+                            "where to put the bowtie output file, with ".
+                            "--bowtie-out");
+        }
+    }
+
+
+    open my $gu,    '>', $outfile1;
+    open my $gnu,   '>', $outfile2;
+    
+    my $bowtie = RUM::Bowtie::run_bowtie(%bowtie_opts);
     $self->parse_output($bowtie, $gu, $gnu);
 }
 
