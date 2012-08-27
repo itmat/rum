@@ -288,6 +288,7 @@ sub get_options {
     $self->{chunk} = $chunk;
 
     $set->('no_clean', $no_clean);
+
     $set->('alt_genes', $alt_genes);
     $set->('alt_quant_model', $alt_quant);
     $set->('bowtie_nu_limit', 100) unless !$limit_bowtie_nu;
@@ -311,20 +312,23 @@ sub get_options {
     $set->('preserve_names', $preserve_names);
     $set->('quantify', $quantify);
     $set->('ram', $ram);
-    $set->('reads', @reads ? [@reads] : undef) if @reads && @reads ne @{ $c->reads || [] };
     $set->('rum_index', $rum_index);
     $set->('strand_specific', $strand_specific);
     $set->('user_quals', $quals_file);
     $set->('variable_length_reads', $variable_length_reads);
 
-    my $did_load = 0;
-    if (@changed_settings && $did_load && !$force && !$d->child) {
+    my @old_reads = @{ $c->reads || [] };
+    if (@reads && "@reads" ne "@old_reads") {
+        $set->('reads', [@reads]);
+    }
+
+    if (@changed_settings && !$force && !$d->child) {
         my $msg = $self->changed_settings_msg($c->settings_filename);
         $msg .= "You tried to make the following changes:\n\n";
         for my $change (@changed_settings) {
             $msg .= sprintf("  * Change %s from %s to %s\n", @{ $change });
         }
-        die $msg;
+#        die $msg;
     }
 
     $usage->check;

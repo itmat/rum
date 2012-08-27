@@ -124,8 +124,7 @@ sub _check_reads_for_quality {
 
     for my $filename (@{ $self->config->reads }) {
         $log->debug("Checking $filename");
-        open my $fh, "<", $filename or croak
-            "Can't open reads file $filename for reading: $!\n";
+        open my $fh, "<", $filename;
 
         while (local $_ = <$fh>) {
             next unless /:Y:/;
@@ -140,8 +139,8 @@ sub _check_read_files_same_size {
     my ($self) = @_;
     my @sizes = map -s, $self->_reads;
     $sizes[0] == $sizes[1] or die
-        "The fowards and reverse files are different sizes. $sizes[0]
-        versus $sizes[1].  They should be the exact same size.";
+        "The forwards and reverse files are different sizes ($sizes[0] ".
+        " and $sizes[1]).  They should be the exact same size.";
 }
 
 sub _check_read_file_pair {
@@ -183,7 +182,7 @@ sub _check_read_file_pair {
             chomp($line1);
             chomp($line2);
             if(length($line1) != length($line2)) {
-                die("It seems your read lengths differ from your quality string lengths. Check line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.");
+                die "It seems your read lengths differ from your quality string lengths. Check line:\n$linea$line1\n$lineb$line2.\nThis error could also be due to having reads of length 10 or less, if so you should remove those reads.";
             }
         }
     }
@@ -251,7 +250,7 @@ sub _preproc_error_log_filename {
     my ($self) = @_;
     my $dir = File::Spec->catfile($self->config->output_dir, "tmp");
     unless (-e $dir) {
-        mkdir $dir or croak "mkdir $dir: $!";
+        mkdir $dir;
     }
     File::Spec->catfile($dir, "preproc-error-log");
 }
@@ -302,7 +301,7 @@ sub _reformat_reads {
                    "with separate reads and quals");
         shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $error_log");
         my @errors = `grep -A 2 "something wrong with line" $error_log`;
-        die "@errors" if @errors;
+        croak "@errors" if @errors;
         $have_quals = 1;
         $self->{input_needs_splitting} = 0;
         return;
@@ -360,9 +359,8 @@ sub _breakup_file  {
 
     my $c = $self->config;
 
-    if(!(open(INFILE, $FILE))) {
-        die("Cannot open '$FILE' for reading.");
-    }
+    open(INFILE, $FILE);
+
     my $tail = `tail -2 $FILE | head -1`;
     $tail =~ /seq.(\d+)/s;
     my $numseqs = $1;
@@ -594,7 +592,7 @@ sub pid {
 
     return if ! -e $lock_file;
     open my $in, "<", $lock_file;
-    my $pid = int(<$in>) or die 
+    my $pid = int(<$in>) or croak 
     "The lock file $lock_file exists but does not contain a pid";
 
 }
@@ -604,7 +602,7 @@ sub stop {
 
     if (defined(my $pid = $self->pid)) {
         $self->say("Killing process $pid");
-        kill 15, $pid or die "I can't kill $pid: $!";
+        kill 15, $pid or croak "I can't kill $pid: $!";
     }
     else {
         $self->alert(
