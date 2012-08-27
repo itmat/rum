@@ -46,7 +46,6 @@ EOF
 
         paired_end            => 'Paired-end?',
         read_length           => 'Read length',
-        variable_length_reads => 'Variable-length reads?',
 
         rum_index             => 'Index directory',
         genome_bowtie         => 'Bowtie genome index',
@@ -93,7 +92,8 @@ EOF
 
     my %overrides = (
         junctions => $config->should_do_junctions,
-        quantify  => $config->should_quantify
+        quantify  => $config->should_quantify,
+        read_length => $config->variable_length_reads ? 'variable' : $config->read_length,
     );
 
     my %name_for = @name_table;
@@ -112,6 +112,7 @@ EOF
         
   PROPERTY: for my $key (@ordered_keys) {
         my $name = $name_for{$key};
+
         my $val = exists $overrides{$key} ? $overrides{$key} : $self->config->get($key);
 
         next PROPERTY if ! $name;

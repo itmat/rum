@@ -17,7 +17,7 @@ use RUM::Logging;
 use RUM::Workflows;
 use RUM::Usage;
 use RUM::Pipeline;
-use RUM::Common qw(format_large_int);
+use RUM::Common qw(format_large_int min_match_length);
 use RUM::Lock;
 use RUM::JobReport;
 
@@ -150,31 +150,28 @@ sub _check_read_lengths {
 sub _show_match_length {
     my ($self) = @_;
     my $c = $self->config;
-    my $match_length_cutoff;
-    my $rl = $c->read_length;
 
-    unless ($rl) {
-        $log->info("I haven't determined read length yet");
-        return;
+    if ($c->min_length) {
+        $self->logsay(
+            "I am going to report alignments of length " .
+            $c->min_length . 
+            " or longer, based on the user providing a " . 
+            "--min-length option.");
     }
-    if ( ! $c->min_length && !$c->variable_length_reads) {
-        if ($rl < 80) {
-            $match_length_cutoff ||= 35;
-        } else {
-            $match_length_cutoff ||= 50;
-        }
-        if($match_length_cutoff >= .8 * $rl) {
-            $match_length_cutoff = int(.6 * $rl);
-        }
-    } else {
-	$match_length_cutoff = $c->min_length;
-    }
-    
-    if ($match_length_cutoff) {
+    elsif ($c->read_length && $c->read_length ne 'v') {
+        my $min_length = min_match_length($c->read_length);
         $self->logsay(
             "*** Note: I am going to report alignments of length ",
-            "$match_length_cutoff. If you want to change the minimum size of ",
+            "$min_length, based on a read length of ",
+            $c->read_length ,
+            ". If you want to change the minimum size of ",
             "alignments reported, use the --min-length option");
+    }
+    elsif ($c->read_length && $c->read_length eq 'v') {
+        $self->logsay(
+            "You have variable-length reads and didn't specify ",
+            "--min-length, so I will calculate the minimum ",
+            "match length for each read based on read length.");
     }
 }
 
@@ -319,6 +316,7 @@ sub get_options {
     $set->('strand_specific', $strand_specific);
     $set->('user_quals', $quals_file);
     $set->('variable_length_reads', $variable_length_reads);
+
     my $did_load = 0;
     if (@changed_settings && $did_load && !$force && !$d->child) {
         my $msg = $self->changed_settings_msg($c->settings_filename);

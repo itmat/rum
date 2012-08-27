@@ -12,7 +12,8 @@ use Exporter qw(import);
 our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
                     reversecomplement format_large_int spansTotalLength
                     reversesignal read_chunk_id_mapping is_fasta is_fastq head
-                    num_digits shell make_paths is_on_cluster);
+                    num_digits shell make_paths is_on_cluster
+                    min_match_length);
 
 =head1 FUNCTIONS
 
@@ -428,6 +429,21 @@ sub is_executable_in_path {
     chomp;
     return undef unless $_;
     return -x;
+}
+
+
+sub min_match_length {
+    my ($read_length) = @_;
+    my $result;
+    if ($read_length < 80) {
+        $result ||= 35;
+    } else {
+        $result ||= 50;
+    }
+    if($result >= .8 * $read_length) {
+        $result = int(.6 * $read_length);
+    }
+    return $result;
 }
 
 1;
