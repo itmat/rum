@@ -26,7 +26,7 @@ sub main {
         "paired"          => \($self->{paired}),
         "single"          => \($self->{single}),
         "max-pair-dist=s" => \($self->{max_distance_between_paired_reads} = 500000),
-        'limit=s'         => \(my $limit = 100),
+        'limit=s'         => \(my $limit),
         'index=s'         => \(my $index),
         'query=s'         => \(my $query));
 

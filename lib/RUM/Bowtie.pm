@@ -63,9 +63,9 @@ sub run_bowtie {
 
     my @missing;
     
-    my $limit    = delete $params{limit};
+    my $limit = delete $params{limit};
     my $index = delete $params{index} or push @missing, 'index';
-    my $reads     = delete $params{query} or push @missing, 'query';
+    my $reads = delete $params{query} or push @missing, 'query';
     
     if (@missing) {
         croak "Missing required args " . join(', ', @missing);
@@ -81,7 +81,7 @@ sub run_bowtie {
                 '-p', 1,
                 '--quiet');
                
-    if ($limit) {
+    if (defined $limit) {
         push @cmd, '-k', $limit;
     }
     else {

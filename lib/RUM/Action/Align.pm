@@ -210,15 +210,15 @@ sub get_options {
         "platform=s"    => \(my $platform),
 
         # Advanced options
-        "alt-genes=s"      => \(my $alt_genes),
-        "alt-quants=s"     => \(my $alt_quant),
-        "blat-only"        => \(my $blat_only),
-        "count-mismatches" => \(my $count_mismatches),
-        "dna"              => \(my $dna),
-        "genome-only"      => \(my $genome_only),
-        "junctions"        => \(my $junctions),
-        "limit-bowtie-nu"  => \(my $limit_bowtie_nu),
-        "limit-nu=s"       => \(my $nu_limit),
+        "alt-genes=s"        => \(my $alt_genes),
+        "alt-quants=s"       => \(my $alt_quant),
+        "blat-only"          => \(my $blat_only),
+        "count-mismatches"   => \(my $count_mismatches),
+        "dna"                => \(my $dna),
+        "genome-only"        => \(my $genome_only),
+        "junctions"          => \(my $junctions),
+        "limit-bowtie-nu!"   => \(my $limit_bowtie_nu = 1),
+        "limit-nu=s"         => \(my $nu_limit),
         "max-insertions-per-read=s" => \(my $max_insertions),
         "min-identity"              => \(my $min_identity),
         "min-length=s"              => \(my $min_length),
@@ -292,7 +292,7 @@ sub get_options {
 
     $set->('alt_genes', $alt_genes);
     $set->('alt_quant_model', $alt_quant);
-    $set->('bowtie_nu_limit', 100) if $limit_bowtie_nu;
+    $set->('bowtie_nu_limit', 100) unless !$limit_bowtie_nu;
     $set->('blat_min_identity', $blat_min_identity);
     $set->('blat_tile_size', $blat_tile_size);
     $set->('blat_step_size', $blat_step_size);

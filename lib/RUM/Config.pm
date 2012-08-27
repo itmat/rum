@@ -167,7 +167,6 @@ sub min_overlap_opt         { $_[0]->opt("--min-overlap", $_[0]->min_length) }
 sub max_insertions_opt      { $_[0]->opt("--max-insertions", $_[0]->max_insertions) }
 sub match_length_cutoff_opt { $_[0]->opt("--match-length-cutoff", $_[0]->min_length) }
 sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff", $_[0]->nu_limit) }
-sub bowtie_cutoff_opt       { my $x = $_[0]->bowtie_nu_limit; $x ? "-k $x" : "-a" }
 sub faok_opt                { $_[0]->{faok} ? "--faok" : ":" }
 sub count_mismatches_opt    { $_[0]->{count_mismatches} ? "--count-mismatches" : "" } 
 sub paired_end_opt          { $_[0]->{paired_end} ? "--paired" : "--single" }
