@@ -36,7 +36,7 @@ sub new {
     $self->{cmd}{proc}     =  "perl $0 align --child --output $dir --chunk \$SGE_TASK_ID --postprocess";
  #   $self->{cmd}{postproc} =  "perl $0 align --child --output $dir --postprocess";
 
-    $self->{cmd}{proc} .= " --no-clean" if $directives->no_clean;
+    $self->{cmd}{proc} .= " --no-clean" if $config->no_clean;
 #    $self->{cmd}{postproc} .= " --no-clean" if $directives->no_clean;
 
     $self->{jids}{$_} = [] for @JOB_TYPES;
@@ -58,7 +58,7 @@ sub start_parent {
     $cmd .= " --preprocess"  if $d->preprocess;
     $cmd .= " --process"     if $d->process;
     $cmd .= " --postprocess" if $d->postprocess;
-    $cmd .= " --no-clean"    if $d->no_clean;
+    $cmd .= " --no-clean"    if $self->config->no_clean;
     my $jid = $self->_qsub($cmd);
     push @{ $self->_parent_jids }, $jid;
     $self->save;
@@ -234,6 +234,10 @@ sub _extract_field {
 sub _parse_qstat_out {
     my ($self, @lines) = @_;
 
+    if (!@lines) {
+        return [];
+    }
+
     if ("@lines" =~ /error: failed receiving gdi request response/) {
         $log->info("Looks like qstat timed out");
         return undef;
@@ -246,7 +250,7 @@ sub _parse_qstat_out {
     my ($state_start, $state_len) = _field_start_len("state");
     my ($task_start,  $task_len)  = _field_start_len("ja-task-ID");
 
-    # Shift of the dash line
+    # Shift off the dash line
     shift @lines;
 
     my @result;

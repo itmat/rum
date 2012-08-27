@@ -46,6 +46,9 @@ Written by Gregory R. Grant, University of Pennsylvania, 2010
 =cut
 
 BEGIN{
+    
+use FindBin qw($Bin);
+use lib ("$Bin/../lib", "$Bin/../lib/perl5");
     use RUM::Logging;
     RUM::Logging->init('.');
 }
