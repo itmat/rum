@@ -37,8 +37,8 @@ use RUM::Repository qw(download);
 our @EXPORT = qw(temp_filename no_diffs $INPUT_DIR $EXPECTED_DIR
                  $INDEX_CONFIG $SHARED_INPUT_DIR is_sorted_by_location same_line_count
                  same_contents_sorted
-                 $RUM_HOME $GENE_INFO $INDEX_DIR);
-our @EXPORT_OK = qw(no_diffs is_sorted_by_location);
+                 $RUM_HOME $GENE_INFO $INDEX_DIR $GENOME_FA);
+our @EXPORT_OK = qw(no_diffs is_sorted_by_location );
 our %EXPORT_TAGS = (
     all => [@EXPORT_OK]);
 

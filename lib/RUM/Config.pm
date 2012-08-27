@@ -179,10 +179,10 @@ sub blat_opts {
     my ($self) = @_;
     my %opts = (
         minIdentity => $self->blat_min_identity,
-        tileSize => $self->blat_tile_size,
-        stepSize => $self->blat_step_size,
-        repMatch => $self->blat_rep_match,
-        maxIntron => $self->blat_max_intron);
+        tileSize    => $self->blat_tile_size,
+        stepSize    => $self->blat_step_size,
+        repMatch    => $self->blat_rep_match,
+        maxIntron   => $self->blat_max_intron);
 
     return map("-$_=$opts{$_}", sort keys %opts);
 }

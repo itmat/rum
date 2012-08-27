@@ -22,13 +22,16 @@ sub next_non_header_line {
     # Skip over header lines
 
     my $line = <$fh>;
+    return if ! defined $line;
+    chomp $line;
     if ($line =~ /^psLayout/) {
         <$fh>;
         <$fh>;
         <$fh>;
         <$fh>;
+        $line = <$fh>;
+        chomp $line;
     }
-    $line = <$fh>;
     return $line;
 }
 
@@ -54,16 +57,21 @@ sub main {
     my $self = __PACKAGE__->new;
 
     $self->get_options(
+
+        # Input files
         'genome=s'              => \(my $genome),
         "reads-in=s"            => \(my $seqfile),
-        "blat-in=s"             => \(my $blatfile),
-        "mdust-in=s"            => \(my $mdustfile),
 
+        # Intermediate files. We write to these files if --debug is
+        # turned on, and we read from them if --no-blat is turned on.
+        "blat-out=s"            => \(my $blat_out),
+        "mdust-out=s"           => \(my $mdust_out),
+
+        # Output files
         'unique-out=s'          => \(my $outfile1),
         'non-unique-out=s'      => \(my $outfile2),
-        'blat-out=s'            => \(my $blat_out),
-        'mdust-out=s'           => \(my $mdust_out),
 
+        # Other parameters
         "max-pair-dist=i"       => \($self->{max_distance_between_paired_reads} = 500000),
         "max-insertions=i"      => \($self->{num_insertions_allowed} = 1),
         "match-length-cutoff=i" => \($self->{match_length_cutoff} = 0),
@@ -134,7 +142,6 @@ sub parse_output {
         if ($seq_count == $self->{first_seq_num}) {
 
             $line = next_non_header_line($blathits);
-            chomp $line;
             @a = split(/\t/,$line);
             $readlength = $a[10];
             if ($readlength < 80) {
@@ -180,7 +187,7 @@ sub parse_output {
                 last;
             }
         }
-        if ($paired_end eq "true") {
+        if ($self->{paired_end} eq "true") {
             $seqb_temp = <$seq_fh>;
             chomp($seqb_temp);
             $seqb_temp =~ s/[^ACGTNab]$//;
@@ -217,7 +224,7 @@ sub parse_output {
         if ($cutoff{$sn} > $a_x[10] - 2) {
             $cutoff{$sn} = $a_x[10] - 2;
         }
-        if ($paired_end eq "true") {
+        if ($self->{paired_end} eq "true") {
             $mdust_temp = <$mdust_fh>;
             chomp($mdust_temp);
             $mdust_temp =~ s/[^ACGTNab]$//;
@@ -381,7 +388,6 @@ sub parse_output {
                 }
             }
             $line = next_non_header_line($blathits);
-            chomp $line;
             @a = split(/\t/,$line);
             @a_x = split(/\t/,$line);
             $seqname = $a[9];
