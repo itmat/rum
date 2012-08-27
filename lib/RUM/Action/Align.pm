@@ -200,7 +200,7 @@ sub get_options {
         "postprocess"  => sub { $d->set_postprocess; $d->unset_all; },
         "chunk=s"      => \(my $chunk),
 
-        "no-clean" => sub { $d->set_no_clean },
+        "no-clean" =>  \(my $no_clean),
 
         # Options typically entered by a user to define a job.
         "index-dir|i=s" => \(my $rum_index),
@@ -290,6 +290,7 @@ sub get_options {
 
     $self->{chunk} = $chunk;
 
+    $set->('no_clean', $no_clean);
     $set->('alt_genes', $alt_genes);
     $set->('alt_quant_model', $alt_quant);
     $set->('bowtie_nu_limit', 100) unless !$limit_bowtie_nu;
@@ -759,7 +760,7 @@ sub _final_check {
 
     if ($ok) {
         $self->logsay("No errors. Very good!");
-        unless ($self->directives->no_clean) {
+        unless ($self->config->no_clean) {
             $self->logsay("Cleaning up.");
             RUM::Action::Clean->new(config => $self->config)->clean;
         }

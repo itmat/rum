@@ -22,6 +22,7 @@ sub new {
 sub chunk_workflow {
     my ($self, $chunk) = @_;
     my $config = $self->{config};
+
     if (my $w = $self->{chunk_workflows}[$chunk]) {
         return $w;
     }
@@ -91,6 +92,9 @@ sub chunk_workflow {
         if (my $x = $c->bowtie_nu_limit) {
             push @cmd, '--limit', $x;
         }
+        if ($c->no_clean) {
+            push @cmd, '--debug', '--bowtie-out', chunk_file('bowtie_genome_out');
+        }
         $m->step("Run Bowtie on genome", \@cmd);
     }
 
@@ -105,6 +109,9 @@ sub chunk_workflow {
             '--query', $reads_fa);
         if (my $x = $c->bowtie_nu_limit) {
             push @cmd, '--limit', $x;
+        }
+        if ($c->no_clean) {
+            push @cmd, '--debug', '--bowtie-out', chunk_file('bowtie_transcriptome_out');
         }
         $m->step('Run Bowtie on transcriptome', \@cmd);
     
@@ -172,6 +179,10 @@ sub chunk_workflow {
             push @blat_cmd, $k, $blat_opts{$k};
         }
     }
+    if ($c->no_clean) {
+        push @blat_cmd, '--debug', '--blat-out', chunk_file('blat_out');
+    }
+
     push @blat_cmd, '--', $c->blat_opts;
 
     $m->step("Run BLAT", \@blat_cmd);

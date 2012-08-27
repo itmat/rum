@@ -53,6 +53,7 @@ our %DEFAULTS = (
     bowtie_nu_limit       => undef,
     dna                   => 0,
     count_mismatches      => undef,
+    no_clean              => undef,
 
     # These are derived from the user-provided properties, and saved
     # to the .rum/job_settings file
