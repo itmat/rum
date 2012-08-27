@@ -370,6 +370,8 @@ sub _run_step {
     
     # Format the comment
     $comment =~ s/\n//g;
+
+    $log->info("START: $step");
     
     for my $cmd (@cmds) {
         $log->debug("Running @$cmd ");
@@ -378,13 +380,15 @@ sub _run_step {
         my $stdout_mode;
         my @from = @ { $cmd };
         my @to;
-        while (local $_ = shift @from) {
-            if (/\s*(>>|>)\s*/){
+      ARG: while (@from) {
+            my $arg = shift @from;
+            next ARG unless defined($arg);
+            if ($arg =~ /\s*(>>|>)\s*/){
                 $stdout = shift(@from);
                 $stdout_mode = $1;
             }
             else {
-                push @to, $_;
+                push @to, $arg;
             }
         }
 
@@ -452,15 +456,16 @@ sub _run_step {
 
             # This will redirect my (the child's) output to the temp
             # file obtained above.
+
             open STDERR, ">", $err_fname;
-            
+            $log->info("EXEC: @to");
             exec(@to) or die(
                 "Couldn't exec '@to': $!\n" .
                 "This probably means that the program $to[0] doesn't exist " .
                 "or isn't executable");
         }
     }
-
+    $log->info("FINISH: $step");
     for ($new->and_not($old)->flags) {
 
         if (my $temp = $self->_get_temp($_)) {

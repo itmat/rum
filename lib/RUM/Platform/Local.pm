@@ -449,7 +449,7 @@ sub process {
         my $chunk = $chunk || 1;
         $log->info("Running chunk $chunk");
         my $w = $self->chunk_workflow($chunk);
-        $w->execute($self->_step_printer($w), ! $self->directives->no_clean);
+        $w->execute($self->_step_printer($w), ! $config->no_clean);
         RUM::JobReport->new($self->config)->print_milestone("Chunk $chunk finished");
     }
     elsif ($config->num_chunks) {
@@ -480,7 +480,7 @@ sub _process_in_chunks {
     for my $chunk ($self->chunk_nums) {
         my @cmd = ($0, "align", "--child", "--output", $c->output_dir,
                    "--chunk", $chunk);
-        push @cmd, "--no-clean" if $self->directives->no_clean;
+        push @cmd, "--no-clean" if $c->no_clean;
         my $workflow = $self->chunk_workflow($chunk);
 
         my $run = sub {
@@ -572,7 +572,7 @@ sub postprocess {
     $self->job_report->print_start_postproc;
 
     my $w = $self->postprocessing_workflow;
-    $w->execute($self->_step_printer($w), ! $self->directives->no_clean);
+    $w->execute($self->_step_printer($w), ! $c->no_clean);
 
     $self->job_report->print_finish_postproc;
 }

@@ -1,10 +1,14 @@
 package RUM::Script::MakeGuAndGnu;
 
 no warnings;
+use autodie;
 
 use RUM::Usage;
 use RUM::Logging;
+use RUM::Bowtie;
 use Getopt::Long;
+
+use base 'RUM::Script::Base';
 
 our $log = RUM::Logging->get_logger();
 
@@ -12,19 +16,36 @@ $|=1;
 
 sub main {
 
-    GetOptions(
-        "unique=s" => \(my $outfile1),
-        "non-unique=s" => \(my $outfile2),
-        "type=s"       => \(my $type),
-        "paired"     => \(my $paired),
-        "single"     => \(my $single),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+    use strict;
+    my $self = __PACKAGE__->new;
 
-    @ARGV == 1 or RUM::Usage->bad(
-        "Please specify an input file");
+    $self->get_options(
+
+        # Input files
+        'index=s'         => \(my $index),
+        'query=s'         => \(my $query),
+
+        # Intermediate files
+        'bowtie-out=s'    => \(my $bowtie_out),
+
+        # Output files
+        "unique=s"        => \(my $outfile1),
+        "non-unique=s"    => \(my $outfile2),
+
+        # Other params
+        "type=s"          => \(my $type),
+        "paired"          => \($self->{paired}),
+        "single"          => \($self->{single}),
+        'debug'           => \(my $debug),
+        "max-pair-dist=s" => \($self->{max_distance_between_paired_reads} = 500000),
+        'limit=s'         => \(my $limit),
+    );
+
+    $index or RUM::Usage->bad(
+        "Please specify an index with --index");
+
+    $query or RUM::Usage->bad(
+        "Please specify a query with --query");
     
     $outfile1 or RUM::Usage->bad(
         "Please specify output file for unique mappers with --unique");
@@ -32,42 +53,50 @@ sub main {
     $outfile2 or RUM::Usage->bad(
         "Please specify output file for non-unique mappers with --non-unique");
 
-    ($single xor $paired) or RUM::Usage->bad(
+    ($self->{single} xor $self->{paired}) or RUM::Usage->bad(
         "Please specify exactly one type with either --single or --paired");
 
-    my ($infile) = @ARGV;
-    pod2usage("Please specify an input file") unless $infile;
+    my %bowtie_opts = (
+        limit => $limit,
+        index => $index,
+        query => $query);
 
-    $paired_end = $paired ? "true" : "false";
+    if ($debug) {
+        if ($bowtie_out) {
+            $bowtie_opts{tee} = $bowtie_out;
+        }
+        else {
+            RUM::Usage->bad("If you give the --debug option, please tell me ".
+                            "where to put the bowtie output file, with ".
+                            "--bowtie-out");
+        }
+    }
 
-    open(INFILE, $infile) or die("Can't open $infile for reading: $!");
-    $t = `tail -1 $infile`;
-    $t =~ /seq.(\d+)/;
-    $num_seqs = $1;
-    $line = <INFILE>;
-    chomp($line);
-    open(OUTFILE1, ">$outfile1") 
-        or die("Can't open $outfile1 for writing: $!");
-    open(OUTFILE2, ">$outfile2") 
-        or die("Can't open $outfile2 for writing: $!");
+
+    open my $gu,    '>', $outfile1;
+    open my $gnu,   '>', $outfile2;
     
-    for($seqnum=1; $seqnum<=$num_seqs; $seqnum++) {
-        $numa=0;
-        $numb=0;
+    my $bowtie = RUM::Bowtie::run_bowtie(%bowtie_opts);
+    $self->parse_output($bowtie, $gu, $gnu);
+}
+
+sub parse_output {
+
+    my ($self, $bowtie, $gu, $gnu) = @_;
+
+    $log->info("Parsing bowtie output (genome)");
+    
+  READ: while (my ($forward, $reverse) = RUM::Bowtie::read_bowtie_mapping_set($bowtie)) {
+        
+        my @seqs_a = @{ $forward };
+        my @seqs_b = @{ $reverse };
+
+        my $numa = @seqs_a;
+        my $numb = @seqs_b;
+
         undef %a_reads;
         undef %b_reads;
-        while($line =~ /seq.($seqnum)a/) {
-            $seqs_a[$numa] = $line;
-            $numa++;
-            $line = <INFILE>;
-            chomp($line);
-        }
-        while($line =~ /seq.($seqnum)b/) {
-            $seqs_b[$numb] = $line;
-            $numb++;
-            $line = <INFILE>;
-            chomp($line);
-        }
+
         if($numa > 0 || $numb > 0) {
             $num_different_a = 0;
             for($i=0; $i<$numa; $i++) {
@@ -138,7 +167,7 @@ sub main {
                 $yy = $xx;
                 $xx =~ s/\t/-/;  # this puts the dash between the start and end
                 $key =~ s/$yy/$xx/;
-                print OUTFILE1 "$key\t$strand\n";
+                print $gu "$key\t$strand\n";
             }
         }
         if($num_different_a == 0 && $num_different_b == 1) { # unique reverse match, no forward
@@ -158,10 +187,10 @@ sub main {
                 $yy = $xx;
                 $xx =~ s/\t/-/;  # this puts the dash between the start and end
                 $key =~ s/$yy/$xx/;
-                print OUTFILE1 "$key\t$strand\n";
+                print $gu "$key\t$strand\n";
             }
         }
-        if($paired_end eq "false") {
+        if (!$self->{paired}) {
             if($num_different_a > 1) { 
                 foreach $key (keys %a_reads) {
                     $key =~ /^[^\t]+\t(.)\t/;
@@ -173,7 +202,7 @@ sub main {
                     $yy = $xx;
                     $xx =~ s/\t/-/;  # this puts the dash between the start and end
                     $key =~ s/$yy/$xx/;
-                    print OUTFILE2 "$key\t$strand\n";
+                    print $gnu "$key\t$strand\n";
                 }
             }
         }
@@ -181,8 +210,10 @@ sub main {
             # forward and reverse matches, must check for consistency, but not if more than 1,000,000 possibilities,
             # in that case skip...
             undef %consistent_mappers;
-            foreach $akey (keys %a_reads) {
+            for my $a_key_in (keys %a_reads) {
+                
                 foreach $bkey (keys %b_reads) {
+                    my $akey = $a_key_in;
                     @a = split(/\t/,$akey);
                     $aid = $a[0];
                     $astrand = $a[1];
@@ -197,7 +228,7 @@ sub main {
                     $bend = $a[4];
                     $bseq = $a[5];
                     if ($astrand eq "+" && $bstrand eq "-") {
-                        if ($achr eq $bchr && $astart <= $bstart && $bstart - $astart < $max_distance_between_paired_reads) {
+                        if ($achr eq $bchr && $astart <= $bstart && $bstart - $astart < $self->{max_distance_between_paired_reads}) {
                             if ($bstart > $aend + 1) {
                                 $akey =~ s/\t\+//;
                                 $akey =~ s/\t-//;
@@ -231,7 +262,7 @@ sub main {
                         }
                     }
                     if ($astrand eq "-" && $bstrand eq "+") {
-                        if ($achr eq $bchr && $bstart <= $astart && $astart - $bstart < $max_distance_between_paired_reads) {
+                        if ($achr eq $bchr && $bstart <= $astart && $astart - $bstart < $self->{max_distance_between_paired_reads}) {
                             if ($astart > $bend + 1) {
                                 $akey =~ s/\t\+//;
                                 $akey =~ s/\t-//;
@@ -273,19 +304,18 @@ sub main {
                 $str = $key;
             }
             if ($count == 1) {
-                print OUTFILE1 $str;
+                print $gu $str;
             }
             if ($count > 1) {
                 # add something here so that if all consistent mappers agree on some
                 # exons, then those exons will still get reported, each on its own line
                 foreach $key (keys %consistent_mappers) {
-                    print OUTFILE2 $key;
+                    print $gnu $key;
                 }
             }
         }
     }
-    close(OUTFILE1);
-    close(OUTFILE2);
+
 }
 
 1;

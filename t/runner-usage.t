@@ -31,7 +31,7 @@ BEGIN {
 }
 
 if (-e $index) {
-    plan tests => 84;
+    plan tests => 86;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -196,7 +196,7 @@ rum_fails_ok(
     ok(!$c->junctions, "no junctions");
     ok(!$c->strand_specific, "no strand-specific");
     is($c->ram, undef, "ram");
-    is($c->bowtie_nu_limit, undef, "Bowtie nu limit");
+    is($c->bowtie_nu_limit, 100, "Bowtie nu limit");
     is($c->nu_limit, undef, "nu limit");
 }
 
@@ -406,12 +406,15 @@ my @standard_args = ("--index", $index,
                      '--chunks', 1,
                      $forward_64_fq, $reverse_64_fq);
 
-for (qw(genome transcriptome)) {
-    chunk_cmd_like([@standard_args], "Run bowtie on $_", qr/bowtie.*-a/,
-                   "bowtie on $_ with -a");
-    chunk_cmd_like([@standard_args, "--limit-bowtie-nu"],
-                   "Run bowtie on $_", qr/bowtie.*-k 100/,
-                   "bowtie on $_ with -k 100");
+for my $index (qw(genome transcriptome)) {
+    chunk_cmd_like([@standard_args], "Run Bowtie on $index", qr/--limit 100/,
+                   "bowtie on $index with limit option unspecified");
+    chunk_cmd_unlike([@standard_args, "--no-limit-bowtie-nu"],
+                   "Run Bowtie on $index", qr/--limit/,
+                   "bowtie on $index with no --limit");
+    chunk_cmd_like([@standard_args, '--limit-bowtie-nu'],
+                   "Run Bowtie on $index", qr/--limit 100/,
+                   "bowtie on $index with limit specified");
 }
 
 #chunk_cmd_like([@standard_args], "Move NU file", qr/mv.*RUM_NU.*temp.+RUM_NU/i,
@@ -426,7 +429,7 @@ rum_fails_ok(["align", @standard_args, "--limit-nu", "asdf"],
                "Bad --limit-nu");    
 
 chunk_cmd_like([@standard_args[0..$#standard_args - 1], "--max-insertions-per-read", 2],
-               "Parse blat output",
+               "Run BLAT",
                qr/--max-insertions 2/i, 
                "--max-insertions-per-read");
 
@@ -445,7 +448,7 @@ chunk_cmd_like([@standard_args, "--strand-specific"],
 
 # Check the blat options
 chunk_cmd_like([@standard_args],
-               "Run blat on unmapped reads",
+               "Run BLAT",
                qr/-maxIntron=500000 -minIdentity=93 -repMatch=256 -stepSize=6 -tileSize=12/,
                "Blat default options");
 
@@ -456,7 +459,7 @@ chunk_cmd_like([@standard_args,
                 "--stepSize",    4,
                 "--tileSize",    5,
             ],
-               "Run blat on unmapped reads",
+               "Run BLAT",
                qr/-maxIntron=1 -minIdentity=2 -repMatch=3 -stepSize=4 -tileSize=5/,
                "Blat specified options");
 rum_fails_ok(["align", @standard_args, "--minIdentity", 200],
@@ -489,7 +492,7 @@ rum_fails_ok(["align", @standard_args, "--alt-quant", "foobar"],
              "Bad --alt-quant");
 
 chunk_cmd_unlike([@standard_args, "--alt-quant", $alt_quant],
-                 "Parse transcriptome Bowtie output",
+                 "Run Bowtie on transcriptome",
                   qr/$alt_quant/i,
                   "--alt-quant does not get passed to make_tu_and_tnu");
 
@@ -528,12 +531,12 @@ chunk_cmd_like([@standard_args, "--ram", 8],
                "--ram is passed sort_rum_by_location.pl");
 
 chunk_cmd_unlike([@standard_args],
-                 "Parse blat output",
+                 "Run BLAT",
                  qr/--match-length-cutoff/,
                  "--match-length-cutoff is left out of parse blat out");
 
 chunk_cmd_like([@standard_args, "--min-length", 40],
-                 "Parse blat output",
+                 "Run BLAT",
                  qr/--match-length-cutoff 40/,
                  "--match-length-cutoff is passed to parse blat out");
 

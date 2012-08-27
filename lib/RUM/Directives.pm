@@ -44,7 +44,6 @@ our @MODIFIERS = qw(
     process
     postprocess
     all
-    no_clean
 );
 
 =head1 CONSTRUCTORS

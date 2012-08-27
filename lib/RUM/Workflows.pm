@@ -22,6 +22,7 @@ sub new {
 sub chunk_workflow {
     my ($self, $chunk) = @_;
     my $config = $self->{config};
+
     if (my $w = $self->{chunk_workflows}[$chunk]) {
         return $w;
     }
@@ -34,8 +35,6 @@ sub chunk_workflow {
 
     local *chunk_file = sub { $c->chunk_file($_[0], $chunk) };
 
-    my $genome_bowtie_out = chunk_file("X");
-    my $trans_bowtie_out = chunk_file("Y");
     my $bowtie_unmapped = chunk_file("R");
     my $blat_output = chunk_file("R.blat");
     my $mdust_output = chunk_file("R.mdust");
@@ -69,42 +68,7 @@ sub chunk_workflow {
     my $bowtie_bin = $deps->bowtie;
     my $blat_bin   = $deps->blat;
     my $mdust_bin  = $deps->mdust;
-    my $bowtie_cutoff_opt = $c->bowtie_cutoff_opt;
 
-    # From the start state we can run bowtie on either the genome or
-    # the transcriptome
-    unless ($c->blat_only) {
-        $m->step(
-            "Run bowtie on genome",
-            [$bowtie_bin,
-             $c->bowtie_cutoff_opt,
-             "--best", 
-             "--strata",
-             "-f", $c->genome_bowtie,
-             $reads_fa,
-             "-v", 3,
-             "--suppress", "6,7,8",
-             "-p", 1,
-             "--quiet",
-             "> ", post($genome_bowtie_out)]);
-    }
-
-    unless ($c->dna || $c->blat_only || $c->genome_only) {
-        $m->step(
-            "Run bowtie on transcriptome",
-            [$bowtie_bin,
-             $c->bowtie_cutoff_opt,
-             "--best", 
-             "--strata",
-             "-f", $c->trans_bowtie,
-             $reads_fa,
-             "-v", 3,
-             "--suppress", "6,7,8",
-             "-p", 1,
-             "--quiet",
-             "> ", post($trans_bowtie_out)]);
-    }
-    
     # IF we're running in DNA mode, we don't run bowtie against the
     # transcriptome, so just send the output from make_GU_and_GNU.pl
     # straight to BowtieUnique and BowtieNU.
@@ -116,98 +80,112 @@ sub chunk_workflow {
     # If we have the genome bowtie output, we can make the unique and
     # non-unique files for it.
     unless ($c->blat_only) {
-        $m->step(
-            "Parse genome Bowtie output",
-            ["perl", $c->script("make_GU_and_GNU.pl"), 
-             "--unique", post($gu),
-             "--non-unique", post($gnu),
-             $c->paired_end_opt(),
-             pre($genome_bowtie_out)]);
+
+        my @cmd = (
+            'perl', $c->script("make_GU_and_GNU.pl"), 
+            "--unique", post($gu),
+            "--non-unique", post($gnu),
+            $c->paired_end_opt(),
+            '--index', $c->genome_bowtie,
+            '--query', $reads_fa);
+
+        if (my $x = $c->bowtie_nu_limit) {
+            push @cmd, '--limit', $x;
+        }
+        if ($c->no_clean) {
+            push @cmd, '--debug', '--bowtie-out', chunk_file('bowtie_genome_out');
+        }
+        $m->step("Run Bowtie on genome", \@cmd);
     }
-    
-    # If we have the transcriptome bowtie output, we can make the
-    # unique and non-unique files for it.
+
     unless ($c->dna || $c->blat_only || $c->genome_only) {
-        $m->step(
-            "Parse transcriptome Bowtie output",
-            ["perl", $c->script("make_TU_and_TNU.pl"), 
-             "--unique",        post($tu),
-             "--non-unique",    post($tnu),
-             "--bowtie-output", pre($trans_bowtie_out),
-             "--genes",         $c->annotations,
-             $c->paired_end_opt]);
+        my @cmd = (
+            'perl', $c->script('make_TU_and_TNU.pl'),
+            '--unique',        post($tu),
+            '--non-unique',    post($tnu),
+            '--genes',         $c->annotations,
+            $c->paired_end_opt,
+            '--index', $c->trans_bowtie,
+            '--query', $reads_fa);
+        if (my $x = $c->bowtie_nu_limit) {
+            push @cmd, '--limit', $x;
+        }
+        if ($c->no_clean) {
+            push @cmd, '--debug', '--bowtie-out', chunk_file('bowtie_transcriptome_out');
+        }
+        $m->step('Run Bowtie on transcriptome', \@cmd);
     
         # If we have the non-unique files for both the genome and the
         # transcriptome, we can merge them.
         $m->step(
-            "Merge non-unique mappers together",
-            ["perl", $c->script("merge_GNU_and_TNU_and_CNU.pl"),
-             "--gnu", pre($gnu),
-             "--tnu", pre($tnu),
-             "--cnu", pre($cnu),
-             "--out", post($bowtie_nu)]);
+            'Merge non-unique mappers together',
+            ['perl', $c->script('merge_GNU_and_TNU_and_CNU.pl'),
+             '--gnu', pre($gnu),
+             '--tnu', pre($tnu),
+             '--cnu', pre($cnu),
+             '--out', post($bowtie_nu)]);
         
         # If we have the unique files for both the genome and the
         # transcriptome, we can merge them.
         $m->step(
-            "Merge unique mappers together",
+            'Merge unique mappers together',
             [
-                "perl", $c->script("merge_GU_and_TU.pl"),
-                "--gu", pre($gu),
-                "--tu", pre($tu),
-                "--gnu", pre($gnu),
-                "--tnu", pre($tnu),
-                "--bowtie-unique", post($bowtie_unique),
-                "--cnu",  post($cnu),
+                'perl', $c->script('merge_GU_and_TU.pl'),
+                '--gu',  pre($gu),
+                '--tu',  pre($tu),
+                '--gnu', pre($gnu),
+                '--tnu', pre($tnu),
+                '--bowtie-unique', post($bowtie_unique),
+                '--cnu',  post($cnu),
                 $c->paired_end_opt,
-                "--read-length", $c->read_length,
+                '--read-length', $c->read_length,
                 $c->min_overlap_opt]);
     }
 
     if ($c->blat_only) {
         $m->step(
-            "Make empty bowtie output",
-            ["touch", post($bowtie_unique)],
-            ["touch", post($bowtie_nu)]);
+            'Make empty bowtie output',
+            ['touch', post($bowtie_unique)],
+            ['touch', post($bowtie_nu)]);
     }
     
     # If we have the merged bowtie unique mappers and the merged
     # bowtie non-unique mappers, we can create the unmapped file.
     $m->step(
-        "Make unmapped reads file for blat",
-        ["perl", $c->script("make_unmapped_file.pl"),
-         "--reads", $reads_fa,
-         "--unique", pre($bowtie_unique), 
-         "--non-unique", pre($bowtie_nu),
-         "-o", post($bowtie_unmapped),
+        'Make unmapped reads file for blat',
+        ['perl', $c->script('make_unmapped_file.pl'),
+         '--reads', $reads_fa,
+         '--unique', pre($bowtie_unique), 
+         '--non-unique', pre($bowtie_nu),
+         '-o', post($bowtie_unmapped),
          $c->paired_end_opt]);
     
-    $m->step(
-        "Run blat on unmapped reads",
-        [$blat_bin,
-         $c->genome_fa,
-         pre($bowtie_unmapped),
-         post($blat_output),
-         $c->blat_opts]);
+
+    # Build BLAT command
+    my @blat_cmd = (
+        "perl", $c->script("parse_blat_out.pl"),
+        "--reads-in",    pre($bowtie_unmapped),
+        "--genome",      $c->genome_fa,
+        "--unique-out", post($blat_unique),
+        "--non-unique-out", post($blat_nu));
     
-    $m->step(
-         "Run mdust on unmapped reads",
-         [$mdust_bin,
-          pre($bowtie_unmapped),
-          " > ",
-          post($mdust_output)]);
-    
-    $m->step(
-        "Parse blat output",
-        ["perl", $c->script("parse_blat_out.pl"),
-         "--reads-in",    pre($bowtie_unmapped),
-         "--blat-in",     pre($blat_output), 
-         "--mdust-in",    pre($mdust_output),
-         "--unique-out", post($blat_unique),
-         "--non-unique-out", post($blat_nu),
-         $c->max_insertions_opt,
-         $c->match_length_cutoff_opt,
-         $c->dna_opt]);
+    my %blat_opts = (
+         '--match-length-cutoff', $c->min_length,
+         '--max-insertions',      $c->max_insertions,
+    );
+
+    for my $k (keys %blat_opts) {
+        if (defined $blat_opts{$k}) {
+            push @blat_cmd, $k, $blat_opts{$k};
+        }
+    }
+    if ($c->no_clean) {
+        push @blat_cmd, '--debug', '--blat-out', chunk_file('blat_out');
+    }
+
+    push @blat_cmd, '--', $c->blat_opts;
+
+    $m->step("Run BLAT", \@blat_cmd);
     
     $m->step(
         "Merge bowtie and blat results",
@@ -241,7 +219,6 @@ sub chunk_workflow {
          "-o", post($rum_nu_id_sorted),
          pre($cleaned_nu)]);
     
-
     $m->step(
         "Remove duplicates from NU",
         
