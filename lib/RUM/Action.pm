@@ -6,7 +6,10 @@ use warnings;
 use Carp;
 use Getopt::Long;
 use RUM::Usage;
+use RUM::Logging;
 use base 'RUM::Base';
+
+my $log = RUM::Logging->get_logger;
 
 sub new {
     my ($class, %params) = @_;
@@ -56,6 +59,22 @@ sub usage_errors { shift->{usage_errors} }
 sub check_usage {
     shift->usage_errors->check;
 }
+
+
+sub get_lock {
+    my ($self) = @_;
+    my $c = $self->config;
+    return if $c->parent || $c->child;
+
+    my $dir = $c->output_dir;
+    my $lock = $c->lock_file;
+    $log->info("Acquiring lock");
+    RUM::Lock->acquire($lock) or die
+          "It seems like rum_runner may already be running in $dir. You can try running \"$0 kill\" to stop it. If you #are sure there's nothing running in $dir, remove $lock and try again.\n";
+}
+
+
+
 
 1;
 

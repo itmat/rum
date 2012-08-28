@@ -85,7 +85,7 @@ sub archive_log_dir {
 # If we're aligning, try to find the output directory specified on the
 # command line and initialize the logging system so that it puts
 # output files there.
-if (@ARGV && $ARGV[0] eq 'align') {
+if (@ARGV && $ARGV[0] =~ /^(align|start)$/) {
 
     my $is_top_level = ! first { / ^ (--parent | --child) $ /mx } @ARGV;
 
@@ -117,6 +117,7 @@ rum_runner - RNA-Seq Unified Mapper
 =head1 SYNOPSIS
 
   rum_runner align   -o dir [OPTIONS] [FORWARD [REVERSE]]
+  rum_runner start   -o dir [OPTIONS]
   rum_runner clean   -o dir [--very]
   rum_runner kill    -o dir
   rum_runner status  -o dir

@@ -184,3 +184,23 @@ sub check_gamma {
 }
 
 
+sub check_deps {
+
+    local $_;
+    my $deps = RUM::BinDeps->new;
+    my @deps = ($deps->bowtie, $deps->blat, $deps->mdust);
+    my @missing;
+    for (@deps) {
+        -x or push @missing, $_;
+    }
+    my $dependency_doesnt = @missing == 1 ? "dependency doesn't" : "dependencies don't";
+    my $it = @missing == 1 ? "it" : "them";
+
+    if (@missing) {
+        die(
+            "The following binary $dependency_doesnt exist:\n\n" .
+            join("", map(" * $_\n", @missing)) .
+            "\n" . 
+            "Please install $it by running \"perl Makefile.PL\"\n");
+    }
+}

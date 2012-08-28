@@ -68,6 +68,19 @@ sub DESTROY {
     release();
 }
 
+sub register_sigint_handler {
+    $SIG{INT} = $SIG{TERM} = sub {
+        my $msg = "Caught SIGTERM, removing lock.";
+        warn $msg;
+        RUM::Logging->get_logger->info($msg);
+        RUM::Lock->release;
+        exit 1;
+    };
+
+}
+
 1;
+
+
 
 =back
