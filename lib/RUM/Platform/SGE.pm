@@ -52,12 +52,12 @@ sub start_parent {
     my ($self) = @_;
 
     $log->info("Submitting a job to monitor child tasks, then exiting.");
-    my $d = $self->directives;
-    my $dir = $self->config->output_dir;
+    my $c = $self->config;
+    my $dir = $c->output_dir;
     my $cmd =  "-b y $0 align --parent --output $dir --lock $RUM::Lock::FILE";
-    $cmd .= " --preprocess"  if $d->preprocess;
-    $cmd .= " --process"     if $d->process;
-    $cmd .= " --postprocess" if $d->postprocess;
+    $cmd .= " --preprocess"  if $c->preprocess;
+    $cmd .= " --process"     if $c->process;
+    $cmd .= " --postprocess" if $c->postprocess;
     $cmd .= " --no-clean"    if $self->config->no_clean;
     my $jid = $self->_qsub($cmd);
     push @{ $self->_parent_jids }, $jid;

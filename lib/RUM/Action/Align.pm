@@ -71,13 +71,13 @@ sub run {
             "least 6 Gigs per node");
     }
 
-    $self->config->save unless $d->child;
+    $self->config->save unless $c->child;
     my $report = RUM::JobReport->new($c);
-    if ( ! ($d->parent || $d->child)) {
+    if ( ! ($c->parent || $c->child)) {
         $report->print_header;
     }
 
-    if ( !$local && ! ( $d->parent || $d->child ) ) {
+    if ( !$local && ! ( $c->parent || $c->child ) ) {
         $self->logsay("Submitting tasks and exiting");
         $platform->start_parent;
         return;
@@ -88,7 +88,7 @@ sub run {
         "files in the output directory. If all goes well they should be empty.",
         "You can also run \"$0 status -o $dir\" to check the status of the job.");
 
-    if ($d->preprocess || $d->all) {
+    if ($self->config->preprocess || $self->config->all) {
         $platform->preprocess;
     }
 
@@ -100,7 +100,7 @@ sub run {
     # If user said --process or at least didn't say --preprocess or
     # --postprocess, then check if we still need to process, and if so
     # execute the processing phase.
-    if ($d->process || $d->all) {
+    if ($c->process || $c->all) {
         if ($self->still_processing) {
             $platform->process($chunk);
         }
@@ -108,7 +108,7 @@ sub run {
 
     # If user said --postprocess or didn't say --preprocess or
     # --process, then we need to do postprocessing.
-    if ($d->postprocess || $d->all) {
+    if ($c->postprocess || $c->all) {
         
         # If we're called with "--chunk X --postprocess", that means
         # we're supposed to process chunk X and do postprocessing only
@@ -181,6 +181,8 @@ sub _show_match_length {
     }
 }
 
+
+
 sub get_options {
     my ($self) = @_;
 
@@ -190,60 +192,9 @@ sub get_options {
     my $d = $self->{directives} = RUM::Directives->new;
     my $usage = RUM::Usage->new('action' => 'align');
 
-    $self->SUPER::get_options(
+    my @changed;
 
-        # Advanced (user shouldn't run these)
-        "child"        => sub { $d->set_child },
-        "parent"       => sub { $d->set_parent },
-        "lock=s"         => \(my $lock),
-
-        # Options controlling which portions of the pipeline to run.
-        "preprocess"   => sub { $d->set_preprocess;  $d->unset_all; },
-        "process"      => sub { $d->set_process;     $d->unset_all; },
-        "postprocess"  => sub { $d->set_postprocess; $d->unset_all; },
-        "chunk=s"      => \(my $chunk),
-
-        "no-clean" =>  \(my $no_clean),
-
-        # Options typically entered by a user to define a job.
-        "index-dir|i=s" => \(my $rum_index),
-        "name=s"        => \(my $name),
-        "chunks=s"      => \(my $num_chunks),
-        "qsub"          => \(my $qsub),
-        "platform=s"    => \(my $platform),
-
-        # Advanced options
-        "alt-genes=s"        => \(my $alt_genes),
-        "alt-quants=s"       => \(my $alt_quant),
-        "blat-only"          => \(my $blat_only),
-        "count-mismatches"   => \(my $count_mismatches),
-        "dna"                => \(my $dna),
-        "genome-only"        => \(my $genome_only),
-        "junctions"          => \(my $junctions),
-        "limit-bowtie-nu!"   => \(my $limit_bowtie_nu = 1),
-        "limit-nu=s"         => \(my $nu_limit),
-        "max-insertions-per-read=s" => \(my $max_insertions),
-        "min-identity"              => \(my $min_identity),
-        "min-length=s"              => \(my $min_length),
-        "preserve-names"            => \(my $preserve_names),
-        "quals-file|qual-file=s"    => \(my $quals_file),
-        "quantify"                  => \(my $quantify),
-        "ram=s"    => \(my $ram),
-        "read-lengths=s" => \(my $read_lengths),
-        "strand-specific" => \(my $strand_specific),
-        "variable-length-reads" => \(my $variable_length_reads),
-
-        # Options for blat
-        "minIdentity|blat-min-identity=s" => \(my $blat_min_identity),
-        "tileSize|blat-tile-size=s"       => \(my $blat_tile_size),
-        "stepSize|blat-step-size=s"       => \(my $blat_step_size),
-        "repMatch|blat-rep-match=s"       => \(my $blat_rep_match),
-        "maxIntron|blat-max-intron=s"     => \(my $blat_max_intron),
-
-        "force|f"   => \(my $force),
-        "quiet|q"   => sub { $log->less_logging(1); $quiet = 1; },
-        "verbose|v" => sub { $log->more_logging(1) }
-    );
+    my $config = RUM::Config->from_command_line;
 
     my @reads;
 
@@ -266,9 +217,9 @@ sub get_options {
     # the 'processing' phase, so unset preprocess.
     if ($chunk) {
         $usage->bad("Can't use --preprocess with --chunk")
-              if $d->preprocess;
-        $d->unset_all;
-        $d->set_process;
+              if $self->config->preprocess;
+        $c->unset_all;
+        $c->set_process;
     }
 
     my @changed_settings;
@@ -293,42 +244,14 @@ sub get_options {
 
     $self->{chunk} = $chunk;
 
-    $set->('no_clean', $no_clean);
-
-    $set->('alt_genes', $alt_genes);
-    $set->('alt_quant_model', $alt_quant);
-    $set->('bowtie_nu_limit', 100) unless !$limit_bowtie_nu;
-    $set->('blat_min_identity', $blat_min_identity);
-    $set->('blat_tile_size', $blat_tile_size);
-    $set->('blat_step_size', $blat_step_size);
-    $set->('blat_rep_match', $blat_rep_match);
-    $set->('blat_max_intron', $blat_max_intron);
-    $set->('blat_only', $blat_only);
-    $set->('count_mismatches', $count_mismatches);
-    $set->('dna', $dna);
-    $set->('genome_only', $genome_only);
-    $set->('junctions', $junctions);
-    $set->('max_insertions', $max_insertions),
-    $set->('min_identity', $min_identity);
-    $set->('min_length', $min_length);
-    $set->('name', $name);
-    $set->('nu_limit', $nu_limit);
-    $set->('num_chunks',  $num_chunks);
-    $set->('platform', $platform);
-    $set->('preserve_names', $preserve_names);
-    $set->('quantify', $quantify);
-    $set->('ram', $ram);
-    $set->('rum_index', $rum_index);
-    $set->('strand_specific', $strand_specific);
-    $set->('user_quals', $quals_file);
-    $set->('variable_length_reads', $variable_length_reads);
+    #$set->('no_clean', $no_clean);
 
     my @old_reads = @{ $c->reads || [] };
     if (@reads && "@reads" ne "@old_reads") {
         $set->('reads', [@reads]);
     }
 
-    if (@changed_settings && !$force && !$d->child) {
+    if (@changed_settings && !$force && !$c->child) {
         my $msg = $self->changed_settings_msg($c->settings_filename);
         $msg .= "You tried to make the following changes:\n\n";
         for my $change (@changed_settings) {
@@ -500,7 +423,7 @@ RUM Version $RUM::Pipeline::VERSION
 
 $LOGO
 EOF
-    $self->say($msg);
+#    $self->say($msg);
 
 }
 

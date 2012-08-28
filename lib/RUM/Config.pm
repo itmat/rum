@@ -18,6 +18,11 @@ FindBin->again;
 
 our $FILENAME = ".rum/job_settings";
 
+my @TRANSIENT_PROPERTIES = qw(parent child process preprocess postprocess no_clean
+                              quiet verbose);
+
+my $DEFAULT = RUM::Config->new;
+
 our %DEFAULTS = (
 
     # These properties are actually set by the user
@@ -33,35 +38,35 @@ our %DEFAULTS = (
     blat_max_intron       => 500000,
     name                  => undef,
     platform              => "Local",
-    output_dir            => ".",
-    rum_index             => undef,
+    output_dir            => undef,
+    index_dir             => undef,
     reads                 => undef,
     user_quals            => undef,
     alt_genes             => undef,
     alt_quant_model       => undef,
     alt_quant             => undef,
-    genome_only           => 0,
-    blat_only             => 0,
-    quantify              => 0,
-    junctions             => 0,
-    preserve_names        => 0,
-    variable_length_reads => 0,
+    genome_only           => undef,
+    blat_only             => undef,
+    quantify              => undef,
+    junctions             => undef,
+    preserve_names        => undef,
+    variable_length_reads => undef,
     min_length            => undef,
-    max_insertions        => 1,
+    max_insertions        => undef,
     limit_nu_cutoff       => undef,
     nu_limit              => undef,
-    bowtie_nu_limit       => undef,
-    dna                   => 0,
+    bowtie_nu_limit       => 100,
+    dna                   => undef,
     count_mismatches      => undef,
     no_clean              => undef,
 
     # These are derived from the user-provided properties, and saved
     # to the .rum/job_settings file
 
-    ram_ok                => 0,
+    ram_ok                => undef,
     input_needs_splitting => undef,
     input_is_preformatted => undef,
-    paired_end            => 0,
+    paired_end            => undef,
     read_length           => undef,
 
     # Loaded from the rum config file
@@ -72,8 +77,97 @@ our %DEFAULTS = (
     genome_size           => undef,
 );
 
+my %TRANSIENT = (
+    no_clean => 1,
+    quiet    => 1,
+    verbose  => 1,
+    action   => undef,
+    
+);
+
+sub should_preprocess {
+    my $self = shift;
+    return $self->preprocess || (!$self->process && !$self->postprocess);
+}
+
+sub should_process {
+    my $self = shift;
+    return $self->process || (!$self->preprocess && !$self->postprocess);
+}
+
+
+sub should_process {
+    my $self = shift;
+    return $self->postprocess || (!$self->preprocess && !$self->process);
+}
+
+sub from_command_line {
+
+    my $self = __PACKAGE__->new;
+
+    my $handle_option = sub {
+        my ($name, $value) = @_;
+        push @changed, $name;
+        $name =~ s/-/_/g;
+        $config->set($name, $value);
+    };
+
+
+    $self->SUPER::get_options(
+
+        # Advanced (user shouldn't run these)
+        "child"        => $handle_option,
+        "parent"       => $handle_option,
+        "lock=s"       => $handle_option,
+
+        # Options controlling which portions of the pipeline to run.
+        "preprocess"   => $handle_option,
+        "process"      => $handle_option,
+        "postprocess"  => $handle_option,
+        "chunk=s"      => $handle_option,
+
+        "no-clean" => $handle_option,
+
+        # Options typically entered by a user to define a job.
+        "index-dir|i=s" => $handle_option,
+        "name=s"        => $handle_option,
+        "chunks=i"      => $handle_option,
+        "qsub"          => sub { $self->set('platform', 'SGE'); },
+        "platform=s"    => $handle_option,
+
+        # Advanced options
+        "alt-genes=s"        => $handle_option,
+        "alt-quants=s"       => $handle_option,
+        "blat-only"          => $handle_option,
+        "count-mismatches"   => $handle_option,
+        "dna"                => $handle_option,
+        "genome-only"        => $handle_option,
+        "junctions"          => $handle_option,
+        "limit-bowtie-nu!"   => $handle_option,
+        "limit-nu=s"         => $handle_option,
+        "max-insertions-per-read=s" => $handle_option,
+        "min-identity"              => $handle_option,
+        "min-length=s"              => $handle_option,
+        "preserve-names"            => $handle_option,
+        "quals-file|qual-file=s"    => $handle_option,
+        "quantify"                  => $handle_option,
+        "ram=s"    => $handle_option,
+        "read-lengths=s" $handle_option,
+        "strand-specific" => $handle_option,
+        "variable-length-reads" => $handle_option,
+
+        # Options for blat
+        "minIdentity|blat-min-identity=s" => $handle_option,
+        "tileSize|blat-tile-size=s"       => $handle_option,
+        "stepSize|blat-step-size=s"       => $handle_option,
+        "repMatch|blat-rep-match=s"       => $handle_option,
+        "maxIntron|blat-max-intron=s"     => $handle_option
+    );
+
+}
+
 sub new {
-    my ($class, %options) = @_;
+    my ($class) = @_;
     my %data = %DEFAULTS;
     
     for (keys %DEFAULTS) {
@@ -85,6 +179,8 @@ sub new {
     if (my @extra = keys(%options)) {
         croak "Extra arguments to Config->new: @extra";
     }
+
+    $data{_default} = $DEFAULT;
 
     return bless \%data, $class;
 }
@@ -214,8 +310,9 @@ sub destroy {
 }
 
 sub load {
-    my ($class, $dir, $force) = @_;
-    my $filename = "$dir/$FILENAME";
+    my ($self) = @_;
+    
+    my $filename = $self->in_output_dir($FILENAME);
 
     unless (-e $filename) {
         if ($force) {
@@ -225,7 +322,9 @@ sub load {
             return;
         }
     }
-    my $conf = do $filename;
+    my $saved = do $filename;
+
+    $self->{_default} = $saved;
     ref($conf) =~ /$class/ or croak "$filename did not return a $class";
     return $conf;
 }
@@ -236,7 +335,15 @@ sub get {
     
     exists $self->{$name} or croak "Property $name was not set";
 
-    return $self->{$name};
+    if (defined $self->{name}) {
+        return $self->{name};
+    }
+    elsif ($self->{_parent}) {
+        return $self->{_default}->get($name);
+    }
+    else {
+        croak "Property $name was not set";
+    }
 }
 
 sub properties {
