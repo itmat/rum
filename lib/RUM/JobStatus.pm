@@ -54,7 +54,7 @@ sub outstanding_chunks {
         return ();
     }
 
-    my @chunks = (1 .. $self->config->num_chunks);
+    my @chunks = (1 .. $self->config->chunks);
 
     return grep { ! $self->processing_workflow($_)->is_complete } @chunks;
 }

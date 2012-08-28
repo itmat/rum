@@ -12,7 +12,6 @@ use Data::Dumper;
 
 use RUM::Action::Clean;
 
-use RUM::Directives;
 use RUM::Logging;
 use RUM::Workflows;
 use RUM::Usage;
@@ -40,11 +39,11 @@ sub new { shift->SUPER::new(name => 'align', @_) }
 sub run {
     my ($class) = @_;
     my $self = $class->new;
-    $self->get_options();
-    my $c = $self->config;
-    my $d = $self->directives;
 
-    $self->check_config;        
+    # Parse the command line and construct a RUM::Config
+    my $c = $self->make_config;
+
+    $self->check_config;
     $self->check_deps;
 
     RUM::SystemCheck::check_gamma(
@@ -54,7 +53,6 @@ sub run {
     $self->get_lock;
     $self->show_logo;
     
-    my $platform = $self->platform;
     my $platform_name = $c->platform;
     my $local = $platform_name =~ /Local/;
     
@@ -88,19 +86,19 @@ sub run {
         "files in the output directory. If all goes well they should be empty.",
         "You can also run \"$0 status -o $dir\" to check the status of the job.");
 
-    if ($self->config->preprocess || $self->config->all) {
+    if ($self->config->should_preprocess) {
         $platform->preprocess;
     }
 
     $self->_show_match_length;
     $self->_check_read_lengths;
 
-    my $chunk = $self->{chunk};
+    my $chunk = $self->config->chunk;
     
     # If user said --process or at least didn't say --preprocess or
     # --postprocess, then check if we still need to process, and if so
     # execute the processing phase.
-    if ($c->process || $c->all) {
+    if ($c->should_process) {
         if ($self->still_processing) {
             $platform->process($chunk);
         }
@@ -108,7 +106,7 @@ sub run {
 
     # If user said --postprocess or didn't say --preprocess or
     # --process, then we need to do postprocessing.
-    if ($c->postprocess || $c->all) {
+    if ($c->should_postprocess) {
         
         # If we're called with "--chunk X --postprocess", that means
         # we're supposed to process chunk X and do postprocessing only
@@ -118,7 +116,7 @@ sub run {
         # TODO: Come up with a better way for the parent to
         # communicate with one of its child processes, telling it to
         # do postprocessing
-        if ( !$chunk || $chunk == $self->config->num_chunks ) {
+        if ( !$chunk || $chunk == $self->config->chunks ) {
             $platform->postprocess;
             $self->_final_check;
         }
@@ -183,21 +181,14 @@ sub _show_match_length {
 
 
 
-sub get_options {
+sub make_config {
     my ($self) = @_;
 
-    my $quiet;
-    Getopt::Long::Configure(qw(no_ignore_case));
-
-    my $d = $self->{directives} = RUM::Directives->new;
     my $usage = RUM::Usage->new('action' => 'align');
-
-    my @changed;
-
-    my $config = RUM::Config->from_command_line;
+    warn "In make_config\n";
+    my $config = RUM::Config->new->from_command_line;
 
     my @reads;
-
     while (local $_ = shift @ARGV) {
         if (/^-/) {
             $usage->bad("Unrecognized option $_");
@@ -207,67 +198,27 @@ sub get_options {
         }
     }
 
-    if ($lock) {
-        $log->info("Got lock argument ($lock)");
-        $RUM::Lock::FILE = $lock;
-    }
-    my $c = $self->config;
-
-    # If a chunk is specified, that implies that the user wants to do
-    # the 'processing' phase, so unset preprocess.
-    if ($chunk) {
-        $usage->bad("Can't use --preprocess with --chunk")
-              if $self->config->preprocess;
-        $c->unset_all;
-        $c->set_process;
+    warn "I got reads @reads\n";
+    if (@reads) {
+        $config->set('reads', [@reads]);
     }
 
-    my @changed_settings;
-
-    my $set = sub { 
-        my ($k, $v) = @_;
-        return unless defined $v;
-        my $existing = $c->get($k);
-        if (defined($existing) && $existing ne $v) {
-            push @changed_settings, [ $k, $existing, $v ];
-            $log->info("Changing $k from $existing to $v");
-        }
-        
-        $c->set($k, $v);
-    };
-
-    $platform = 'SGE' if $qsub;
-
-    $alt_genes = File::Spec->rel2abs($alt_genes) if $alt_genes;
-    $alt_quant = File::Spec->rel2abs($alt_quant) if $alt_quant;
-    $rum_index = File::Spec->rel2abs($rum_index) if $rum_index;
-
-    $self->{chunk} = $chunk;
-
-    #$set->('no_clean', $no_clean);
-
-    my @old_reads = @{ $c->reads || [] };
-    if (@reads && "@reads" ne "@old_reads") {
-        $set->('reads', [@reads]);
+    if ($config->lock_file) {
+        $log->info("Got lock_file argument (" .
+                   $config->lock_file . ")");
+        $RUM::Lock::FILE = $config->lock_file;
     }
 
-    if (@changed_settings && !$force && !$c->child) {
-        my $msg = $self->changed_settings_msg($c->settings_filename);
-        $msg .= "You tried to make the following changes:\n\n";
-        for my $change (@changed_settings) {
-            $msg .= sprintf("  * Change %s from %s to %s\n", @{ $change });
-        }
-#        die $msg;
-    }
 
     $usage->check;
+    return $self->{config} = $config;
 }
 
 
 sub check_config {
-    my ($self) = @_;
+    my ($self, $action) = @_;
 
-    my $usage = RUM::Usage->new(action => 'align');
+    my $usage = RUM::Usage->new(action => $action);
 
     my $c = $self->config;
     $c->output_dir or $usage->bad(
@@ -283,9 +234,9 @@ sub check_config {
         $usage->bad("Please specify a name with --name");
     }
 
-    $c->rum_index or $usage->bad(
+    $c->index_dir or $usage->bad(
         "Please specify a rum index directory with --index-dir or -i");
-    $c->load_rum_config_file if $c->rum_index;
+    $c->load_rum_config_file if $c->index_dir;
 
     my $reads = $c->reads;
 
@@ -341,7 +292,7 @@ sub check_config {
         "--blat-min-identity or --minIdentity must be an integer between ".
             "0 and 100.");
 
-    $c->num_chunks or $usage->bad(
+    $c->chunks or $usage->bad(
         "Please tell me how many chunks to split the input into with the "
         . "--chunks option.");
 
@@ -390,8 +341,9 @@ sub check_deps {
 
 sub get_lock {
     my ($self) = @_;
-    return if $self->directives->parent || $self->directives->child;
     my $c = $self->config;
+    return if $c->parent || $c->child;
+
     my $dir = $c->output_dir;
     my $lock = $c->lock_file;
     $log->info("Acquiring lock");

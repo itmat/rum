@@ -82,7 +82,7 @@ sub submit_preproc {
 sub submit_proc {
     my ($self, @chunks) = @_;
     my $sh = $self->_write_shell_script("proc");
-    my $n = $self->config->num_chunks;
+    my $n = $self->config->chunks;
 
     my @prereqs = @{ $self->_preproc_jids };
 
@@ -122,7 +122,7 @@ sub submit_postproc {
     # postprocessing job, but the last chunk should handle it. So make
     # sure there's no other postprocessing task running before
     # actually submitting it.
-    $self->submit_proc($self->config->num_chunks) unless $self->postproc_ok;
+    $self->submit_proc($self->config->chunks) unless $self->postproc_ok;
 }
 
 sub log_last_status_warning { 
@@ -173,7 +173,7 @@ sub proc_ok {
 
 sub postproc_ok {
     my ($self) = @_;
-    return $self->proc_ok($self->config->num_chunks);
+    return $self->proc_ok($self->config->chunks);
 }
 
 sub save {

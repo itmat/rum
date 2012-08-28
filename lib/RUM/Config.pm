@@ -8,7 +8,9 @@ use FindBin qw($Bin);
 use File::Spec;
 use File::Path qw(mkpath);
 use Data::Dumper;
+use Scalar::Util qw(blessed);
 
+use Getopt::Long;
 use RUM::Logging;
 use RUM::ConfigFile;
 
@@ -25,9 +27,16 @@ my $DEFAULT = RUM::Config->new;
 
 our %DEFAULTS = (
 
+    child => undef,
+    parent => undef,
+    process => undef,
+    preprocess => undef,
+    postprocess => undef,
+    no_clean => undef,
+    quiet => undef,
+    verbose => undef,
+
     # These properties are actually set by the user
-    num_chunks            => undef,
-    ram                   => undef,
     max_insertions        => 1,
     strand_specific       => 0,
     min_identity          => 93,
@@ -36,8 +45,13 @@ our %DEFAULTS = (
     blat_step_size        => 6,
     blat_rep_match        => 256,
     blat_max_intron       => 500000,
-    name                  => undef,
     platform              => "Local",
+
+    chunks                => undef,
+    chunk                => undef,
+    ram                   => undef,
+
+    name                  => undef,
     output_dir            => undef,
     index_dir             => undef,
     reads                 => undef,
@@ -96,48 +110,54 @@ sub should_process {
 }
 
 
-sub should_process {
+sub should_postprocess {
     my $self = shift;
     return $self->postprocess || (!$self->preprocess && !$self->process);
 }
 
 sub from_command_line {
 
-    my $self = __PACKAGE__->new;
+    my ($self) = @_;
 
     my $handle_option = sub {
         my ($name, $value) = @_;
-        push @changed, $name;
+        warn "Setting $name to $value\n";
         $name =~ s/-/_/g;
-        $config->set($name, $value);
+        $self->set($name, $value);
     };
 
+    my $handle_path = sub {
+        my ($name, $path) = @_;
+        $handle_option->($name, File::Spec->rel2abs($path));
+    };
 
-    $self->SUPER::get_options(
+    GetOptions(
 
         # Advanced (user shouldn't run these)
         "child"        => $handle_option,
         "parent"       => $handle_option,
-        "lock=s"       => $handle_option,
+        "lock=s"       => $handle_path,
 
         # Options controlling which portions of the pipeline to run.
         "preprocess"   => $handle_option,
         "process"      => $handle_option,
         "postprocess"  => $handle_option,
-        "chunk=s"      => $handle_option,
+        "chunk=i"      => $handle_option,
 
         "no-clean" => $handle_option,
 
+        'output-dir|o=s' => $handle_path,
+
         # Options typically entered by a user to define a job.
-        "index-dir|i=s" => $handle_option,
+        "index-dir|i=s" => $handle_path,
         "name=s"        => $handle_option,
         "chunks=i"      => $handle_option,
         "qsub"          => sub { $self->set('platform', 'SGE'); },
         "platform=s"    => $handle_option,
 
         # Advanced options
-        "alt-genes=s"        => $handle_option,
-        "alt-quants=s"       => $handle_option,
+        "alt-genes=s"        => $handle_path,
+        "alt-quants=s"       => $handle_path,
         "blat-only"          => $handle_option,
         "count-mismatches"   => $handle_option,
         "dna"                => $handle_option,
@@ -149,10 +169,10 @@ sub from_command_line {
         "min-identity"              => $handle_option,
         "min-length=s"              => $handle_option,
         "preserve-names"            => $handle_option,
-        "quals-file|qual-file=s"    => $handle_option,
+        "quals-file|qual-file=s"    => $handle_path,
         "quantify"                  => $handle_option,
         "ram=s"    => $handle_option,
-        "read-lengths=s" $handle_option,
+        "read-lengths=s" => $handle_option,
         "strand-specific" => $handle_option,
         "variable-length-reads" => $handle_option,
 
@@ -164,30 +184,35 @@ sub from_command_line {
         "maxIntron|blat-max-intron=s"     => $handle_option
     );
 
+    return $self;
 }
 
+
 sub new {
-    my ($class) = @_;
-    my %data = %DEFAULTS;
-    
-    for (keys %DEFAULTS) {
-        if (exists $options{$_}) {
-            $data{$_} = delete $options{$_};
+
+    my ($class, %params) = @_;
+
+    my $is_default = delete $params{default};
+
+    my $self = {};
+
+    if ($is_default) {
+        for my $k (keys %DEFAULTS) {
+            if (defined (my $v = $DEFAULTS{$k})) {
+                $self->{$k} = $v;
+            }
         }
     }
-    
-    if (my @extra = keys(%options)) {
-        croak "Extra arguments to Config->new: @extra";
+    else {
+        $self->{_default} = $class->new(default => 1);
     }
 
-    $data{_default} = $DEFAULT;
-
-    return bless \%data, $class;
+    return bless $self, $class;
 }
 
 sub load_rum_config_file {
     my ($self) = @_;
-    my $path = $self->rum_index or croak
+    my $path = $self->index_dir or croak
         "No RUM index config file was supplied";
 
     my $index = RUM::Index->load($path);
@@ -289,15 +314,25 @@ sub is_property {
     exists $DEFAULTS{$name};
 }
 
+my %paths = (
+    forward_reads => 1,
+    reverse_reads => 1,
+    
+);
+
 sub set {
-    my ($self, $key, $value) = @_;
-    confess "No such property $key" unless is_property($key);
-    $self->{$key} = $value;
+    my ($self, %params) = @_;
+    croak "Can't call set on $self" unless ref $self;
+    for my $k (keys %params) {
+        croak "No such property $k" unless is_property($k);
+        $self->{$k} = $params{$k};
+    }
+    
+    return $self;
 }
 
 sub save {
     my ($self) = @_;
-    $log->debug("Saving config file, chunks is " . $self->num_chunks);
     my $filename = $self->in_output_dir($FILENAME);
     open my $fh, ">", $filename or croak "$filename: $!";
     print $fh Dumper($self);
@@ -309,40 +344,31 @@ sub destroy {
     unlink $filename;
 }
 
-sub load {
+sub load_default {
     my ($self) = @_;
-    
+
     my $filename = $self->in_output_dir($FILENAME);
 
-    unless (-e $filename) {
-        if ($force) {
-            die "$dir doesn't seem to be a RUM output directory\n";
-        }
-        else {
-            return;
-        }
-    }
-    my $saved = do $filename;
-
-    $self->{_default} = $saved;
-    ref($conf) =~ /$class/ or croak "$filename did not return a $class";
-    return $conf;
+    $self->{_default} = do $filename;
+    my $class = blessed($self);
+    ref($self->{_default}) =~ /$class/ or croak "$filename did not return a $class";
+    return $self;
 }
 
 sub get {
     my ($self, $name) = @_;
+    ref($self) or croak "Can't call get on $self";
     is_property($name) or croak "No such property $name";
     
-    exists $self->{$name} or croak "Property $name was not set";
-
-    if (defined $self->{name}) {
-        return $self->{name};
+    if (defined $self->{$name}) {
+        return $self->{$name};
     }
-    elsif ($self->{_parent}) {
+    elsif ($self->{_default}) {
         return $self->{_default}->get($name);
     }
     else {
-        croak "Property $name was not set";
+        return;
+        #croak "Property $name was not set. Config is " . Dumper($self);
     }
 }
 
@@ -437,12 +463,12 @@ sub preprocessed_reads {
 
 sub AUTOLOAD {
     my ($self) = @_;
-    
+    croak "Can't get property on $self" unless ref $self;
     my @parts = split /::/, $AUTOLOAD;
     my $name = $parts[-1];
     
     return if $name eq "DESTROY";
-    
+
     return $self->get($name);
 }
 

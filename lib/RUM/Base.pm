@@ -140,7 +140,7 @@ from 1 to $n otherwise.
 
 sub chunk_nums {
     my ($self) = @_;
-    return (1 .. $self->config->num_chunks || 1)
+    return (1 .. $self->config->chunks || 1)
 }
 
 =item platform
@@ -209,7 +209,7 @@ sub still_processing {
         return 0;
     }
 
-    for my $chunk ( 1 .. $config->num_chunks ) {
+    for my $chunk ( 1 .. $config->chunks ) {
         return 1 unless $workflows->chunk_workflow($chunk)->is_complete;
     }
     return 0;

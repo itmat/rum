@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 22;
+use Test::More tests => 21;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
@@ -17,28 +17,28 @@ my $c;
 
 $c = RUM::Config->new();
 
-$c = RUM::Config->new(output_dir => "foo");
+$c->set(output_dir => "foo");
 is($c->output_dir, "foo");
 
 sub should_quantify {
     my (%options) = @_;
-    my $c = RUM::Config->new(%options);
+    my $c = RUM::Config->new->set(%options);
     ok($c->should_quantify, "Should quantify");
 }
 sub should_not_quantify {
     my (%options) = @_;
-    my $c = RUM::Config->new(%options);
+    my $c = RUM::Config->new->set(%options);
     ok(!$c->should_quantify, "Should not quantify");
 }
 
 sub should_do_junctions {
     my (%options) = @_;
-    my $c = RUM::Config->new(%options);
+    my $c = RUM::Config->new->set(%options);
     ok($c->should_do_junctions, "Should do junctions");
 }
 sub should_not_do_junctions {
     my (%options) = @_;
-    my $c = RUM::Config->new(%options);
+    my $c = RUM::Config->new->set(%options);
     ok(!$c->should_do_junctions, "Should not do junctions");
 }
 
@@ -69,9 +69,8 @@ mkdir "$dir/.rum";
 $c->set(read_length => 45);
 $c->save;
 
-$c = RUM::Config->load($dir);
+$c = RUM::Config->new->set(output_dir => $dir)->load_default;
 is($c->read_length, 45, "Read config from file");
-ok(! RUM::Config->load("/foo/bar/baz"));
 
 $dir = ".";
 $c = RUM::Config->new(output_dir => $dir);

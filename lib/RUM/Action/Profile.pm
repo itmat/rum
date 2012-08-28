@@ -36,7 +36,7 @@ sub run {
 
     my $config = RUM::Config->load($dir);
     
-    for my $chunk ( 1 .. $config->num_chunks) {
+    for my $chunk ( 1 .. $config->chunks) {
         my $file = RUM::Logging->log_file($chunk);
         print "Chunk is $file\n";
     }

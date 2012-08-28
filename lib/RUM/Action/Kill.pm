@@ -27,7 +27,6 @@ sub run {
     $clean_action->clean(1);
 
     $self->say("RUM job in $dir has been killed.");
-
 }
 
 1;

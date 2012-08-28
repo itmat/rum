@@ -376,7 +376,7 @@ sub postprocessing_workflow {
     my $rum_unique     = $c->in_output_dir("RUM_Unique");
     my $rum_unique_cov = $c->in_output_dir("RUM_Unique.cov");
 
-    my @chunks = (1 .. $c->num_chunks || 1);
+    my @chunks = (1 .. $c->chunks || 1);
 
     my $name = $c->name;
     my $w = RUM::Workflow->new();
@@ -424,7 +424,7 @@ sub postprocessing_workflow {
          "-o", post($rum_nu),
          map { pre($_) } @rum_nu]);
 
-    my $reads_fa = $c->chunk_file("reads.fa", $c->num_chunks);
+    my $reads_fa = $c->chunk_file("reads.fa", $c->chunks);
 
     push @start, @chr_counts_u, @chr_counts_nu;
     $w->add_command(
@@ -497,7 +497,7 @@ sub postprocessing_workflow {
                         pre => [@quants],
                         commands => [[
                             "perl", $c->script("merge_quants.pl"),
-                            "--chunks", $c->num_chunks || 1,
+                            "--chunks", $c->chunks || 1,
                             "-o", post($c->quant(%opts)),
                             "--strand", "$strand$sense",
                             $c->output_dir . "/chunks"]]);
@@ -508,7 +508,7 @@ sub postprocessing_workflow {
                         commands => [[
                             "perl", $c->script("merge_quants.pl"),
                             "--alt",
-                            "--chunks", $c->num_chunks || 1,
+                            "--chunks", $c->chunks || 1,
                             "-o", post($c->alt_quant(%opts)),
                             "--strand", "$strand$sense",
                             $c->output_dir . "/chunks"]]) if $c->alt_quant_model;
@@ -544,7 +544,7 @@ sub postprocessing_workflow {
                 pre => [$rum_unique, @quants],
                 commands => [[
                     "perl", $c->script("merge_quants.pl"),
-                    "--chunks", $c->num_chunks || 1,
+                    "--chunks", $c->chunks || 1,
                     "-o", post($c->quant), 
                     $c->output_dir. "/chunks"]]);
             
@@ -554,7 +554,7 @@ sub postprocessing_workflow {
                 commands => [[
                     "perl", $c->script("merge_quants.pl"),
                     "--alt",
-                    "--chunks", $c->num_chunks || 1,
+                    "--chunks", $c->chunks || 1,
                     "-o", post($c->alt_quant),
                     $c->output_dir . "/chunks"]]) if $c->alt_quant_model;
         }

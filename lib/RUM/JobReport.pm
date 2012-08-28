@@ -47,7 +47,7 @@ EOF
         paired_end            => 'Paired-end?',
         read_length           => 'Read length',
 
-        rum_index             => 'Index directory',
+        index_dir             => 'Index directory',
         genome_bowtie         => 'Bowtie genome index',
         trans_bowtie          => 'Bowtie transcriptome index',
         annotations           => 'Annotations',
@@ -64,7 +64,7 @@ EOF
         max_insertions        => 'Max insertions',
         min_identity          => 'Min identity',
 
-        num_chunks            => 'Chunks',
+        chunks                => 'Chunks',
 
         platform              => 'Platform',
         ram                   => 'RAM available (GB)',

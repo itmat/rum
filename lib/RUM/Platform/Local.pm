@@ -267,7 +267,7 @@ sub _reformat_reads {
     my $parse_fasta = $config->script("parsefasta.pl");
     my $parse_2_fasta = $config->script("parse2fasta.pl");
     my $parse_2_quals = $config->script("fastq2qualities.pl");
-    my $num_chunks = $config->num_chunks || 1;
+    my $num_chunks = $config->chunks || 1;
 
     mkpath($config->chunk_dir);
 
@@ -364,16 +364,16 @@ sub _breakup_file  {
     my $tail = `tail -2 $FILE | head -1`;
     $tail =~ /seq.(\d+)/s;
     my $numseqs = $1;
-    my $piecesize = int($numseqs / ($c->num_chunks || 1));
+    my $piecesize = int($numseqs / ($c->chunks || 1));
 
     my $t = `tail -2 $FILE`;
     $t =~ /seq.(\d+)/s;
     my $NS = $1;
     my $piecesize2 = format_large_int($piecesize);
     if(!($FILE =~ /qual/)) {
-	if($c->num_chunks > 1) {
+	if($c->chunks > 1) {
 	    $self->say("processing in ".
-                     $c->num_chunks . 
+                     $c->chunks . 
                          " pieces of approx $piecesize2 reads each\n");
 	} else {
 	    my $NS2 = format_large_int($NS);
@@ -390,7 +390,7 @@ sub _breakup_file  {
     
     my $PS = $c->paired_end ? $piecesize * 2 : $piecesize;
     my $base_name = $qualflag ? "quals.fa" : "reads.fa";
-    for(my $i=1; $i < $c->num_chunks; $i++) {
+    for(my $i=1; $i < $c->chunks; $i++) {
 	my $outfilename = $c->chunk_file($base_name, $i);
 
         $log->debug("Building $outfilename");
@@ -412,7 +412,7 @@ sub _breakup_file  {
 	close(OUTFILE);
     }
 
-    my $outfilename = $c->chunk_file($base_name, $c->num_chunks);
+    my $outfilename = $c->chunk_file($base_name, $c->chunks);
     open(OUTFILE, ">$outfilename");
     while(my $line = <INFILE>) {
 	print OUTFILE $line;
@@ -433,7 +433,7 @@ sub process {
 
     $log->debug("Chunk is ".($chunk || ""));
 
-    my $n = $config->num_chunks || 1;
+    my $n = $config->chunks || 1;
     $self->say();
     $self->say("Processing in $n chunks");
     $self->say("-----------------------");
@@ -450,7 +450,7 @@ sub process {
         $w->execute($self->_step_printer($w), ! $config->no_clean);
         RUM::JobReport->new($self->config)->print_milestone("Chunk $chunk finished");
     }
-    elsif ($config->num_chunks) {
+    elsif ($config->chunks) {
         $self->_process_in_chunks;
     }
 }
@@ -458,7 +458,7 @@ sub process {
 
 sub _process_in_chunks {
     my ($self) = @_;
-    my $n = $self->config->num_chunks;
+    my $n = $self->config->chunks;
     my $c = $self->config;
     $log->info("Creating $n chunks");
 

@@ -38,7 +38,7 @@ sub check_ram {
     my $RAMperchunk;
     my $ram;
 
-    my $num_chunks = $c->num_chunks || 1;
+    my $num_chunks = $c->chunks || 1;
     
     # We couldn't figure out RAM, warn user.
     if ($totalram) {
@@ -168,7 +168,7 @@ EOF
 sub check_gamma {
     my (%params) = @_;
 
-    my $config = delete $params{config};
+    my $config = delete $params{config} or croak "check_gamma needs a config";
 
     my $host = `hostname`;
 
