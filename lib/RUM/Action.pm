@@ -74,6 +74,19 @@ sub get_lock {
 }
 
 
+sub show_logo {
+    my ($self) = @_;
+    my $msg = <<EOF;
+
+RUM Version $RUM::Pipeline::VERSION
+
+$RUM::Pipeline::LOGO
+EOF
+    $self->say($msg);
+
+}
+
+
 
 
 1;

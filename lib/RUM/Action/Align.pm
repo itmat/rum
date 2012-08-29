@@ -37,92 +37,16 @@ sub run {
 
     my $self = $class->new;
 
-    my $c = $self->{config} = RUM::Action::Init->new->initialize;
-    my $start = RUM::Action::Start->new;
-    $start->{config} = $c;
+    # Initialize the job
+    my $init = RUM::Action::Init->new;
+    $init->make_config;
+    $init->initialize;
+
+    # Run the job
+
+    my $start = RUM::Action::Start->new(config => $init->config);
     $start->start;
 }
-
-sub make_config {
-    my ($self) = @_;
-
-    my $usage = RUM::Usage->new('action' => 'align');
-    warn "In make_config\n";
-    my $config = RUM::Config->new->from_command_line;
-
-    my @reads;
-    while (local $_ = shift @ARGV) {
-        if (/^-/) {
-            $usage->bad("Unrecognized option $_");
-        }
-        else {
-            push @reads, File::Spec->rel2abs($_);
-        }
-    }
-
-    warn "I got reads @reads\n";
-    if (@reads) {
-        $config->set('reads', [@reads]);
-    }
-
-    if ($config->lock_file) {
-        $log->info("Got lock_file argument (" .
-                   $config->lock_file . ")");
-        $RUM::Lock::FILE = $config->lock_file;
-    }
-
-
-    $usage->check;
-    return $self->{config} = $config;
-}
-
-
-
-
-sub show_logo {
-    my ($self) = @_;
-    my $msg = <<EOF;
-
-RUM Version $RUM::Pipeline::VERSION
-
-$LOGO
-EOF
-#    $self->say($msg);
-
-}
-
-$LOGO = <<'EOF';
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                 _   _   _   _   _   _    _
-               // \// \// \// \// \// \/
-              //\_//\_//\_//\_//\_//\_//
-        o_O__O_ o
-       | ====== |       .-----------.
-       `--------'       |||||||||||||
-        || ~~ ||        |-----------|
-        || ~~ ||        | .-------. |
-        ||----||        ! | UPENN | !
-       //      \\        \`-------'/
-      // /!  !\ \\        \_  O  _/
-     !!__________!!         \   /
-     ||  ~~~~~~  ||          `-'
-     || _        ||
-     |||_|| ||\/|||
-     ||| \|_||  |||
-     ||          ||
-     ||  ~~~~~~  ||
-     ||__________||
-.----|||        |||------------------.
-     ||\\      //||                 /|
-     |============|                //
-     `------------'               //
----------------------------------'/
----------------------------------'
-  ____________________________________________________________
-- The RNA-Seq Unified Mapper (RUM) Pipeline has been initiated -
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-EOF
-
 
 sub changed_settings_msg {
     my ($self, $filename) = @_;
