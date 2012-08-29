@@ -9,6 +9,8 @@ use base 'RUM::Base';
 use Cwd qw(realpath);
 use List::Util qw(max);
 use FindBin qw($Bin);
+use Data::Dumper;
+use RUM::Index;
 
 FindBin->again;
 
@@ -42,9 +44,9 @@ EOF
     my @name_table = (
         name                  => 'Job name',
         output_dir            => 'Output directory',
-        reads                 => 'Input read files',
+        forward_reads         => 'Forward read file',
+        reverse_reads         => 'Reverse read file',
 
-        paired_end            => 'Paired-end?',
         read_length           => 'Read length',
 
         index_dir             => 'Index directory',
@@ -70,8 +72,7 @@ EOF
         ram                   => 'RAM available (GB)',
         ram_ok                => undef,
         alt_genes             => 'Alternate gene model',
-        alt_quant             => undef,
-        alt_quant_model       => 'Alternate quantifications',
+        alt_quants            => undef,
         bowtie_nu_limit       => 'Limit Bowtie non-unique output?',
         count_mismatches      => 'Count mismatches?',
         input_is_preformatted => undef,
@@ -79,7 +80,7 @@ EOF
         limit_nu_cutoff       => undef,
         nu_limit              => 'Max non-unique mappers per read?',
         min_length            => 'Min alignment length',
-        user_quals            => undef,
+        quals_file            => undef,
 
         blat_max_intron       => 'BLAT max intron',
         blat_min_identity     => 'BLAT min identity',
@@ -89,18 +90,30 @@ EOF
         blat_tile_size        => 'BLAT tile size',
 
     );
-
+    my $index = RUM::Index->load($config->index_dir);
+    my $bowtie_genome_index = $index->bowtie_genome_index;
+    my $bowtie_trans_index = $index->bowtie_transcriptome_index;
+    my $annotations = $index->gene_annotations;
+    my $read_len = $config->variable_length_reads ? 'variable' : $config->read_length || '';
+    warn "Bowtie genome index is " . $bowtie_genome_index;
     my %overrides = (
         junctions => $config->should_do_junctions,
         quantify  => $config->should_quantify,
-        read_length => $config->variable_length_reads ? 'variable' : $config->read_length,
+        read_length => $read_len,
+        genome_bowtie => $bowtie_genome_index,
+        trans_bowtie => $bowtie_trans_index,
+        annotations => $annotations,
+        genome_fa => $index->genome_fasta,
+        genome_size => $index->genome_size
+
     );
 
+    warn "Overrides is " . Dumper(\%overrides);
     my %name_for = @name_table;
     
     my @ordered_keys = @name_table[ grep { ! ( $_ % 2 ) } (0 .. $#name_table) ];
 
-    for my $key ($self->config->properties) {
+    for my $key ($self->config->property_names) {
         if ( ! exists $name_for{$key} ) {
             $name_for{$key} = $key;
             push @ordered_keys, $key;

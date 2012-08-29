@@ -33,6 +33,7 @@ sub chunk_workflow {
 
     my $m = RUM::Workflow->new;
 
+    my $index = RUM::Index->load($c->index_dir);
     local *chunk_file = sub { $c->chunk_file($_[0], $chunk) };
 
     my $bowtie_unmapped = chunk_file("R");
@@ -86,7 +87,7 @@ sub chunk_workflow {
             "--unique", post($gu),
             "--non-unique", post($gnu),
             $c->paired_end_opt(),
-            '--index', $c->genome_bowtie,
+            '--index', $index->bowtie_genome_index,
             '--query', $reads_fa);
 
         if (my $x = $c->bowtie_nu_limit) {
@@ -103,9 +104,9 @@ sub chunk_workflow {
             'perl', $c->script('make_TU_and_TNU.pl'),
             '--unique',        post($tu),
             '--non-unique',    post($tnu),
-            '--genes',         $c->annotations,
+            '--genes',         $index->gene_annotations,
             $c->paired_end_opt,
-            '--index', $c->trans_bowtie,
+            '--index', $index->bowtie_transcriptome_index,
             '--query', $reads_fa);
         if (my $x = $c->bowtie_nu_limit) {
             push @cmd, '--limit', $x;
@@ -165,14 +166,17 @@ sub chunk_workflow {
     my @blat_cmd = (
         "perl", $c->script("parse_blat_out.pl"),
         "--reads-in",    pre($bowtie_unmapped),
-        "--genome",      $c->genome_fa,
+        "--genome",      $index->genome_fasta,
         "--unique-out", post($blat_unique),
         "--non-unique-out", post($blat_nu));
-    
-    my %blat_opts = (
-         '--match-length-cutoff', $c->min_length,
-         '--max-insertions',      $c->max_insertions,
-    );
+
+    my %blat_opts;
+    if (defined ($c->min_length)) {
+        $blat_opts{'--match-length-cutoff'} = $c->min_length;
+    }
+    if (defined ($c->max_insertions)) {
+        $blat_opts{'--max-insertions'} = $c->max_insertions;
+    }
 
     for my $k (keys %blat_opts) {
         if (defined $blat_opts{$k}) {
@@ -207,7 +211,7 @@ sub chunk_workflow {
          "--non-unique-in", pre($bowtie_blat_nu),
          "--unique-out", post($cleaned_unique),
          "--non-unique-out", post($cleaned_nu),
-         "--genome", $c->genome_fa,
+         "--genome", $index->genome_fasta,
          "--sam-header-out", post($c->sam_header($chunk || 1)),
          $c->faok_opt,
          $c->count_mismatches_opt,
@@ -246,7 +250,7 @@ sub chunk_workflow {
     $m->step(
         "Create SAM file",
         ["perl", $c->script("rum2sam.pl"),
-         "--genome-in", $c->genome_fa,
+         "--genome-in", $index->genome_fasta,
          "--unique-in", pre($rum_unique),
          "--non-unique-in", pre($rum_nu),
          "--reads-in", $reads_fa,
@@ -299,7 +303,7 @@ sub chunk_workflow {
                     name => "Generate quants for strand $strand, sense $sense",
                     commands => 
                         [["perl", $c->script("rum2quantifications.pl"),
-                          "--genes-in", $c->annotations,
+                          "--genes-in", $index->gene_annotations,
                           "--unique-in", pre($rum_unique_sorted),
                           "--non-unique-in", pre($rum_nu_sorted),
                           "-o", post($file),
@@ -307,7 +311,7 @@ sub chunk_workflow {
                           "--strand", $strand,
                           $sense eq 'a' ? "--anti" : ""]]
                     );
-                if ($c->alt_quant_model) {
+                if ($c->alt_quants) {
 
                     my $file = $c->alt_quant(strand => $strand, 
                                              sense => $sense,
@@ -318,7 +322,7 @@ sub chunk_workflow {
                         name => "Generate alt quants for strand $strand, sense $sense",
                         commands => 
                             [["perl", $c->script("rum2quantifications.pl"),
-                              "--genes-in", $c->alt_quant_model,
+                              "--genes-in", $c->alt_quants,
                               "--unique-in", pre($rum_unique_sorted),
                               "--non-unique-in", pre($rum_nu_sorted),
                               "-o", post($file),
@@ -335,20 +339,20 @@ sub chunk_workflow {
         name => "Generate quants",
         commands => 
             [["perl", $c->script("rum2quantifications.pl"),
-              "--genes-in", $c->annotations,
+              "--genes-in", $index->gene_annotations,
               "--unique-in", pre($rum_unique_sorted),
               "--non-unique-in", pre($rum_nu_sorted),
               "-o", post($c->quant(chunk => $chunk)),
               "-countsonly"]]
         );            
-    if ($c->alt_quant_model) {
+    if ($c->alt_quants) {
         push @goal, $c->alt_quant(chunk => $chunk);
 
         $m->add_command(
             name => "Generate alt quants",
             commands => 
                 [["perl", $c->script("rum2quantifications.pl"),
-                  "--genes-in", $c->alt_quant_model,
+                  "--genes-in", $c->alt_quants,
                   "--unique-in", pre($rum_unique_sorted),
                   "--non-unique-in", pre($rum_nu_sorted),
                   "-o", post($c->alt_quant(chunk => $chunk)),
@@ -365,6 +369,7 @@ sub postprocessing_workflow {
 
     my ($self) = @_;
     my $c = $self->{config};
+    my $index = RUM::Index->load($c->index_dir);
     if (my $w = $self->{postprocessing_workflow}) {
         return $w;
     }
@@ -463,7 +468,7 @@ sub postprocessing_workflow {
 
     if ($c->should_quantify) {
         push @goal, $c->quant;
-        push @goal, $c->alt_quant if $c->alt_quant_model;
+        push @goal, $c->alt_quant if $c->alt_quants;
 
         if ($c->strand_specific) {
             my @strand_specific;
@@ -511,7 +516,7 @@ sub postprocessing_workflow {
                             "--chunks", $c->chunks || 1,
                             "-o", post($c->alt_quant(%opts)),
                             "--strand", "$strand$sense",
-                            $c->output_dir . "/chunks"]]) if $c->alt_quant_model;
+                            $c->output_dir . "/chunks"]]) if $c->alt_quants;
                 }
             }
 
@@ -521,7 +526,7 @@ sub postprocessing_workflow {
                 commands => [[
                     "perl", $c->script("merge_quants_strandspecific.pl"),
                     @strand_specific,
-                    $c->annotations,
+                    $index->gene_annotations,
                     post($c->quant)]]);
 
             $w->add_command(
@@ -531,14 +536,14 @@ sub postprocessing_workflow {
                     "perl", $c->script("merge_quants_strandspecific.pl"),
                     @alt_strand_specific,
                     $c->alt_quant,
-                    post($c->alt_quant)]]) if $c->alt_quant_model;
+                    post($c->alt_quant)]]) if $c->alt_quants;
         }
         
         else {
             my @quants = map { $c->quant(chunk => $_) } @chunks; 
             my @alt_quants = map { $c->alt_quant(chunk => $_) } @chunks; 
             push @start, @quants;
-            push @start, @alt_quants if $c->alt_quant_model;
+            push @start, @alt_quants if $c->alt_quants;
             $w->add_command(
                 name => "Merge quants",
                 pre => [$rum_unique, @quants],
@@ -556,7 +561,7 @@ sub postprocessing_workflow {
                     "--alt",
                     "--chunks", $c->chunks || 1,
                     "-o", post($c->alt_quant),
-                    $c->output_dir . "/chunks"]]) if $c->alt_quant_model;
+                    $c->output_dir . "/chunks"]]) if $c->alt_quants;
         }
     }
     my $junctions_all_rum = $c->in_output_dir("junctions_all.rum");
@@ -571,7 +576,7 @@ sub postprocessing_workflow {
             $junctions_all_bed,
             $junctions_high_quality_bed);
 
-        my $annotations = $c->alt_genes || $c->annotations;
+        my $annotations = $c->alt_genes || $index->gene_annotations;
 
         # Closure that takes a strand (p, m, or undef), type (all or
         # high-quality) and format (bed or rum) and returns the path
@@ -604,7 +609,7 @@ sub postprocessing_workflow {
                 ["perl", $c->script("make_RUM_junctions_file.pl"),
                  "--unique-in", pre($rum_unique),
                  "--non-unique-in", pre($rum_nu), 
-                 "--genome", $c->genome_fa,
+                 "--genome", $index->genome_fasta,
                  "--genes", $annotations,
                  "--all-rum-out", post($all_rum),
                  "--all-bed-out", post($all_bed),
@@ -727,7 +732,7 @@ sub postprocessing_workflow {
             ["perl", $c->script("get_inferred_internal_exons.pl"),
              "--junctions", pre($junctions_high_quality_bed),
              "--coverage", pre($rum_unique_cov),
-             "--genes", $c->annotations,
+             "--genes", $index->gene_annotations,
              "--bed", post($inferred_internal_exons),
              "> ", post($inferred_internal_exons_txt)]);
         
@@ -768,7 +773,7 @@ sub postprocessing_workflow {
         ["perl", $c->script("rum_compute_stats.pl"),
          "--u-footprint", pre($c->u_footprint),
          "--nu-footprint", pre($c->nu_footprint),
-         "--genome-size", $c->genome_size,
+         "--genome-size", $index->genome_size,
          pre($mapping_stats),
          ">", post($c->mapping_stats_final)]);
     

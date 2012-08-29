@@ -92,46 +92,30 @@ sub run {
     my $self = $class->new;
     $self->make_config;
 
-    if ($self->config->chunks) {
-        die("You can't change the number of chunks for a job that ".
-            "has already been initialized. If you need to change " .
-            "the number of chunks, please run 'rum_runner align " .
-            "to start from scratch. Otherwise, please don't " .
-            "provide a --chunks option\n");
-    }
-
-    # This should never be called, because we're checking for extra
-    # values in @ARGV after parsing command-line args.
-    if ($self->config->reads) {
-        die("You can't change the input files for a job that " .
-            "has already been initialized. If you need to run " .
-            "a job with different read files, please use " .
-            "'rum_runner align' to start from scratch.");
-    }
-
-    $self->config->load_default;
-
-    $self->start
+    $self->start;
 }
 
 sub make_config {
 
     my ($self) = @_;
 
-    my $usage = RUM::Usage->new('action' => 'align');
+    my @transient_options = qw(quiet verbose no_clean);
 
-    my $config = RUM::Config->new->from_command_line;
+    my @options = qw(limit_nu_cutoff output_dir
+                     index_dir name qsub platform alt_genes
+                     alt_quants blat_only dna genome_only junctions
+                     limit_bowtie_nu limit_nu max_insertions
+                     min_identity min_length preserve_names quals_file
+                     quantify ram read_length strand_specific
+                     variable_length_reads blat_min_identity
+                     blat_tile_size blat_step_size blat_max_intron
+                     blat_rep_match);
 
-    if ($config->{chunks}) {
-        die("You can't change the number of chunks on a job that has already " .
-            "been set up. If you need to change the number of chunks, please " .
-            "use 'rum_runner align' to start a new job from scratch.");
-        
-    }
+    my @directives = qw(preprocess process postprocess chunk parent child);
 
-    if (@ARGV) {
-        die("Unrecognized arguments @ARGV");
-    }
+    my $config = RUM::Config->new->parse_command_line(
+        options => [@options, @transient_options, @directives],
+        load_default => 1);
 
     if ($config->lock_file) {
         $log->info("Got lock_file argument (" .
@@ -139,7 +123,6 @@ sub make_config {
         $RUM::Lock::FILE = $config->lock_file;
     }
 
-    $usage->check;
     return $self->{config} = $config;
 }
 

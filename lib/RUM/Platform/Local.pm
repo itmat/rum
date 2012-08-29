@@ -70,7 +70,7 @@ sub _check_input {
     $log->debug("Checking input files");
     $self->_check_reads_for_quality;
 
-    if ($self->_reads == 1) {
+    if (!$self->config->reverse_reads) {
         $self->_check_single_reads_file;
     }
     else {
@@ -87,7 +87,7 @@ sub _check_single_reads_file {
     my ($self) = @_;
 
     my $config = $self->config;
-    my @reads  = $self->_reads;
+    my @reads  = $config->reads;
 
     # ??? I think if there are two read files, they are definitely
     # paired end. Not sure what implications this has for
@@ -120,7 +120,7 @@ sub _check_single_reads_file {
 sub _check_reads_for_quality {
     my ($self) = @_;
 
-    for my $filename (@{ $self->config->reads }) {
+    for my $filename ($self->config->reads) {
         $log->debug("Checking $filename");
         open my $fh, "<", $filename;
 
@@ -135,7 +135,7 @@ sub _check_reads_for_quality {
 
 sub _check_read_files_same_size {
     my ($self) = @_;
-    my @sizes = map -s, $self->_reads;
+    my @sizes = map -s, $self->config->reads;
     $sizes[0] == $sizes[1] or die
         "The forwards and reverse files are different sizes ($sizes[0] ".
         " and $sizes[1]).  They should be the exact same size.";
@@ -145,7 +145,7 @@ sub _check_read_file_pair {
 
     my ($self) = @_;
     
-    my @reads = @{ $self->config->reads };
+    my @reads = $self->config->reads;
 
     if (@reads == 2) {
         $self->_check_read_files_same_size();
@@ -266,7 +266,7 @@ sub _reformat_reads {
 
     mkpath($config->chunk_dir);
 
-    my @reads = @{ $config->reads };
+    my @reads = $config->reads;
 
     my $reads_fa = $config->in_output_dir("reads.fa");
     my $quals_fa = $config->in_output_dir("quals.fa");
@@ -574,10 +574,6 @@ sub postprocess {
     $w->execute($self->_step_printer($w), ! $c->no_clean);
 
     $self->job_report->print_finish_postproc;
-}
-
-sub _reads {
-    return @{ $_[0]->config->reads };
 }
 
 sub pid {

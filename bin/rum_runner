@@ -85,7 +85,7 @@ sub archive_log_dir {
 # If we're aligning, try to find the output directory specified on the
 # command line and initialize the logging system so that it puts
 # output files there.
-if (@ARGV && $ARGV[0] =~ /^(align|start)$/) {
+if (@ARGV && $ARGV[0] =~ /^(init|align|start)$/) {
 
     my $is_top_level = ! first { / ^ (--parent | --child) $ /mx } @ARGV;
 

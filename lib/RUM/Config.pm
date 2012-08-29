@@ -18,7 +18,7 @@ sub new {
 
     my $self = {};
     $self->{opt}     = delete $params{opt} or croak "Need opt";
-    $self->{desc}    = delete $params{desc} or carp "No description for $self->{opt}";
+    $self->{desc}    = delete $params{desc}; # or carp "No description for $self->{opt}";
     $self->{filter}  = delete $params{filter} || sub { shift };
     $self->{handler} = delete $params{handler} || \&handle;
     $self->{checker} = delete $params{check} || sub { return };
@@ -126,13 +126,17 @@ sub reads {
 }
 
 add_prop(
+    opt => 'paired-end'
+);
+
+add_prop(
     opt => 'forward-reads=s',
-    desc => 'Forward reads'
+    desc => 'Forward reads',
 );
 
 add_prop(
     opt => 'reverse-reads=s',
-    desc => 'Reverse reads'
+    desc => 'Reverse reads',
 );
 
 add_prop(
@@ -289,8 +293,30 @@ add_prop(
     opt => 'limit-bowtie-nu!',
 );
 
+
+add_prop(
+    opt => 'bowtie-nu-limit=s',
+);
+
+
+add_prop(
+    opt => 'count-mismatches',
+);
+
+add_prop(
+    opt => 'input-is-preformatted',
+);
+
+add_prop(
+    opt => 'input-needs-splitting',
+);
+
 add_prop(
     opt => 'limit-nu!',
+);
+
+add_prop(
+    opt => 'nu-limit!',
 );
 
 add_prop(
@@ -365,6 +391,10 @@ add_prop(
     default => 500000
 );
 
+sub is_specified {
+    my ($self, $name) = @_;
+    return defined $self->{$name};
+}
 
 sub parse_command_line {
 
@@ -390,6 +420,10 @@ sub parse_command_line {
         my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
         last POSITIONAL if ! @ARGV;
         $prop->handler->($self, $prop->name, shift(@ARGV));
+    }
+
+    if ($params{load_default}) {
+        $self->load_default;
     }
 
     my @errors;
@@ -703,6 +737,10 @@ sub AUTOLOAD {
     return if $name eq "DESTROY";
 
     return $self->get($name);
+}
+
+sub property_names {
+    return keys %PROPERTIES;
 }
 
 1;
