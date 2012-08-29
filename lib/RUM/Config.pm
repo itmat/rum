@@ -130,6 +130,10 @@ add_prop(
 );
 
 add_prop(
+    opt => 'step=i',
+);
+
+add_prop(
     opt => 'forward-reads=s',
     desc => 'Forward reads',
 );
@@ -423,6 +427,9 @@ sub parse_command_line {
     }
 
     if ($params{load_default}) {
+        if ( $self->is_new ) {
+            die "There does not seem to be a RUM job in " . $self->output_dir . "\n";
+        }
         $self->load_default;
     }
 

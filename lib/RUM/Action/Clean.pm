@@ -14,9 +14,10 @@ sub run {
     my ($class) = @_;
 
     my $self = $class->new;
-    $self->get_options('--very' => \(my $very));
-    $self->check_usage;
-    $self->clean($very);
+    $self->{config} = RUM::Config->new->parse_command_line(
+        options => [qw(output_dir)],
+        load_default => 1);
+    $self->clean;
 }
 
 sub clean {

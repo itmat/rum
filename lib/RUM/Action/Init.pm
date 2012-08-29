@@ -77,6 +77,7 @@ sub make_config {
                      quantify ram read_length strand_specific
                      variable_length_reads blat_min_identity
                      blat_tile_size blat_step_size blat_max_intron
+                     no_clean
                      blat_rep_match);
 
     my $config = RUM::Config->new->parse_command_line(

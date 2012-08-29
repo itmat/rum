@@ -28,18 +28,15 @@ sub run {
     my ($class) = @_;
 
     my $self = $class->new(name => 'status');
-    $self->get_options;
 
-    if ( ! $self->{loaded_config} ) {
-        $self->say("There does not seem to be a RUM job in "
-                   . $self->config->output_dir);
-        return;
-    }
+    $self->{config} = RUM::Config->new->parse_command_line(
+        options => [qw(output_dir)],
+        load_default => 1);
 
     $self->{workflows} = RUM::Workflows->new($self->config);
 
-    $self->print_processing_status;
-    $self->print_postprocessing_status;
+    my $steps = $self->print_processing_status;
+    $self->print_postprocessing_status($steps);
     $self->say();
     $self->_chunk_error_logs_are_empty;
 
@@ -98,9 +95,9 @@ sub print_processing_status {
     $self->say("Processing in $n chunks");
     $self->say("-----------------------");
 
-    for (0 .. $#plan) {
-        my $progress = $progress[$_] . " ";
-        my $comment   = $workflow->comment($plan[$_]);
+    for my $i (0 .. $#plan) {
+        my $progress = $progress[$i] . " ";
+        my $comment   = sprintf "%2d. %s", $i + 1, $workflow->comment($plan[$i]);
         my $indent = ' ' x length($progress);
         $self->say(wrap($progress, $indent, $comment));
     }
@@ -109,7 +106,7 @@ sub print_processing_status {
     for my $line (@errored_chunks) {
         warn "$line\n";
     }
-
+    return @plan;
 }
 
 =item print_postprocessing_status
@@ -119,7 +116,7 @@ Print the status of all the steps of the "postprocessing" phase.
 =cut
 
 sub print_postprocessing_status {
-    my ($self) = @_;
+    my ($self, $step_offset) = @_;
     local $_;
     my $c = $self->config;
 
@@ -133,9 +130,9 @@ sub print_postprocessing_status {
     my $plan = $postproc->state_machine->plan or croak "Can't build plan";
     my @plan = @{ $plan };
     my $skip = $postproc->state_machine->skippable($plan, $state);
-    for (0 .. $#plan) {
-        my $progress = $_ < $skip ? "X" : " ";
-        my $comment  = $postproc->comment($plan[$_]);
+    for my $i (0 .. $#plan) {
+        my $progress = $i < $skip ? "X" : " ";
+        my $comment   = sprintf "%2d. %s", $i + $step_offset + 1, $postproc->comment($plan[$i]);
         $self->say("$progress $comment");
     };
 }

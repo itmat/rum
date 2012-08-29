@@ -276,7 +276,8 @@ sub walk {
         $log->warn("Couldn't find a plan for $self"), return 0;
 
     for my $e (@{ $plan }) {
-        my $v = $self->transition($u, $_);
+        warn "Instruction is $u, $e\n";
+        my $v = $self->transition($u, $e);
         $callback->($self, $u, $e, $v);
     }
     return 1;
