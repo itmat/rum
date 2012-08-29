@@ -24,7 +24,7 @@ sub main {
         "paired"                 => \(my $paired),
         "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
         "read-length"     => \(my $readlength = 0),
-        "min-overlap"     => \(my $user_min_overlap),
+        "min-overlap=i"   => \(my $user_min_overlap),
         "help|h"    => sub { RUM::Usage->help },
         "verbose|v" => sub { $log->more_logging(1) },
         "quiet|q"   => sub { $log->less_logging(1) }
@@ -50,7 +50,7 @@ sub main {
         "Please specify exactly one of --single or --paired");
 
     if (defined($user_min_overlap)) {
-        if (!($user_min_overlap =~ /^\d+$/) || $user_min_overlap < 5) {
+        if ($user_min_overlap < 5) {
             RUM::Usage->bad(
                 "If you provide --min-overlap it must be an integer > 4");
         }

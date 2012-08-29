@@ -29,6 +29,8 @@ sub preprocess {
     my ($self) = @_;
     my $config = $self->config;
 
+    my $flag_file = $config->in_chunk_dir("preproc_done");
+
     $self->say();
     $self->say("Preprocessing");
     $self->say("-------------");
@@ -57,12 +59,21 @@ sub preprocess {
         }
     }
 
+    if (-e $flag_file) {
+        $self->say("(skipping: preprocessing is done)");
+        $self->job_report->print_skip_preproc;
+        return;
+    }
+
     $self->_check_input();
     $self->_reformat_reads();
     $self->_determine_read_length();
     $self->config->save;
     $self->{workflows} = undef;
     $self->job_report->print_finish_preproc;
+    open my $flag_fh, '>', $flag_file;
+    print $flag_fh '';
+    close $flag_fh;
 }
 
 sub _check_input {

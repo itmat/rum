@@ -10,6 +10,7 @@ use base 'RUM::Action';
 use RUM::Common qw(format_large_int min_match_length);
 use RUM::Logging;
 use RUM::Action::Clean;
+use RUM::Action::Reset;
 
 our $log = RUM::Logging->get_logger;
 
@@ -99,23 +100,32 @@ sub make_config {
 
     my ($self) = @_;
 
-    my @transient_options = qw(quiet verbose no_clean);
+    my @transient_options = qw(quiet verbose no_clean output_dir);
 
-    my @options = qw(limit_nu_cutoff output_dir
-                     index_dir name qsub platform alt_genes
-                     alt_quants blat_only dna genome_only junctions
-                     limit_bowtie_nu limit_nu max_insertions
-                     min_identity min_length preserve_names quals_file
-                     quantify ram read_length strand_specific
-                     variable_length_reads blat_min_identity
-                     blat_tile_size blat_step_size blat_max_intron
-                     blat_rep_match);
+    my @reset_options = qw(limit_nu_cutoff index_dir name qsub
+                           platform alt_genes alt_quants blat_only dna
+                           genome_only junctions limit_bowtie_nu
+                           limit_nu max_insertions min_identity
+                           min_length preserve_names quals_file
+                           quantify ram read_length strand_specific
+                           variable_length_reads blat_min_identity
+                           blat_tile_size blat_step_size
+                           blat_max_intron blat_rep_match);
 
     my @directives = qw(preprocess process postprocess chunk parent child);
 
     my $config = RUM::Config->new->parse_command_line(
-        options => [@options, @transient_options, @directives],
+        options => [@transient_options, @reset_options, @directives],
         load_default => 1);
+
+    my @specified = grep { $config->is_specified($_) } @reset_options;
+
+    if (@specified) {
+        $self->say("Since you specified some parameters, I am resetting the ".
+                   "job to just after the preprocessing phase.");
+        RUM::Action::Reset->new(config => $config)->reset_job;
+        $config->save;
+    }
 
     if ($config->lock_file) {
         $log->info("Got lock_file argument (" .

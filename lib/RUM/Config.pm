@@ -599,11 +599,19 @@ sub set {
     return $self;
 }
 
+
 sub save {
     my ($self) = @_;
-    my $filename = $self->in_output_dir($FILENAME);
-    open my $fh, ">", $filename or croak "$filename: $!";
-    print $fh Dumper($self);
+
+    my @specified = grep { $_ ne 'output_dir' && $self->is_specified($_) } $self->property_names;
+
+    if (@specified) {
+        my $filename = $self->in_output_dir($FILENAME);
+        open my $fh, ">", $filename or croak "$filename: $!";
+        print $fh Dumper($self);
+        return 1;
+    }
+    return 0;
 }
 
 sub destroy {
@@ -624,8 +632,23 @@ sub load_default {
     my $filename = $self->in_output_dir($FILENAME);
 
     $self->{_default} = do $filename;
+
     my $class = blessed($self);
+
     ref($self->{_default}) =~ /$class/ or croak "$filename did not return a $class";
+    if ($self->{_default}->output_dir eq
+        $self->output_dir) {
+        delete $self->{output_dir};
+    }
+    else {
+        croak("I loaded a config file from ".$self->output_dir.", and it " .
+              "had its output directory set to ".$self->{_default}->output_dir.". It " .
+              "should be the same as the directory I loaded it from. This means " .
+              "the config file is corrupt. You should probably start the job again " .
+              "from scratch.");
+    }
+
+
     return $self;
 }
 

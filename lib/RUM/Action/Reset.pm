@@ -15,14 +15,22 @@ sub new { shift->SUPER::new(name => 'reset', @_) }
 sub run {
     my ($class) = @_;
     my $self = $class->new;
-    
-    my $config = $self->{config} = RUM::Config->new->parse_command_line(
+
+    $self->{config} = RUM::Config->new->parse_command_line(
         options => [qw(output_dir step)],
         load_default => 1
     );
-    $self->{workflows} = RUM::Workflows->new($self->config);
 
-    my $workflows = $self->{workflows};
+    $self->reset_job;
+
+}
+
+sub reset_job {
+    my ($self) = @_;
+
+    my $config = $self->{config};
+
+    my $workflows = RUM::Workflows->new($self->config);
 
     my $wanted_step = $config->step || 0;
 
@@ -34,6 +42,7 @@ sub run {
     }
 
     $self->reset_workflow($workflows->postprocessing_workflow, $wanted_step - $processing_steps);
+    
 }
 
 sub reset_workflow {
