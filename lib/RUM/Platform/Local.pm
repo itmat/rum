@@ -75,7 +75,6 @@ sub _check_input {
     }
     else {
         $self->config->set("paired_end", 1);
-        $self->config->save;
     }
     $self->_check_read_file_pair;
 
@@ -115,7 +114,6 @@ sub _check_single_reads_file {
     $config->set("paired_end", $paired);
     $config->set("input_needs_splitting", $needs_splitting);
     $config->set("input_is_preformatted", $preformatted);
-    $config->save;
 }
 
 
@@ -215,7 +213,6 @@ sub _check_variable_length {
             $self->logsay("It seems your read lengths vary, but you didn't set -variable_length_reads. I'm going to set it for you, but it's generally safer to set it on the command-line since I only spot check the file.");
             $self->say();
             $c->set('variable_length_reads', 1);
-            $c->save;
         }
         $length_hold = length($line1);
     }
@@ -235,11 +232,9 @@ sub _determine_read_length {
     if ($self->config->variable_length_reads) {
         $log->info("Using variable read length");
         $self->config->set("read_length", "v");
-        $self->config->save;
     }
     else{
         $self->config->set("read_length", $len);
-        $self->config->save;
         if (($min || 0) > $len) {
             die "You specified a minimum length alignment to report as '$min', however your read length is only $len\n";
         }

@@ -7,6 +7,7 @@ use Carp;
 
 use RUM::Logger;
 use RUM::Common qw(format_large_int);
+use RUM::Index;
 
 my $log = RUM::Logger->get_logger;
 
@@ -27,7 +28,9 @@ sub check_ram {
         $c->set('ram', $available);
     }
 
-    my $genome_size = $c->genome_size;
+    my $index = RUM::Index->load($c->index_dir);
+
+    my $genome_size = $index->genome_size;
     my $gs4 = &format_large_int($genome_size);
     my $gsz = $genome_size / 1000000000;
     my $min_ram = int($gsz * 1.67)+1;

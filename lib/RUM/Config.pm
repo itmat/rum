@@ -1,3 +1,44 @@
+package RUM::Property;
+
+use strict;
+use warnings;
+
+use RUM::Usage;
+use Carp;
+
+sub handle {
+    my ($conf, $opt, $val) = @_;
+    warn "Got option $opt\n";
+    $opt =~ s/-/_/g;
+    $conf->set($opt, $val);
+}
+
+sub new {
+    my ($class, %params) = @_;
+
+    my $self = {};
+    $self->{opt}     = delete $params{opt} or croak "Need opt";
+    $self->{desc}    = delete $params{desc} or carp "No description for $self->{opt}";
+    $self->{filter}  = delete $params{filter} || sub { shift };
+    $self->{handler} = delete $params{handler} || \&handle;
+    $self->{checker} = delete $params{check} || sub { return };
+    $self->{default} = delete $params{default};
+
+    $self->{name} = $self->{opt};
+    $self->{name} =~ s/[=!|].*//;
+    $self->{name} =~ s/-/_/g;
+
+    return bless $self, $class;
+}
+
+sub opt { shift->{opt} }
+sub handler { shift->{handler} }
+sub name { shift->{name} }
+sub desc { shift->{desc} }
+sub filter { shift->{filter} }
+sub checker { shift->{checker} }
+sub default { shift->{default} }
+
 package RUM::Config;
 
 use strict;
@@ -20,59 +61,18 @@ FindBin->again;
 
 our $FILENAME = ".rum/job_settings";
 
-my @TRANSIENT_PROPERTIES = qw(parent child process preprocess postprocess no_clean
-                              quiet verbose);
 
 my $DEFAULT = RUM::Config->new;
 
 our %DEFAULTS = (
 
-    child => undef,
-    parent => undef,
-    process => undef,
-    preprocess => undef,
-    postprocess => undef,
-    no_clean => undef,
-    quiet => undef,
-    verbose => undef,
 
     # These properties are actually set by the user
-    max_insertions        => 1,
-    strand_specific       => 0,
-    min_identity          => 93,
-    blat_min_identity     => 93,
-    blat_tile_size        => 12,
-    blat_step_size        => 6,
-    blat_rep_match        => 256,
-    blat_max_intron       => 500000,
-    platform              => "Local",
 
-    chunks                => undef,
-    chunk                => undef,
-    ram                   => undef,
-
-    name                  => undef,
-    output_dir            => undef,
-    index_dir             => undef,
-    reads                 => undef,
-    user_quals            => undef,
-    alt_genes             => undef,
     alt_quant_model       => undef,
     alt_quant             => undef,
-    genome_only           => undef,
-    blat_only             => undef,
-    quantify              => undef,
-    junctions             => undef,
-    preserve_names        => undef,
-    variable_length_reads => undef,
-    min_length            => undef,
-    max_insertions        => undef,
-    limit_nu_cutoff       => undef,
-    nu_limit              => undef,
-    bowtie_nu_limit       => 100,
-    dna                   => undef,
+
     count_mismatches      => undef,
-    no_clean              => undef,
 
     # These are derived from the user-provided properties, and saved
     # to the .rum/job_settings file
@@ -81,7 +81,6 @@ our %DEFAULTS = (
     input_needs_splitting => undef,
     input_is_preformatted => undef,
     paired_end            => undef,
-    read_length           => undef,
 
     # Loaded from the rum config file
     genome_bowtie         => undef,
@@ -91,13 +90,6 @@ our %DEFAULTS = (
     genome_size           => undef,
 );
 
-my %TRANSIENT = (
-    no_clean => 1,
-    quiet    => 1,
-    verbose  => 1,
-    action   => undef,
-    
-);
 
 sub should_preprocess {
     my $self = shift;
@@ -115,74 +107,309 @@ sub should_postprocess {
     return $self->postprocess || (!$self->preprocess && !$self->process);
 }
 
-sub from_command_line {
+my %PROPERTIES;
 
+sub add_prop {
+    my (%params) = @_;
+    my $prop = RUM::Property->new(%params);
+    $PROPERTIES{$prop->name} = $prop;
+}
+
+sub make_absolute {
+    return File::Spec->rel2abs(shift);
+}
+
+sub reads {
     my ($self) = @_;
+    return grep { $_ } ($self->forward_reads,
+                        $self->reverse_reads);
+}
 
-    my $handle_option = sub {
-        my ($name, $value) = @_;
-        warn "Setting $name to $value\n";
-        $name =~ s/-/_/g;
-        $self->set($name, $value);
-    };
+add_prop(
+    opt => 'forward-reads=s',
+    desc => 'Forward reads'
+);
 
-    my $handle_path = sub {
-        my ($name, $path) = @_;
-        $handle_option->($name, File::Spec->rel2abs($path));
-    };
+add_prop(
+    opt => 'reverse-reads=s',
+    desc => 'Reverse reads'
+);
 
-    GetOptions(
+add_prop(
+    opt => 'limit-nu-cutoff=s',
+);
 
-        # Advanced (user shouldn't run these)
-        "child"        => $handle_option,
-        "parent"       => $handle_option,
-        "lock=s"       => $handle_path,
+add_prop(
+    opt  => 'quiet',
+    desc => 'Less output than normal'
+);
 
-        # Options controlling which portions of the pipeline to run.
-        "preprocess"   => $handle_option,
-        "process"      => $handle_option,
-        "postprocess"  => $handle_option,
-        "chunk=i"      => $handle_option,
+add_prop(
+    opt  => 'verbose',
+    desc => 'More output than normal'
+);
 
-        "no-clean" => $handle_option,
+add_prop(
+    opt  => 'child',
+    desc => 'Indicates that this is a child process');
 
-        'output-dir|o=s' => $handle_path,
+add_prop(
+    opt  => 'parent',
+    desc => 'Indicates that this is a parent process');
 
-        # Options typically entered by a user to define a job.
-        "index-dir|i=s" => $handle_path,
-        "name=s"        => $handle_option,
-        "chunks=i"      => $handle_option,
-        "qsub"          => sub { $self->set('platform', 'SGE'); },
-        "platform=s"    => $handle_option,
+add_prop(
+    opt  => 'lock=s',
+    desc => ('Path to the lock file, if this process is '.
+             'to inherit the lock from the parent process'),
+    filter => \&make_absolute);
+    
+add_prop(
+    opt  => 'preprocess',
+    desc => 'Just run the preprocessing phase');
 
-        # Advanced options
-        "alt-genes=s"        => $handle_path,
-        "alt-quants=s"       => $handle_path,
-        "blat-only"          => $handle_option,
-        "count-mismatches"   => $handle_option,
-        "dna"                => $handle_option,
-        "genome-only"        => $handle_option,
-        "junctions"          => $handle_option,
-        "limit-bowtie-nu!"   => $handle_option,
-        "limit-nu=s"         => $handle_option,
-        "max-insertions-per-read=s" => $handle_option,
-        "min-identity"              => $handle_option,
-        "min-length=s"              => $handle_option,
-        "preserve-names"            => $handle_option,
-        "quals-file|qual-file=s"    => $handle_path,
-        "quantify"                  => $handle_option,
-        "ram=s"    => $handle_option,
-        "read-lengths=s" => $handle_option,
-        "strand-specific" => $handle_option,
-        "variable-length-reads" => $handle_option,
+add_prop(
+    opt  => 'process',
+    desc => 'Just run the processing phase');
 
-        # Options for blat
-        "minIdentity|blat-min-identity=s" => $handle_option,
-        "tileSize|blat-tile-size=s"       => $handle_option,
-        "stepSize|blat-step-size=s"       => $handle_option,
-        "repMatch|blat-rep-match=s"       => $handle_option,
-        "maxIntron|blat-max-intron=s"     => $handle_option
-    );
+add_prop(
+    opt  => 'postprocess',
+    desc => 'Just run the postprocessing phase');
+
+add_prop(
+    opt  => 'chunk=i',
+    desc => 'Number of chunk to process',
+);
+    
+add_prop(
+    opt  => 'no-clean',
+    desc => 'Don\'t remove intermediate files');
+
+add_prop(
+    opt  => 'output-dir|o=s',
+    desc => 'The output directory of the RUM job',
+    filter => \&make_absolute,
+    check => sub {
+        my $conf = shift;
+        if (!$conf->output_dir) {
+            return ('Please specify an output directory with --output');
+        }
+    }
+);
+
+
+add_prop(
+    opt  => 'index-dir|i=s',
+    desc => 'The directory of the RUM index to use',
+    filter => \&make_absolute,
+    check => sub {
+        my $conf = shift;
+        if (!$conf->index_dir) {
+            return ('Please specify an index directory with --index');
+        }
+        else {
+            return;
+        }
+    }
+);
+
+add_prop(
+    opt  => 'name=s',
+    desc => 'Name for the job',
+    check => sub {
+        my $conf = shift;
+        
+        if (! $conf->name ) {
+            return ('Please specify a job name with --name');
+        }
+        elsif (length $conf->name > 250) {
+            return ('The name must be less than 250 characters');
+        }
+        else {
+            return;
+        }
+    }
+);
+
+add_prop(
+    opt  => 'chunks=i',
+    desc => 'Number of chunks to split the input into',
+    check => sub {
+        my $conf = shift;
+        if ($conf->chunks) {
+            return;
+        }
+        else {
+            return ('Please specify the number of chunks to use with --chunks');
+        }
+    },
+);
+
+add_prop(
+    opt  => 'qsub',
+    handle => sub { shift->set('platform', 'SGE') },
+);
+
+add_prop(
+    opt  => 'platform=s',
+    desc => 'The platform to use, either \'Local\' or \'SGE\'',
+    default => 'Local'
+    
+);
+
+add_prop(
+    opt  => 'alt-genes=s',
+    desc => 'Alternate gene model'
+);
+
+add_prop(
+    opt  => 'alt-quants=s',
+    desc => 'Alternate quant model'
+);
+
+add_prop(
+    opt  => 'blat-only',
+    desc => 'Just run blat, not bowtie'
+);
+
+add_prop(
+    opt  => 'dna',
+    desc => 'Run in DNA mode'
+);
+
+add_prop(
+    opt  => 'genome-only',
+    desc => 'Run in genome-only mode'
+);
+
+add_prop(
+    opt  => 'junctions'
+);
+
+add_prop(
+    opt => 'limit-bowtie-nu!',
+);
+
+add_prop(
+    opt => 'limit-nu!',
+);
+
+add_prop(
+    opt => 'max-insertions',
+    default => 1
+);
+
+add_prop(
+    opt => 'min-identity=s',
+);
+
+add_prop(
+    opt => 'min-length=s',
+);
+
+
+add_prop(
+    opt => 'preserve-names'
+);
+
+add_prop(
+    opt => 'quals-file|qual-file=s',
+);
+
+add_prop(
+    opt => 'quantify'
+);
+
+add_prop(
+    opt => 'ram=s'
+);
+
+add_prop(
+    opt => 'ram-ok'
+);
+
+
+add_prop(
+    opt => 'read-length=s'
+);
+
+add_prop(
+    opt => 'strand-specific'
+);
+
+add_prop(
+    opt => 'variable-length-reads'
+);
+
+add_prop(
+    opt => "blat-min-identity|minIdentity=s",
+    default => 93
+);
+
+add_prop(
+    opt => "blat-tile-size|tileSize=s",
+    default => 12
+);
+
+add_prop(
+    opt => "blat-step-size|stepSize=s",
+    default => 6
+);
+
+add_prop(
+    opt => "blat-rep-match|repMatch=s",
+    default => 256
+);
+
+add_prop(
+    opt => "blat-max-intron|maxIntron=s",
+    default => 500000
+);
+
+
+sub parse_command_line {
+
+    my ($self, %params) = @_;
+
+    my $options = delete $params{options};
+    my $positional = delete $params{positional} || [];
+    
+    my %getopt;
+
+    for my $name (@{ $options }) {
+        my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
+        $getopt{$prop->opt} = sub {
+            my ($name, $val) = @_;
+            $val = $prop->filter->($val);
+            $prop->handler->($self, $name, $val);
+        };        
+    }
+
+    GetOptions(%getopt);
+    
+  POSITIONAL: for my $name (@{ $positional }) {
+        my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
+        last POSITIONAL if ! @ARGV;
+        $prop->handler->($self, $prop->name, shift(@ARGV));
+    }
+
+    my @errors;
+
+    for my $name (@{ $options }, 
+                  @{ $positional }) {
+        my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
+        my @these_errors = $prop->checker->($self);
+        push @errors, grep { $_ } @these_errors;
+    }
+
+    if (@ARGV) {
+        push @errors, "There were extra command-line arguments: @ARGV";
+    }
+
+    warn "Errors are '@errors'";
+    if (@errors) {
+        my $msg = join('', map { "$_\n" } @errors);
+        die "There were usage errors:\n$msg";
+    }
 
     return $self;
 }
@@ -197,9 +424,9 @@ sub new {
     my $self = {};
 
     if ($is_default) {
-        for my $k (keys %DEFAULTS) {
-            if (defined (my $v = $DEFAULTS{$k})) {
-                $self->{$k} = $v;
+        for my $prop (values %PROPERTIES) {
+            if (defined (my $v = $prop->default)) {
+                $self->{$prop->name} = $v;
             }
         }
     }
@@ -311,7 +538,7 @@ sub blat_opts {
 
 sub is_property {
     my $name = shift;
-    exists $DEFAULTS{$name};
+    exists $PROPERTIES{$name};
 }
 
 my %paths = (
@@ -342,6 +569,12 @@ sub destroy {
     my ($self) = @_;
     my $filename = $self->in_output_dir($FILENAME);
     unlink $filename;
+}
+
+sub is_new {
+    my ($self) = @_;
+    my $filename = $self->in_output_dir($FILENAME);
+    return ! -e $filename;
 }
 
 sub load_default {

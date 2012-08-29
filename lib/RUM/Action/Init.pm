@@ -20,10 +20,9 @@ sub new { shift->SUPER::new(name => 'align', @_) }
 sub initialize {
     my ($self) = @_;
 
-    # Parse the command line and construct a RUM::Config
-    my $c = $self->make_config;
-
-    $self->check_config;
+    my $c = $self->config;
+    
+    #$self->check_config;
     RUM::SystemCheck::check_deps;
 
     RUM::SystemCheck::check_gamma(
@@ -62,35 +61,7 @@ sub run {
     # Parse the command line and construct a RUM::Config
     my $c = $self->make_config;
 
-    $self->check_config;
-    RUM::SystemCheck::check_deps;
-
-    RUM::SystemCheck::check_gamma(
-        config => $c);
-
-    $self->setup;
-#    $self->get_lock;
-    
-    my $platform      = $self->platform;
-    my $platform_name = $c->platform;
-    my $local = $platform_name =~ /Local/;
-    
-    if ($local) {
-        RUM::SystemCheck::check_ram(
-            config => $c,
-            say => sub { $self->logsay(@_) });
-    }
-    else {
-        $self->say(
-            "You are running this job on a $platform_name cluster. ",
-            "I am going to assume each node has sufficient RAM for this. ",
-            "If you are running a mammalian genome then you should have at ",
-            "least 6 Gigs per node");
-    }
-
-    $self->say("Saving job configuration");
-    $self->config->save;
-#    RUM::Lock->release;
+    $self->initialize;
     return $self->config;
 
 }
@@ -98,33 +69,25 @@ sub run {
 sub make_config {
     my ($self) = @_;
 
-    my $usage = RUM::Usage->new('action' => 'align');
-    warn "In make_config\n";
-    my $config = RUM::Config->new->from_command_line;
+    my @options = qw(limit_nu_cutoff quiet verbose output_dir
+                     index_dir name chunks qsub platform alt_genes
+                     alt_quants blat_only dna genome_only junctions
+                     limit_bowtie_nu limit_nu max_insertions
+                     min_identity min_length preserve_names quals_file
+                     quantify ram read_length strand_specific
+                     variable_length_reads blat_min_identity
+                     blat_tile_size blat_step_size blat_max_intron
+                     blat_rep_match);
 
-    my @reads;
-    while (local $_ = shift @ARGV) {
-        if (/^-/) {
-            $usage->bad("Unrecognized option $_");
-        }
-        else {
-            push @reads, File::Spec->rel2abs($_);
-        }
+    my $config = RUM::Config->new->parse_command_line(
+        options => \@options,
+        positional => ['forward_reads', 'reverse_reads']);
+
+    if ( ! $config->is_new ) {
+        die("It looks like there's already a job initialized in " .
+            $config->output_dir);
     }
 
-    warn "I got reads @reads\n";
-    if (@reads) {
-        $config->set('reads', [@reads]);
-    }
-
-    if ($config->lock_file) {
-        $log->info("Got lock_file argument (" .
-                   $config->lock_file . ")");
-        $RUM::Lock::FILE = $config->lock_file;
-    }
-
-
-    $usage->check;
     return $self->{config} = $config;
 }
 
@@ -135,21 +98,7 @@ sub check_config {
     my $usage = RUM::Usage->new(action => $action);
 
     my $c = $self->config;
-    $c->output_dir or $usage->bad(
-        "Please specify an output directory with --output or -o");
-    
-    # Job name
-    if ($c->name) {
-        length($c->name) <= 250 or $usage->bad(
-            "The name must be less than 250 characters");
-        $c->set('name', fix_name($c->name));
-    }
-    else {
-        $usage->bad("Please specify a name with --name");
-    }
 
-    $c->index_dir or $usage->bad(
-        "Please specify a rum index directory with --index-dir or -i");
     $c->load_rum_config_file if $c->index_dir;
 
     my $reads = $c->reads;
@@ -174,7 +123,7 @@ sub check_config {
                 " to be greater than 1.");
     }
 
-    if (defined($c->user_quals)) {
+    if (defined($c->quals_file)) {
         $c->quals_file =~ /\// or $usage->bad(
             "do not specify -quals file with a full path, ".
                 "put it in the '". $c->output_dir."' directory.");

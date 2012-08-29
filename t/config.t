@@ -80,3 +80,20 @@ is $c->quant(chunk => 1,
              sense => "a"), 
     "chunks/quant.pa.1";
 
+{
+    my $conf = RUM::Config->new;
+    @ARGV = ('--name', 'foo',
+             '--index', '/rum/index',
+             '--chunks', 3,
+             'forward.fa');
+
+    $conf->parse_command_line(
+        options => [qw(name index_dir chunks)],
+        positional => [qw(forward_reads reverse_reads)]
+    );
+    is $conf->name, 'foo';
+    is $conf->index_dir, '/rum/index';
+    is $conf->chunks, 3;
+    is $conf->forward_reads, 'forward.fa';
+
+}
