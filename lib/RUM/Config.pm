@@ -537,7 +537,7 @@ sub parse_command_line {
     my $positional = delete $params{positional} || [];
     
     my %getopt;
-    warn "Options are @$options";
+
     for my $name (@{ $options }) {
         my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
         $getopt{$prop->opt} = sub {
@@ -876,6 +876,10 @@ sub property_names {
 }
 
 
+sub step_props {
+    return qw(preprocess process postprocess chunk parent child);
+}
+
 sub common_props {
     return qw(quiet verbose help);
 }
@@ -892,6 +896,12 @@ sub job_setting_props {
               no_clean blat_rep_match count_mismatches);
 }
 
+sub changed_settings {
+    my ($self) = @_;
+    my @props = $self->job_setting_props;
+    my @changed = grep { $self->is_specified($_) } @props;
+    return @changed;
+}
 
 1;
 
