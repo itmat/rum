@@ -22,6 +22,7 @@ sub new {
     $self->{handler} = delete $params{handler} || \&handle;
     $self->{checker} = delete $params{check} || sub { return };
     $self->{default} = delete $params{default};
+    $self->{transient} = delete $params{transient};
 
     $self->{name} = $self->{opt};
     $self->{name} =~ s/[=!|].*//;
@@ -38,6 +39,7 @@ sub desc { shift->{desc} }
 sub filter { shift->{filter} }
 sub checker { shift->{checker} }
 sub default { shift->{default} }
+sub transient { shift->{transient} }
 
 package RUM::Config;
 
@@ -87,6 +89,9 @@ our %DEFAULTS = (
 
 sub should_preprocess {
     my $self = shift;
+    warn "Preproc is " . $self->preprocess;
+    warn "Proc    is " . $self->process;
+    warn "Postprocis " . $self->postprocess;
     return $self->preprocess || (!$self->process && !$self->postprocess);
 }
 
@@ -159,6 +164,7 @@ add_prop(
 
 add_prop(
     opt => 'step=i',
+    transient => 1
 );
 
 add_prop(
@@ -208,54 +214,73 @@ add_prop(
 
 add_prop(
     opt  => 'quiet|q',
-    desc => 'Less output than normal'
+    desc => 'Less output than normal',
+    transient => 1
+    
 );
 
 add_prop(
     opt  => 'help|h',
-    desc => 'Get help'
+    desc => 'Get help',
+    transient => 1,
 );
 
 
 add_prop(
     opt  => 'verbose|v',
-    desc => 'More output than normal'
+    desc => 'More output than normal',
+    transient => 1,
 );
 
 add_prop(
     opt  => 'child',
-    desc => 'Indicates that this is a child process');
+    desc => 'Indicates that this is a child process',
+    transient => 1,
+);
 
 add_prop(
     opt  => 'parent',
-    desc => 'Indicates that this is a parent process');
+    desc => 'Indicates that this is a parent process',
+    transient => 1,
+);
 
 add_prop(
     opt  => 'lock=s',
     desc => ('Path to the lock file, if this process is '.
              'to inherit the lock from the parent process'),
-    filter => \&make_absolute);
+    filter => \&make_absolute,
+    transient => 1,
+);
     
 add_prop(
     opt  => 'preprocess',
-    desc => 'Just run the preprocessing phase');
+    desc => 'Just run the preprocessing phase',
+    transient => 1,
+);
 
 add_prop(
     opt  => 'process',
-    desc => 'Just run the processing phase');
+    desc => 'Just run the processing phase',
+    transient => 1,
+);
 
 add_prop(
     opt  => 'postprocess',
-    desc => 'Just run the postprocessing phase');
+    desc => 'Just run the postprocessing phase',
+    transient => 1,
+);
 
 add_prop(
     opt  => 'chunk=i',
     desc => 'Just run the processing phase of the specified chunk.',
+    transient => 1,
 );
     
 add_prop(
     opt  => 'no-clean',
-    desc => 'Don\'t remove intermediate files. Useful when debugging.');
+    desc => 'Don\'t remove intermediate files. Useful when debugging.',
+    transient => 1,
+);
 
 add_prop(
     opt  => 'output-dir|o=s',
@@ -771,10 +796,19 @@ sub save {
 
     my @specified = grep { $_ ne 'output_dir' && $self->is_specified($_) } $self->property_names;
 
+    my %copy;
+
+    for my $k (keys %{ $self }) {
+        if (!$PROPERTIES{$k} ||
+            !$PROPERTIES{$k}->transient) {
+            $copy{$k} = $self->{$k};
+        }
+    }
+
     if (@specified) {
         my $filename = $self->in_output_dir($FILENAME);
         open my $fh, ">", $filename or croak "$filename: $!";
-        print $fh Dumper($self);
+        print $fh Dumper(bless \%copy, __PACKAGE__);
         return 1;
     }
     return 0;

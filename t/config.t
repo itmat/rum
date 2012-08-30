@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 27;
+use Test::More tests => 29;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
@@ -81,10 +81,13 @@ is $c->quant(chunk => 1,
     "chunks/quant.pa.1";
 
 {
+
+    my $reads = File::Temp->new(UNLINK => 1);
+
     my $conf = RUM::Config->new;
     @ARGV = ('--name', 'foo',
              '--chunks', 3,
-             'forward.fa');
+             $reads);
 
     $conf->parse_command_line(
         options => [qw(name chunks)],
@@ -118,4 +121,23 @@ is $c->quant(chunk => 1,
     $conf->parse_command_line(
         options => [qw(max_insertions)]);
     is $conf->max_insertions, 5;
+}
+
+{
+
+    my $dir = tempdir(TEMPLATE => "config.XXXXXX", CLEANUP => 1);
+    my $conf = RUM::Config->new->set(
+        output_dir => $dir);
+
+    $conf->set('verbose', 1);
+    
+    is $conf->verbose, 1, 'Verbose before saving';
+    mkdir "$dir/.rum";
+    $conf->save;
+    
+    my $conf = RUM::Config->new->set(
+        output_dir => $dir);
+    $conf->load_default;
+    ok ! $conf->verbose, 'Not verbose after loading again';
+
 }

@@ -310,7 +310,7 @@ sub _final_check {
         $self->logsay("No errors. Very good!");
         unless ($self->config->no_clean) {
             $self->logsay("Cleaning up.");
-            RUM::Action::Clean->new(config => $self->config)->clean;
+            $self->clean;
         }
     }
 }
