@@ -95,7 +95,7 @@ is $c->quant(chunk => 1,
     );
     is $conf->name, 'foo';
     is $conf->chunks, 3;
-    is $conf->forward_reads, 'forward.fa';
+    is $conf->forward_reads, $reads;
 
 }
 

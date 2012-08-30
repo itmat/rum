@@ -119,11 +119,10 @@ sub rum_random_out_dir {
 sub preprocess {
     my @args = @_;
     @ARGV = @args;
-    my $rum = RUM::Action::Init->new;
+    my $rum = RUM::Action::Init->new->pipeline;
     capturing_stdout { 
         $RUM::Action::Align::log->less_logging(2);
         $rum->{directives}{quiet} = 1;
-        $rum->make_config;
         $rum->initialize;
         $rum->platform->preprocess;
     };
@@ -142,9 +141,8 @@ sub chunk_cmd_unlike {
 
 sub chunk_cmd_like {
     my ($args, $step, $re, $comment, $negate) = @_;
-    my $rum = RUM::Action::Init->new;
     @ARGV = @$args;
-    $rum->make_config;
+    my $rum = RUM::Action::Init->new->pipeline;
 
     eval {
         my $config = $rum->config;
@@ -173,11 +171,8 @@ sub postproc_cmd_unlike {
 
 sub postproc_cmd_like {
     my ($args, $step, $re, $comment, $negate) = @_;
-    my $rum = RUM::Action::Init->new;
     @ARGV = @$args;
-
-    $rum->make_config;
-
+    my $rum = RUM::Action::Init->new->pipeline;
 
     eval {
         my $config = $rum->config;
@@ -275,8 +270,8 @@ add_test {
              '--chunks', 1,
              $forward_64_fq);
     
-    my $init = RUM::Action::Init->new;
-    $init->make_config;
+    my $init = RUM::Action::Init->new->pipeline;
+
     my $c = $init->config or BAIL_OUT("Can't get RUM");
     is($c->name, "asdf", "Name");
     like($c->output_dir, qr/foo$/, "Output dir");
@@ -298,12 +293,13 @@ add_test {
 add_test {
 
     my $init = RUM::Action::Init->new;
+
     @ARGV = ('--index', $index,
              '--output', 'foo',
              '--chunks', 1,
              $forward_64_fq, "--name", ",foo bar,baz,");
-    
-    $init->make_config;
+    $init->pipeline;
+
     is $init->config->name,
        "foo_bar_baz",
        "Clean up name with invalid characters";
@@ -314,7 +310,7 @@ add_test {
     # Check that rum fails if a read file is missing
     rum_fails_ok(["align","--index", $index, "--output", tmp_out(),
                   "--name", "asdf", "asdf.fq", "-q", '--chunks', 1],
-                 qr/asdf.fq.*for reading/i,
+                 qr/asdf.fq.*no such file/i,
                  "Read file doesn't exist");    
     rum_fails_ok(["align", 
                   '--index',  $index,
@@ -322,7 +318,7 @@ add_test {
                   '--name',   'asdf', 
                   '--chunks', 1,
                   $forward_64_fq, "asdf.fq", "-q"],
-                 qr/asdf.fq.*for reading/i, 
+                 qr/asdf.fq.*no such file/i, 
                  "Read file doesn't exist");    
     
     # Check bad reads

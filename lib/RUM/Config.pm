@@ -89,9 +89,6 @@ our %DEFAULTS = (
 
 sub should_preprocess {
     my $self = shift;
-    warn "Preproc is " . $self->preprocess;
-    warn "Proc    is " . $self->process;
-    warn "Postprocis " . $self->postprocess;
     return $self->preprocess || (!$self->process && !$self->postprocess);
 }
 
@@ -475,9 +472,10 @@ add_prop(
     check => sub {
         my $conf = shift;
         if ($conf->forward_reads &&
-            $conf->reverse_reads) {
+            $conf->reverse_reads && 
+            $conf->max_insertions > 1) {
             return ('For paired-end data, you can\'t set ' .
-                    '--max-insertions');
+                    '--max-insertions > 1');
         }
         else {
             return;

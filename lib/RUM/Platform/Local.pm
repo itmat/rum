@@ -482,7 +482,7 @@ sub _process_in_chunks {
     };
 
     for my $chunk ($self->chunk_nums) {
-        my @cmd = ($0, "align", "--child", "--output", $c->output_dir,
+        my @cmd = ($0, "resume", "--child", "--output", $c->output_dir,
                    "--chunk", $chunk);
         push @cmd, "--no-clean" if $c->no_clean;
         my $workflow = $self->chunk_workflow($chunk);
