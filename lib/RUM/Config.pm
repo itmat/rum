@@ -281,12 +281,30 @@ add_prop(
 
 add_prop(
     opt  => 'alt-genes=s',
-    desc => 'Alternate gene model'
+    desc => 'Alternate gene model',
+    check => sub {
+        my $c = shift;
+        if ($c->alt_genes && ! -r $c->alt_genes) {
+            return ("Can't read from alt gene file ".$c->alt_genes.": $!");
+        }
+        else {
+            return;
+        }
+    }
 );
 
 add_prop(
     opt  => 'alt-quants=s',
-    desc => 'Alternate quant model'
+    desc => 'Alternate quant model',
+    check => sub {
+        my $c = shift;
+        if ($c->alt_quants && ! -r $c->alt_quants) {
+            return ("Can't read from alt quant file ".$c->alt_quants.": $!");
+        }
+        else {
+            return;
+        }
+    }
 );
 
 add_prop(
@@ -336,15 +354,22 @@ add_prop(
     check => sub {
         my $conf = shift;
         
-        if (defined($conf->nu_limit) && int($conf->nu_limit) < 1) {
+        if (!defined($conf->nu_limit)) {
+            return;
+        }
+
+        elsif ($conf->nu_limit =~ /^\d+$/ &&
+               $conf->nu_limit > 0) {
+            return;
+        }
+        else {
             return ("--nu-limit must be an integer greater than zero");
         }
-        return;
     }
 );
 
 add_prop(
-    opt => 'max-insertions',
+    opt => 'max-insertions=s',
     default => 1
 );
 
@@ -354,11 +379,30 @@ add_prop(
 
 add_prop(
     opt => 'min-length=s',
+    check => sub {
+        my ($conf) = @_;
+        my $x = $conf->min_length;
+
+        if ((!defined $x) ||
+            $x =~ /^\d+$/ && $x >= 10) {
+            return;
+        }
+        else {
+            return ('--min-length must be an integer greater than 9');
+        }
+    }
 );
 
-
 add_prop(
-    opt => 'preserve-names'
+    opt => 'preserve-names',
+    check => sub {
+        my $c = shift;
+        if ($c->preserve_names && $c->variable_length_reads) {
+            return ('Cannot use both --preserve-names and ' .
+                    '--variable-read-lengths at the same time. Sorry, we ' .
+                    'will fix this eventually.');
+        }
+    }
 );
 
 add_prop(
@@ -392,7 +436,19 @@ add_prop(
 
 add_prop(
     opt => "blat-min-identity|minIdentity=s",
-    default => 93
+    default => 93,
+    check => sub {
+        my ($conf) = @_;
+        my $x = $conf->blat_min_identity;
+        if ((!defined $x) ||
+            $x =~ /^\d+$/ && $x <= 100) {
+            return;
+        }
+        else {
+            return ('--blat-min-identity or --minIdentity must be an integer ' .
+                    'between 0 and 100');
+        }
+    }
 );
 
 add_prop(

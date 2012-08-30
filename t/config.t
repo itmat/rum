@@ -110,3 +110,12 @@ is $c->quant(chunk => 1,
         options => [qw(bowtie_nu_limit no_bowtie_nu_limit)]);
     is $conf->bowtie_nu_limit, 50;
 }
+
+
+{
+    my $conf = RUM::Config->new;
+    @ARGV = ('--max-insertions', 5);
+    $conf->parse_command_line(
+        options => [qw(max_insertions)]);
+    is $conf->max_insertions, 5;
+}

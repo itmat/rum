@@ -77,7 +77,8 @@ sub make_config {
                      preserve_names quals_file quantify ram
                      read_length strand_specific variable_length_reads
                      blat_min_identity blat_tile_size blat_step_size
-                     blat_max_intron no_clean blat_rep_match);
+                     blat_max_intron no_clean blat_rep_match
+                     count_mismatches);
 
     my $config = RUM::Config->new->parse_command_line(
         options => \@options,
@@ -139,41 +140,8 @@ sub check_config {
                 "put it in the '". $c->output_dir."' directory.");
     }
 
-    $c->min_identity =~ /^\d+$/ && $c->min_identity <= 100 or $usage->bad(
-        "--min-identity must be an integer between zero and 100. You
-        have given '".$c->min_identity."'.");
-
-
-    if (defined($c->min_length)) {
-        $c->min_length =~ /^\d+$/ && $c->min_length >= 10 or $usage->bad(
-            "--min-length must be an integer >= 10. You have given '".
-                $c->min_length."'.");
-    }
-    
-    $c->preserve_names && $c->variable_length_reads and $usage->bad(
-        "Cannot use both --preserve-names and --variable-read-lengths at ".
-            "the same time. Sorry, we will fix this eventually.");
-
-    local $_ = $c->blat_min_identity;
-    /^\d+$/ && $_ <= 100 or $usage->bad(
-        "--blat-min-identity or --minIdentity must be an integer between ".
-            "0 and 100.");
-
-    $c->chunks or $usage->bad(
-        "Please tell me how many chunks to split the input into with the "
-        . "--chunks option.");
-
     $usage->check;
     
-    if ($c->alt_genes) {
-        -r $c->alt_genes or die
-            "Can't read from alt gene file ".$c->alt_genes.": $!";
-    }
-
-    if ($c->alt_quant_model) {
-        -r $c->alt_quant_model or die
-            "Can't read from ".$c->alt_quant_model.": $!";
-    }
 
     # If we haven't yet split the input file, make sure that the raw
     # read files exist.
