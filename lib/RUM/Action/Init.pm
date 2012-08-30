@@ -72,17 +72,26 @@ sub make_config {
     my @options = qw(limit_nu_cutoff quiet verbose output_dir
                      index_dir name chunks qsub platform alt_genes
                      alt_quants blat_only dna genome_only junctions
-                     limit_bowtie_nu limit_nu max_insertions
-                     min_identity min_length preserve_names quals_file
-                     quantify ram read_length strand_specific
-                     variable_length_reads blat_min_identity
-                     blat_tile_size blat_step_size blat_max_intron
-                     no_clean
-                     blat_rep_match);
+                     bowtie_nu_limit no_bowtie_nu_limit nu_limit
+                     max_insertions min_identity min_length
+                     preserve_names quals_file quantify ram
+                     read_length strand_specific variable_length_reads
+                     blat_min_identity blat_tile_size blat_step_size
+                     blat_max_intron no_clean blat_rep_match);
 
     my $config = RUM::Config->new->parse_command_line(
         options => \@options,
         positional => ['forward_reads', 'reverse_reads']);
+
+    if (!$config->forward_reads) {
+        RUM::Usage->bad(
+            'Please provide one or two read files');
+    }
+
+    if ($config->forward_reads eq ($config->reverse_reads || '')) {
+        RUM::Usage->bad(
+            'You specified the same file for the forward and reverse reads');
+    }
 
     if ( ! $config->is_new ) {
         die("It looks like there's already a job initialized in " .
@@ -141,12 +150,6 @@ sub check_config {
                 $c->min_length."'.");
     }
     
-    if (defined($c->nu_limit)) {
-        $c->nu_limit =~ /^\d+$/ && $c->nu_limit > 0 or $usage->bad(
-            "--limit-nu must be an integer greater than zero. You have given '".
-                $c->nu_limit."'.");
-    }
-
     $c->preserve_names && $c->variable_length_reads and $usage->bad(
         "Cannot use both --preserve-names and --variable-read-lengths at ".
             "the same time. Sorry, we will fix this eventually.");
@@ -179,18 +182,6 @@ sub check_config {
             -r $fname or die "Can't read from read file $fname";
         }
     }
-}
-
-sub fix_name {
-    local $_ = shift;
-
-    my $name_o = $_;
-    s/\s+/_/g;
-    s/^[^a-zA-Z0-9_.-]//;
-    s/[^a-zA-Z0-9_.-]$//g;
-    s/[^a-zA-Z0-9_.-]/_/g;
-    
-    return $_;
 }
 
 sub setup {

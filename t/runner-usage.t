@@ -96,9 +96,7 @@ sub rum {
     @ARGV = @_;
     my $rum = RUM::Action::Align->new();
     eval {
-        $rum->get_options;
-        $rum->check_config;
-        $rum->config->set('genome_size', 1000000000);
+
     };
     if ($@) {
         BAIL_OUT("Can't get RUM::Script::Main: $@");
@@ -112,12 +110,13 @@ sub rum_random_out_dir {
 
 sub preprocess {
     my @args = @_;
-    my $rum = rum(@args);
-
+    @ARGV = @args;
+    my $rum = RUM::Action::Init->new;
     capturing_stdout { 
         $RUM::Action::Align::log->less_logging(2);
         $rum->{directives}{quiet} = 1;
-        $rum->setup;
+        $rum->make_config;
+        $rum->initialize;
         $rum->platform->preprocess;
     };
     
@@ -140,15 +139,16 @@ like(run_rum("help", "config"),
 
 
 # Check that it fails if required arguments are missing
-rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf"],
+rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
+              '--chunks', 1],
              qr/please.*read files/im, "Missing read files");
 
 rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
-              "1.fq", "2.fq", "3.fq"],
-             qr/please.*read files/im, "Too many read files");
+              "1.fq", "2.fq", "3.fq" , '--chunks', 1],
+             qr/extra/im, "Too many read files");
 
 rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
-              "1.fq", "1.fq"],
+              "1.fq", "1.fq", '--chunks', 1],
              qr/same file for the forward and reverse/i,
              "Duplicate read file");
 rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
@@ -176,17 +176,18 @@ rum_fails_ok(
 
 # Check that we set some default values correctly
 {
-    my @argv = ('--index',  $index,
-                '--output', 'foo',
-                '--name',   'asdf',
-                '--chunks', 1,
-                $forward_64_fq);
+    @ARGV = ('--index',  $index,
+             '--output', 'foo',
+             '--name',   'asdf',
+             '--chunks', 1,
+             $forward_64_fq);
     
-    my $rum = rum(@argv);
-    my $c = $rum->config or BAIL_OUT("Can't get RUM");
+    my $init = RUM::Action::Init->new;
+    $init->make_config;
+    my $c = $init->config or BAIL_OUT("Can't get RUM");
     is($c->name, "asdf", "Name");
     like($c->output_dir, qr/foo$/, "Output dir");
-    like($c->rum_index, qr/$index/, "Index");
+    like($c->index_dir, qr/$index/, "Index");
     is($c->min_length, undef, "min length");
     is($c->max_insertions, 1, "max insertions");
     ok(!$c->dna, "no DNA");
@@ -201,17 +202,24 @@ rum_fails_ok(
 }
 
 # Check that we clean up a name
-is(rum('--index', $index,
-       '--output', 'foo',
-       '--chunks', 1,
-       $forward_64_fq, "--name", ",foo bar,baz,")->config->name,
-   "foo_bar_baz",
-   "Clean up name with invalid characters");
+{
+
+    my $init = RUM::Action::Init->new;
+    @ARGV = ('--index', $index,
+             '--output', 'foo',
+             '--chunks', 1,
+             $forward_64_fq, "--name", ",foo bar,baz,");
+    
+    $init->make_config;
+    is $init->config->name,
+       "foo_bar_baz",
+       "Clean up name with invalid characters";
+}    
 
 # Check that rum fails if a read file is missing
 rum_fails_ok(["align","--index", $index, "--output", tmp_out(),
               "--name", "asdf", "asdf.fq", "-q", '--chunks', 1],
-             qr/read from.*asdf.fq/i,
+             qr/asdf.fq.*for reading/i,
              "Read file doesn't exist");    
 rum_fails_ok(["align", 
               '--index',  $index,
@@ -219,7 +227,7 @@ rum_fails_ok(["align",
               '--name',   'asdf', 
               '--chunks', 1,
               $forward_64_fq, "asdf.fq", "-q"],
-             qr/read from.*asdf.fq/i, 
+             qr/asdf.fq.*for reading/i, 
              "Read file doesn't exist");    
 
 # Check bad reads
@@ -288,11 +296,9 @@ rum_fails_ok(['align',
 
 # Check that we process a pair of fastq files correctly
 {
-    my @argv = ("--index", $index, "--name", "asdf", '--chunks', 1);
-    my $rum = rum(@argv, "-o", tempdir(CLEANUP => 1),
-                  $forward_64_fq, $reverse_64_fq);
-    $rum->setup;
-    $rum->platform->preprocess;
+    my $rum = preprocess("--index", $index, "--name", "asdf", '--chunks', 1,
+             '-o', tempdir(CLEANUP => 1), $forward_64_fq, $reverse_64_fq);
+
     my $forward_64_fq = $rum->config->in_output_dir("reads.fa");
     my $quals = $rum->config->in_output_dir("quals.fa");
 
@@ -346,7 +352,9 @@ sub chunk_cmd_unlike {
 
 sub chunk_cmd_like {
     my ($args, $step, $re, $comment, $negate) = @_;
-    my $rum = rum(@$args);
+    my $rum = RUM::Action::Init->new;
+    @ARGV = @$args;
+    $rum->make_config;
 
     eval {
         my $config = $rum->config;
@@ -409,23 +417,25 @@ my @standard_args = ("--index", $index,
 for my $index (qw(genome transcriptome)) {
     chunk_cmd_like([@standard_args], "Run Bowtie on $index", qr/--limit 100/,
                    "bowtie on $index with limit option unspecified");
-    chunk_cmd_unlike([@standard_args, "--no-limit-bowtie-nu"],
+    chunk_cmd_unlike([@standard_args, "--no-bowtie-nu-limit"],
                    "Run Bowtie on $index", qr/--limit/,
                    "bowtie on $index with no --limit");
-    chunk_cmd_like([@standard_args, '--limit-bowtie-nu'],
-                   "Run Bowtie on $index", qr/--limit 100/,
+    chunk_cmd_like([@standard_args, '--bowtie-nu-limit', 50],
+                   "Run Bowtie on $index", qr/--limit 50/,
                    "bowtie on $index with limit specified");
 }
 
 #chunk_cmd_like([@standard_args], "Move NU file", qr/mv.*RUM_NU.*temp.+RUM_NU/i,
 #               "Just move RUM_NU");               
 
-chunk_cmd_like([@standard_args, "--limit-nu", 15], "Limit NU",
+chunk_cmd_like([@standard_args, "--nu-limit", 15], "Limit NU",
                qr/limit_nu.pl --cutoff\s*15/i, 
+
+
                "Cutoff passed to limit_nu");    
 
-rum_fails_ok(["align", @standard_args, "--limit-nu", "asdf"],
-               qr/nu must be an integer greater than/i, 
+rum_fails_ok(["align", @standard_args, "--nu-limit", "asdf"],
+               qr/nu-limit must be an integer greater than/i, 
                "Bad --limit-nu");    
 
 chunk_cmd_like([@standard_args[0..$#standard_args - 1], "--max-insertions-per-read", 2],

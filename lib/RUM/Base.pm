@@ -54,6 +54,8 @@ constructor before doing anything else.
 
 sub new {
     my ($class, $config, $directives) = @_;
+
+    croak "Can't call RUM::Base->new on $class" if ref($class);
     my $self = {};
     $self->{config} = $config; # or croak        "$class->new called without config";
     $self->{directives} = $directives || RUM::Directives->new;

@@ -8,7 +8,6 @@ use Carp;
 
 sub handle {
     my ($conf, $opt, $val) = @_;
-    warn "Got option $opt\n";
     $opt =~ s/-/_/g;
     $conf->set($opt, $val);
 }
@@ -148,12 +147,12 @@ add_prop(
 );
 
 add_prop(
-    opt  => 'quiet',
+    opt  => 'quiet|q',
     desc => 'Less output than normal'
 );
 
 add_prop(
-    opt  => 'verbose',
+    opt  => 'verbose|v',
     desc => 'More output than normal'
 );
 
@@ -214,6 +213,9 @@ add_prop(
         if (!$conf->index_dir) {
             return ('Please specify an index directory with --index');
         }
+        elsif (!RUM::Index->load($conf->index_dir)) {
+            return ($conf->index_dir . " does not seem to be a RUM index directory");
+        }
         else {
             return;
         }
@@ -223,6 +225,19 @@ add_prop(
 add_prop(
     opt  => 'name=s',
     desc => 'Name for the job',
+    filter => sub  {
+        local $_ = shift;
+        
+        my $name_o = $_;
+        s/\s+/_/g;
+        s/^[^a-zA-Z0-9_.-]//;
+        s/[^a-zA-Z0-9_.-]$//g;
+        s/[^a-zA-Z0-9_.-]/_/g;
+        
+        return $_;
+    },
+
+
     check => sub {
         my $conf = shift;
         
@@ -294,12 +309,13 @@ add_prop(
 );
 
 add_prop(
-    opt => 'limit-bowtie-nu!',
+    opt => 'no-bowtie-nu-limit',
 );
 
 
 add_prop(
     opt => 'bowtie-nu-limit=s',
+    default => 100
 );
 
 
@@ -316,11 +332,15 @@ add_prop(
 );
 
 add_prop(
-    opt => 'limit-nu!',
-);
-
-add_prop(
-    opt => 'nu-limit!',
+    opt => 'nu-limit=s',
+    check => sub {
+        my $conf = shift;
+        
+        if (defined($conf->nu_limit) && int($conf->nu_limit) < 1) {
+            return ("--nu-limit must be an integer greater than zero");
+        }
+        return;
+    }
 );
 
 add_prop(
@@ -446,10 +466,9 @@ sub parse_command_line {
         push @errors, "There were extra command-line arguments: @ARGV";
     }
 
-    warn "Errors are '@errors'";
     if (@errors) {
         my $msg = join('', map { "$_\n" } @errors);
-        die "There were usage errors:\n$msg";
+        RUM::Usage->bad($msg);
     }
 
     return $self;

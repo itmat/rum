@@ -341,7 +341,7 @@ sub _reformat_reads {
         $self->say( "Half done splitting; starting qualities...");
         $self->_breakup_file($quals_fa, 1);
     }
-    elsif ($config->user_quals) {
+    elsif ($config->quals_file) {
         $self->say( "Half done splitting; starting qualities...");
         $self->_breakup_file($config->user_quals, 1);
     }

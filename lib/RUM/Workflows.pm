@@ -90,7 +90,8 @@ sub chunk_workflow {
             '--index', $index->bowtie_genome_index,
             '--query', $reads_fa);
 
-        if (my $x = $c->bowtie_nu_limit) {
+        if (!$config->no_bowtie_nu_limit) {
+            my $x = $c->bowtie_nu_limit;
             push @cmd, '--limit', $x;
         }
         if ($c->no_clean) {
@@ -108,7 +109,9 @@ sub chunk_workflow {
             $c->paired_end_opt,
             '--index', $index->bowtie_transcriptome_index,
             '--query', $reads_fa);
-        if (my $x = $c->bowtie_nu_limit) {
+
+        if (!$config->no_bowtie_nu_limit) {
+            my $x = $c->bowtie_nu_limit;
             push @cmd, '--limit', $x;
         }
         if ($c->no_clean) {

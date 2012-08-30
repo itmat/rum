@@ -83,17 +83,30 @@ is $c->quant(chunk => 1,
 {
     my $conf = RUM::Config->new;
     @ARGV = ('--name', 'foo',
-             '--index', '/rum/index',
              '--chunks', 3,
              'forward.fa');
 
     $conf->parse_command_line(
-        options => [qw(name index_dir chunks)],
+        options => [qw(name chunks)],
         positional => [qw(forward_reads reverse_reads)]
     );
     is $conf->name, 'foo';
-    is $conf->index_dir, '/rum/index';
     is $conf->chunks, 3;
     is $conf->forward_reads, 'forward.fa';
 
+}
+
+{
+    my $conf = RUM::Config->new;
+    $conf->parse_command_line(
+        options => [qw(bowtie_nu_limit no_bowtie_nu_limit)]);
+    is $conf->bowtie_nu_limit, 100;
+}
+
+{
+    my $conf = RUM::Config->new;
+    @ARGV = ('--bowtie-nu-limit', 50);
+    $conf->parse_command_line(
+        options => [qw(bowtie_nu_limit no_bowtie_nu_limit)]);
+    is $conf->bowtie_nu_limit, 50;
 }

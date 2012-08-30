@@ -95,7 +95,7 @@ EOF
     my $bowtie_trans_index = $index->bowtie_transcriptome_index;
     my $annotations = $index->gene_annotations;
     my $read_len = $config->variable_length_reads ? 'variable' : $config->read_length || '';
-    warn "Bowtie genome index is " . $bowtie_genome_index;
+
     my %overrides = (
         junctions => $config->should_do_junctions,
         quantify  => $config->should_quantify,
@@ -108,7 +108,6 @@ EOF
 
     );
 
-    warn "Overrides is " . Dumper(\%overrides);
     my %name_for = @name_table;
     
     my @ordered_keys = @name_table[ grep { ! ( $_ % 2 ) } (0 .. $#name_table) ];

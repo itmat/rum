@@ -102,12 +102,12 @@ sub make_config {
 
     my @transient_options = qw(quiet verbose no_clean output_dir);
 
-    my @reset_options = qw(limit_nu_cutoff index_dir name qsub
-                           platform alt_genes alt_quants blat_only dna
-                           genome_only junctions limit_bowtie_nu
-                           limit_nu max_insertions min_identity
-                           min_length preserve_names quals_file
-                           quantify ram read_length strand_specific
+    my @reset_options = qw(nu_limit index_dir name qsub platform
+                           alt_genes alt_quants blat_only dna
+                           genome_only junctions bowtie_nu_limit
+                           max_insertions min_identity min_length
+                           preserve_names quals_file quantify ram
+                           read_length strand_specific
                            variable_length_reads blat_min_identity
                            blat_tile_size blat_step_size
                            blat_max_intron blat_rep_match);
