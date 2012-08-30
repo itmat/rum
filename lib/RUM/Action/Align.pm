@@ -74,7 +74,13 @@ rum_runner align - Run the RUM pipeline.
 
 =head1 DESCRIPTION
 
-Runs the RUM pipeline. 
+Runs the RUM pipeline. Use C<rum_runner align> to run a new job in a
+new output directory. If you need to resume an existing job, please
+see C<rum_runner resume> instead.
+
+You need to specify --index-dir, --output-dir, --name, --chunks, and
+one or teo read files for each job. All other parameters are optional,
+and are described in detail below.
 
 When you run C<rum_runner align -o I<dir> OPTIONS> on output directory
 I<dir>, rum_runner will save the options you ran it with in

@@ -23,6 +23,7 @@ sub new {
     $self->{checker} = delete $params{check} || sub { return };
     $self->{default} = delete $params{default};
     $self->{transient} = delete $params{transient};
+    $self->{group} = delete $params{group};
 
     $self->{name} = $self->{opt};
     $self->{name} =~ s/[=!|].*//;
@@ -156,7 +157,7 @@ sub pod_for_prop {
 
 
 add_prop(
-    opt => 'paired-end'
+    opt => 'paired-end',
 );
 
 add_prop(
@@ -571,6 +572,7 @@ add_prop(
 
 add_prop(
     opt => "blat-min-identity|minIdentity=s",
+    group => 'blat',
     desc => 'Run blat with the specified value for -minIdentity',
     default => 93,
     check => sub {
@@ -589,24 +591,28 @@ add_prop(
 
 add_prop(
     opt => "blat-tile-size|tileSize=s",
+    group => 'blat',
     desc => 'Run blat with the specified value for -tileSize',
     default => 12
 );
 
 add_prop(
     opt => "blat-step-size|stepSize=s",
+    group => 'blat',
     desc => 'Run blat with the specified value for -stepSize',
     default => 6
 );
 
 add_prop(
     opt => "blat-rep-match|repMatch=s",
+    group => 'blat',
     desc => 'Run blat with the specified value for -repMatch',
     default => 256
 );
 
 add_prop(
     opt => "blat-max-intron|maxIntron=s",
+    group => 'blat',
     desc => 'Run blat with the specified value for -maxIntron',
     default => 500000
 );
