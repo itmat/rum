@@ -102,15 +102,7 @@ sub make_config {
 
     my @transient_options = qw(quiet verbose no_clean output_dir);
 
-    my @reset_options = qw(nu_limit index_dir name qsub platform
-                           alt_genes alt_quants blat_only dna
-                           genome_only junctions bowtie_nu_limit
-                           max_insertions min_identity min_length
-                           preserve_names quals_file quantify ram
-                           read_length strand_specific
-                           variable_length_reads blat_min_identity
-                           blat_tile_size blat_step_size
-                           blat_max_intron blat_rep_match);
+    my @reset_options = RUM::Config->job_setting_props;
 
     my @directives = qw(preprocess process postprocess chunk parent child);
 
@@ -123,7 +115,7 @@ sub make_config {
     if (@specified) {
         $self->say("Since you specified some parameters, I am resetting the ".
                    "job to just after the preprocessing phase.");
-        RUM::Action::Reset->new(config => $config)->reset_job;
+        RUM::Pipeline->new($config)->reset_job;
         $config->save;
     }
 
