@@ -17,6 +17,7 @@ our %ACTIONS = (
     status   => "RUM::Action::Status",
     init     => "RUM::Action::Init",
     start    => "RUM::Action::Start",
+    restart  => "RUM::Action::Start",
     clean    => "RUM::Action::Clean",
     stop     => "RUM::Action::Stop",
     align    => "RUM::Action::Align",
