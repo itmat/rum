@@ -23,11 +23,11 @@ our %JOB_TYPE_NAMES = (
 );
 
 sub new {
-    my ($class, $config, $directives) = @_;
+    my ($class, $config) = @_;
 
     local $_;
 
-    my $self = $class->SUPER::new($config, $directives);
+    my $self = $class->SUPER::new($config);
     
     my $dir = $config->output_dir;
 
@@ -485,9 +485,9 @@ Grid Engine, and checking on their status.
 
 =item new
 
-Construct a RUM::Cluster::SGE with the given configuration and
-directives. Loads the state of the jobs from .rum/sge_job_ids in the
-output directory, if such a file exists.
+Construct a RUM::Cluster::SGE with the given configuration. Loads the
+state of the jobs from .rum/sge_job_ids in the output directory, if
+such a file exists.
 
 =back
 

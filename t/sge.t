@@ -90,9 +90,8 @@ is($class->_parse_qstat_out("error: failed receiving gdi request response for ".
    undef);
 
 my $sge = RUM::Platform::SGE->new(
-    RUM::Config->new(output_dir => tempdir(CLEANUP => 1),
-                     num_chunks => 1),
-    RUM::Directives->new);
+    RUM::Config->new->set(output_dir => tempdir(CLEANUP => 1),
+                          chunks => 1));
 
 push @{ $sge->_preproc_jids }, 628724;
 is_deeply($sge->_preproc_jids, [628724], "Get preproc job id");
