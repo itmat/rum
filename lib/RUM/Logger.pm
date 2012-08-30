@@ -70,7 +70,7 @@ with the given name, creating one if one doesn't already exist.
 
 sub get_logger {
     my ($class, $name) = @_;
-
+    carp "Need a name " unless defined $name;
     $LOGGERS{$name} ||= $class->_new($name);
 }
 

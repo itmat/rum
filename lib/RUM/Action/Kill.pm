@@ -8,25 +8,29 @@ use RUM::Action::Clean;
 
 use base 'RUM::Action';
 
+sub new { shift->SUPER::new(name => 'clean', @_) }
+
+sub accepted_options {
+    return (
+        options => [qw(output_dir)],
+        load_default => 1);
+}
+
 sub run {
     my ($class) = @_;
 
-    my $self = $class->new(name => 'stop');
-    $self->get_options;
-    $self->check_usage;
+    my $self = $class->new;
 
-    my $dir = $self->config->output_dir;
+    # Parse the command line and construct a RUM::Config
+    my $config = RUM::Config->new->parse_command_line(
+        $self->accepted_options);
 
-    if ( ! $self->{loaded_config} ) {
-        $self->say("There does not appear to be a RUM job in $dir.");
-        return;
-    }
+    my $pipeline = RUM::Pipeline->new($config);
+    $pipeline->stop;
 
-    $self->platform->stop;
-    my $clean_action = RUM::Action::Clean->new(config => $self->config);
-    $clean_action->clean(1);
+    $pipeline->clean(1);
 
-    $self->say("RUM job in $dir has been killed.");
+    $self->say("RUM job in " . $config->output_dir . " has been killed.");
 }
 
 1;

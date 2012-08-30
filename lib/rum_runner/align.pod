@@ -1,36 +1,3 @@
-=head1 NAME
-
-rum_runner align - Run the RUM pipeline.
-
-=head1 SYNOPSIS
-
-  # Start a job
-  rum_runner align           
-      --index-dir INDEX_DIR  
-      --name      JOB_NAME   
-      --output    OUTPUT_DIR 
-      --chunks    NUM_CHUNKS
-      FORWARD_READS [ REVERSE_READS ]
-      [ OPTIONS ]
-
-  # Restart a stopped job based on output directory
-  rum_runner align --output OUTPUT_DIR
-
-=head1 DESCRIPTION
-
-Runs the RUM pipeline. 
-
-When you run C<rum_runner align -o I<dir> OPTIONS> on output directory
-I<dir>, rum_runner will save the options you ran it with in
-I<dir/.rum/job_settings>. Then if you need to rerun the job for any
-reason, you can run C<rum_runner resume -o I<dir>> later and it will
-automatically pick up the options you specified originally.
-
-This program writes very large intermediate files.  If you have a
-large genome such as mouse or human then it is recommended to run in
-chunks on a cluster, or a machine with multiple processors.  Running
-with under five million reads per chunk is usually best, and getting
-it under a million reads per chunk will speed things considerably.
 
 =head1 OPTIONS
 

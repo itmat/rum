@@ -86,8 +86,44 @@ EOF
 
 }
 
+sub pod_footer {
+    
+    return << 'EOF';
 
+=head1 AUTHORS
 
+Gregory Grant (ggrant@grant.org)
+
+Mike DeLaurentis (delaurentis@gmail.com)
+
+=head1 COPYRIGHT
+
+Copyright 2012, University of Pennsylvania
+
+EOF
+
+}
+
+sub pod {
+    my ($class) = @_;
+
+    my $pod = $class->pod_header;
+
+    $pod .= "=head1 OPTIONS\n\n=over 4\n\n";
+
+    my %options = $class->accepted_options;
+
+    my @named      = sort @{ $options{options} || [] };
+
+    for my $option (@named) {
+        $pod .= RUM::Config->pod_for_prop($option);
+    }
+    $pod .= "=back\n\n";
+
+    $pod .= $class->pod_footer;
+
+    return $pod;
+}
 
 1;
 

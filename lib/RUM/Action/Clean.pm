@@ -3,86 +3,55 @@ package RUM::Action::Clean;
 use strict;
 use warnings;
 
-use Getopt::Long;
-use File::Path qw(rmtree);
-use File::Find;
+use RUM::Pipeline;
+
 use base 'RUM::Action';
 
 sub new { shift->SUPER::new(name => 'clean', @_) }
 
-sub run {
+sub accepted_options {
     my ($class) = @_;
-
-    my $self = $class->new;
-    $self->{config} = RUM::Config->new->parse_command_line(
+    return (
         options => [qw(output_dir)],
         load_default => 1);
-    $self->clean;
 }
 
-sub clean {
-    my ($self, $very) = @_;
-    my $c = $self->config;
+sub run {
+    my ($class) = @_;
+    my $self = $class->new;
 
-    local $_;
+    # Parse the command line and construct a RUM::Config
+    my $config = RUM::Config->new->parse_command_line(
+        $self->accepted_options);
 
-    # Remove any temporary files (those that end with .tmp.XXXXXXXX)
-    $self->logsay("Removing files");
-    find sub {
-        if (/\.tmp\.........$/) {
-            unlink $File::Find::name;
-        }
-    }, $c->output_dir;
+    my $pipeline = RUM::Pipeline->new($config);
+    $pipeline->clean;
+}
 
-    # Make a list of dirs to remove
-    my @dirs = ($c->chunk_dir, $c->temp_dir, $c->postproc_dir);
+sub pod_header {
 
-    # If we're doing a --very clean, also remove the log directory and
-    # the final output.
-    if ($very) {
-        my $log_dir = $c->in_output_dir("log");
-        push @dirs, $log_dir, glob("$log_dir.*");
-        RUM::Workflows->new($c)->postprocessing_workflow->clean(1);
-        unlink($self->config->in_output_dir("quals.fa"),
-               $self->config->in_output_dir("reads.fa"));
-        unlink $self->config->in_output_dir("rum_job_report.txt");
-        $self->say("Destroying job settings file");
-        $self->config->destroy;
-    }
+return <<'EOF';
 
-    rmtree(\@dirs);
-    $self->platform->clean;
+=head1 NAME
+
+rum_runner clean - Clean up files for a job
+
+=head1 SYNOPSIS
+
+rum_runner clean -o dir
+
+=head1 DESCRIPTION
+
+Clean up the intermediate and temporary files produced for a
+job. Optionally clean up the final result files as well.
+
+If you run C<rum_runner align> without the --no-clean option, it
+should automatically delete the intermediate and temporary files as it
+goes, but if it crashes or is killed it may leave some junk around.
+
+EOF
 }
 
 1;
 
-__END__
 
-=head1 NAME
-
-RUM::Action::Clean - Clean up temp files from a rum job
-
-=head1 CONSTRUCTOR
-
-=over 4
-
-=item RUM::Action::Align->new
-
-=back
-
-=head1 METHODS
-
-=over 4
-
-=item run
-
-Run the action: parse @ARGV, cleanup temp files.
-
-
-=item clean
-
-Remove intermediate files.
-
-=cut
-
-=back

@@ -37,8 +37,7 @@ sub run {
     $pipeline->initialize;
 }
 
-sub pod {
-    my ($class) = @_;
+sub pod_header {
     my $pod = << "EOF";
 
 =head1 NAME
@@ -56,18 +55,20 @@ rum_runner init - Initialize a RUM job but don't start it
       FORWARD_READS [ REVERSE_READS ]
       [ OPTIONS ]
 
-=head1 OPTIONS
+=head1 DESCRIPTION
 
-=over 4
+Initializes a RUM job, without actually running it.
+
+When you run C<rum_runner init -o I<dir> OPTIONS> on output directory
+I<dir>, rum_runner will save the options you ran it with in
+I<dir/.rum/job_settings>. You can then run the job using C<rum_runner start> or C<rum_runner restart>
+
+Note: You can use C<rum_runner align> to initialize and run a job at
+the same time.
 
 EOF
-
-    my %options = $class->accepted_options;
-
-    for my $option (sort @{ $options{options} || []}) {
-        $pod .= RUM::Config->pod_for_prop($option);
-    }
-
     return $pod;
 }
+
+
 

@@ -6,7 +6,9 @@ no warnings;
 use base 'RUM::Base';
 
 use Carp;
-use File::Path qw(mkpath);
+use File::Path qw(mkpath rmtree);
+use File::Find;
+use Text::Wrap qw(wrap fill);
 
 use RUM::SystemCheck;
 use RUM::Logging;
@@ -365,3 +367,150 @@ sub reset_if_needed {
 }
 
 
+sub clean {
+    my ($self, $very) = @_;
+    my $c = $self->config;
+
+    local $_;
+
+    # Remove any temporary files (those that end with .tmp.XXXXXXXX)
+    $self->logsay("Removing files");
+    find sub {
+        if (/\.tmp\.........$/) {
+            unlink $File::Find::name;
+        }
+    }, $c->output_dir;
+
+    # Make a list of dirs to remove
+    my @dirs = ($c->chunk_dir, $c->temp_dir, $c->postproc_dir);
+
+    # If we're doing a --very clean, also remove the log directory and
+    # the final output.
+    if ($very) {
+        my $log_dir = $c->in_output_dir("log");
+        push @dirs, $log_dir, glob("$log_dir.*");
+        RUM::Workflows->new($c)->postprocessing_workflow->clean(1);
+        unlink($self->config->in_output_dir("quals.fa"),
+               $self->config->in_output_dir("reads.fa"));
+        unlink $self->config->in_output_dir("rum_job_report.txt");
+        $self->say("Destroying job settings file");
+        $self->config->destroy;
+    }
+
+    rmtree(\@dirs);
+    $self->platform->clean;
+}
+
+sub stop {
+    my ($self) = @_;
+    $self->platform->stop;
+}
+
+sub print_status {
+    my $self = shift;
+
+    $self->{workflows} = RUM::Workflows->new($self->config);
+
+    my $steps = $self->print_processing_status;
+    $self->print_postprocessing_status($steps);
+    $self->say();
+    $self->_chunk_error_logs_are_empty;
+
+    $self->say("");
+    $self->platform->show_running_status;
+
+    my $postproc = $self->{workflows}->postprocessing_workflow;
+    if ($postproc->is_complete) {
+        $self->say("");
+        $self->say("RUM Finished.");
+    }
+}
+
+=item print_processing_status
+
+Print the status for all the steps of the "processing" phase.
+
+=cut
+
+sub print_processing_status {
+    my ($self) = @_;
+
+    local $_;
+    my $c = $self->config;
+
+    my @chunks = $self->chunk_nums;
+
+    my @errored_chunks;
+    my @progress;
+    my $workflows = $self->{workflows};
+
+    my $workflow = $workflows->chunk_workflow(1);
+    my $plan = $workflow->state_machine->plan or croak "Can't build a plan";
+    my @plan = @{ $plan };
+    my $postproc = $workflows->postprocessing_workflow($c);
+    my $postproc_started = $postproc->steps_done;
+
+    for my $chunk (@chunks) {
+        my $w = $workflows->chunk_workflow($chunk);
+        my $m = $w->state_machine;
+        my $state = $w->state;
+        $m->recognize($plan, $state) 
+            or croak "Plan doesn't work for chunk $chunk";
+
+        my $skip = $m->skippable($plan, $state);
+
+        $skip = @plan if $postproc_started;
+
+        for (0 .. $#plan) {
+            $progress[$_] .= ($_ < $skip ? "X" : " ");
+        }
+    }
+
+    my $n = @chunks;
+
+    $self->say("Processing in $n chunks");
+    $self->say("-----------------------");
+
+    for my $i (0 .. $#plan) {
+        my $progress = $progress[$i] . " ";
+        my $comment   = sprintf "%2d. %s", $i + 1, $workflow->comment($plan[$i]);
+        my $indent = ' ' x length($progress);
+        $self->say(wrap($progress, $indent, $comment));
+    }
+
+    print "\n" if @errored_chunks;
+    for my $line (@errored_chunks) {
+        warn "$line\n";
+    }
+    return @plan;
+}
+
+=item print_postprocessing_status
+
+Print the status of all the steps of the "postprocessing" phase.
+
+=cut
+
+sub print_postprocessing_status {
+    my ($self, $step_offset) = @_;
+    local $_;
+    my $c = $self->config;
+
+    $self->say();
+    $self->say("Postprocessing");
+    $self->say("--------------");
+
+    my $postproc = $self->{workflows}->postprocessing_workflow($c);
+
+    my $state = $postproc->state;
+    my $plan = $postproc->state_machine->plan or croak "Can't build plan";
+    my @plan = @{ $plan };
+    my $skip = $postproc->state_machine->skippable($plan, $state);
+    for my $i (0 .. $#plan) {
+        my $progress = $i < $skip ? "X" : " ";
+        my $comment   = sprintf "%2d. %s", $i + $step_offset + 1, $postproc->comment($plan[$i]);
+        $self->say("$progress $comment");
+    };
+}
+
+1;

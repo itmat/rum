@@ -12,14 +12,18 @@ use base 'RUM::Action';
 
 sub new { shift->SUPER::new(name => 'reset', @_) }
 
+sub accepted_options {
+    return (
+        options => [qw(output_dir step)],
+        load_default => 1);
+}
+
 sub run {
     my ($class) = @_;
     my $self = $class->new;
 
     my $config = RUM::Config->new->parse_command_line(
-        options => [qw(output_dir step)],
-        load_default => 1
-    );
+        $self->accepted_options);
 
     RUM::Pipeline->new($config)->reset_job;
 }

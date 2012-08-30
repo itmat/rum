@@ -9,7 +9,7 @@ use RUM::Logger;
 use RUM::Common qw(format_large_int);
 use RUM::Index;
 
-my $log = RUM::Logger->get_logger;
+my $log = RUM::Logging->get_logger;
 
 sub check_ram {
 

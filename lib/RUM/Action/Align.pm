@@ -32,134 +32,62 @@ RUM::Lock->register_sigint_handler;
 
 sub new { shift->SUPER::new(name => 'align', @_) }
 
+sub accepted_options {
+    return (        
+        options => [RUM::Config->common_props,
+                    RUM::Config->job_setting_props,
+                    'no_clean', 'output_dir'],
+        positional => ['forward_reads', 'reverse_reads']);
+}
+
 sub run {
     my ($class) = @_;
 
     my $self = $class->new;
 
-    # Initialize the job
-    my $init = RUM::Action::Init->new;
-    $init->make_config;
-    $init->initialize;
+    # Parse the command line and construct a RUM::Config
+    my $config = RUM::Config->new->parse_command_line(
+        $self->accepted_options);
 
-    # Run the job
+    my $pipeline = RUM::Pipeline->new($config);
 
-    my $start = RUM::Action::Start->new(config => $init->config);
-    $start->start;
+    $pipeline->initialize;
+    $pipeline->start;
 }
 
-sub changed_settings_msg {
-    my ($self, $filename) = @_;
-    my $msg = <<"EOF";
-
-I found job settings in $filename, but you specified different
-settings on the command line. Changing the settings on a job that has
-already been partially run can result in unexpected behavior. If you
-want to use the saved settings, please don't provide any extra options
-on the command line, other than options that specify a specific phase
-or chunk (--preprocess, --process, --postprocess, --chunk). If you
-want to start the job over from scratch, you can do so by deleting the
-settings file ($filename). If you really want to change the settings,
-you can add a --force flag and try again.
-
-EOF
-    return fill('', '', $msg) . "\n";
-    
-}
-
-__END__
-
+sub pod_header {
+    return <<'EOF';
 =head1 NAME
 
-RUM::Action::Align - Align reads using the RUM Pipeline.
+rum_runner align - Run the RUM pipeline.
+
+=head1 SYNOPSIS
+
+  # Start a job
+  rum_runner align           
+      --index-dir INDEX_DIR  
+      --name      JOB_NAME   
+      --output    OUTPUT_DIR 
+      --chunks    NUM_CHUNKS
+      FORWARD_READS [ REVERSE_READS ]
+      [ OPTIONS ]
 
 =head1 DESCRIPTION
 
-This action is the one that actually runs the RUM Pipeline.
+Runs the RUM pipeline. 
 
-=head1 CONSTRUCTOR
+When you run C<rum_runner align -o I<dir> OPTIONS> on output directory
+I<dir>, rum_runner will save the options you ran it with in
+I<dir/.rum/job_settings>. Then if you need to rerun the job for any
+reason, you can run C<rum_runner resume -o I<dir>> later and it will
+automatically pick up the options you specified originally.
 
-=over 4
+This program writes very large intermediate files.  If you have a
+large genome such as mouse or human then it is recommended to run in
+chunks on a cluster, or a machine with multiple processors.  Running
+with under five million reads per chunk is usually best, and getting
+it under a million reads per chunk will speed things considerably.
 
-=item RUM::Action::Align->new
+EOF
 
-=back
-
-=head1 METHODS
-
-=over 4
-
-=item run
-
-The top-level function in this class. Parses the command-line options,
-checks the configuration and warns the user if it's invalid, does some
-setup tasks, then runs the pipeline.
-
-=item get_options
-
-Parse @ARGV and build a RUM::Config from it. Also set some flags in
-$self->{directives} based on some boolean options.
-
-=item check_deps
-
-=item check_config
-
-Check my RUM::Config for errors. Calls RUM::Usage->bad (which exits)
-if there are any errors.
-
-=item check_deps
-
-Check to make sure the dependencies (bowtie, blat, mdust) exist,
-and die with an error message if they don't.
-
-=item available_ram
-
-Attempt to figure out how much ram is available, and return it.
-
-=item get_lock
-
-Attempts to get a lock on the $output_dir/.rum/lock file. Dies with a
-warning message if the lock is held by someone else. Otherwise returns
-normally, and RUM::Lock::FILE will be set to the filename.
-
-=item setup
-
-Creates the output directory and .rum subdirectory.
-
-=item show_logo
-
-Print out the RUM logo.
-
-=item fix_name
-
-Remove unwanted characters from the name.
-
-=item check_gamma
-
-Die if we seem to be running on gamma.
-
-=item check_ram
-
-Make sure there seems to be enough ram, based on the size of the
-genome.
-
-=item prompt_not_enough_ram
-
-Prompt the user to ask if we should proceed even though there doesn't
-seem to be enough RAM per chunk. Exits if the user doesn't say yes.
-
-=item changed_settings_msg
-
-Return a message indicating that the user changed some settings.
-
-=back
-
-=head1 AUTHORS
-
-Gregory Grant (ggrant@grant.org)
-
-Mike DeLaurentis (delaurentis@gmail.com)
-
-=head1 COPYRIGHT
-
-Copyright 2012, University of Pennsylvania
+}
