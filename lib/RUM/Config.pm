@@ -129,11 +129,42 @@ add_prop(
 add_prop(
     opt => 'forward-reads=s',
     desc => 'Forward reads',
+    check => sub {
+        my $conf = shift;
+        if (!defined($conf->forward_reads)) {
+            return ('Please provide one or two read files');
+        }
+        if (defined($conf->forward_reads) &&
+            ! -r $conf->forward_reads) {
+            return ('Can\'t read from forward reads file ' .
+                    $conf->forward_reads . ": $!");
+        }
+        else {
+            return;
+        }
+        
+    }
 );
 
 add_prop(
     opt => 'reverse-reads=s',
     desc => 'Reverse reads',
+    check => sub {
+        my $conf = shift;
+        return if ! defined($conf->reverse_reads);
+        
+        if ($conf->reverse_reads eq $conf->forward_reads) {
+            return ('You specified the same file for the forward '.
+                    'and reverse reads.');
+        }
+        elsif (! -r $conf->reverse_reads) {
+            return ('Can\'t read from reverse reads file ' .
+                    $conf->reverse_reads . ": $!");
+        }
+        else {
+            return;
+        }
+    }
 );
 
 add_prop(
@@ -144,6 +175,12 @@ add_prop(
     opt  => 'quiet|q',
     desc => 'Less output than normal'
 );
+
+add_prop(
+    opt  => 'help|h',
+    desc => 'Get help'
+);
+
 
 add_prop(
     opt  => 'verbose|v',
@@ -364,7 +401,18 @@ add_prop(
 
 add_prop(
     opt => 'max-insertions=s',
-    default => 1
+    default => 1,
+    check => sub {
+        my $conf = shift;
+        if ($conf->forward_reads &&
+            $conf->reverse_reads) {
+            return ('For paired-end data, you can\'t set ' .
+                    '--max-insertions');
+        }
+        else {
+            return;
+        }
+    }
 );
 
 add_prop(
@@ -401,6 +449,17 @@ add_prop(
 
 add_prop(
     opt => 'quals-file|qual-file=s',
+    check => sub {
+        my $c = shift;
+        if (defined($c->quals_file) && 
+            $c->quals_file =~ /\//) {
+            return ("do not specify -quals file with a full path, ".
+                    "put it in the '". $c->output_dir. "' directory.");
+        }
+        else {
+            return;
+        }
+    }
 );
 
 add_prop(
@@ -478,7 +537,7 @@ sub parse_command_line {
     my $positional = delete $params{positional} || [];
     
     my %getopt;
-
+    warn "Options are @$options";
     for my $name (@{ $options }) {
         my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
         $getopt{$prop->opt} = sub {
@@ -815,6 +874,24 @@ sub AUTOLOAD {
 sub property_names {
     return keys %PROPERTIES;
 }
+
+
+sub common_props {
+    return qw(quiet verbose help);
+}
+
+sub job_setting_props {
+    return qw(limit_nu_cutoff index_dir name chunks qsub
+              platform alt_genes alt_quants blat_only dna
+              genome_only junctions bowtie_nu_limit
+              no_bowtie_nu_limit nu_limit max_insertions
+              min_identity min_length preserve_names quals_file
+              quantify ram read_length strand_specific
+              variable_length_reads blat_min_identity
+              blat_tile_size blat_step_size blat_max_intron
+              no_clean blat_rep_match count_mismatches);
+}
+
 
 1;
 

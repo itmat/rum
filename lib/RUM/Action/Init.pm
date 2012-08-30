@@ -6,164 +6,29 @@ use autodie;
 
 use base 'RUM::Action';
 
-use File::Path qw(mkpath);
-
 use RUM::Logging;
 use RUM::SystemCheck;
+use RUM::Pipeline;
 
 our $log = RUM::Logging->get_logger;
 
 RUM::Lock->register_sigint_handler;
 
-sub new { shift->SUPER::new(name => 'align', @_) }
-
-sub initialize {
-    my ($self) = @_;
-
-    my $c = $self->config;
-    
-    #$self->check_config;
-    RUM::SystemCheck::check_deps;
-
-    RUM::SystemCheck::check_gamma(
-        config => $c);
-
-    $self->setup;
-#    $self->get_lock;
-    
-    my $platform      = $self->platform;
-    my $platform_name = $c->platform;
-    my $local = $platform_name =~ /Local/;
-    
-    if ($local) {
-        RUM::SystemCheck::check_ram(
-            config => $c,
-            say => sub { $self->logsay(@_) });
-    }
-    else {
-        $self->say(
-            "You are running this job on a $platform_name cluster. ",
-            "I am going to assume each node has sufficient RAM for this. ",
-            "If you are running a mammalian genome then you should have at ",
-            "least 6 Gigs per node");
-    }
-
-    $self->say("Saving job configuration");
-    $self->config->save;
-#    RUM::Lock->release;
-    return $self->config;
-}
+sub new { shift->SUPER::new(name => 'init', @_) }
 
 sub run {
     my ($class) = @_;
     my $self = $class->new;
 
     # Parse the command line and construct a RUM::Config
-    my $c = $self->make_config;
-
-    $self->initialize;
-    return $self->config;
-
-}
-
-sub make_config {
-    my ($self) = @_;
-
-    my @options = qw(limit_nu_cutoff quiet verbose output_dir
-                     index_dir name chunks qsub platform alt_genes
-                     alt_quants blat_only dna genome_only junctions
-                     bowtie_nu_limit no_bowtie_nu_limit nu_limit
-                     max_insertions min_identity min_length
-                     preserve_names quals_file quantify ram
-                     read_length strand_specific variable_length_reads
-                     blat_min_identity blat_tile_size blat_step_size
-                     blat_max_intron no_clean blat_rep_match
-                     count_mismatches);
-
     my $config = RUM::Config->new->parse_command_line(
-        options => \@options,
+        options => [RUM::Config->common_props,
+                    RUM::Config->job_setting_props,
+                    'output_dir'],
         positional => ['forward_reads', 'reverse_reads']);
 
-    if (!$config->forward_reads) {
-        RUM::Usage->bad(
-            'Please provide one or two read files');
-    }
+    my $pipeline = RUM::Pipeline->new($config);
 
-    if ($config->forward_reads eq ($config->reverse_reads || '')) {
-        RUM::Usage->bad(
-            'You specified the same file for the forward and reverse reads');
-    }
-
-    if ( ! $config->is_new ) {
-        die("It looks like there's already a job initialized in " .
-            $config->output_dir);
-    }
-
-    return $self->{config} = $config;
+    $pipeline->initialize;
 }
 
-
-sub check_config {
-    my ($self, $action) = @_;
-
-    my $usage = RUM::Usage->new(action => $action);
-
-    my $c = $self->config;
-
-    $c->load_rum_config_file if $c->index_dir;
-
-    my $reads = $c->reads;
-
-    if ($reads) {
-        @$reads == 1 || @$reads == 2 or $usage->bad(
-            "Please provide one or two read files. You provided " .
-            join(", ", @$reads));
-    }
-    else {
-        $usage->bad("Please provide one or two read files.");
-    }
-
-
-    if ($reads && @$reads == 2) {
-        $reads->[0] ne $reads->[1] or $usage->bad(
-        "You specified the same file for the forward and reverse reads, ".
-            "must be an error");
-
-        $c->max_insertions <= 1 or $usage->bad(
-            "For paired-end data, you cannot set --max-insertions-per-read".
-                " to be greater than 1.");
-    }
-
-    if (defined($c->quals_file)) {
-        $c->quals_file =~ /\// or $usage->bad(
-            "do not specify -quals file with a full path, ".
-                "put it in the '". $c->output_dir."' directory.");
-    }
-
-    $usage->check;
-    
-
-    # If we haven't yet split the input file, make sure that the raw
-    # read files exist.
-    if ( ! -r $c->preprocessed_reads ) {
-        for my $fname (@{ $reads || [] }) {
-            -r $fname or die "Can't read from read file $fname";
-        }
-    }
-}
-
-sub setup {
-    my ($self) = @_;
-    my $output_dir = $self->config->output_dir;
-    my $c = $self->config;
-    my @dirs = (
-        $c->output_dir,
-        $c->output_dir . "/.rum",
-        $c->chunk_dir
-    );
-    for my $dir (@dirs) {
-        unless (-d $dir) {
-            mkpath($dir) or die "mkdir $dir: $!";
-        }
-    }
-}
