@@ -81,12 +81,6 @@ our %DEFAULTS = (
     input_is_preformatted => undef,
     paired_end            => undef,
 
-    # Loaded from the rum config file
-    genome_bowtie         => undef,
-    genome_fa             => undef,
-    annotations           => undef,
-    trans_bowtie          => undef,
-    genome_size           => undef,
 );
 
 
@@ -553,32 +547,6 @@ sub new {
     return bless $self, $class;
 }
 
-sub load_rum_config_file {
-    my ($self) = @_;
-    my $path = $self->index_dir or croak
-        "No RUM index config file was supplied";
-
-    my $index = RUM::Index->load($path);
-
-    my %data;
-    $data{annotations}   = $index->gene_annotations;
-    $data{genome_bowtie} = $index->bowtie_genome_index;
-    $data{trans_bowtie}  = $index->bowtie_transcriptome_index;
-    $data{genome_fa}     = $index->genome_fasta;
-    $data{genome_size}   = $index->genome_size;
-
-    -e $data{annotations} || $self->dna or die
-        "the file '$data{annotations}' does not seem to exist.";         
-
-    -e $data{genome_fa} or die
-        "the file '$data{genome_fa}' does not seem to exist.";
-    
-    local $_;
-    for (keys %data) {
-        $self->set($_, $data{$_});
-    }
-}
-
 sub script {
     return File::Spec->catfile("$Bin/../bin", $_[1]);
 }
@@ -871,13 +839,6 @@ keys.
 =head1 CLASS METHODS
 
 =over 4
-
-=item load_rum_config_file
-
-Load the settings from the rum index configuration file I am
-configured with. This allows you to call annotations, genome_bowtie,
-trans_bowtie, and genome_fa on me rather than loading the config
-object yourself.
 
 =item script($name)
 

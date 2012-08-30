@@ -264,7 +264,6 @@ sub walk_states {
     my $plan = $sm->plan or confess "No plan";
     for my $e (@{ $plan }) {
         my $v = $sm->transition($u, $e);
-        warn "V is " . join(", ", $v->flags);
         my $completed = $u->contains($v) ? " (completed)" : "";
         $log->debug("In state $u$completed, using $e to get to $v");
         $callback->($e, $completed);

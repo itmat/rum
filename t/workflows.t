@@ -36,34 +36,28 @@ my %defaults = (
     strand_specific => 0,
     output_dir => $out_dir,
     read_length => 75,
-    rum_index => $index,
-    dna => 0,
-    num_chunks => 2,
-    genome_only => 0,
+    index_dir => $index,
+    chunks => 2,
     name => "foo",
-    alt_quant_model => "",
-    alt_genes => undef,
     blat_min_identity => 93,
     blat_tile_size => 12,
     blat_step_size => 6,
     blat_rep_match => 256,
     blat_max_intron => 500000,
     ram => 6,
-    genome_size => 1000000000
 );
 
 SKIP: {
 
     skip "no index", 2 unless @indexes == 1;
     my $index = $indexes[0];
-    my $config = RUM::Config->new(
+    my $config = RUM::Config->new->set(
         %defaults,
         paired_end    => 1,
         max_insertions => 1,
         alt_genes => undef
     );
 
-    $config->load_rum_config_file;
     rmtree($out_dir);
     mkpath $out_dir;
 
@@ -87,10 +81,10 @@ sub would_not_run {
     ok( ! grep(/$command_re/, $w->all_commands), "$command_re would not be run");
 }
 
-my $c = RUM::Config->new(
+my $c = RUM::Config->new->set(
     %defaults,
 );
-$c->load_rum_config_file;
+
 my $w = RUM::Workflows->new($c)->postprocessing_workflow;
 would_run($w, qr/merge rum_unique/i);
 would_run($w, qr/merge rum_nu/i);
@@ -98,9 +92,8 @@ would_run($w, qr/compute mapping stat/i);
 would_run($w, qr/merge quants/i);
 would_not_run($w, 'merge_alt_quants');
 
-$c = RUM::Config->new(%defaults);
+$c = RUM::Config->new->set(%defaults);
 $c->set('strand_specific', 1);
-$c->load_rum_config_file;
 $w = RUM::Workflows->new($c)->postprocessing_workflow;
 
 would_not_run($w, qr/merge quants$/i);
@@ -112,16 +105,15 @@ would_run($w, qr/merge.strand.specific.quants/i);
 
 # Alt quants
 
-$c = RUM::Config->new(%defaults, 'alt_quant_model', => "foo");
-$c->load_rum_config_file;
+$c = RUM::Config->new->set(%defaults, 'alt_quants', => "foo");
+
 $w = RUM::Workflows->new($c)->postprocessing_workflow;
 would_run($w, qr/merge.*quants$/i);
 would_run($w, qr/merge.alt.quants/i);
 
-$c = RUM::Config->new(%defaults);
+$c = RUM::Config->new->set(%defaults);
 $c->set('strand_specific', 1);
-$c->set('alt_quant_model', "foo");
-$c->load_rum_config_file;
+$c->set('alt_quants', "foo");
 
 $w = RUM::Workflows->new($c)->postprocessing_workflow;
 
