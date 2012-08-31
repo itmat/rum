@@ -141,8 +141,9 @@ directory.
 
 If you need to stop a job but leave all of its output intact so you
 can restart it from where it left off, use C<rum_runner stop -o
-I<dir>>. If you restart it with C<rum_runner align -o I<dir>>, it
-should start at the step it was on when it was stopped.
+I<dir>>. You can then resume the job with C<rum_runner resume -o
+I<dir>>, and it should start at the step it was on when it was
+stopped.
 
 If you realized you started a job with incorrect settings and you want
 to kill it and restart it from scratch, you can use C<rum_runner kill
@@ -171,7 +172,9 @@ Delete intermediate files in the specified output directory.
 
 =item B<kill>
 
-Stop the job running in the specified output directory and remove all output files associated with it, so you can restart the job from scratch with different settings.
+Stop the job running in the specified output directory and remove all
+output files associated with it, so you can restart the job from
+scratch with different settings.
 
 =item B<status>
 

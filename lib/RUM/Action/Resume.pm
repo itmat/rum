@@ -36,9 +36,11 @@ sub run {
                    $lock_file . ")");
         $RUM::Lock::FILE = $lock_file;
     }
-    $pipeline->reset_if_needed;
     if ($self->config->from_step) {
         $pipeline->reset_job;
+    }
+    else {
+        $pipeline->reset_if_needed;
     }
     $pipeline->start;
 }
