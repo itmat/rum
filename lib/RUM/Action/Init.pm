@@ -20,7 +20,7 @@ sub accepted_options {
     return (        
         options => [RUM::Config->common_props,
                     RUM::Config->job_setting_props,
-                    'output_dir'],
+                    'output_dir', 'chunks'],
         positional => ['forward_reads', 'reverse_reads']);
 }
 

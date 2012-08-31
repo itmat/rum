@@ -4,7 +4,6 @@ use strict;
 use warnings;
 
 use RUM::Config;
-use RUM::Directives;
 use RUM::Usage;
 use RUM::Workflows;
 
@@ -24,7 +23,6 @@ our %ACTIONS = (
     clean    => "RUM::Action::Clean",
     profile  => "RUM::Action::Profile",
     kill     => 'RUM::Action::Kill',
-    reset    => 'RUM::Action::Reset'
 );
 
 sub main {

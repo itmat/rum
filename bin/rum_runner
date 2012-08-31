@@ -85,7 +85,7 @@ sub archive_log_dir {
 # If we're aligning, try to find the output directory specified on the
 # command line and initialize the logging system so that it puts
 # output files there.
-if (@ARGV && $ARGV[0] =~ /^(init|align|start)$/) {
+if (@ARGV && $ARGV[0] =~ /^(init|align|resume)$/) {
 
     my $is_top_level = ! first { / ^ (--parent | --child) $ /mx } @ARGV;
 
@@ -117,9 +117,9 @@ rum_runner - RNA-Seq Unified Mapper
 =head1 SYNOPSIS
 
   rum_runner align   -o dir [OPTIONS] [FORWARD [REVERSE]]
-  rum_runner start   -o dir [OPTIONS]
   rum_runner clean   -o dir [--very]
   rum_runner kill    -o dir
+  rum_runner resume  -o dir [OPTIONS]
   rum_runner status  -o dir
   rum_runner stop    -o dir
   rum_runner version
@@ -205,6 +205,8 @@ You can run C<rum_runner help ACTION> for help on a specific action:
 =item C<rum_runner help clean>
 
 =item C<rum_runner help kill>
+
+=item C<rum_runner help resume>
 
 =item C<rum_runner help status>
 

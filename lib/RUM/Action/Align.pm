@@ -36,7 +36,7 @@ sub accepted_options {
     return (        
         options => [RUM::Config->common_props,
                     RUM::Config->job_setting_props,
-                    'no_clean', 'output_dir'],
+                    'chunks', 'output_dir'],
         positional => ['forward_reads', 'reverse_reads']);
 }
 
@@ -86,6 +86,27 @@ large genome such as mouse or human then it is recommended to run in
 chunks on a cluster, or a machine with multiple processors.  Running
 with under five million reads per chunk is usually best, and getting
 it under a million reads per chunk will speed things considerably.
+
+=head2 BLAT options
+
+You can tweak the BLAT portion of RUM to suit your needs, please see
+the --blat-* options below. We have set the defaults to values that we
+have found to be a good balance for speed, sensitivity, and temporary
+file size.
+
+=head1 FILES
+
+=over 4
+
+=item B<FORWARD> (required)
+
+=item B<REVERSE> (optional)
+
+For unpaired data, the single file of reads.  For paired data the
+files of forward and reverse reads. Files can be either fasta or
+fastq; the type is inferred.
+
+=back
 
 EOF
 

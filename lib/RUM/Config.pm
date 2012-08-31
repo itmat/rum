@@ -157,6 +157,7 @@ sub pod_for_prop {
     if (defined($prop->default)) {
         $item .= 'Default: ' . $prop->default . "\n\n";
     }
+
     return $item;
 }
 
@@ -172,7 +173,8 @@ add_prop(
 
 add_prop(
     opt => 'from-step=s',
-    transient => 1
+    transient => 1,
+    desc => 'Just run the job from the specified step. The step number can be found next to the step in the output of C<rum_runner status>.'
 );
 
 add_prop(
@@ -1002,6 +1004,10 @@ sub property_names {
     return keys %PROPERTIES;
 }
 
+sub property {
+    my ($class, $name) = @_;
+    return $PROPERTIES{$name};
+}
 
 sub step_props {
     return qw(preprocess process postprocess chunk parent child);
@@ -1012,7 +1018,7 @@ sub common_props {
 }
 
 sub job_setting_props {
-    return qw(index_dir name chunks qsub
+    return qw(index_dir name qsub
               platform alt_genes alt_quants blat_only dna
               genome_only junctions bowtie_nu_limit
               no_bowtie_nu_limit nu_limit max_insertions
@@ -1020,7 +1026,7 @@ sub job_setting_props {
               quantify ram read_length strand_specific
               variable_length_reads blat_min_identity
               blat_tile_size blat_step_size blat_max_intron
-              no_clean blat_rep_match count_mismatches);
+              blat_rep_match count_mismatches no_clean);
 }
 
 sub changed_settings {

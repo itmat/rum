@@ -122,16 +122,63 @@ sub pod {
 
     my $pod = $class->pod_header;
 
-    $pod .= "=head1 OPTIONS\n\n=over 4\n\n";
+    $pod .= "=head1 OPTIONS\n\n";
 
     my %options = $class->accepted_options;
 
     my @named      = sort @{ $options{options} || [] };
 
-    for my $option (@named) {
-        $pod .= RUM::Config->pod_for_prop($option);
+    my @transient  = grep { RUM::Config->property($_)->transient }   @named;
+    my @persistent = grep { ! RUM::Config->property($_)->transient } @named;
+    
+    if (@transient && @persistent > 1) {
+        $pod .= <<'EOF';
+
+These options are not saved to the job settings file, they only affect
+the current run.
+
+EOF
+        $pod .= <<'EOF';
+        
+=over 4
+
+EOF
+        
+        
+        for my $option (@transient) {
+            $pod .= RUM::Config->pod_for_prop($option);
+        }
+        
+        $pod .= "=back\n\n";
+
     }
-    $pod .= "=back\n\n";
+        
+
+    if (@persistent) {
+
+        if (@persistent > 1) {
+
+        $pod .= <<'EOF';
+
+These options are saved to the job settings file and will persist
+across runs.
+
+EOF
+    }
+        $pod .= <<'EOF';
+        
+=over 4
+
+EOF
+        
+        for my $option (@persistent) {
+            $pod .= RUM::Config->pod_for_prop($option);
+        }
+        
+        $pod .= "=back\n\n";
+
+    }
+        
 
     $pod .= $class->pod_footer;
 

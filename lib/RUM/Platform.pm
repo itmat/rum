@@ -6,7 +6,7 @@ RUM::Platform - Base class for platforms that run the pipeline
 
 =head1 SYNOPSIS
 
-  my $platform = RUM::Platform->get($config, $directives);
+  my $platform = RUM::Platform->get($config);
 
   $platform->preprocess;
 
@@ -24,10 +24,10 @@ I<process>, and I<postprocess>.
 
 =over 4
 
-=item get($config, $directives)
+=item get($config)
 
-Call me with a RUM::Config and a RUM::Directives, and I'll return a
-suitable RUM::Platform for running the workflows for the job.
+Call me with a RUM::Config and I'll return a suitable RUM::Platform
+for running the workflows for the job.
 
 =back
 
