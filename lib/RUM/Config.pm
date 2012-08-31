@@ -889,7 +889,8 @@ sub lock_file {
 
 sub min_ram_gb {
     my ($self) = @_;
-    my $genome_size = $self->genome_size;
+    my $index = RUM::Index->load($self->index_dir);
+    my $genome_size = $index->genome_size;
     defined($genome_size) or croak "Can't get min ram without genome size";
     my $gsz = $genome_size / 1000000000;
     my $min_ram = int($gsz * 1.67)+1;

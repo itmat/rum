@@ -33,7 +33,8 @@ sub new {
 
     $self->{cmd} = {};
     $self->{cmd}{preproc}  =  "perl $0 start --child --output $dir --preprocess";
-    $self->{cmd}{proc}     =  "perl $0 start --child --output $dir --chunk \$SGE_TASK_ID --postprocess";
+    $self->{cmd}{proc}     =  "perl $0 start --child --output $dir --chunk \$SGE_TASK_ID --process";
+    $self->{cmd}{postproc}     =  "perl $0 start --child --output $dir --postprocess";
 
     $self->{cmd}{proc} .= " --no-clean" if $config->no_clean;
 
@@ -339,6 +340,8 @@ sub _some_job_ok {
     my @states = map { $self->_job_state($_, $task) || "" } @jids;
     my @ok = grep { $_ && /r|w|t/ } @states;
     
+    $log->info("Jids are " . Dumper(\@jids));
+
     my $task_label = "phase $phase " . ($task ? " task $task" : "");
 
 
@@ -421,8 +424,14 @@ sub _write_shell_script {
 
     print $out 'RUM_CHUNK=$SGE_TASK_ID' . "\n";
     print $out 'RUM_OUTPUT_DIR=' . $self->config->output_dir . "\n";
+    print $out $self->{cmd}{$phase} . "\n";
+    my $last_chunk = $self->config->chunks;
+    if ($phase eq 'proc') {
+        print $out "if [ \$RUM_CHUNK == $last_chunk ]; then\n";
+        print $out "  $self->{cmd}{postproc};\n";
+        print $out "fi\n";
+    }
 
-    print $out $self->{cmd}{$phase};
     close $out;
     return $filename;
 }

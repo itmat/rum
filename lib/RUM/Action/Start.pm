@@ -22,7 +22,7 @@ sub accepted_options {
         options => [RUM::Config->job_setting_props,
                     RUM::Config->step_props,
                     RUM::Config->common_props,
-                    'no_clean', 'output_dir'],
+                    'no_clean', 'output_dir', 'lock'],
         load_default => 1);
 }
 

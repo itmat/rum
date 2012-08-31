@@ -5,20 +5,25 @@ use warnings;
 
 use base 'RUM::Action';
 
+use RUM::Pipeline;
+
 sub new { shift->SUPER::new(name => 'stop', @_) }
+
+sub accepted_options {
+    return (
+        options => [qw(output_dir)],
+        load_default => 1);
+}
 
 sub run {
     my ($class) = @_;
-
     my $self = $class->new;
-    $self->get_options;
-    $self->check_usage;
-    $self->do_stop;
-}
+    # Parse the command line and construct a RUM::Config
+    my $config = RUM::Config->new->parse_command_line(
+        $self->accepted_options);
 
-sub do_stop {
-    my ($self) = @_;
-    $self->platform->stop;
+    my $pipeline = RUM::Pipeline->new($config);
+    $pipeline->stop;
 }
 
 1;

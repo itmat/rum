@@ -11,7 +11,6 @@ RUM::Base - Base class for a few RUM classes
   ...
 
   my $config = $self->config;
-  my $directives = $self->directives;
   my @reads = $self->reads;
   $self->say("Message to user");
   my @chunks = $self->chunk_nums;
@@ -20,8 +19,7 @@ RUM::Base - Base class for a few RUM classes
 
 Provides a few methods that are commonly used by RUM::Runner and
 RUM::Platform and its subclasses; basically any class that needs
-access to the RUM::Config for the job and the RUM::Directives for this
-invocation of rum_runner.
+access to the RUM::Config for the job.
 
 =cut
 
@@ -32,7 +30,6 @@ use Carp;
 use Text::Wrap qw(wrap fill);
 
 use Getopt::Long qw(:config pass_through);
-use RUM::Directives;
 use RUM::Logging;
 use RUM::Workflows;
 use RUM::JobReport;
@@ -43,7 +40,7 @@ our $log = RUM::Logging->get_logger();
 
 =over 4
 
-=item new($config, $directives)
+=item new($config)
 
 Subclasses that defined a I<new> method should call me in the
 constructor before doing anything else.
@@ -53,12 +50,11 @@ constructor before doing anything else.
 =cut
 
 sub new {
-    my ($class, $config, $directives) = @_;
+    my ($class, $config) = @_;
 
     croak "Can't call RUM::Base->new on $class" if ref($class);
     my $self = {};
     $self->{config} = $config; # or croak        "$class->new called without config";
-    $self->{directives} = $directives || RUM::Directives->new;
     bless $self, $class;
 }
 
@@ -77,16 +73,6 @@ Return the config for this RUM job.
 
 sub config { $_[0]->{config} }
 
-=item directives
-
-Return the RUM::Directives for this invocation of
-RUM::Runner. Directives are boolean flags that the user provides to
-RUM::Runner to tell it what to do.
-
-=cut
-
-sub directives { ref($_[0]) or confess "Not a ref"; $_[0]->{directives} }
-
 =item say(@msg)
 
 Print a message to the user, wrapping long lines.
@@ -98,7 +84,7 @@ sub say {
     if (!@msg) {
         @msg = ("");
     }
-    print wrap("", "", @msg) . "\n" unless $self->directives->quiet;
+    print wrap("", "", @msg) . "\n" unless $self->config && $self->config->quiet;
 }
 
 =item logsay(@msg)
@@ -154,12 +140,12 @@ Return the platform that this job is configured to run on.
 sub platform {
     my ($self) = @_;
 
-    my $name = $self->directives->child ? "Local" : $self->config->platform;
+    my $name = $self->config->child ? "Local" : $self->config->platform;
     my $class = "RUM::Platform::$name";
     my $file = "RUM/Platform/$name.pm";
 
     require $file;
-    my $platform = $class->new($self->config, $self->directives);
+    my $platform = $class->new($self->config);
 }
 
 sub _chunk_error_logs_are_empty {
