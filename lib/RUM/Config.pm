@@ -16,14 +16,18 @@ sub new {
     my ($class, %params) = @_;
 
     my $self = {};
-    $self->{opt}     = delete $params{opt} or croak "Need opt";
-    $self->{desc}    = delete $params{desc}; # or carp "No description for $self->{opt}";
-    $self->{filter}  = delete $params{filter} || sub { shift };
-    $self->{handler} = delete $params{handler} || \&handle;
-    $self->{checker} = delete $params{check} || sub { return };
-    $self->{default} = delete $params{default};
+    $self->{opt}       = delete $params{opt}     or croak "Need opt";
+    $self->{desc}      = delete $params{desc};
+    $self->{filter}    = delete $params{filter}  || sub { shift };
+    $self->{handler}   = delete $params{handler} || \&handle;
+    $self->{checker}   = delete $params{check}   || sub { return };
+    $self->{default}   = delete $params{default};
     $self->{transient} = delete $params{transient};
-    $self->{group} = delete $params{group};
+    $self->{group}     = delete $params{group};
+
+    if (my @extra = keys %params) {
+        croak "Extra keys to RUM::Config->new: @extra";
+    }
 
     $self->{name} = $self->{opt};
     $self->{name} =~ s/[=!|].*//;
@@ -360,7 +364,7 @@ add_prop(
 add_prop(
     opt  => 'qsub',
     desc => 'Alias for \'--platform SGE\'',
-    handle => sub { shift->set('platform', 'SGE') },
+    handler => sub { shift->set('platform', 'SGE') },
 );
 
 add_prop(
