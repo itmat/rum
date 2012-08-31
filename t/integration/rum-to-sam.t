@@ -70,3 +70,17 @@ for my $suppress (1, 2, 3) {
     my @lines = grep { /(second|third)-(a|b)/ } (<$in>);
     is(scalar(@lines), 4, "Name mapping");
 }
+
+
+{
+    my $name = "empty inputs";
+    my $u   = temp_filename(TEMPLATE => "$name-XXXXXX");
+    my $nu  = temp_filename(TEMPLATE => "$name-XXXXXX");
+    my $out = temp_filename(TEMPLATE => "$name-XXXXXX");
+    @ARGV = ("--unique", $u, 
+             "--non-unique", $nu,
+             "--reads-in", $reads_in,
+             "--sam-out", $out, 
+             "--quals-in", $quals_in);
+    RUM::Script::RumToSam->main();
+}

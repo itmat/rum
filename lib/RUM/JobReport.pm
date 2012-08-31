@@ -96,17 +96,16 @@ EOF
     my $annotations = $index->gene_annotations;
     my $read_len = $config->variable_length_reads ? 'variable' : $config->read_length || '';
 
-    my %overrides = (
-        junctions => $config->should_do_junctions,
-        quantify  => $config->should_quantify,
-        read_length => $read_len,
-        genome_bowtie => $bowtie_genome_index,
-        trans_bowtie => $bowtie_trans_index,
-        annotations => $annotations,
-        genome_fa => $index->genome_fasta,
-        genome_size => $index->genome_size
+    my %overrides;
+    $overrides{junctions} = $config->should_do_junctions;
+    $overrides{quantify} = $config->should_quantify;
+    $overrides{read_length} = $read_len;
+    $overrides{genome_bowtie} = $bowtie_genome_index;
+    $overrides{trans_bowtie} = $bowtie_trans_index;
+    $overrides{annotations} = $annotations;
+    $overrides{genome_fa} = $index->genome_fasta;
+    $overrides{genome_size} = $index->genome_size;
 
-    );
 
     my %name_for = @name_table;
     
