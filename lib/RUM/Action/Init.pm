@@ -24,23 +24,9 @@ sub accepted_options {
         positional => ['forward_reads', 'reverse_reads']);
 }
 
-sub pipeline {
-    my $self = shift;
-
-    if (!$self->{pipeline}) {
-        $self->{config} = RUM::Config->new->parse_command_line(
-            $self->accepted_options);
-        $self->{pipeline} = RUM::Pipeline->new($self->config);
-    }
-    return $self->{pipeline};
-
-}
-
 sub run {
     my ($class) = @_;
-    my $self = $class->new;
-
-    $self->pipeline->initialize;
+    $class->new->pipeline->initialize;
 }
 
 sub pod_header {

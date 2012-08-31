@@ -142,7 +142,11 @@ sub reset_job {
 
     my $workflows = RUM::Workflows->new($config);
 
-    my $wanted_step = $config->step || 0;
+    my $wanted_step = 0;
+
+    if (my $step = $self->config->from_step) {
+        $wanted_step = $step - 1;
+    }
 
     my $processing_steps;
     

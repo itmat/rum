@@ -112,9 +112,9 @@ sub main {
     $head = `head -1 $seqfile`;
     $head2 = `head -3 $seqfile`;
     if ($head2 =~ /seq.\d+b/) {
-        $paired_end = "true";
+        $self->{paired_end} = 1;
     } else {
-        $paired_end = "false";
+        $self->{paired_end} = 0;
     }
     $head =~ /seq.(\d+)/;
     $self->{first_seq_num} = $1;
@@ -126,7 +126,7 @@ sub main {
     open my $blat_unique, ">", $outfile1;
     open my $blat_nu,     ">", $outfile2;
 
-    if ($self->{num_insertions_allowed} > 1 && $paired_end eq "true") {
+    if ($self->{num_insertions_allowed} > 1 && $self->{paired_end}) {
         die "For paired end data, you cannot set -num_insertions_allowed to be greater than 1.";
     }
 
@@ -210,7 +210,7 @@ sub parse_output {
                 last;
             }
         }
-        if ($self->{paired_end} eq "true") {
+        if ($self->{paired_end}) {
             $seqb_temp = <$seq_fh>;
             chomp($seqb_temp);
             $seqb_temp =~ s/[^ACGTNab]$//;
@@ -247,7 +247,7 @@ sub parse_output {
         if ($cutoff{$sn} > $a_x[10] - 2) {
             $cutoff{$sn} = $a_x[10] - 2;
         }
-        if ($self->{paired_end} eq "true") {
+        if ($self->{paired_end}) {
             $mdust_temp = <$mdust_fh>;
             chomp($mdust_temp);
             $mdust_temp =~ s/[^ACGTNab]$//;

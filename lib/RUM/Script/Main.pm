@@ -13,15 +13,15 @@ our %ACTIONS = (
     '-h'     => "RUM::Action::Help",
     '-help'  => "RUM::Action::Help",
     '--help' => "RUM::Action::Help",
+
     version  => "RUM::Action::Version",
-    status   => "RUM::Action::Status",
-    init     => "RUM::Action::Init",
-    start    => "RUM::Action::Start",
-    restart  => "RUM::Action::Start",
-    resume  => "RUM::Action::Start",
-    clean    => "RUM::Action::Clean",
-    stop     => "RUM::Action::Stop",
+
     align    => "RUM::Action::Align",
+    init     => "RUM::Action::Init",
+    status   => "RUM::Action::Status",
+    resume   => "RUM::Action::Resume",
+    stop     => "RUM::Action::Stop",
+    clean    => "RUM::Action::Clean",
     profile  => "RUM::Action::Profile",
     kill     => 'RUM::Action::Kill',
     reset    => 'RUM::Action::Reset'

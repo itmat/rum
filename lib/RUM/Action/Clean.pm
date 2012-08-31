@@ -18,14 +18,7 @@ sub accepted_options {
 
 sub run {
     my ($class) = @_;
-    my $self = $class->new;
-
-    # Parse the command line and construct a RUM::Config
-    my $config = RUM::Config->new->parse_command_line(
-        $self->accepted_options);
-
-    my $pipeline = RUM::Pipeline->new($config);
-    $pipeline->clean;
+    $class->new->pipeline->clean;
 }
 
 sub pod_header {

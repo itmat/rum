@@ -7,6 +7,8 @@ use Carp;
 use Getopt::Long;
 use RUM::Usage;
 use RUM::Logging;
+use RUM::UsageErrors;
+use Pod::Usage;
 use base 'RUM::Base';
 
 my $log = RUM::Logging->get_logger;
@@ -23,35 +25,46 @@ sub new {
     return bless $self, $class;
 }
 
-sub get_options {
+sub load_config {
     my ($self, %options) = @_;
 
-    GetOptions('output|o=s' => \(my $output_dir),
-               "help|h" => sub { $self->usage_errors->help },
-               %options);
-
-    $output_dir or $self->usage_errors->bad(
-        "The --output or -o option is required for \"rum_runner $self->{name}\"");
-
-    # Checking usage now will cause the script to die if --output
-    # wasn't supplied.
-    $self->check_usage;
-
-    # If there is a .rum/job_settings file in the output directory,
-    # load it, and record that we loaded it.
-    if (my $c = RUM::Config->load($output_dir)) {
-        $self->logsay("Using settings found in " . $c->settings_filename);
-        $self->{config} = $c;
-        $self->{loaded_config} = 1;
+    if (!$self->{config}) {
+        # Parse the command line and construct a RUM::Config
+        eval {
+            $self->{config} = RUM::Config->new->parse_command_line(
+                $self->accepted_options);
+        };
+        if (my $errors = $@) {
+            my $msg;
+            if ($errors->isa('RUM::UsageErrors')) {
+                for my $error ($errors->errors) {
+                    chomp $error;
+                    $msg .= "* $error\n";
+                }
+            }
+            else {
+                $msg = $errors;
+            }
+            my $pod = $self->pod;
+            open my $pod_fh, '<', \$pod;
+            pod2usage(
+                -input => $pod_fh,
+                -output => \*STDERR,
+                -verbose => 0,
+                -exitval => 'NOEXIT');
+            die "\n$msg\n";
+        }
     }
 
-    # Otherwise create a new configuration, and record that we didn't
-    # load it.
-    else {
-        my $c = RUM::Config->new;
-        $c->set('output_dir', File::Spec->rel2abs($output_dir));
-        $self->{config} = $c;
+    return $self->{config};
+}
+
+sub pipeline {
+    my ($self) = @_;
+    if (!$self->{pipeline}) {
+        $self->{pipeline} = RUM::Pipeline->new($self->load_config);
     }
+    return $self->{pipeline};
 }
 
 sub usage_errors { shift->{usage_errors} }

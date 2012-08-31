@@ -21,36 +21,37 @@ sub run {
 
     my $self = $class->new;
 
-    # Parse the command line and construct a RUM::Config
-    my $config = RUM::Config->new->parse_command_line(
-        $self->accepted_options);
+    $self->pipeline->stop;
+    $self->pipeline->clean(1);
 
-    my $pipeline = RUM::Pipeline->new($config);
-    $pipeline->stop;
+    $self->say("RUM job in " . $self->config->output_dir . " has been killed.");
+}
 
-    $pipeline->clean(1);
+sub pod_header {
 
-    $self->say("RUM job in " . $config->output_dir . " has been killed.");
+return <<'EOF';
+
+=head1 NAME
+
+rum_runner kill - Clean up files for a job
+
+=head1 SYNOPSIS
+
+rum_runner kill -o dir
+
+=head1 DESCRIPTION
+
+Kill a RUM job running on a cluster: stop it from running and remove
+all the associated output files. This will allow you to start the job
+over again from the beginning, with different parameters if necessary.
+
+If you just want to stop the job, but leave all the output files so
+you can restart it from where it left off, please use C<rum_runner
+stop> instead.
+
+EOF
 }
 
 1;
 
-__END__
 
-=head1 NAME
-
-RUM::Action::Kill - Stop a rum job and remove all of its output
-
-=head1 DESCRIPTION
-
-Stops a job if it's running, and removes all of its output files.
-
-=over 4
-
-=item run
-
-Kill the job.
-
-=cut
-
-=back

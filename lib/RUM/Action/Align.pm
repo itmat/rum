@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use autodie;
 
-use Getopt::Long qw(:config pass_through);
+use Getopt::Long;
 use File::Path qw(mkpath);
 use Text::Wrap qw(wrap fill);
 use Carp;
@@ -42,15 +42,8 @@ sub accepted_options {
 
 sub run {
     my ($class) = @_;
-
     my $self = $class->new;
-
-    # Parse the command line and construct a RUM::Config
-    my $config = RUM::Config->new->parse_command_line(
-        $self->accepted_options);
-
-    my $pipeline = RUM::Pipeline->new($config);
-
+    my $pipeline = $self->pipeline;
     $pipeline->initialize;
     $pipeline->start;
 }

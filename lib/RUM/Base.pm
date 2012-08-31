@@ -29,7 +29,6 @@ use warnings;
 use Carp;
 use Text::Wrap qw(wrap fill);
 
-use Getopt::Long qw(:config pass_through);
 use RUM::Logging;
 use RUM::Workflows;
 use RUM::JobReport;

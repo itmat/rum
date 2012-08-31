@@ -22,10 +22,7 @@ sub run {
     my ($class) = @_;
     my $self = $class->new;
 
-    my $config = RUM::Config->new->parse_command_line(
-        $self->accepted_options);
-
-    RUM::Pipeline->new($config)->reset_job;
+    $self->pipeline->reset_job;
 }
 
 1;

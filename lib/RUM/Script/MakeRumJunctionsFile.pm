@@ -251,6 +251,7 @@ sub main {
 
     $FLAG = 0;
     while ($FLAG == 0) {
+
         undef %CHR2SEQ;
         undef %allintrons;
         undef @amb;
@@ -262,6 +263,7 @@ sub main {
         $sizeflag = 0;
         $totalsize = 0;
         while ($sizeflag == 0) {
+
             $line = <GENOMESEQ>;
             if ($line eq '') {
                 $FLAG = 1;
@@ -393,6 +395,7 @@ sub main {
         open(INFILE, $rumU) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$rumU' for reading\n\n";
         #    print "please wait...\n";
         while ($line = <INFILE>) {
+
             if (!($line =~ /, /)) {
                 next;
             }
@@ -483,11 +486,13 @@ sub main {
                 }
             }
         }
+
         close(INFILE);
         #    print STDERR "finished Unique\n";
         #    print "please wait some more...\n";
         open(INFILE, $rumNU) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$rumNU' for reading\n\n";
         while ($line = <INFILE>) {
+            warn "Working on line $line";
             if (!($line =~ /, /)) {
                 next;
             }
@@ -578,6 +583,7 @@ sub main {
                 }
             }
         }
+
         close(INFILE);
     }
 

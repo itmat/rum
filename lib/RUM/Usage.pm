@@ -47,7 +47,9 @@ sub man {
 }
 
 sub bad {
-    my ($self, $msg) = @_;
+
+    my $self = shift;
+    my $msg  = shift || '';
 
     if (ref($self)) {
         push @{ $self->{errors} }, $msg;
@@ -57,6 +59,7 @@ sub bad {
     my ($package) = caller(0);
     my $log = RUM::Logging->get_logger();
     $log->info("Improper usage of $package->main(): $msg");
+    print STDERR "\n";
     pod2usage({
         -verbose => 0,
         -exitval => "NOEXIT"});

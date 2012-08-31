@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use RUM::Usage;
+use RUM::UsageErrors;
 use Carp;
 
 sub handle {
@@ -165,7 +166,12 @@ add_prop(
 );
 
 add_prop(
-    opt => 'step=i',
+    opt => 'step=s',
+    transient => 1
+);
+
+add_prop(
+    opt => 'from-step=s',
     transient => 1
 );
 
@@ -635,7 +641,7 @@ sub parse_command_line {
     
     my %getopt;
 
-    for my $name (@{ $options }) {
+    for my $name (@{ $options }, 'help') {
         my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
         $getopt{$prop->opt} = sub {
             my ($name, $val) = @_;
@@ -644,7 +650,18 @@ sub parse_command_line {
         };        
     }
 
-    GetOptions(%getopt);
+
+    my @errors;
+
+    my $old_warn = $SIG{__WARN__};
+
+    $SIG{__WARN__} = sub {
+        push @errors, $_[0];
+    };
+
+    my $status = GetOptions(%getopt);
+    
+    $SIG{__WARN__} = $old_warn;
     
   POSITIONAL: for my $name (@{ $positional }) {
         my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
@@ -653,13 +670,17 @@ sub parse_command_line {
     }
 
     if ($params{load_default}) {
-        if ( $self->is_new ) {
-            die "There does not seem to be a RUM job in " . $self->output_dir . "\n";
+        if ($self->output_dir) {
+            if ( $self->is_new ) {
+                die "There does not seem to be a RUM job in " . $self->output_dir . "\n";
+            }
+            $self->load_default;
         }
-        $self->load_default;
+        else {
+            die RUM::UsageErrors->new(
+                errors => ['Please specify an output directory with --output or -o']);
+        }
     }
-
-    my @errors;
 
     for my $name (@{ $options }, 
                   @{ $positional }) {
@@ -672,9 +693,8 @@ sub parse_command_line {
         push @errors, "There were extra command-line arguments: @ARGV";
     }
 
-    if (@errors) {
-        my $msg = join('', map { "$_\n" } @errors);
-        RUM::Usage->bad($msg);
+    if (@errors || !$status) {
+        die RUM::UsageErrors->new(errors => \@errors)
     }
 
     return $self;
