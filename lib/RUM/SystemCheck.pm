@@ -8,7 +8,7 @@ use Carp;
 use RUM::Logger;
 use RUM::Common qw(format_large_int);
 use RUM::Index;
-
+use Text::Wrap qw(wrap fill);
 my $log = RUM::Logging->get_logger;
 
 sub check_ram {
@@ -135,7 +135,7 @@ sub available_ram {
 sub prompt_not_enough_ram {
     my (%options) = @_;
 
-    my $say           = delete $options{say};
+    my $say           = delete $options{say} || sub { print @_ };
     my $min_ram       = delete $options{min_ram};
     my $num_chunks    = delete $options{num_chunks};
     my $ram_per_chunk = delete $options{ram_per_chunk};

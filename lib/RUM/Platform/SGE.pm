@@ -32,9 +32,9 @@ sub new {
     my $dir = $config->output_dir;
 
     $self->{cmd} = {};
-    $self->{cmd}{preproc}  =  "perl $0 start --child --output $dir --preprocess";
-    $self->{cmd}{proc}     =  "perl $0 start --child --output $dir --chunk \$SGE_TASK_ID --process";
-    $self->{cmd}{postproc}     =  "perl $0 start --child --output $dir --postprocess";
+    $self->{cmd}{preproc}  =  "perl $0 resume --child --output $dir --preprocess";
+    $self->{cmd}{proc}     =  "perl $0 resume --child --output $dir --chunk \$SGE_TASK_ID --process";
+    $self->{cmd}{postproc}     =  "perl $0 resume --child --output $dir --postprocess";
 
     $self->{cmd}{proc} .= " --no-clean" if $config->no_clean;
 
@@ -53,7 +53,7 @@ sub start_parent {
     $log->info("Submitting a job to monitor child tasks, then exiting.");
     my $c = $self->config;
     my $dir = $c->output_dir;
-    my $cmd =  "-b y $0 start --parent --output $dir --lock $RUM::Lock::FILE";
+    my $cmd =  "-b y $0 resume --parent --output $dir --lock $RUM::Lock::FILE";
     $cmd .= " --preprocess"  if $c->preprocess;
     $cmd .= " --process"     if $c->process;
     $cmd .= " --postprocess" if $c->postprocess;
