@@ -12,7 +12,7 @@ use Test::More;
 use RUM::Config;
 use RUM::Directives;
 use RUM::Platform::Cluster;
-
+use RUM::TestUtils;
 
 BEGIN { 
     my @libs = qw(Test::Exception
@@ -31,11 +31,11 @@ BEGIN {
 $RUM::Platform::Cluster::CLUSTER_CHECK_INTERVAL=0;
 my $directives = RUM::Directives->new;
 
-our %DEFAULTS = (genome_size => 1000000,
-                 name        => 'cluster.t',
-                 num_chunks  => 1);
+our %DEFAULTS = (name    => 'cluster.t',
+                 chunks  => 1,
+                 index_dir => $INDEX_DIR);
 
-sub config { RUM::Config->new(%DEFAULTS) }
+sub config { RUM::Config->new->set(%DEFAULTS) }
 
 sub cluster {
     Test::MockObject::Extends->new(
@@ -68,7 +68,9 @@ sub cluster {
     $cluster->set_true('submit_proc', 'update_status');
     $cluster->mock('chunk_workflow' => sub {
                        Test::MockObject->new->mock('is_complete' => sub { 1 });
-                   });
+                   },
+               );
+
     $cluster->clear;
     $cluster->process;
     

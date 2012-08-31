@@ -441,12 +441,6 @@ sub print_status {
     }
 }
 
-=item print_processing_status
-
-Print the status for all the steps of the "processing" phase.
-
-=cut
-
 sub print_processing_status {
     my ($self) = @_;
 
@@ -499,12 +493,6 @@ sub print_processing_status {
     }
     return @plan;
 }
-
-=item print_postprocessing_status
-
-Print the status of all the steps of the "postprocessing" phase.
-
-=cut
 
 sub print_postprocessing_status {
     my ($self, $step_offset) = @_;

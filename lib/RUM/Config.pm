@@ -179,6 +179,7 @@ add_prop(
 
 add_prop(
     opt => 'forward-reads=s',
+    filter => \&make_absolute,
     desc => 'Forward reads',
     check => sub {
         my $conf = shift;
@@ -199,6 +200,7 @@ add_prop(
 
 add_prop(
     opt => 'reverse-reads=s',
+    filter => \&make_absolute,
     desc => 'Reverse reads',
     check => sub {
         my $conf = shift;
@@ -383,6 +385,7 @@ add_prop(
 
 add_prop(
     opt  => 'alt-genes=s',
+    filter => \&make_absolute,
     desc => 'File with gene models to use for calling junctions novel. If not specified will use the gene models file specified in the config file.',
     check => sub {
         my $c = shift;
@@ -397,6 +400,7 @@ add_prop(
 
 add_prop(
     opt  => 'alt-quants=s',
+    filter => \&make_absolute,
     desc => 'Use this file to quantify features in addition to the gene models file specified in the config file.  Both are reported to separate files.',
     check => sub {
         my $c = shift;

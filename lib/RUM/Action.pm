@@ -101,19 +101,7 @@ EOF
 
 sub pod_footer {
     
-    return << 'EOF';
-
-=head1 AUTHORS
-
-Gregory Grant (ggrant@grant.org)
-
-Mike DeLaurentis (delaurentis@gmail.com)
-
-=head1 COPYRIGHT
-
-Copyright 2012, University of Pennsylvania
-
-EOF
+    return "=head1 AUTHORS\n\nGregory Grant (ggrant\@grant.org)\n\nMike DeLaurentis (delaurentis\@gmail.com)\n\n=head1 COPYRIGHT\n\nCopyright 2012, University of Pennsylvania\n";
 
 }
 
@@ -132,44 +120,27 @@ sub pod {
     my @persistent = grep { ! RUM::Config->property($_)->transient } @named;
     
     if (@transient && @persistent > 1) {
-        $pod .= <<'EOF';
+        $pod .= "\n\nThese options are not saved to the job settings file, they only affect the current run.\n\n";
+    }
 
-These options are not saved to the job settings file, they only affect
-the current run.
-
-EOF
-        $pod .= <<'EOF';
-        
-=over 4
-
-EOF
-        
+    if (@transient) {
+        $pod .= "\n\n=over 4\n\n";
         
         for my $option (@transient) {
             $pod .= RUM::Config->pod_for_prop($option);
         }
         
         $pod .= "=back\n\n";
-
     }
         
 
     if (@persistent) {
 
         if (@persistent > 1) {
-
-        $pod .= <<'EOF';
-
-These options are saved to the job settings file and will persist
-across runs.
-
-EOF
-    }
-        $pod .= <<'EOF';
-        
-=over 4
-
-EOF
+            
+            $pod .= "These options are saved to the job settings file and will persist across runs.\n\n";
+        }
+        $pod .= "\n\n=over 4\n\n";
         
         for my $option (@persistent) {
             $pod .= RUM::Config->pod_for_prop($option);
@@ -178,7 +149,6 @@ EOF
         $pod .= "=back\n\n";
 
     }
-        
 
     $pod .= $class->pod_footer;
 
