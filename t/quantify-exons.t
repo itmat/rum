@@ -50,6 +50,7 @@ for my $test (@tests) {
 
     RUM::Script::QuantifyExons->main();
 #    system(@cmd) == 0 or die;
+    system "cat $out > $name";
     no_diffs($out,  "$EXPECTED_DIR/$name", $name);
 }
 
