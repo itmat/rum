@@ -79,7 +79,7 @@ sub main {
     }
 
     # read in the transcript models
-    my ($EXON) = read_annot_file($annotfile, $wanted_strand, $novel);
+    my $EXON = read_annot_file($annotfile, $wanted_strand, $novel);
 
     my %EXON = %{ $EXON };
 
@@ -180,29 +180,26 @@ sub main {
         }
     };
 
-
-    $readfile->($U_readsfile, "Ucount");
+    $readfile->($U_readsfile,   "Ucount");
     $readfile->($NU_readsfile, "NUcount");
 
-    my %EXONhash;
     open my $outfile, '>', $outfile1;
-    my $num_reads = $UREADS;
-    $num_reads = $num_reads + (scalar keys %NUREADS);
+
     if ($countsonly) {
+        my $num_reads = $UREADS + (scalar keys %NUREADS);
         print $outfile "num_reads = $num_reads\n";
     }
+
     foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
 
-        for my $i (0 .. @{ $EXON{$chr} } - 1) {
+        for my $exon ( @{ $EXON{$chr} } ) {
 
-
-            my $exon = $EXON{$chr}[$i];
             my $x1 = $exon->{Ucount}  || 0;
             my $x2 = $exon->{NUcount} || 0;
             my $s  = $exon->{start}   || 0;
             my $e  = $exon->{end}     || 0;
             my $elen = $e - $s + 1;
-
+            
             print $outfile "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
         }
     }
@@ -275,13 +272,5 @@ sub do_they_overlap() {
         }
     }
 }
-
-# seq.35669       chr1    3206742-3206966 -       GCCCACCACCATGTCAAACACAATCTCTTCCCATTTGGTGATACAGAATTCTGTCTCACAGTGGACAATCCAGAAAGTCATGATGCACCAATGGAGGACAATAAATATCCCAAAATACAGCTGGAAAACCGAGGCAAAGAGGGCGAATGTGATGACCCTGGCAGCGATGGTGAAGAAATGCCAGCAGAACTGAATGATGACAGCCATTTAGCTGATGGGCTTTTT
-# 
-# 
-# chr1    -       3195981 3206425 2       3195981,3203689,        3197398,3206425,        OTTMUST00000086625(vega)
-
-
-
 
 1;
