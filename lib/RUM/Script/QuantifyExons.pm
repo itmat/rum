@@ -84,47 +84,44 @@ sub read_rum_file {
             }
         }
 
-        $locs =~ /^(\d+)-/;
-        my $start = $1;
-        my $end;
+        my @a_spans = map { split /-/ } split /, /, $locs;
 
         my $line2 = <INFILE>;
         chomp($line2);
-        my @b = split(/\t/,$line2);
-        $b[0] =~ /(\d+)/;
+        my @b = split /\t/, $line2;
+        my ($b_readid, undef, $b_locs) = @b;
+        $b_readid =~ /(\d+)/;
         my $seqnum2 = $1;
-        my $spans_union;
 	
-        my @B;
 
-        if ($seqnum1 == $seqnum2 && $b[0] =~ /b/ && $readid =~ /a/) {
-            my $SPANS;
+        my @read_spans;
+
+        if ($seqnum1 == $seqnum2 && 
+            $b_readid =~ /b/ &&
+            $readid   =~ /a/) {
+
+            my @b_spans = map { split /-/ } split /, /, $b_locs;
+
             if ($strand eq "+") {
-                $b[2] =~ /-(\d+)$/;
-                $end = $1;
-                $SPANS = $locs . ", " . $b[2];
+                @read_spans = (@a_spans, @b_spans);
             } else {
-                $b[2] =~ /^(\d+)-/;
-                $start = $1;
-                $locs =~ /-(\d+)$/;
-                $end = $1;
-                $SPANS = $b[2] . ", " . $locs;
+                @read_spans = (@b_spans, @a_spans);
             }
-            #	    my $SPANS = &union($a[2], $b[2]);
-            @B = split(/[^\d]+/,$SPANS);
+
         } else {
 
-            my @spans = map { split /-/ } split /, /, $locs;
-
-            $end = $spans[-1];
             # reset the file handle so the last line read will be read again
             my $len = -1 * (1 + length($line2));
             seek(INFILE, $len, 1);
-            @B = split /[^\d]+/, $locs;
+            @read_spans = @a_spans;
         }
-        
+
+        my ($start, $end) = @read_spans[0, -1];
+
         my $exons = $EXON->{$CHR} || [];
         
+        # Move through our exon list until we get to the first one
+        # that overlaps this span
         while ($indexstart_e{$CHR} < @{ $exons } && 
                $exons->[$indexstart_e{$CHR}]{end} < $start) {
             $indexstart_e{$CHR}++;	
@@ -137,9 +134,9 @@ sub read_rum_file {
                 last;
             }
             
-            my @A = ($exon->{start}, $exon->{end});
+            my @exon_span = ($exon->{start}, $exon->{end});
             
-            if (do_they_overlap(\@A, \@B)) {
+            if (do_they_overlap(\@exon_span, \@read_spans)) {
                 $exon->{$type}++;
             }
         }
