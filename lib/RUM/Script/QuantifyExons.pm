@@ -43,12 +43,116 @@ sub read_annot_file {
 
 }
 
+sub read_rum_file {
+    use strict;
+
+    my %NUREADS;
+    my $UREADS=0;
+
+
+    my ($filename, $type, $EXON, $wanted_strand, $anti) = @_;
+    open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
+
+    my $counter=0;
+    my $line;
+
+    my %indexstart_e = map { ( $_ => 0 ) } keys %{ $EXON };
+
+    while (defined (my $line = <INFILE>)) {
+        chomp($line);
+        $counter++;
+        if ($counter % 100000 == 0) {
+            print "$type: counter=$counter\n";
+        }
+
+        my ($readid, $CHR, $locs, $strand) = split /\t/, $line;
+            
+        $readid =~ /(\d+)/;
+        my $seqnum1 = $1;
+        if ($type eq "NUcount") {
+            $NUREADS{$seqnum1}=1;
+        } else {
+            $UREADS++;
+        }
+        if ($wanted_strand) {
+            my $same_strand = $STRAND_MAP{$wanted_strand} eq $strand;
+            if ($anti) {
+                next if $same_strand;
+            }
+            else {
+                next if !$same_strand;
+            }
+        }
+
+        $locs =~ /^(\d+)-/;
+        my $start = $1;
+        my $end;
+
+        my $line2 = <INFILE>;
+        chomp($line2);
+        my @b = split(/\t/,$line2);
+        $b[0] =~ /(\d+)/;
+        my $seqnum2 = $1;
+        my $spans_union;
+	
+        my @B;
+
+        if ($seqnum1 == $seqnum2 && $b[0] =~ /b/ && $readid =~ /a/) {
+            my $SPANS;
+            if ($strand eq "+") {
+                $b[2] =~ /-(\d+)$/;
+                $end = $1;
+                $SPANS = $locs . ", " . $b[2];
+            } else {
+                $b[2] =~ /^(\d+)-/;
+                $start = $1;
+                $locs =~ /-(\d+)$/;
+                $end = $1;
+                $SPANS = $b[2] . ", " . $locs;
+            }
+            #	    my $SPANS = &union($a[2], $b[2]);
+            @B = split(/[^\d]+/,$SPANS);
+        } else {
+
+            my @spans = map { split /-/ } split /, /, $locs;
+
+            $end = $spans[-1];
+            # reset the file handle so the last line read will be read again
+            my $len = -1 * (1 + length($line2));
+            seek(INFILE, $len, 1);
+            @B = split /[^\d]+/, $locs;
+        }
+        
+        my $exons = $EXON->{$CHR} || [];
+        
+        while ($indexstart_e{$CHR} < @{ $exons } && 
+               $exons->[$indexstart_e{$CHR}]{end} < $start) {
+            $indexstart_e{$CHR}++;	
+        }
+        
+        for my $i ($indexstart_e{$CHR} .. @{ $exons } - 1) {
+                
+            my $exon = $EXON->{$CHR}[$i];
+            if ($end < $exon->{start}) {
+                last;
+            }
+            
+            my @A = ($exon->{start}, $exon->{end});
+            
+            if (do_they_overlap(\@A, \@B)) {
+                $exon->{$type}++;
+            }
+        }
+    }
+
+    return $UREADS || (scalar keys %NUREADS);
+    
+}
+
 sub main {
 
     my @A;
     my @B;
-    my %NUREADS;
-    my $UREADS=0;
     
     GetOptions(
         "exons-in=s"      => \(my $annotfile),    
@@ -83,110 +187,14 @@ sub main {
 
     my %EXON = %{ $EXON };
 
-    my $readfile = sub {
-        my ($filename, $type) = @_;
-        open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
 
-        my $counter=0;
-        my $line;
 
-        my %indexstart_e;
-
-        foreach my $chr (keys %EXON) {
-            $indexstart_e{$chr} = 0;
-        }
-        while (defined (my $line = <INFILE>)) {
-            chomp($line);
-            $counter++;
-            if ($counter % 100000 == 0 && !$countsonly) {
-                print "$type: counter=$counter\n";
-            }
-
-            my @a = split(/\t/,$line);
-            my ($readid, $CHR, $locs, $strand) = @a;
-            
-            $readid =~ /(\d+)/;
-            my $seqnum1 = $1;
-            if ($type eq "NUcount") {
-                $NUREADS{$seqnum1}=1;
-            } else {
-                $UREADS++;
-            }
-            if ($wanted_strand) {
-                my $same_strand = $STRAND_MAP{$wanted_strand} eq $strand;
-                if ($anti) {
-                    next if $same_strand;
-                }
-                else {
-                    next if !$same_strand;
-                }
-            }
-
-            $locs =~ /^(\d+)-/;
-            my $start = $1;
-            my $end;
-
-            my $line2 = <INFILE>;
-            chomp($line2);
-            my @b = split(/\t/,$line2);
-            $b[0] =~ /(\d+)/;
-            my $seqnum2 = $1;
-            my $spans_union;
-	
-            if ($seqnum1 == $seqnum2 && $b[0] =~ /b/ && $readid =~ /a/) {
-                my $SPANS;
-                if ($strand eq "+") {
-                    $b[2] =~ /-(\d+)$/;
-                    $end = $1;
-                    $SPANS = $a[2] . ", " . $b[2];
-                } else {
-                    $b[2] =~ /^(\d+)-/;
-                    $start = $1;
-                    $a[2] =~ /-(\d+)$/;
-                    $end = $1;
-                    $SPANS = $b[2] . ", " . $a[2];
-                }
-                #	    my $SPANS = &union($a[2], $b[2]);
-                @B = split(/[^\d]+/,$SPANS);
-            } else {
-                $locs =~ /-(\d+)$/;
-                $end = $1;
-                # reset the file handle so the last line read will be read again
-                my $len = -1 * (1 + length($line2));
-                seek(INFILE, $len, 1);
-                @B = split(/[^\d]+/,$a[2]);
-            }
-
-            my $exons = $EXON{$CHR} || [];
-
-            while ($indexstart_e{$CHR} < @{ $exons } && 
-                   $exons->[$indexstart_e{$CHR}]{end} < $start) {
-                $indexstart_e{$CHR}++;	
-            }
-
-            for my $i ($indexstart_e{$CHR} .. @{ $exons } - 1) {
-
-                my $exon = $EXON{$CHR}[$i];
-                if ($end < $exon->{start}) {
-                    last;
-                }
-
-                my @A = ($exon->{start}, $exon->{end});
-
-                if (do_they_overlap(\@A, \@B)) {
-                    $exon->{$type}++;
-                }
-            }
-        }
-    };
-
-    $readfile->($U_readsfile,   "Ucount");
-    $readfile->($NU_readsfile, "NUcount");
+    my $num_reads = read_rum_file($U_readsfile,   "Ucount", \%EXON, $wanted_strand, $anti);
+    $num_reads   += read_rum_file($NU_readsfile, "NUcount", \%EXON, $wanted_strand, $anti);
 
     open my $outfile, '>', $outfile1;
 
     if ($countsonly) {
-        my $num_reads = $UREADS + (scalar keys %NUREADS);
         print $outfile "num_reads = $num_reads\n";
     }
 
