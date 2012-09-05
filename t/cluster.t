@@ -23,6 +23,7 @@ BEGIN {
         eval "use $lib";
         push @missing, $lib if $@;
     }
+    push @missing, "Arabidopsis index" if ! -e $GENOME_FA;
     plan skip_all => "@missing needed" if @missing;
     plan tests => 186;
 }
