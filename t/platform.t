@@ -10,7 +10,6 @@ use lib "$Bin/../lib";
 use Test::More;
 
 use RUM::Config;
-use RUM::Directives;
 use RUM::Platform;
 
 BEGIN { 
