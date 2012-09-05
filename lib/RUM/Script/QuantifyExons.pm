@@ -3,6 +3,7 @@ package RUM::Script::QuantifyExons;
 no warnings;
 use RUM::Usage;
 use RUM::Logging;
+use RUM::QuantMap;
 use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
@@ -10,6 +11,9 @@ our $log = RUM::Logging->get_logger();
 use strict;
 use Data::Dumper;
 use Time::HiRes qw(time);
+
+my $START = 3618230;
+my $END   = 3618635;
 
 my %STRAND_MAP = (
     p => '+',
@@ -25,6 +29,8 @@ sub read_annot_file {
     <$infile>;
     my %exons_for_chr;
 
+    my $quants = RUM::QuantMap->new;
+
     while (defined(my $line = <$infile>)) {
         chomp($line);
 
@@ -36,9 +42,19 @@ sub read_annot_file {
 
         $loc =~ /^(.*):(\d+)-(\d+)$/ or die "Unexpected input : $line";
         my ($chr, $start, $end) = ($1, $2, $3);
-
+        $quants->add_feature(
+            chromosome => $chr,
+            start => $start,
+            end => $end,
+            data => {
+                Ucount => 0, NUcount => 0
+            });
         push @{ $exons_for_chr{$chr} }, { start => $start, end => $end };
     }
+
+    $quants->partition;
+    print Dumper($quants);
+
 
 
 #    for my $chr (keys %exons_for_chr) {
@@ -47,7 +63,7 @@ sub read_annot_file {
 #        } @{ $exons_for_chr{$chr} } ];
 #    }
 
-    return \%exons_for_chr;
+    return (\%exons_for_chr, $quants);
 
 }
 
@@ -58,7 +74,7 @@ sub read_rum_file {
     my $UREADS=0;
 
 
-    my ($filename, $type, $EXON, $wanted_strand, $anti) = @_;
+    my ($filename, $type, $EXON, $wanted_strand, $anti, $quants) = @_;
     open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
 
     my $counter=0;
@@ -133,6 +149,24 @@ sub read_rum_file {
 
         my $exons = $EXON->{$CHR} || [];
         
+        my @new_spans;
+        for (my $i = 0; $i < @read_spans; $i += 2) {
+            push @new_spans, [ $read_spans[$i], 
+                               $read_spans[$i+1] ];
+        }
+
+        my $covered = $quants->covered_features(
+            chromosome => $CHR,
+            spans => \@new_spans);
+        
+        for my $feature (@{ $covered }) {
+            $feature->{data}{$type}++;
+            if ($feature->{start} == $START &&
+                $feature->{end} == $END) {
+                print "$readid hits it $feature->{data}{$type} (new) with @read_spans: " . Dumper($feature); 
+            }
+        }
+
         # Move through our exon list until we get to the first one
         # that overlaps this span
         while ($indexstart_e{$CHR} < @{ $exons } && 
@@ -152,6 +186,11 @@ sub read_rum_file {
 
             if (do_they_overlap(\@exon_span, \@read_spans)) {
                 $exon->{$type}++;
+                if ($exon->{start} == $START &&
+                    $exon->{end} == $END) {
+                    print "$readid hits it $exon->{$type} (old) with @read_spans\n";
+                }
+
             }
             else {
                 push @skipped, join('-', @exon_span);
@@ -203,12 +242,12 @@ sub main {
     }
 
     # read in the transcript models
-    my $EXON = read_annot_file($annotfile, $wanted_strand, $novel);
+    my ($EXON, $quants) = read_annot_file($annotfile, $wanted_strand, $novel);
 
     my %EXON = %{ $EXON };
 
-    my $num_reads = read_rum_file($U_readsfile,   "Ucount", \%EXON, $wanted_strand, $anti);
-    $num_reads   += read_rum_file($NU_readsfile, "NUcount", \%EXON, $wanted_strand, $anti);
+    my $num_reads = read_rum_file($U_readsfile,   "Ucount", \%EXON, $wanted_strand, $anti, $quants);
+    $num_reads   += read_rum_file($NU_readsfile, "NUcount", \%EXON, $wanted_strand, $anti, $quants);
 
     open my $outfile, '>', $outfile1;
 
@@ -218,6 +257,8 @@ sub main {
 
     foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
 
+        
+
         for my $exon ( @{ $EXON{$chr} } ) {
 
             my $x1 = $exon->{Ucount}  || 0;
@@ -225,8 +266,24 @@ sub main {
             my $s  = $exon->{start}   || 0;
             my $e  = $exon->{end}     || 0;
             my $elen = $e - $s + 1;
+#            print $outfile "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
+        }
+ 
+        my $features = $quants->features(chromosome => $chr);
+        my @features = sort { 
+            $a->{start} <=> $b->{start} ||
+            $a->{end}   <=> $b->{start} 
+        } @{ $features };
+       
+        for my $exon ( @features) { 
+            my $x1 = $exon->{data}{Ucount}  || 0;
+            my $x2 = $exon->{data}{NUcount} || 0;
+            my $s  = $exon->{start}   || 0;
+            my $e  = $exon->{end}     || 0;
+            my $elen = $e - $s + 1;
             
             print $outfile "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
+
         }
     }
 

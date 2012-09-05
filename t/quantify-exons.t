@@ -31,6 +31,7 @@ my @tests = (
 );
 
 
+
 plan tests => 10 + @tests;
 
 use_ok "RUM::Script::QuantifyExons";
@@ -52,7 +53,7 @@ for my $test (@tests) {
     RUM::Script::QuantifyExons->main();
 
     system "cat $out > $name";
-    no_diffs($out,  "$EXPECTED_DIR/$name", $name);
+    same_contents_sorted($out,  "$EXPECTED_DIR/$name", $name);
 }
 
 {

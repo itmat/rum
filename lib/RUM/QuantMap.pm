@@ -3,8 +3,48 @@ package RUM::QuantMap;
 use strict;
 use warnings;
 
-use Data::Dumper;
 
+
+sub new {
+    my ($class) = @_;
+    my $self = {};
+    $self->{quants_for_chromosome} = {};
+    return bless $self, $class;
+}
+
+sub add_feature {
+    my ($self, %params) = @_;
+    my $chr = delete $params{chromosome};
+    my $map = $self->{quants_for_chromosome}{$chr} ||= RUM::SingleChromosomeQuantMap->new;
+    $map->add_feature(%params);
+}
+
+sub partition {
+    my ($self) = @_;
+    for my $map (values %{ $self->{quants_for_chromosome} }) {
+        $map->partition;
+    }
+}
+
+sub covered_features {
+    my ($self, %params) = @_;
+    my $chr = delete $params{chromosome};
+    my $map = $self->{quants_for_chromosome}{$chr} or return [];
+    return $map->covered_features(%params);
+}
+
+sub features {
+    my ($self, %params) = @_;
+    my $chr = delete $params{chromosome};
+    my $map = $self->{quants_for_chromosome}{$chr} or return [];
+    return [ values %{ $map->{features} } ];
+}
+
+package RUM::SingleChromosomeQuantMap;
+
+use strict;
+use warnings;
+use Data::Dumper;
 my $START = 1;
 my $END   = 2;
 
@@ -35,8 +75,6 @@ sub add_feature {
     $self->{features}{$id} = $feature;
 }
 
-
-
 sub partition {
     my ($self) = @_;
 
@@ -51,7 +89,7 @@ sub partition {
         
         my $end_event = {
             type => $END,
-            loc  => $feature->{end},
+            loc  => $feature->{end} + 1,
             feature_id => $feature->{id}
         };
 
@@ -66,22 +104,25 @@ sub partition {
 
     my $pos = 0;
 
-    while (my $event = shift @events) {
+    while (@events) {
         
-        my $feature_id = $event->{feature_id};
+        my $loc = $events[0]->{loc};
 
-        if ($event->{type} == $START) {
-            $current_features{$feature_id} = 1;
-        }
-        else {
-            delete $current_features{$feature_id};
+        while (@events && ($events[0]->{loc} == $loc)) {
+            my $event = shift @events;
+            my $feature_id = $event->{feature_id};            
+            if ($event->{type} == $START) {
+                $current_features{$feature_id} = 1;
+            }
+            else {
+                delete $current_features{$feature_id};
+            }
         }
 
         push @partitions, {
-            start => $event->{loc},
+            start => $loc,
             features => [ keys %current_features ]
         };
-
     }
 
     $self->{partitions} = \@partitions;
@@ -98,16 +139,18 @@ sub find_partition {
     my ($p, $q) = (0, $n - 1);
 
     while ($p <= $q) {
-        warn "For $pos, P is $p, Q is $q\n";
+
         my $i = $p + int(($q - $p) / 2);
 
         my $this = $partitions->[$i];
         my $next = $i < $n ? $partitions->[$i + 1] : undef;
 
         # If I'm too far to the left
-        if ($next && $next->{start} < $pos) { 
+        if ($next && $next->{start} <= $pos) { 
             $p = $i + 1;
         }
+
+        # I'm too far to the right
         elsif ($pos < $this->{start}) {
             $q = $i - 1;
         }
@@ -121,20 +164,30 @@ sub find_partition {
 sub covered_features {
     my ($self, %params) = @_;
 
-    my $start = delete $params{start};
-    my $end   = delete $params{end};
+    my $spans = delete $params{spans};
 
-    my $p = $self->find_partition($start);
-    my $q = $self->find_partition($end);
-
-    print "P and q are $p, $q\n";
     my %feature_ids;
 
-    for my $i ( $p .. $q ) {
-        my $partition = $self->{partitions}[$i];
-        for my $feature_id ( @{ $partition->{features} } ) {
+    for my $span (@{ $spans }) {
 
-            $feature_ids{$feature_id} = 1;
+#        print "Looking for span " . Dumper($span);
+
+
+        my ($start, $end) = @{ $span };
+
+        my $p = $self->find_partition($start);
+        my $q = $self->find_partition($end);
+ #       print "  p is " . Dumper($self->{partitions}[$p]);
+ #       print "  q is " . Dumper($self->{partitions}[$q]);
+
+        for my $i ( $p .. $q ) {
+            my $partition = $self->{partitions}[$i];
+
+
+            for my $feature_id ( @{ $partition->{features} } ) {
+                
+                $feature_ids{$feature_id} = 1;
+            }
         }
     }
 
@@ -144,3 +197,4 @@ sub covered_features {
     }
     return \@features;
 }
+
