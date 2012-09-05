@@ -9,6 +9,7 @@ use RUM::Sort qw(cmpChrs);
 our $log = RUM::Logging->get_logger();
 use strict;
 use Data::Dumper;
+use Time::HiRes qw(time);
 
 my %STRAND_MAP = (
     p => '+',
@@ -39,6 +40,13 @@ sub read_annot_file {
         push @{ $exons_for_chr{$chr} }, { start => $start, end => $end };
     }
 
+
+#    for my $chr (keys %exons_for_chr) {
+#        $exons_for_chr{$chr} = [ sort {
+#            $a->{start} <=> $b->{start} || $a->{end} <=> $b->{end}
+#        } @{ $exons_for_chr{$chr} } ];
+#    }
+
     return \%exons_for_chr;
 
 }
@@ -58,11 +66,16 @@ sub read_rum_file {
 
     my %indexstart_e = map { ( $_ => 0 ) } keys %{ $EXON };
 
+    my $start = time;
+
     while (defined (my $line = <INFILE>)) {
         chomp($line);
         $counter++;
-        if ($counter % 100000 == 0) {
-            print "$type: counter=$counter\n";
+
+        if ($counter % 10000 == 0) {
+            my $end = time;
+            printf "%10s: %10d, %f\n", $type, $counter,  ($end - $start) / 10000;
+            $start = time;
         }
 
         my ($readid, $CHR, $locs, $strand) = split /\t/, $line;
@@ -126,20 +139,30 @@ sub read_rum_file {
                $exons->[$indexstart_e{$CHR}]{end} < $start) {
             $indexstart_e{$CHR}++;	
         }
-        
+
+        my @skipped;
         for my $i ($indexstart_e{$CHR} .. @{ $exons } - 1) {
-                
-            my $exon = $EXON->{$CHR}[$i];
+            my $exon = $EXON->{$CHR}[$i];            
+
             if ($end < $exon->{start}) {
                 last;
             }
             
             my @exon_span = ($exon->{start}, $exon->{end});
-            
+
             if (do_they_overlap(\@exon_span, \@read_spans)) {
                 $exon->{$type}++;
             }
+            else {
+                push @skipped, join('-', @exon_span);
+            }
         }
+        if (@skipped > 200) {
+            
+           # print "Skipped @skipped for $line and $line2\n";
+           # print "Index start is $indexstart_e{$CHR}, which is " . Dumper($exons->[$indexstart_e{$CHR}]);
+        }
+        
     }
 
     return $UREADS || (scalar keys %NUREADS);
@@ -183,8 +206,6 @@ sub main {
     my $EXON = read_annot_file($annotfile, $wanted_strand, $novel);
 
     my %EXON = %{ $EXON };
-
-
 
     my $num_reads = read_rum_file($U_readsfile,   "Ucount", \%EXON, $wanted_strand, $anti);
     $num_reads   += read_rum_file($NU_readsfile, "NUcount", \%EXON, $wanted_strand, $anti);
