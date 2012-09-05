@@ -30,7 +30,8 @@ my @tests = (
       options => ["-novel", "-countsonly", "-strand", "m", "-anti"] },
 );
 
-plan tests => 1 + @tests;
+
+plan tests => 8 + @tests;
 
 use_ok "RUM::Script::QuantifyExons";
 
@@ -54,3 +55,16 @@ for my $test (@tests) {
     no_diffs($out,  "$EXPECTED_DIR/$name", $name);
 }
 
+{
+    ok(!RUM::Script::QuantifyExons::do_they_overlap([10, 20], [4, 8, 24, 28]));
+    ok(!RUM::Script::QuantifyExons::do_they_overlap([10, 20], [4, 8]));
+    ok(!RUM::Script::QuantifyExons::do_they_overlap([10, 20], [24, 28]));
+
+    ok(RUM::Script::QuantifyExons::do_they_overlap([10, 20], [8, 15]));
+
+    ok(RUM::Script::QuantifyExons::do_they_overlap([10, 20], [15, 25]));
+
+    ok(RUM::Script::QuantifyExons::do_they_overlap([10, 20], [5, 25]));
+
+    ok(RUM::Script::QuantifyExons::do_they_overlap([10, 20], [12, 18]));
+}
