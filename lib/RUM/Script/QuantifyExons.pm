@@ -53,15 +53,6 @@ sub read_annot_file {
     }
 
     $quants->partition;
-    print Dumper($quants);
-
-
-
-#    for my $chr (keys %exons_for_chr) {
-#        $exons_for_chr{$chr} = [ sort {
-#            $a->{start} <=> $b->{start} || $a->{end} <=> $b->{end}
-#        } @{ $exons_for_chr{$chr} } ];
-#    }
 
     return (\%exons_for_chr, $quants);
 
@@ -74,13 +65,11 @@ sub read_rum_file {
     my $UREADS=0;
 
 
-    my ($filename, $type, $EXON, $wanted_strand, $anti, $quants) = @_;
+    my ($filename, $type, $wanted_strand, $anti, $quants) = @_;
     open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
 
     my $counter=0;
     my $line;
-
-    my %indexstart_e = map { ( $_ => 0 ) } keys %{ $EXON };
 
     my $start = time;
 
@@ -122,7 +111,6 @@ sub read_rum_file {
         $b_readid =~ /(\d+)/;
         my $seqnum2 = $1;
 	
-
         my @read_spans;
 
         if ($seqnum1 == $seqnum2 && 
@@ -145,10 +133,6 @@ sub read_rum_file {
             @read_spans = @a_spans;
         }
 
-        my ($start, $end) = @read_spans[0, -1];
-
-        my $exons = $EXON->{$CHR} || [];
-        
         my @new_spans;
         for (my $i = 0; $i < @read_spans; $i += 2) {
             push @new_spans, [ $read_spans[$i], 
@@ -161,47 +145,7 @@ sub read_rum_file {
         
         for my $feature (@{ $covered }) {
             $feature->{data}{$type}++;
-            if ($feature->{start} == $START &&
-                $feature->{end} == $END) {
-                print "$readid hits it $feature->{data}{$type} (new) with @read_spans: " . Dumper($feature); 
-            }
         }
-
-        # Move through our exon list until we get to the first one
-        # that overlaps this span
-        while ($indexstart_e{$CHR} < @{ $exons } && 
-               $exons->[$indexstart_e{$CHR}]{end} < $start) {
-            $indexstart_e{$CHR}++;	
-        }
-
-        my @skipped;
-        for my $i ($indexstart_e{$CHR} .. @{ $exons } - 1) {
-            my $exon = $EXON->{$CHR}[$i];            
-
-            if ($end < $exon->{start}) {
-                last;
-            }
-            
-            my @exon_span = ($exon->{start}, $exon->{end});
-
-            if (do_they_overlap(\@exon_span, \@read_spans)) {
-                $exon->{$type}++;
-                if ($exon->{start} == $START &&
-                    $exon->{end} == $END) {
-                    print "$readid hits it $exon->{$type} (old) with @read_spans\n";
-                }
-
-            }
-            else {
-                push @skipped, join('-', @exon_span);
-            }
-        }
-        if (@skipped > 200) {
-            
-           # print "Skipped @skipped for $line and $line2\n";
-           # print "Index start is $indexstart_e{$CHR}, which is " . Dumper($exons->[$indexstart_e{$CHR}]);
-        }
-        
     }
 
     return $UREADS || (scalar keys %NUREADS);
@@ -244,10 +188,8 @@ sub main {
     # read in the transcript models
     my ($EXON, $quants) = read_annot_file($annotfile, $wanted_strand, $novel);
 
-    my %EXON = %{ $EXON };
-
-    my $num_reads = read_rum_file($U_readsfile,   "Ucount", \%EXON, $wanted_strand, $anti, $quants);
-    $num_reads   += read_rum_file($NU_readsfile, "NUcount", \%EXON, $wanted_strand, $anti, $quants);
+    my $num_reads = read_rum_file($U_readsfile,   "Ucount", $wanted_strand, $anti, $quants);
+    $num_reads   += read_rum_file($NU_readsfile, "NUcount", $wanted_strand, $anti, $quants);
 
     open my $outfile, '>', $outfile1;
 
@@ -255,20 +197,8 @@ sub main {
         print $outfile "num_reads = $num_reads\n";
     }
 
-    foreach my $chr (sort {cmpChrs($a,$b)} keys %EXON) {
+    foreach my $chr (sort {cmpChrs($a,$b)} keys %{ $quants->{quants_for_chromosome}}) {
 
-        
-
-        for my $exon ( @{ $EXON{$chr} } ) {
-
-            my $x1 = $exon->{Ucount}  || 0;
-            my $x2 = $exon->{NUcount} || 0;
-            my $s  = $exon->{start}   || 0;
-            my $e  = $exon->{end}     || 0;
-            my $elen = $e - $s + 1;
-#            print $outfile "exon\t$chr:$s-$e\t$x1\t$x2\t$elen\n";
-        }
- 
         my $features = $quants->features(chromosome => $chr);
         my @features = sort { 
             $a->{start} <=> $b->{start} ||
@@ -343,39 +273,4 @@ sub do_they_overlap() {
 
 1;
 
-__END__
-sub union () {
-    my ($spans1_u, $spans2_u) = @_;
-    
-    my %chash;
-    my @a = split(/, /,$spans1_u);
-    for (my $i=0;$i<@a;$i++) {
-        my @b = split(/-/,$a[$i]);
-        for (my $j=$b[0];$j<=$b[1];$j++) {
-            $chash{$j}++;
-        }
-    }
-    @a = split(/, /,$spans2_u);
-    for (my $i=0;$i<@a;$i++) {
-        my @b = split(/-/,$a[$i]);
-        for (my $j=$b[0];$j<=$b[1];$j++) {
-            $chash{$j}++;
-        }
-    }
-    my $first = 1;
-    my $spans_union;
-    my $pos_prev;
-    foreach my $pos (sort {$a<=>$b} keys %chash) {
-        if ($first == 1) {
-            $spans_union = $pos;
-            $first = 0;
-        } else {
-            if ($pos > $pos_prev + 1) {
-                $spans_union = $spans_union . "-$pos_prev, $pos";
-            }
-        }
-        $pos_prev = $pos;
-    }
-    $spans_union = $spans_union . "-$pos_prev";
-    return $spans_union;
-}
+
