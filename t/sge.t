@@ -7,7 +7,6 @@ use FindBin qw($Bin);
 use File::Temp qw(tempdir);
 use lib "$Bin/../lib";
 use RUM::Config;
-use RUM::Directives;
 
 BEGIN { use_ok('RUM::Platform::SGE') or BAIL_OUT "Couldn't load RUM::Platform::SGE" }
 

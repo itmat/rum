@@ -87,12 +87,13 @@ is $c->quant(chunk => 1,
     my $conf = RUM::Config->new;
     @ARGV = ('--name', 'foo',
              '--chunks', 3,
-             $reads);
+             $reads->filename);
 
     $conf->parse_command_line(
         options => [qw(name chunks)],
         positional => [qw(forward_reads reverse_reads)]
     );
+
     is $conf->name, 'foo';
     is $conf->chunks, 3;
     is $conf->forward_reads, $reads;

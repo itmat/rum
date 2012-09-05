@@ -60,7 +60,6 @@ SKIP: {
         $script->{last_seq_num} = $test->{last_id};
         $script->{num_blocks_allowed} = 1000;
         $script->{paired_end} = 'true';
-        
         $script->parse_output(
             $blathits, $reads_in, $mdust_in, $unique_out, $non_unique_out);
         

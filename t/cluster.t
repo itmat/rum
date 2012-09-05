@@ -10,7 +10,6 @@ use lib "$Bin/../lib";
 use Data::Dumper;
 use Test::More;
 use RUM::Config;
-use RUM::Directives;
 use RUM::Platform::Cluster;
 use RUM::TestUtils;
 
@@ -30,7 +29,6 @@ BEGIN {
 
 
 $RUM::Platform::Cluster::CLUSTER_CHECK_INTERVAL=0;
-my $directives = RUM::Directives->new;
 
 our %DEFAULTS = (name    => 'cluster.t',
                  chunks  => 1,
@@ -40,7 +38,7 @@ sub config { RUM::Config->new->set(%DEFAULTS) }
 
 sub cluster {
     Test::MockObject::Extends->new(
-        RUM::Platform::Cluster->new(config, $directives));
+        RUM::Platform::Cluster->new(config));
 }
 
 ################################################################################
@@ -88,7 +86,7 @@ sub cluster {
 {
     my $config = RUM::Config->new(%DEFAULTS);
     my $cluster = Test::MockObject::Extends->new(
-        RUM::Platform::Cluster->new($config, $directives));
+        RUM::Platform::Cluster->new($config));
     $cluster->set_true('submit_proc');
 
     $cluster->process(3);
@@ -328,7 +326,7 @@ sub cluster {
 ### Unimplemented methods
 ###
 
-my $cluster = RUM::Platform::Cluster->new(config, $directives);
+my $cluster = RUM::Platform::Cluster->new(config);
 throws_ok { $cluster->submit_preproc } qr/not implemented/i, "submit_preproc not implemented";
 throws_ok { $cluster->submit_proc } qr/not implemented/i, "submit_proc not implemented";
 throws_ok { $cluster->submit_postproc } qr/not implemented/i, "submit_postproc not implemented";

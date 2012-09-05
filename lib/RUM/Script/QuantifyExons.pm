@@ -234,6 +234,59 @@ sub main {
 }
 
 
+
+sub do_they_overlap() {
+
+    my ($exon_span, $B) = @_;
+
+    my $i = 0;
+    my $j = 0;
+    
+    while (1) {
+
+      EXON_EVENT: while (1) {
+
+            if ($i % 2) {
+                my $exon_end   = $exon_span->[$i];
+                last EXON_EVENT if $B->[$j] <= $exon_end;
+            }
+            else {
+                my $exon_start =  $exon_span->[$i];
+                last EXON_EVENT if $B->[$j] < $exon_start;
+            }
+            
+            $i++;
+            if ($i == @$exon_span) {
+                return $B->[$j] == $exon_span->[@$exon_span - 1];
+            }
+        }
+
+        # At an exon end
+        if ($i % 2) {
+            return 1;
+        } 
+        
+        else {
+            $j++;
+
+            my $exon_start = $exon_span->[$i];
+            my $at_read_end = $j % 2;
+
+            if ($at_read_end && $exon_start <= $B->[$j]) {
+                return 1;
+            }
+
+            # Past all the reads
+            if ($j >= @$B) {
+                return 0;
+            }
+        }
+    }
+}
+
+1;
+
+__END__
 sub union () {
     my ($spans1_u, $spans2_u) = @_;
     
@@ -269,34 +322,3 @@ sub union () {
     $spans_union = $spans_union . "-$pos_prev";
     return $spans_union;
 }
-
-
-sub do_they_overlap() {
-
-    my ($A, $B) = @_;
-
-    my $i = 0;
-    my $j = 0;
-    
-    while (1) {
-        until (($B->[$j] < $A->[$i] && $i%2==0) || ($B->[$j] <= $A->[$i] && $i%2==1)) {
-            $i++;
-            if ($i == @$A) {
-                return $B->[$j] == $A->[@$A - 1];
-            }
-        }
-        if (($i-1) % 2 == 0) {
-            return 1;
-        } else {
-            $j++;
-            if ($j%2==1 && $A->[$i] <= $B->[$j]) {
-                return 1;
-            }
-            if ($j >= @$B) {
-                return 0;
-            }
-        }
-    }
-}
-
-1;

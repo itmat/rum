@@ -31,7 +31,7 @@ my @tests = (
 );
 
 
-plan tests => 8 + @tests;
+plan tests => 10 + @tests;
 
 use_ok "RUM::Script::QuantifyExons";
 
@@ -61,10 +61,11 @@ for my $test (@tests) {
     ok(!RUM::Script::QuantifyExons::do_they_overlap([10, 20], [24, 28]));
 
     ok(RUM::Script::QuantifyExons::do_they_overlap([10, 20], [8, 15]));
-
     ok(RUM::Script::QuantifyExons::do_they_overlap([10, 20], [15, 25]));
-
     ok(RUM::Script::QuantifyExons::do_they_overlap([10, 20], [5, 25]));
-
     ok(RUM::Script::QuantifyExons::do_they_overlap([10, 20], [12, 18]));
+
+    ok(RUM::Script::QuantifyExons::do_they_overlap([10, 20], [20, 25]));
+    ok(RUM::Script::QuantifyExons::do_they_overlap([20, 25], [10, 20]));
+
 }
