@@ -113,11 +113,13 @@ sub read_rum_file {
 
         my @a_spans = map { [ split /-/ ] } split /, /, $locs;
 
+        my $pos = tell $infile;
+
         my $line2 = <$infile>;
         chomp($line2);
 
         my ($b_readid, undef, $b_locs) = split /\t/, $line2;
-        $b_readid =~ /^seq.(\d+)(a|b)?$/ or die "Invalid read id $readid";
+        $b_readid =~ /^seq\.(\d+)(a|b)?$/;
         my ($seqnum2, $dir2) = ($1, $2);
 	
         my @read_spans;
@@ -138,8 +140,7 @@ sub read_rum_file {
         } else {
 
             # reset the file handle so the last line read will be read again
-            my $len = -1 * (1 + length($line2));
-            seek $infile, $len, 1;
+            seek $infile, $pos, 0;
             @read_spans = @a_spans;
         }
 
