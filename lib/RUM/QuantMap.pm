@@ -202,7 +202,7 @@ sub covered_features {
         my $p = $self->find_partition($start);
         
         for my $fid (@{ $partition_features->[$p] }) {
-            $new_feature_ids{$fid} = 1; 
+            $feature_ids{$fid} = 1; 
         }
 
         my $q = $p;
@@ -214,10 +214,10 @@ sub covered_features {
         for my $i ($p + 1 .. $q) {
 
             for my $fid (@{ $partition_starts->[$i] }) {
-                $new_feature_ids{$fid} = 1; 
+                $feature_ids{$fid} = 1; 
             }
         }
     }
-    return [ map { $self->{feature_array}[$_] } keys %new_feature_ids ];
+    return [ map { $self->{feature_array}[$_] } keys %feature_ids ];
 }
 
