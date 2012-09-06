@@ -61,6 +61,18 @@ sub read_annot_file {
 
 }
 
+sub parse_rum_line {
+    my ($line) = @_;
+    return if ! defined $line;
+    chomp $line;
+    my ($readid, $chr, $locs, $strand) = split /\t/, $line;    
+    $readid =~ /^seq.(\d+)(a|b)?$/ or die "Invalid read id $readid";
+
+    my ($seqnum1, $dir1) = ($1, $2);
+    my @spans = map { [ split /-/ ] } split /, /, $locs;
+    return ($seqnum1, $dir1, $chr, $strand, \@spans);
+}
+
 sub read_rum_file {
 
     my ($filename, $type, $wanted_strand, $anti, $quants) = @_;
@@ -75,9 +87,30 @@ sub read_rum_file {
 
     my $start = time;
 
-    while (defined (my $line = <$infile>)) {
-        chomp($line);
+    my @last_line;
+
+    while (1) {
         $counter++;
+        
+        my ($seqnum1, $dir1, $CHR, $strand, $spans);
+        
+        # If @last_line is defined, then it's the last line read from
+        # the previous iteration, and we should use it.
+        if (@last_line) {
+            ($seqnum1, $dir1, $CHR, $strand, $spans) = @last_line;
+            undef @last_line;
+        }
+
+        # Otherwise read the next line and parse it
+        elsif (defined (my $line = <$infile>)) {
+            ($seqnum1, $dir1, $CHR, $strand, $spans) = parse_rum_line($line);
+        }
+        
+        # If @last_line wasn't populated and we got an EOF from the
+        # input file, we're done.
+        else {
+            last;
+        }
 
         if ($counter % 10000 == 0) {
             my $end = time;
@@ -85,22 +118,6 @@ sub read_rum_file {
             $start = time;
         }
 
-        my ($readid, $CHR, $locs, $strand) = split /\t/, $line;
-#        print "Got line $line\n";
-        if (! defined($strand) ) {
-            warn "Invalid line in $filename: $line\n";
-            next;
-        }
-            
-        $readid =~ /^seq.(\d+)(a|b)?$/ or die "Invalid read id $readid";
-
-        my ($seqnum1, $dir1) = ($1, $2);
-
-        if ($type eq "NUcount") {
-            $NUREADS{$seqnum1}=1;
-        } else {
-            $UREADS++;
-        }
         if ($wanted_strand) {
             my $same_strand = $STRAND_MAP{$wanted_strand} eq $strand;
             if ($anti) {
@@ -111,50 +128,39 @@ sub read_rum_file {
             }
         }
 
-        my @a_spans = map { [ split /-/ ] } split /, /, $locs;
+        $NUREADS{$seqnum1} = 1;
 
-        my $pos = tell $infile;
-
+        # Read another line from the RUM file
         my $line2 = <$infile>;
-        chomp($line2);
+        my ($seqnum2, $dir2, $chr2, $strand2, $spans2) = parse_rum_line($line2);
 
-        my ($b_readid, undef, $b_locs) = split /\t/, $line2;
-        $b_readid =~ /^seq\.(\d+)(a|b)?$/;
-        my ($seqnum2, $dir2) = ($1, $2);
-	
-        my @read_spans;
-
-        if ($seqnum1 == $seqnum2 && 
+        # If this line is the mate of the previous line, add its spans
+        # to the list of spans to check.
+        if ($seqnum2 &&
+            $seqnum1 == $seqnum2 && 
+            $CHR eq $chr2 &&
             $dir1 && $dir2 &&
             $dir1 eq 'a' &&
             $dir2 eq 'b') {
+            push @$spans, @$spans2;
+        } 
 
-            my @b_spans = map { [ split /-/ ] } split /, /, $b_locs;
-
-            if ($strand eq "+") {
-                @read_spans = (@a_spans, @b_spans);
-            } else {
-                @read_spans = (@b_spans, @a_spans);
-            }
-
-        } else {
-
-            # reset the file handle so the last line read will be read again
-            seek $infile, $pos, 0;
-            @read_spans = @a_spans;
+        # Otherwise save the parsed line in @last_line, so that the
+        # next iteration will pick it up.
+        else {
+            @last_line = ($seqnum2, $dir2, $chr2, $strand2, $spans2);
         }
 
         my $covered = $quants->covered_features(
             chromosome => $CHR,
-            spans => \@read_spans);
-        
+            spans => $spans);
+
         for my $feature (@{ $covered }) {
             $feature->{data}{$type}++;
         }
     }
 
     return $UREADS || (scalar keys %NUREADS);
-    
 }
 
 sub main {
