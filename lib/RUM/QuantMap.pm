@@ -3,7 +3,7 @@ package RUM::QuantMap;
 use strict;
 use warnings;
 
-
+use Carp;
 
 sub new {
     my ($class) = @_;
@@ -29,6 +29,10 @@ sub partition {
 sub covered_features {
     my ($self, %params) = @_;
     my $chr = delete $params{chromosome};
+    if (! defined $chr) {
+        carp("QuantMap::covered_features called without chromosome");
+    }
+
     my $map = $self->{quants_for_chromosome}{$chr} or return [];
     return $map->covered_features(%params);
 }

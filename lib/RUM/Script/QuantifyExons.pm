@@ -1,6 +1,9 @@
 package RUM::Script::QuantifyExons;
 
-no warnings;
+use strict;
+use warnings;
+use autodie;
+
 use RUM::Usage;
 use RUM::Logging;
 use RUM::QuantMap;
@@ -8,7 +11,7 @@ use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
 our $log = RUM::Logging->get_logger();
-use strict;
+
 use Data::Dumper;
 use Time::HiRes qw(time);
 
@@ -59,21 +62,20 @@ sub read_annot_file {
 }
 
 sub read_rum_file {
-    use strict;
+
+    my ($filename, $type, $wanted_strand, $anti, $quants) = @_;
 
     my %NUREADS;
     my $UREADS=0;
 
-
-    my ($filename, $type, $wanted_strand, $anti, $quants) = @_;
-    open(INFILE, $filename) or die "ERROR: in script rum2quantifications.pl: cannot open '$filename' for reading.\n\n";
+    open my $infile, '<', $filename;
 
     my $counter=0;
     my $line;
 
     my $start = time;
 
-    while (defined (my $line = <INFILE>)) {
+    while (defined (my $line = <$infile>)) {
         chomp($line);
         $counter++;
 
@@ -84,6 +86,11 @@ sub read_rum_file {
         }
 
         my ($readid, $CHR, $locs, $strand) = split /\t/, $line;
+#        print "Got line $line\n";
+        if (! defined($strand) ) {
+            warn "Invalid line in $filename: $line\n";
+            next;
+        }
             
         $readid =~ /(\d+)/;
         my $seqnum1 = $1;
@@ -104,7 +111,7 @@ sub read_rum_file {
 
         my @a_spans = map { split /-/ } split /, /, $locs;
 
-        my $line2 = <INFILE>;
+        my $line2 = <$infile>;
         chomp($line2);
         my @b = split /\t/, $line2;
         my ($b_readid, undef, $b_locs) = @b;
@@ -129,7 +136,7 @@ sub read_rum_file {
 
             # reset the file handle so the last line read will be read again
             my $len = -1 * (1 + length($line2));
-            seek(INFILE, $len, 1);
+            seek $infile, $len, 1;
             @read_spans = @a_spans;
         }
 
