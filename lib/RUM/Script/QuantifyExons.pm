@@ -91,7 +91,7 @@ sub read_rum_file {
 
     while (1) {
         $counter++;
-        
+
         my ($seqnum1, $dir1, $CHR, $strand, $spans);
         
         # If @last_line is defined, then it's the last line read from
@@ -147,13 +147,25 @@ sub read_rum_file {
 
         # Otherwise save the parsed line in @last_line, so that the
         # next iteration will pick it up.
-        else {
+        elsif (defined $seqnum2) {
             @last_line = ($seqnum2, $dir2, $chr2, $strand2, $spans2);
         }
+
+
+        my $cov_start = time;
 
         my $covered = $quants->covered_features(
             chromosome => $CHR,
             spans => $spans);
+        my $cov_end = time;
+
+
+        if ($cov_end - $cov_start > 0.001000) {
+            printf "Time: %f\n", $cov_end - $cov_start;
+            printf "Spans: %s\n", Dumper($spans);
+            printf "Features: %s\n", Dumper($covered);
+        }
+
 
         for my $feature (@{ $covered }) {
             $feature->{data}{$type}++;
