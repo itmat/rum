@@ -41,7 +41,7 @@ sub features {
     my ($self, %params) = @_;
     my $chr = delete $params{chromosome};
     my $map = $self->{quants_for_chromosome}{$chr} or return [];
-    return [ values %{ $map->{features} } ];
+    return $map->{feature_array};
 }
 
 package RUM::SingleChromosomeQuantMap;
@@ -51,11 +51,11 @@ use warnings;
 use Data::Dumper;
 my $START = 1;
 my $END   = 2;
-
+use List::Util qw(max);
 sub new {
     my ($class) = @_;
     my $self = {};
-    $self->{features}   = {};
+    $self->{features}   = [];
     $self->{partitions} = [];
     $self->{partition_features} = [];
     $self->{counter}    = 1;
@@ -75,9 +75,8 @@ sub add_feature {
         start => $start,
         end   => $end,
         data  => $data,
-        id    => $id
     };
-    $self->{features}{$id} = $feature;
+    push @{ $self->{features} }, $feature;
 }
 
 sub partition {
@@ -85,7 +84,20 @@ sub partition {
 
     my @events;
 
-    for my $feature (values %{ $self->{features} }) {
+    my @start_events;
+
+    my @features = sort { 
+        $a->{start} <=> $b->{start} ||
+        $a->{end}   <=> $b->{end} 
+    } @{ $self->{features} };
+
+    for my $i (0 .. $#features) {
+        $features[$i]{id} = $i;
+    }
+
+    $self->{feature_array} = \@features;
+
+    for my $feature (@features) {
         my $start_event = {
             type => $START,
             loc  => $feature->{start},
@@ -97,7 +109,7 @@ sub partition {
             loc  => $feature->{end} + 1,
             feature_id => $feature->{id}
         };
-
+        push @start_events, $start_event;
         push @events, $start_event, $end_event;
     }
 
@@ -107,6 +119,8 @@ sub partition {
 
     my @partitions = (0);
     my @partition_features = ([]);
+    my @partition_starts = ([]);
+
 
     my $pos = 0;
 
@@ -114,24 +128,28 @@ sub partition {
         
         my $loc = $events[0]->{loc};
 
+        my @starts;
+
         while (@events && ($events[0]->{loc} == $loc)) {
             my $event = shift @events;
             my $feature_id = $event->{feature_id};            
             if ($event->{type} == $START) {
+                push @starts, $feature_id;
                 $current_features{$feature_id} = 1;
             }
             else {
                 delete $current_features{$feature_id};
             }
         }
-
+        
         push @partitions, $loc;
-        push @partition_features, [ keys %current_features ];
+        push @partition_features, [ sort { $a <=> $b } keys %current_features ];
+        push @partition_starts, \@starts;
     };
 
-    $self->{partitions} = \@partitions;
+    $self->{partitions}         = \@partitions;
     $self->{partition_features} = \@partition_features;
-    
+    $self->{partition_starts}   = \@partition_starts;
 }
 
 sub find_partition {
@@ -172,19 +190,20 @@ sub covered_features {
     my $spans = delete $params{spans};
 
     my %feature_ids;
-
     my $partitions = $self->{partitions};
 
     my $partition_features = $self->{partition_features};
-
-    my @features;
-    my %seen;
+    my $partition_starts   = $self->{partition_starts};
 
     for my $span (@{ $spans }) {
 
         my ($start, $end) = @{ $span };
 
         my $p = $self->find_partition($start);
+        
+        for my $fid (@{ $partition_features->[$p] }) {
+            $new_feature_ids{$fid} = 1; 
+        }
 
         my $q = $p;
         while ($q < @{ $partitions } - 1 && 
@@ -192,17 +211,13 @@ sub covered_features {
             $q++;
         }
 
-        for my $i ( $p .. $q ) {
-            my $features = $partition_features->[$i];
+        for my $i ($p + 1 .. $q) {
 
-            for my $feature_id ( @{ $features } ) {
-                if ( ! $seen{$feature_id}++ ) {
-                    push @features, $self->{features}{$feature_id};
-                }
+            for my $fid (@{ $partition_starts->[$i] }) {
+                $new_feature_ids{$fid} = 1; 
             }
         }
     }
-
-    return \@features;
+    return [ map { $self->{feature_array}[$_] } keys %new_feature_ids ];
 }
 

@@ -56,6 +56,7 @@ sub read_annot_file {
     }
 
     $quants->partition;
+#    print Dumper($quants);
 
     return (\%exons_for_chr, $quants);
 
@@ -160,11 +161,11 @@ sub read_rum_file {
         my $cov_end = time;
 
 
-        if ($cov_end - $cov_start > 0.001000) {
-            printf "Time: %f\n", $cov_end - $cov_start;
-            printf "Spans: %s\n", Dumper($spans);
-            printf "Features: %s\n", Dumper($covered);
-        }
+#        if ($cov_end - $cov_start > 0.001000) {
+#            printf "Time: %f\n", $cov_end - $cov_start;
+#            printf "Spans: %s\n", Dumper($spans);
+#            printf "Features: %s\n", Dumper($covered);
+#        }
 
 
         for my $feature (@{ $covered }) {
