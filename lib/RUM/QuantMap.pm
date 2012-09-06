@@ -57,6 +57,7 @@ sub new {
     my $self = {};
     $self->{features}   = {};
     $self->{partitions} = [];
+    $self->{partition_features} = [];
     $self->{counter}    = 1;
     return bless $self, $class;
 }
@@ -104,7 +105,8 @@ sub partition {
 
     my %current_features;
 
-    my @partitions = ({ start => 0, features => []}); 
+    my @partitions = (0);
+    my @partition_features = ([]);
 
     my $pos = 0;
 
@@ -123,13 +125,12 @@ sub partition {
             }
         }
 
-        push @partitions, {
-            start => $loc,
-            features => [ keys %current_features ]
-        };
-    }
+        push @partitions, $loc;
+        push @partition_features, [ keys %current_features ];
+    };
 
     $self->{partitions} = \@partitions;
+    $self->{partition_features} = \@partition_features;
     
 }
 
@@ -150,12 +151,12 @@ sub find_partition {
         my $next = $i < $n ? $partitions->[$i + 1] : undef;
 
         # If I'm too far to the left
-        if ($next && $next->{start} <= $pos) { 
+        if ($next && $next <= $pos) { 
             $p = $i + 1;
         }
 
         # I'm too far to the right
-        elsif ($pos < $this->{start}) {
+        elsif ($pos < $this) {
             $q = $i - 1;
         }
         else {
@@ -172,33 +173,36 @@ sub covered_features {
 
     my %feature_ids;
 
+    my $partitions = $self->{partitions};
+
+    my $partition_features = $self->{partition_features};
+
+    my @features;
+    my %seen;
+
     for my $span (@{ $spans }) {
-
-#        print "Looking for span " . Dumper($span);
-
 
         my ($start, $end) = @{ $span };
 
         my $p = $self->find_partition($start);
-        my $q = $self->find_partition($end);
- #       print "  p is " . Dumper($self->{partitions}[$p]);
- #       print "  q is " . Dumper($self->{partitions}[$q]);
+
+        my $q = $p;
+        while ($q < @{ $partitions } - 1 && 
+               $partitions->[$q + 1] <= $end) {
+            $q++;
+        }
 
         for my $i ( $p .. $q ) {
-            my $partition = $self->{partitions}[$i];
+            my $features = $partition_features->[$i];
 
-
-            for my $feature_id ( @{ $partition->{features} } ) {
-                
-                $feature_ids{$feature_id} = 1;
+            for my $feature_id ( @{ $features } ) {
+                if ( ! $seen{$feature_id}++ ) {
+                    push @features, $self->{features}{$feature_id};
+                }
             }
         }
     }
 
-    my @features;
-    for my $id (keys %feature_ids) {
-        push @features, $self->{features}{$id};
-    }
     return \@features;
 }
 

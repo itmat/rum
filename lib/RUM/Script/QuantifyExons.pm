@@ -34,7 +34,7 @@ sub read_annot_file {
 
     my $quants = RUM::QuantMap->new;
 
-    while (defined(my $line = <$infile>)) {
+  while (defined(my $line = <$infile>)) {
         chomp($line);
 
         my ($loc, $type) = split /\t/, $line;
@@ -92,8 +92,10 @@ sub read_rum_file {
             next;
         }
             
-        $readid =~ /(\d+)/;
-        my $seqnum1 = $1;
+        $readid =~ /^seq.(\d+)(a|b)?$/ or die "Invalid read id $readid";
+
+        my ($seqnum1, $dir1) = ($1, $2);
+
         if ($type eq "NUcount") {
             $NUREADS{$seqnum1}=1;
         } else {
@@ -109,22 +111,23 @@ sub read_rum_file {
             }
         }
 
-        my @a_spans = map { split /-/ } split /, /, $locs;
+        my @a_spans = map { [ split /-/ ] } split /, /, $locs;
 
         my $line2 = <$infile>;
         chomp($line2);
-        my @b = split /\t/, $line2;
-        my ($b_readid, undef, $b_locs) = @b;
-        $b_readid =~ /(\d+)/;
-        my $seqnum2 = $1;
+
+        my ($b_readid, undef, $b_locs) = split /\t/, $line2;
+        $b_readid =~ /^seq.(\d+)(a|b)?$/ or die "Invalid read id $readid";
+        my ($seqnum2, $dir2) = ($1, $2);
 	
         my @read_spans;
 
         if ($seqnum1 == $seqnum2 && 
-            $b_readid =~ /b/ &&
-            $readid   =~ /a/) {
+            $dir1 && $dir2 &&
+            $dir1 eq 'a' &&
+            $dir2 eq 'b') {
 
-            my @b_spans = map { split /-/ } split /, /, $b_locs;
+            my @b_spans = map { [ split /-/ ] } split /, /, $b_locs;
 
             if ($strand eq "+") {
                 @read_spans = (@a_spans, @b_spans);
@@ -140,15 +143,9 @@ sub read_rum_file {
             @read_spans = @a_spans;
         }
 
-        my @new_spans;
-        for (my $i = 0; $i < @read_spans; $i += 2) {
-            push @new_spans, [ $read_spans[$i], 
-                               $read_spans[$i+1] ];
-        }
-
         my $covered = $quants->covered_features(
             chromosome => $CHR,
-            spans => \@new_spans);
+            spans => \@read_spans);
         
         for my $feature (@{ $covered }) {
             $feature->{data}{$type}++;
