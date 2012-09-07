@@ -52,7 +52,6 @@ for my $test (@tests) {
 
     RUM::Script::QuantifyExons->main();
 
-    system "cat $out > $name";
     same_contents_sorted($out,  "$EXPECTED_DIR/$name", $name);
 }
 

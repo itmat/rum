@@ -32,8 +32,8 @@ SKIP: {
             genome   => $GENOME_FA,
             blat_results => "$INPUT_DIR/R.1.blat",
             mdust_results => "$INPUT_DIR/R.mdust.1",
-            unique => 'u', # temp_filename(TEMPLATE => "unique.XXXXXX"),
-            non_unique => 'nu', # temp_filename(TEMPLATE => "non-unique.XXXXXX"),
+            unique => temp_filename(TEMPLATE => "unique.XXXXXX"),
+            non_unique => temp_filename(TEMPLATE => "non-unique.XXXXXX"),
             expected_unique => "$EXPECTED_DIR/BlatUnique.1",
             expected_nu => "$EXPECTED_DIR/BlatNU.1",
             last_id => 999
