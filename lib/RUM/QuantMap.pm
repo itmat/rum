@@ -26,15 +26,15 @@ sub partition {
     }
 }
 
-sub covered_features {
+sub cover_features {
     my ($self, %params) = @_;
     my $chr = delete $params{chromosome};
     if (! defined $chr) {
-        carp("QuantMap::covered_features called without chromosome");
+        carp("QuantMap::cover_features called without chromosome");
     }
 
     my $map = $self->{quants_for_chromosome}{$chr} or return [];
-    return $map->covered_features(%params);
+    return $map->cover_features(%params);
 }
 
 sub features {
@@ -184,12 +184,12 @@ sub find_partition {
     return;
 }
 
-sub covered_features {
+sub cover_features {
     my ($self, %params) = @_;
 
     my $spans = delete $params{spans};
-
     my $type = delete $params{type};
+    my $callback = delete $params{callback};
 
     my %feature_ids;
     my $partitions = $self->{partitions};
@@ -206,7 +206,8 @@ sub covered_features {
         my $p = $self->find_partition($start);
         
         for my $fid (@{ $partition_features->[$p] }) {
-            $feature_array->[$fid]{data}{$type}++ if ! $feature_ids{$fid}++;
+            $callback->($feature_array->[$fid]) if ! $feature_ids{$fid}++;
+            #$feature_array->[$fid]{data}{$type}++ if ! $feature_ids{$fid}++;
         }
 
         my $q = $p;
@@ -217,7 +218,8 @@ sub covered_features {
 
         for my $i ($p + 1 .. $q) {
             for my $fid (@{ $partition_starts->[$i] }) {
-                $feature_array->[$fid]{data}{$type}++ if ! $feature_ids{$fid}++;
+                $callback->($feature_array->[$fid]) if ! $feature_ids{$fid}++;
+             #   $feature_array->[$fid]{data}{$type}++ if ! $feature_ids{$fid}++;
             }
         }
     }

@@ -22,7 +22,7 @@ my @tests;
     $quant->add_feature(start => 37, end => 40, data => 'f');
     
     $quant->partition;
-    print Dumper($quant);
+
     push @tests, (
         [ $quant, undef, [[0, 50]],    [qw(a b c d e f)]],
         [ $quant, undef, [[0,  3]],    [qw()]],
@@ -105,9 +105,19 @@ plan tests => scalar @tests;
 
 for my $test (@tests) {
     my ($quant, $chr, $spans, $covered) = @{ $test };
-    my $features = $quant->covered_features(spans => $spans, chromosome => $chr);
-    my @names = sort map { $_->{data} } @{ $features };
 
-    is_deeply \@names, $covered;
+    my @covered;
+
+    my $handler = sub {
+        push @covered, shift->{data};
+    };
+
+    my $features = $quant->cover_features(spans => $spans, 
+                                          chromosome => $chr,
+                                          callback => $handler);
+
+    @covered = sort @covered;
+
+    is_deeply \@covered, $covered;
 }
 

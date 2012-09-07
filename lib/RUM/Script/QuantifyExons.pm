@@ -92,6 +92,11 @@ sub read_rum_file {
 
     my @last_line;
 
+    my $handler = sub {
+        my $feature = shift;
+        $feature->{data}{$type}++;
+    };
+
     while (1) {
         $counter++;
 
@@ -154,10 +159,10 @@ sub read_rum_file {
             @last_line = ($seqnum2, $dir2, $chr2, $strand2, $spans2);
         }
 
-        my $covered = $quants->covered_features(
+        my $covered = $quants->cover_features(
             chromosome => $CHR,
             spans => $spans,
-            type => $type);
+            callback => $handler);
     }
 
     return $UREADS || (scalar keys %NUREADS);
