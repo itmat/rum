@@ -3,25 +3,6 @@ package RUM::TestUtils;
 use strict;
 no warnings;
 
-=head1 NAME
-
-RUM::TestUtils - Functions used by tests
-
-=head1 SYNOPSIS
-
-  use RUM::TestUtils qw(:all);
-
-  # Make sure there are no diffs between two files
-  no_diffs("got.tab", "expected.tab", "I got what I expected");
-
-=head1 DESCRIPTION
-
-=head1 Subroutines
-
-=over 4
-
-=cut
-
 use Carp;
 use Test::More;
 use Exporter qw(import);
@@ -71,13 +52,6 @@ our $EXPECTED_DIR     = "$RUM_HOME/t/expected/$PROGRAM_NAME";
 our $PFAL_INDEX_DIR = "$RUM_INDEXES/pfalciparum";
 our $PFAL_GENE_INFO = "$PFAL_INDEX_DIR/pfal_gene_info.txt";
 
-=item no_diffs(FILE1, FILE2, NAME)
-
-Uses Test::More to assert that there are no differences between the
-two files.
-
-=cut
-
 sub no_diffs {
     my ($file1, $file2, $name, $options) = @_;
     $options ||= "";
@@ -85,12 +59,6 @@ sub no_diffs {
     my $status = $? >> 8;
     ok($status == 0, $name);
 }
-
-=item line_count($filename)
-
-Returns the number of lines in $filename.
-
-=cut
 
 sub line_count {
     my ($filename) = @_;
@@ -102,23 +70,10 @@ sub line_count {
     return $count;
 }
 
-=item same_line_count(FILE1, FILE2, NAME)
-
-Uses Test::More to assert that the two files have the same number of
-lines.
-
-=cut
-
 sub same_line_count {
     my ($file1, $file2, $name) = @_;
     is(line_count($file1), line_count($file2), $name);
 }
-
-=item is_sorted_by_location(FILENAME)
-
-Asserts that the given RUM file is sorted by location.
-
-=cut
 
 sub is_sorted_by_location {
     my ($filename) = @_;
@@ -140,30 +95,6 @@ sub is_sorted_by_location {
     is_deeply(\@recs, \@sorted, "Sorted by location");
 }
 
-=item temp_filename(%options)
-
-Return a temporary filename using File::Temp with some sensible
-defaults for a test script. 
-
-=over 4
-
-=item B<DIR>
-
-The directory to store the temp file. Defaults to $Bin/tmp.
-
-=item B<UNLINK>
-
-Whether to unlink the file upon exit. Defaults to 1.
-
-=item B<TEMPLATE>
-
-The template for the filename. Defaults to a template that includes
-the name of the calling function.
-
-=back
-
-=cut
-
 sub temp_filename {
     my (%options) = @_;
     mkdir "$Bin/tmp";
@@ -172,13 +103,6 @@ sub temp_filename {
     $options{TEMPLATE} = "XXXXXX" unless exists $options{TEMPLATE};
     File::Temp->new(%options);
 }
-
-=item make_paths RUN_NAME
-
-Recursively make all the paths required for the given test run name,
-unless $DRY_RUN is set.
-
-=cut
 
 sub make_paths {
     my (@paths) = @_;
@@ -207,7 +131,78 @@ sub same_contents_sorted {
     is_deeply(\@got, \@exp, $name)
 }
 
+1;
 
+__END__
+
+
+=head1 NAME
+
+RUM::TestUtils - Functions used by tests
+
+=head1 SYNOPSIS
+
+  use RUM::TestUtils qw(:all);
+
+  # Make sure there are no diffs between two files
+  no_diffs("got.tab", "expected.tab", "I got what I expected");
+
+=head1 DESCRIPTION
+
+=head1 Subroutines
+
+=over 4
+
+=item no_diffs(FILE1, FILE2, NAME)
+
+Uses Test::More to assert that there are no differences between the
+two files.
+
+=item line_count($filename)
+
+Returns the number of lines in $filename.
+
+
+=item same_line_count(FILE1, FILE2, NAME)
+
+Uses Test::More to assert that the two files have the same number of
+lines.
+
+=item is_sorted_by_location(FILENAME)
+
+Asserts that the given RUM file is sorted by location.
+
+=item temp_filename(%options)
+
+Return a temporary filename using File::Temp with some sensible
+defaults for a test script. 
+
+=over 4
+
+=item B<DIR>
+
+The directory to store the temp file. Defaults to $Bin/tmp.
+
+=item B<UNLINK>
+
+Whether to unlink the file upon exit. Defaults to 1.
+
+=item B<TEMPLATE>
+
+The template for the filename. Defaults to a template that includes
+the name of the calling function.
+
+=back
+
+=item make_paths RUN_NAME
+
+Recursively make all the paths required for the given test run name,
+unless $DRY_RUN is set.
+
+=item same_contents_sorted($got, $expected, $name)
+
+Asserts that the lines in the files $got and $expected are identical
+when both are sorted.
 
 =back
 

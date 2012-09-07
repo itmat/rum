@@ -25,3 +25,40 @@ sub errors {
     return @{ shift->{errors} };
 }
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::UsageErrors - Exception containing one or more usage errors
+
+=head1 SYNOPSIS
+
+  use RUM::UsageErrors;
+
+  my $errors = RUM::UsageErrors->new(
+      errors => ['Invalid option -i',
+                 'Argument required for '-o']);
+
+  $errors->add('Some other errors');
+  die $errors if $errors->errors;
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::UsageErrors->new(%params)
+
+Construct a new UsageErrors object. Accepts an optional 'errors' param
+that may be an array ref of strings, each string representing a
+diferent problem with the way the user invoked the program.
+
+=item $errors->add($msg)
+
+Add an error
+
+=item $errors->errors
+
+Return the list of errors added.
+
+=back
