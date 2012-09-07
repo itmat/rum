@@ -8,7 +8,9 @@ use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
 our $log = RUM::Logging->get_logger();
 use strict;
+use Time::HiRes qw(time);
 
+$| = 1;
 
 sub main {
 
@@ -98,10 +100,14 @@ sub main {
         foreach my $chr (keys %EXON) {
             $indexstart_e{$chr} = 0;
         }
+
+        my $start = time;
         while ($line = <INFILE>) {
             $counter++;
-            if ($counter % 100000 == 0 && !$countsonly) {
-                print "$type: counter=$counter\n";
+            if ($counter % 10000 == 0) {
+                my $end = time;
+                printf "%10s: %10d, %f\n", $type, $counter,  ($end - $start) / 10000;
+                $start = time;
             }
             chomp($line);
             if ($line eq '') {
