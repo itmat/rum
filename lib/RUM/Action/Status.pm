@@ -45,3 +45,19 @@ EOF
 
 }
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Action::Status - Print job status
+
+=head1 OPTIONS
+
+=over 4
+
+=item accepted_options
+
+Return the map of options accepted by this action.
+
+=back
