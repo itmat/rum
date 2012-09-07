@@ -15,8 +15,7 @@ our $log = RUM::Logging->get_logger();
 use Data::Dumper;
 use Time::HiRes qw(time);
 
-my $START = 3618230;
-my $END   = 3618635;
+my $LOG_INTERVAL = 10_000;
 
 $| = 1;
 
@@ -120,9 +119,11 @@ sub read_rum_file {
             last;
         }
 
-        if ($counter % 10000 == 0) {
+        if ($counter % $LOG_INTERVAL == 0) {
             my $end = time;
-            printf "%10s: %10d, %f\n", $type, $counter,  ($end - $start) / 10000;
+            $log->info(sprintf(
+                "%7s: %10d, (%f seconds per record)",
+                $type, $counter,  ($end - $start) / $LOG_INTERVAL));
             $start = time;
         }
 

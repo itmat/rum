@@ -187,27 +187,24 @@ sub find_partition {
 sub cover_features {
     my ($self, %params) = @_;
 
-    my $spans = delete $params{spans};
-    my $type = delete $params{type};
+    my $spans    = delete $params{spans};
     my $callback = delete $params{callback};
 
     my %feature_ids;
-    my $partitions = $self->{partitions};
-
+    my $partitions         = $self->{partitions};
     my $partition_features = $self->{partition_features};
     my $partition_starts   = $self->{partition_starts};
     my $feature_array      = $self->{feature_array};
-    my @features;
 
     for my $span (@{ $spans }) {
 
+        # The start and end coordinates of this span
         my ($start, $end) = @{ $span };
 
         my $p = $self->find_partition($start);
         
         for my $fid (@{ $partition_features->[$p] }) {
             $callback->($feature_array->[$fid]) if ! $feature_ids{$fid}++;
-            #$feature_array->[$fid]{data}{$type}++ if ! $feature_ids{$fid}++;
         }
 
         my $q = $p;
@@ -219,10 +216,9 @@ sub cover_features {
         for my $i ($p + 1 .. $q) {
             for my $fid (@{ $partition_starts->[$i] }) {
                 $callback->($feature_array->[$fid]) if ! $feature_ids{$fid}++;
-             #   $feature_array->[$fid]{data}{$type}++ if ! $feature_ids{$fid}++;
             }
         }
     }
-    return \@features;
+
 }
 
