@@ -156,7 +156,10 @@ sub update_status {
     }
 
     die "I tried to update my status with qstat $tries times and it ". 
-        "failed every time.";
+        "failed every time. This means that I can't determine the " .
+        "status of the jobs I've started. It could be that they've all ".
+        "failed, but it could also just be that qstat is returning ".
+        "output that I can't parse. I'm exiting.";
 }
 
 sub preproc_ok {
