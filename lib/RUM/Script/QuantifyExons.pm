@@ -152,25 +152,10 @@ sub read_rum_file {
             @last_line = ($seqnum2, $dir2, $chr2, $strand2, $spans2);
         }
 
-
-        my $cov_start = time;
-
         my $covered = $quants->covered_features(
             chromosome => $CHR,
-            spans => $spans);
-        my $cov_end = time;
-
-
-#        if ($cov_end - $cov_start > 0.001000) {
-#            printf "Time: %f\n", $cov_end - $cov_start;
-#            printf "Spans: %s\n", Dumper($spans);
-#            printf "Features: %s\n", Dumper($covered);
-#        }
-
-
-        for my $feature (@{ $covered }) {
-            $feature->{data}{$type}++;
-        }
+            spans => $spans,
+            type => $type);
     }
 
     return $UREADS || (scalar keys %NUREADS);

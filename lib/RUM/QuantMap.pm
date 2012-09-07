@@ -166,7 +166,7 @@ sub find_partition {
         my $i = $p + int(($q - $p) / 2);
 
         my $this = $partitions->[$i];
-        my $next = $i < $n ? $partitions->[$i + 1] : undef;
+        my $next = $partitions->[$i + 1];
 
         # If I'm too far to the left
         if ($next && $next <= $pos) { 
@@ -189,11 +189,15 @@ sub covered_features {
 
     my $spans = delete $params{spans};
 
+    my $type = delete $params{type};
+
     my %feature_ids;
     my $partitions = $self->{partitions};
 
     my $partition_features = $self->{partition_features};
     my $partition_starts   = $self->{partition_starts};
+    my $feature_array      = $self->{feature_array};
+    my @features;
 
     for my $span (@{ $spans }) {
 
@@ -202,7 +206,7 @@ sub covered_features {
         my $p = $self->find_partition($start);
         
         for my $fid (@{ $partition_features->[$p] }) {
-            $feature_ids{$fid} = 1; 
+            $feature_array->[$fid]{data}{$type}++ if ! $feature_ids{$fid}++;
         }
 
         my $q = $p;
@@ -212,12 +216,11 @@ sub covered_features {
         }
 
         for my $i ($p + 1 .. $q) {
-
             for my $fid (@{ $partition_starts->[$i] }) {
-                $feature_ids{$fid} = 1; 
+                $feature_array->[$fid]{data}{$type}++ if ! $feature_ids{$fid}++;
             }
         }
     }
-    return [ map { $self->{feature_array}[$_] } keys %feature_ids ];
+    return \@features;
 }
 
