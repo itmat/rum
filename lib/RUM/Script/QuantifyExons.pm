@@ -18,6 +18,8 @@ use Time::HiRes qw(time);
 my $START = 3618230;
 my $END   = 3618635;
 
+$| = 1;
+
 my %STRAND_MAP = (
     p => '+',
     m => '-'
