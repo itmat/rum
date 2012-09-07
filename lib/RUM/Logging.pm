@@ -45,11 +45,17 @@ sub init {
     return if $INITIALIZED;
     $INITIALIZED = 1;
 
-    if ($dir) {
-        $ENV{RUM_OUTPUT_DIR} = $dir;
+    if ($ENV{RUM_INFO_LOG_FILE} ||
+        $ENV{RUM_ERROR_LOG_FILE}) {
+        my (undef, $dir, undef) = File::Spec->splitpath($ENV{RUM_INFO_LOG_FILE});
+        $LOGGING_DIR = $dir;
+        $LOG_FILE = $ENV{RUM_INFO_LOG_FILE};
+        $ERROR_LOG_FILE = $ENV{RUM_ERROR_LOG_FILE};
     }
-    if ($ENV{RUM_OUTPUT_DIR}) {
-        $LOGGING_DIR = $class->log_dir_for_output_dir($ENV{RUM_OUTPUT_DIR});
+    elsif ($dir) {
+        $LOGGING_DIR = "$dir/log";
+        $LOG_FILE       = "$dir/log/rum.log";
+        $ERROR_LOG_FILE = "$dir/log/rum_errors.log";
     }
     else {
         _init_rum_logger();
@@ -68,14 +74,6 @@ sub init {
         RUM::Logging->get_logger("RUM::Death")->logdie(@_);
     };
     
-    # TODO: Get SGE_TASK_ID out of here.
-    my $chunk = $ENV{RUM_CHUNK} || $ENV{SGE_TASK_ID};
-
-    # Sometimes SGE_TASK_ID is set to 'undefined'
-    undef $chunk if defined($chunk) && $chunk eq 'undefined';
-    $LOG_FILE       = $class->log_file($chunk);
-    $ERROR_LOG_FILE = $class->error_log_file($chunk);
-
     $LOGGER_CLASS or _init_log4perl() or _init_rum_logger();
 }
 

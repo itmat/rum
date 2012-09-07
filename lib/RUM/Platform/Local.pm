@@ -494,6 +494,8 @@ sub _process_in_chunks {
             else {
                 $ENV{RUM_CHUNK} = $chunk;
                 $ENV{RUM_OUTPUT_DIR} = $c->output_dir;
+                $ENV{RUM_INFO_LOG_FILE}  = RUM::Logging->log_file($chunk);
+                $ENV{RUM_ERROR_LOG_FILE} = RUM::Logging->error_log_file($chunk);
                 open STDOUT, ">", $c->chunk_file("chunk.out", $chunk);
                 exec @cmd;
             }

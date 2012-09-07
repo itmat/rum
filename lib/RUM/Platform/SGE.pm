@@ -425,12 +425,19 @@ sub _write_shell_script {
     open my $out, ">", $filename or croak "Can't open $filename for writing: $!";
     my $cmd = $self->{cmd}{$phase} or croak "Don't have command for phase $phase";
 
+
+
     print $out 'RUM_CHUNK=$SGE_TASK_ID' . "\n";
     print $out 'RUM_OUTPUT_DIR=' . $self->config->output_dir . "\n";
+    print $out 'RUM_INFO_LOG_FILE=\$RUM_OUTPUT_DIR/log/rum_$RUM_CHUNK.log', "\n";
+    print $out 'RUM_ERROR_LOG_FILE=\$RUM_OUTPUT_DIR/log/rum_errors_$RUM_CHUNK.log', "\n";
+
     print $out $self->{cmd}{$phase} . "\n";
     my $last_chunk = $self->config->chunks;
     if ($phase eq 'proc') {
         print $out "if [ \$RUM_CHUNK == $last_chunk ]; then\n";
+        print $out '  RUM_INFO_LOG_FILE=\$RUM_OUTPUT_DIR/log/rum_postproc.log', "\n";
+        print $out '  RUM_ERROR_LOG_FILE=\$RUM_OUTPUT_DIR/log/rum_errors_postproc.log', "\n";
         print $out "  $self->{cmd}{postproc};\n";
         print $out "fi\n";
     }
