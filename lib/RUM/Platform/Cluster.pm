@@ -127,7 +127,7 @@ sub process {
             # again.
             elsif (++$t->{not_ok_count} < $NUM_CHECKS_BEFORE_RESTART) {
 
-                $log->warn("Chunk $chunk is not running or waiting. ".
+                $log->info("Chunk $chunk is not running or waiting. ".
                            "I've checked on it $t->{not_ok_count} " .
                            ($t->{not_ok_count} == 1 ? "time" : "times") .
                            ". I'll give it a few more minutes. Details of " .
@@ -138,8 +138,7 @@ sub process {
             # If it reported a failed status $NUM_CHECKS_BEFORE_RESTART times 
             # in a row, go ahead and start again.
             elsif ($runner->run) {
-                $log->error("Chunk $chunk is not queued; started it. " .
-                            "Details of job status:");
+                $log->warn("It seems  like chunk $chunk is not running, so I started it again. This may mean that there was a temporary error on the machine that is running the chunk, and restarting it may fix it. If the job runs to completion and there are no other errors in the log file, everything is probably fine.");
                 $self->log_last_status_warning;
                 $t->{not_ok_count} = 0;
             }
@@ -148,7 +147,7 @@ sub process {
             # many times, so give up on it. Set it's @result value to to record
             # that we gave up on it.
             else {
-                $log->error("Restarted $chunk too many times; giving up");
+                $log->error("There may be a serious problem with chunk $chunk. I have restarted it too many times, and it still does not seem to be running, so I am giving up on it.");
                 $results[$chunk] = 0;
             }
         }
@@ -201,8 +200,13 @@ sub postprocess {
         }
 
         elsif ($runner->run) {
-            $log->error("Postprocessing is not queued; starting it. ".
-                        "Details of job status:");
+            $log->error("It seems like postprocessing has failed, so I am " .
+                        "starting it again. It may be that there was a " .
+                        "temporary error on the node running postprocessing, " .
+                        "and restarting it may fix it. If the job runs to " .
+                        "there are no completion and there are no ".
+                        "subsequent errors in the log file, everything is " .
+                        "probably fine.");
             $self->log_last_status_warning;
         }
         else {

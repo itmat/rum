@@ -128,7 +128,7 @@ sub log_last_status_warning {
     my ($self) = @_;
     my @lines = @{ $self->{last_qstat_output} || []};
     for my $line (@lines) {
-        $log->warn("qstat: $line");
+        $log->info("qstat: $line");
     }
 }
 
@@ -344,7 +344,6 @@ sub _some_job_ok {
 
     my $task_label = "phase $phase " . ($task ? " task $task" : "");
 
-
     my $msg = (
         "I have these jobs for phase $task_label: ". 
         "[" . 
@@ -357,7 +356,7 @@ sub _some_job_ok {
         return 1;
     }
     if (@ok == 0) {
-        $log->error("$msg and none of them are running or waiting");
+        $log->info("$msg and none of them are running or waiting");
     }
     else {
         $msg .= join(
@@ -365,7 +364,8 @@ sub _some_job_ok {
         "This is probably because SGE was not reporting a status",
         "of running or waiting, and I started a new job, and then",
         "the job started running again");
-        $log->warn($msg);
+        $log->info($msg);
+
         return 1;
     }
 
