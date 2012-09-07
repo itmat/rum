@@ -54,8 +54,8 @@ sub init {
     }
     elsif ($dir) {
         $LOGGING_DIR = "$dir/log";
-        $LOG_FILE       = "$dir/log/rum.log";
-        $ERROR_LOG_FILE = "$dir/log/rum_errors.log";
+        $ENV{RUM_INFO_LOG_FILE}  = $LOG_FILE       = "$dir/log/rum.log";
+        $ENV{RUM_ERROR_LOG_FILE} = $ERROR_LOG_FILE = "$dir/log/rum_errors.log";
     }
     else {
         _init_rum_logger();

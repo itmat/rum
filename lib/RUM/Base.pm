@@ -151,29 +151,36 @@ sub _chunk_error_logs_are_empty {
     my ($self) = @_;
     my $c = $self->config;
     my $dir = File::Spec->catfile($c->output_dir, "log");
-    my $result = 1;
+    my @errors;
     for my $chunk ($self->chunk_nums) {
         my $log_file = File::Spec->catfile(
             $dir, sprintf("rum_errors_%03d.log", $chunk));
         if (-s $log_file) {
-            $self->alert("!!! Chunk $chunk had errors, please check $log_file");
-            $result = 0;
+            push @errors, "Chunk $chunk had errors, please check $log_file";
         }
-    }
-
-    if ($result) {
-        $self->logsay("All the chunk error log files are empty. That's good.");
     }
 
     my $log_file = File::Spec->catfile($dir, "rum_errors.log");
     if (-s $log_file) {
-        $self->alert("!!! Main log file had errors, please check $log_file");
-        $result = 0;
+        push @errors, "Main log file had errors, please check $log_file";
+    }
+
+    $log_file = File::Spec->catfile($dir, "rum_errors_postproc.log");
+    if (-s $log_file) {
+        push @errors, "Postprocessing log file had errors, please check $log_file";
+    }
+
+    if (@errors) {
+        for my $error (@errors) {
+            $self->alert("!!! $error");
+        }
+        return 1;
     }
     else {
-        $self->logsay("Main error log file is empty. That's good.");
+        $self->say("All error log files are empty. That's good.");
     }
-    return $result;
+
+    return 0;
 }
 
 =item still_processing
