@@ -14,3 +14,25 @@ sub run {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Action::Version - Print RUM version number and release date
+
+=head1 METHODS
+
+=over 4
+
+=item run
+
+Print the version number.
+
+=item accepted_options
+
+Returns the map of options accepted by this action.
+
+=cut
+
+=back

@@ -52,9 +52,9 @@ Stops a running rum job.
 
 Stop the job.
 
-=item do_stop
+=item accepted_options
 
-Stop the job.
+Returns the map of options accepted by this action.
 
 =cut
 
