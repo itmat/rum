@@ -152,6 +152,9 @@ sub partition {
     $self->{partition_starts}   = \@partition_starts;
 }
 
+
+
+
 sub find_partition {
     my ($self, $pos) = @_;
 
@@ -165,18 +168,20 @@ sub find_partition {
 
         my $i = $p + int(($q - $p) / 2);
 
-        my $this = $partitions->[$i];
-        my $next = $partitions->[$i + 1];
+        if ($i == $n - 1) {
+            return $i;
+        }
+        
+        # The right edge is too far to the right
+        if ($pos < $partitions->[$i]) {
+            $q = $i - 1;
+        }
 
-        # If I'm too far to the left
-        if ($next && $next <= $pos) { 
+        # The left edge is too far to the left
+        elsif ($partitions->[$i + 1] <= $pos) { 
             $p = $i + 1;
         }
 
-        # I'm too far to the right
-        elsif ($pos < $this) {
-            $q = $i - 1;
-        }
         else {
             return $i;
         }
@@ -201,20 +206,26 @@ sub cover_features {
         # The start and end coordinates of this span
         my ($start, $end) = @{ $span };
 
+        # Find the partition that the start coordinate is located
+        # in. $p is an index into @partitions, @partition_features,
+        # and @partition_starts.
         my $p = $self->find_partition($start);
         
+        # @partition_features->[$p] is an array ref of all the feature
+        # IDs that are contained in partition $p. We need to cover all
+        # of them.
         for my $fid (@{ $partition_features->[$p] }) {
             $callback->($feature_array->[$fid]) if ! $feature_ids{$fid}++;
         }
 
-        my $q = $p;
-        while ($q < @{ $partitions } - 1 && 
-               $partitions->[$q + 1] <= $end) {
-            $q++;
-        }
 
-        for my $i ($p + 1 .. $q) {
-            for my $fid (@{ $partition_starts->[$i] }) {
+        # Now step through all the partitions until we get to the one
+        # after the end of my span. Add any features that start in any
+        # of those partitions.
+        while ($p < @{ $partitions } - 1 && 
+               $partitions->[$p + 1] <= $end) {
+            $p++;
+            for my $fid (@{ $partition_starts->[$p] }) {
                 $callback->($feature_array->[$fid]) if ! $feature_ids{$fid}++;
             }
         }

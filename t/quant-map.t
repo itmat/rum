@@ -22,6 +22,7 @@ my @tests;
     $quant->add_feature(start => 37, end => 40, data => 'f');
     
     $quant->partition;
+    print Dumper($quant);
 
     push @tests, (
         [ $quant, undef, [[0, 50]],    [qw(a b c d e f)]],
