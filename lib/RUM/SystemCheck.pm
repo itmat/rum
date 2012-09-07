@@ -62,7 +62,7 @@ sub check_ram {
                 "your machine. Unless you have too much other stuff ".
                 "running, RAM should not be a problem.", $totalram));
         } else {
-            prompt_not_enough_ram(
+            _prompt_not_enough_ram(
                 total_ram     => $totalram,
                 ram_per_chunk => $RAMperchunk,
                 min_ram       => $min_ram,
@@ -90,7 +90,7 @@ sub available_ram {
 
     my (%params) = @_;
 
-    my $c = delete $params{config} or croak "Need 'ram' parameter'";
+    my $c = delete $params{config} or croak "Need 'config' parameter'";
 
     return $c->ram if $c->ram;
 
@@ -132,7 +132,7 @@ sub available_ram {
     return 0;
 }
 
-sub prompt_not_enough_ram {
+sub _prompt_not_enough_ram {
     my (%options) = @_;
 
     my $say           = delete $options{say} || sub { print @_ };
@@ -207,3 +207,50 @@ sub check_deps {
             "Please install $it by running \"perl Makefile.PL\"\n");
     }
 }
+
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::SystemCheck - Functions for making sure the system we're running on is acceptable
+
+=head1 METHODS
+
+=over 4
+
+=item check_ram(%params)
+
+Attempt to make sure that the system has enough ram for this
+job. Prompts the user if it does not. Takes these params:
+
+=over 4
+
+=item config
+
+The RUM::Config for the job
+
+=item say
+
+A CODE ref that will be called with one string argument, and should
+handle displaying that string to the user.
+
+=back
+
+=item available_ram(%params)
+
+Return the amount of available ram in GB. Takes a 'config' param that
+is the RUM::Config for the job.
+
+=item check_gamma(%params)
+
+Specific for PGFI cluster. Die if the user is trying to run a job on
+the head node of the PGFI cluster without --qsub. Takes a 'config'
+param that is the RUM::Config for the job.
+
+=item check_deps()
+
+Make sure I can find blat, bowtie, and mdust, and die if I can't.
+
+=back
