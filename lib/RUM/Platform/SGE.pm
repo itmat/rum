@@ -340,7 +340,9 @@ sub _some_job_ok {
     my @states = map { $self->_job_state($_, $task) || "" } @jids;
     my @ok = grep { $_ && /r|w|t/ } @states;
     
-    $log->info("Jids are " . Dumper(\@jids));
+    if ($log->is_debug) {
+        $log->debug("Jids are " . Dumper(\@jids));
+    }
 
     my $task_label = "phase $phase " . ($task ? " task $task" : "");
 
