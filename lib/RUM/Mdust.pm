@@ -17,3 +17,20 @@ sub run_mdust {
 }
     
 1;
+
+__END__
+
+=head1 NAME
+
+RUM::Mdust - Interface to mdust
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::Mdust::run_mdust($filename)
+
+Run mdust on the given filename, and return a filehandle that points
+to the output of mdust.
+
+=back

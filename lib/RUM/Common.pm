@@ -431,6 +431,12 @@ sub is_executable_in_path {
     return -x;
 }
 
+=item min_match_length($read_length)
+
+Return the minimum-length match we will allow for a read of the given
+length.
+
+=cut
 
 sub min_match_length {
     my ($read_length) = @_;
