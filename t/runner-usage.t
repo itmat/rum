@@ -39,7 +39,7 @@ BEGIN {
 }
 
 if (-e $index) {
-    plan tests => 86;
+    plan tests => 87;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -482,6 +482,12 @@ add_test {
                    "Generate quants for strand p, sense a",
                    qr/--strand p.*--anti/i, 
                    "--strand-specific quantifications");
+    chunk_cmd_like([@standard_args],
+                   "Run Bowtie on transcriptome",
+                   qr/--paired/i, 
+                   "--paired option gets passed to make_TU_and_TNU");
+
+
 } 'misc_options';    
 
 add_test {

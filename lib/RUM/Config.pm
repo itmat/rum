@@ -703,6 +703,10 @@ sub parse_command_line {
         die RUM::UsageErrors->new(errors => \@errors)
     }
 
+    if ($self->reverse_reads) {
+        $self->set('paired_end', 1);
+    }
+
     return $self;
 }
 
