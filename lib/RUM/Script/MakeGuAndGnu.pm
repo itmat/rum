@@ -86,7 +86,9 @@ sub parse_output {
 
     $log->info("Parsing bowtie output (genome)");
     
-  READ: while (my ($forward, $reverse) = RUM::Bowtie::read_bowtie_mapping_set($bowtie)) {
+    my $reader = RUM::Bowtie::bowtie_mapping_set_reader($bowtie);
+
+  READ: while (my ($forward, $reverse) = $reader->()) {
         
         my @seqs_a = @{ $forward };
         my @seqs_b = @{ $reverse };
@@ -96,6 +98,11 @@ sub parse_output {
 
         undef %a_reads;
         undef %b_reads;
+
+        my $line = $seqs_a[0];
+        $seqs_a[0] =~ /seq\.(\d+)/ or $seqs_b[0] =~ /seq\.(\d+)/;
+        my $num = $1;
+        print "Looking at $num\n";
 
         if($numa > 0 || $numb > 0) {
             $num_different_a = 0;
