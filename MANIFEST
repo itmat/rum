@@ -110,6 +110,7 @@ lib/RUM/Platform.pm
 lib/RUM/Platform/Cluster.pm
 lib/RUM/Platform/Local.pm
 lib/RUM/Platform/SGE.pm
+lib/RUM/QuantMap.pm
 lib/RUM/Repository.pm
 lib/RUM/Repository/IndexSpec.pm
 lib/RUM/SamIO.pm
@@ -354,6 +355,7 @@ t/parse-blat-out.t
 t/platform.t
 t/pod-coverage.t
 t/pod.t
+t/quant-map.t
 t/quantify-exons.t
 t/remove-dups.t
 t/repository.t
