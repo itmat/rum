@@ -83,8 +83,6 @@ sub main {
 
     # print "\nMaking junctions files...\n";
 
-    $faok = "false";
-
     $strand = "+"; # the default if unspecified, will basically ignore
                    # strand in this case
     $strandspecified = "false";
@@ -492,7 +490,7 @@ sub main {
         #    print "please wait some more...\n";
         open(INFILE, $rumNU) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$rumNU' for reading\n\n";
         while ($line = <INFILE>) {
-            warn "Working on line $line";
+
             if (!($line =~ /, /)) {
                 next;
             }
