@@ -89,14 +89,8 @@ sub main {
 
     
     my @blat_args;
-    my $found;
     while (my $arg = shift @ARGV) {
-        if ($arg eq '--') {
-            $found = 1;
-        }
-        elsif ($found) {
-            push @blat_args, $arg;
-        }
+        push @blat_args, $arg;
     }
 
     $self->logger->debug("Blat args are '@blat_args'");
