@@ -102,7 +102,6 @@ sub parse_output {
         my $line = $seqs_a[0];
         $seqs_a[0] =~ /seq\.(\d+)/ or $seqs_b[0] =~ /seq\.(\d+)/;
         my $num = $1;
-        print "Looking at $num\n";
 
         if($numa > 0 || $numb > 0) {
             $num_different_a = 0;
