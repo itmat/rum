@@ -40,7 +40,7 @@ sub run_blat {
 
     my $cmd = join ' ', @cmd;
 
-    $log->debug("Execing @cmd");    
+    $log->info("Running blat: @cmd");    
     if (my $pid = fork) {
         open my $fh, '<', $fifo;
         return ($fh, $pid);
