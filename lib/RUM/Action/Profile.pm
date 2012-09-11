@@ -23,12 +23,6 @@ use Carp;
 use List::Util qw(max sum);
 use Cwd qw(realpath);
 
-=item run
-
-Run the action. Parses command line args, parses all the log files for
-the specified job, builds timing counts, and prints stats.
-
-=cut
 
 sub run {
     my ($class) = @_;
@@ -37,8 +31,6 @@ sub run {
     GetOptions(
         "output|o=s" => \(my $dir)
     );
-
-    my $config = RUM::Config->load($dir);
 
     my @all_events;
     
@@ -67,24 +59,21 @@ sub run {
     push @sum,   sum(@sum);
     push @avg,   sum(@avg);
 
+    printf "%50s %10s %10s %10s\n", 'Step', 'Max', 'Sum', 'Agv';
     for my $i (0 .. $#names) {
-        printf "%50s %6d %6d %6d\n", $names[$i], $max[$i], $sum[$i], $avg[$i];
+        if ($i == $#names) {
+            my $len = 50 + 1 + 10 + 1 + 10 + 1 + 10;
+            print '-' x $len, "\n";
+        }
+        printf "%50s %10d %10d %10d\n", $names[$i], $max[$i], $sum[$i], $avg[$i];
     }
+
+
 }
-
-=item parse_log_file($in)
-
-Parse the data from the given filehandle and return an array ref of
-array refs, where each record is [$time, $type, $module]. $time is the
-time that an event occurred, $type is either START or FINISHED, and
-module is the RUM::Script::* module that either started or finished at
-the given time.
-
-=cut
 
 sub parse_log_file {
     my ($self, $filename) = @_;
-
+    print "Parsing $filename\n";
     open my $in, '<', $filename;
 
     my $time_re = qr((\d{4})/(\d{2})/(\d{2}) (\d{2}):(\d{2}):(\d{2}));
@@ -92,7 +81,7 @@ sub parse_log_file {
     my @events;
 
     while (defined(my $line = <$in>)) {
-        my @parts = $line =~ /$time_re.*RUM\.Workflow.*(START|FINISH): (.*)/g or next;
+        my @parts = $line =~ /$time_re.*RUM\.Workflow.*(START|FINISH)\s+(.*)/g or next;
         my ($year, $month, $day,  $hour, $minute, $second, $type, $step) = @parts;
         my $time = mktime($second, $minute, $hour, $day, $month - 1, $year + 1900);
         push @events, {
@@ -101,6 +90,7 @@ sub parse_log_file {
             step => $step
         };
     }
+    printf "Found %d events\n", scalar @events;
     return \@events;
 }
 
