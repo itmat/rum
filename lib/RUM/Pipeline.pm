@@ -28,7 +28,7 @@ Version 2.0.2_04
 
 =cut
 
-our $VERSION = 'v2.0.2_03';
+our $VERSION = 'v2.0.2_04';
 our $RELEASE_DATE = "September 12, 2012";
 
 our $LOGO = <<'EOF';
