@@ -304,7 +304,7 @@ add_prop(
     check => sub {
         my $conf = shift;
         if (!$conf->output_dir) {
-            return ('Please specify an output directory with --output');
+            return ('Please specify an output directory with -o or --output');
         }
     }
 );
@@ -318,7 +318,7 @@ add_prop(
     check => sub {
         my $conf = shift;
         if (!$conf->index_dir) {
-            return ('Please specify an index directory with --index');
+            return ('Please specify an index directory with -i or --index-dir');
         }
         elsif (!RUM::Index->load($conf->index_dir)) {
             return ($conf->index_dir . " does not seem to be a RUM index directory");
