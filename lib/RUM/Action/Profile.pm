@@ -24,26 +24,24 @@ use List::Util qw(max sum);
 use Cwd qw(realpath);
 
 sub load_events {
-    my ($dir) = @_;
+    my ($dir, $job_name) = @_;
     my @events;
     find sub {
         return if ! /rum(_\d\d\d)?\.log/;
-        my $events = parse_log_file($File::Find::name);
+        my $events = parse_log_file($File::Find::name, $job_name);
         push @events, @{ $events };
     }, "$dir/log";
     return \@events;
 }
 
 sub merge_names {
-    my (@name_lists) = @_;
+    my (@names) = @_;
 
     my @result;
     my %seen;
 
-    for my $names (@name_lists) {
-        for my $name (@{ $names }) {
-            push @result, $name unless $seen{$name}++;
-        }
+    for my $name (@names) {
+        push @result, $name unless $seen{$name}++;
     }
     return @result;
 }
@@ -52,27 +50,26 @@ sub rename_steps {
     my ($times, $step_mapping) = @_;
 
     my %result;
-    
 
     for my $old_step (keys %{ $times }) {
 
-        my @times = @{ $times->{$old_step} };
-
-        if (exists $step_mapping->{$old_step} ) {
-            my $new_step = $step_mapping->{$old_step};
-            print "'$old_step' => '$new_step'\n";
-            print "Times was @times\n";
-            if (my $old_times = $result{$new_step}) {
-                @times = map { $old_times->[$_] + $times[$_] } (0 .. $#times );
+        my $step = exists $step_mapping->{$old_step} ? $step_mapping->{$old_step} : $old_step;
+        print "'$old_step' => '$step'\n";
+        $result{$step} ||= {};
+        for my $job (keys %{ $times->{$old_step} } ) {
+            my @these_times = @{ $times->{$old_step}{$job} };
+            if (my $acc_times = $result{$step}{$job}) {
+                for my $i ( 0 .. $#these_times ) {
+                    $acc_times->[$i] += $these_times[$i];
+                }
             }
-            print "Is now @times\n";
-            $result{$new_step} = \@times;
+            else {
+                $result{$step}{$job} = \@these_times;
+            }
         }
-        else {
-            $result{$old_step} = \@times;
-        }
-
     }
+
+    print Dumper(\%result);
     return \%result;
 
 }
@@ -109,50 +106,114 @@ sub rename_names {
     return map { exists $name_mapping->{$_} ? $name_mapping->{$_} : $_ } @names;
 }
 
+
+sub speedup {
+    my ($baseline, $x) = @_;
+    if ($x) {
+        return $baseline / $x;
+    }
+    return;
+}
+
+
+
+sub job_total {
+    my ($times, $job, $f) = @_;
+
+    my @steps = keys %{ $times };
+    my @times = map { $_->{$job} } values %{ $times };
+
+    my @reduced = map { $f->(@{ $_ }) } @times;
+    return sum @reduced;
+}
+
+my @metrics = (
+    { name => "Max",
+      fn   => \&max },
+    { name => "Total", 
+      fn   => \&sum },
+    { name => "Avg", 
+      fn   => sub { sum(@_) / @_ },
+      fmt => '%.2f'
+  },
+);
+
 sub run {
     my ($class) = @_;
 
-    my @dirs = @ARGV;
+    my @dirs;
+    my @job_names;
+    
+    while (my $spec = shift @ARGV) {
+        my ($job, $dir) = split /=/, $spec, 2;
+        die unless $job && $dir;
+        push @dirs, glob $dir;
+        push @job_names, $job;
+    }
 
     my $name_mapping = {
-        'Run bowtie on genome'       => 'Run Bowtie on genome',
-        'Parse genome Bowtie output' => 'Run Bowtie on genome',
+        'Run bowtie on genome'              => 'Run Bowtie on genome',
+        'Parse genome Bowtie output'        => 'Run Bowtie on genome',
         'Run bowtie on transcriptome'       => 'Run Bowtie on transcriptome',
         'Parse transcriptome Bowtie output' => 'Run Bowtie on transcriptome',
         'Run blat on unmapped reads'        => 'Run BLAT',
         'Parse blat output'                 => 'Run BLAT',
-        'Run mdust on unmapped reads'                 => 'Run BLAT',
+        'Run mdust on unmapped reads'       => 'Run BLAT',
 
     };
 
-    my @event_lists  = map { load_events($_)   }  @dirs;
-    my @timing_lists = map { build_timings($_) } @event_lists;
-    my @name_lists   = map { ordered_steps($_) } @timing_lists;
-    my @time_lists   = map { times_by_step($_) } @timing_lists;
 
-    print "Before names are " . Dumper(\@name_lists);
-    @name_lists = map { [ rename_names($name_mapping, @$_) ] } @name_lists;
-    print "After names are " . Dumper(\@name_lists);
-    my @names = merge_names(@name_lists);
+
+    my @event_lists;
+    for my $i (0 .. $#dirs) {
+        push @event_lists, load_events($dirs[$i], $job_names[$i]);
+    }
+
+    my @times = map { build_timings($_) } @event_lists;
+    @times = map { @$_ } @times;
+
+    my $times = times_by_step(\@times);
+
+    my @names = merge_names(rename_names($name_mapping, ordered_steps(\@times)));
+
 
     my (@max, @sum, @avg);
+    
+    $times = rename_steps($times, $name_mapping);
 
-
-            
-    @time_lists = map { rename_steps($_, $name_mapping) } @time_lists;
+    print "Total with max is " . job_total($times, "v2.0.2_03", \&max) . "\n";
+    print "Total with avg is " . job_total($times, "v2.0.2_03", sub { sum(@_) / @_ }) . "\n";
+    print "Total with sum is " . job_total($times, "v2.0.2_03", \&sum) . "\n";
 
     
     open my $html, '>', "rum_profile.html";
 
     print $html "<html><head></head><body><table>";
 
+    print $html "<tr><td></td>";
+    for my $i (0 .. $#job_names) {
+        my $colspan = $i ? @metrics * 2 : @metrics;
+        print $html "<th colspan=\"$colspan\">$job_names[$i]</th>";
+    }
+    print $html "<tr>\n";
+
     print $html "<tr>\n";
     print $html '<th>Step</th>';
+
     
-    for my $times (@time_lists) {
-        print $html '<th>Max</th><th>Sum</th><th>Avg</th>';
+    for my $i (0 .. $#job_names) {
+
+        for my $metric (@metrics) {
+            if ($i == 0) {
+                print $html "<th>$metric->{name}</th>";
+            }
+            else {
+                print $html "<th>$metric->{name}</th><th>(speedup)</th>";
+            }
+        }
     }
     print $html '</tr>';
+
 
     for my $i (0 .. $#names) {
         print $html '<tr>';
@@ -160,22 +221,39 @@ sub run {
         my $step = $names[$i];
         print $html "<td>$step</td>";
 
-        for my $times (@time_lists) {
-            my $print_td = sub {
-                my $val = shift;
-                my $fmt = shift || '%s';
+        my %baseline;
+
+        for my $j (0 .. $#job_names) {
+            my $job = $job_names[$j];
+            my @job_step_times = @{ $times->{$step}->{$job} || [] };
+
+            for my $metric (@metrics) {
+                my $val = $metric->{fn}->(@job_step_times);
                 if (defined $val) {
-                    printf $html "<td";
-                    printf $html ">$fmt</td>", $val;
+                    my $fmt = $metric->{fmt} || '%s';
+                    printf $html "<td>$fmt</td>", $val;
+
                 }
                 else {
                     printf $html "<td></td>";
                 }
-            };
+                if (exists $baseline{$metric->{name}}) {
+                    my $speedup = speedup($baseline{$metric->{name}}, $val);
+                    if (defined $speedup) {
+                        my $color = (
+                            $speedup > 1 ? 'green' :
+                            $speedup < 1 ? 'red'   : 'white');
+                        printf $html "<td bgcolor='$color'>%.2fx</td>", $speedup;
+                    }
+                    else {
+                        print $html "<td></td>";
+                    }
+                }
+                else {
+                    $baseline{$metric->{name}} = $val;
+                }
+            }
 
-            $print_td->(max_time_for_step($times, $step));
-            $print_td->(total_time_for_step($times, $step));
-            $print_td->(avg_time_for_step($times, $step), '%.2f');
         }
         print $html '</tr>';
     }
@@ -184,8 +262,8 @@ sub run {
 }
 
 sub parse_log_file {
-    my ($filename) = @_;
-    print "Parsing $filename\n";
+    my ($filename, $job_name) = @_;
+    print "Parsing $filename for job '$job_name'\n";
     open my $in, '<', $filename;
 
     my $time_re = qr((\d{4})/(\d{2})/(\d{2}) (\d{2}):(\d{2}):(\d{2}));
@@ -199,7 +277,8 @@ sub parse_log_file {
         push @events, {
             time => $time,
             type => $type,
-            step => $step
+            step => $step,
+            job  => $job_name
         };
     }
     printf "Found %d events\n", scalar @events;
@@ -224,6 +303,8 @@ sub build_timings {
         my $time = $event->{time};
         my $type = $event->{type};
         my $step = $event->{step};
+        my $job  = $event->{job};
+
         if ($type eq 'START') {
             push @stack, $event;
         }
@@ -239,7 +320,8 @@ sub build_timings {
             push @timings, {
                 step  => $step,
                 start => $prev_time,
-                stop  => $time
+                stop  => $time,
+                job   => $job
             };
         }
     }
@@ -260,7 +342,7 @@ sub ordered_steps {
             push @steps, $step;
         }
     }
-    return \@steps;
+    return @steps;
 }
 
 sub times_by_step {
@@ -271,7 +353,9 @@ sub times_by_step {
     for my $timing (@{ $timings }) {
         my $step = $timing->{step};
         my $time = $timing->{stop} - $timing->{start};
-        push @{ $times{$step} ||= [] }, $time;
+        my $job = $timing->{job};
+
+        push @{ $times{$step}{$job} ||= [] }, $time;
     }
     return \%times;
 }
