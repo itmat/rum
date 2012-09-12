@@ -24,12 +24,12 @@ RUM::Pipeline - RNASeq Unified Mapper Pipeline
 
 =head1 VERSION
 
-Version 2.0.2_03
+Version 2.0.2_04
 
 =cut
 
 our $VERSION = 'v2.0.2_03';
-our $RELEASE_DATE = "September 11, 2012";
+our $RELEASE_DATE = "September 12, 2012";
 
 our $LOGO = <<'EOF';
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

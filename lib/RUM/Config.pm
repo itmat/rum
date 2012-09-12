@@ -6,6 +6,7 @@ use warnings;
 use RUM::Usage;
 use RUM::UsageErrors;
 use Carp;
+use RUM::Pipeline;
 
 sub handle {
     my ($conf, $opt, $val) = @_;
@@ -62,6 +63,7 @@ use Scalar::Util qw(blessed);
 use Getopt::Long;
 use RUM::Logging;
 use RUM::ConfigFile;
+use RUM::Pipeline;
 
 our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
@@ -873,7 +875,6 @@ sub load_default {
     my ($self) = @_;
 
     my $filename = $self->in_output_dir($FILENAME);
-
     $self->{_default} = do $filename;
 
     my $class = blessed($self);
