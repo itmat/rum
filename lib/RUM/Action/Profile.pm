@@ -162,8 +162,6 @@ sub run {
 
     };
 
-
-
     my @event_lists;
     for my $i (0 .. $#dirs) {
         push @event_lists, load_events($dirs[$i], $job_names[$i]);
@@ -181,11 +179,6 @@ sub run {
     
     $times = rename_steps($times, $name_mapping);
 
-    print "Total with max is " . job_total($times, "v2.0.2_03", \&max) . "\n";
-    print "Total with avg is " . job_total($times, "v2.0.2_03", sub { sum(@_) / @_ }) . "\n";
-    print "Total with sum is " . job_total($times, "v2.0.2_03", \&sum) . "\n";
-
-    
     open my $html, '>', "rum_profile.html";
 
     print $html "<html><head></head><body><table>";
@@ -200,6 +193,14 @@ sub run {
     print $html "<tr>\n";
     print $html '<th>Step</th>';
 
+    my %totals;
+
+    for my $name (@job_names) {
+        for my $metric (@metrics) {
+            $totals{$name}{$metric->{name}} = job_total($times, $name, $metric->{fn});
+        }
+    }
+
     
     for my $i (0 .. $#job_names) {
 
@@ -213,7 +214,6 @@ sub run {
         }
     }
     print $html '</tr>';
-
 
     for my $i (0 .. $#names) {
         print $html '<tr>';
@@ -231,6 +231,8 @@ sub run {
                 my $val = $metric->{fn}->(@job_step_times);
                 if (defined $val) {
                     my $fmt = $metric->{fmt} || '%s';
+                    my $ptotal = $val / $totals{$job}{$metric->{name}};
+                    
                     printf $html "<td>$fmt</td>", $val;
 
                 }
@@ -258,6 +260,18 @@ sub run {
         print $html '</tr>';
     }
 
+    print $html "<tr><th>Whole job</th>";
+
+
+    for my $i (0 .. $#job_names) {
+        for my $metric (@metrics) {
+            print $html "<td>" . $totals{$job_names[$i]}{$metric->{name}} . "</td>";
+        }
+        if ($i) {
+            print $html "<td></td>"
+        }
+    }
+    print $html "</tr>";
     print $html '</table></body></html>';
 }
 
