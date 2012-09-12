@@ -176,7 +176,7 @@ sub run {
 
     print $html "<tr><td></td>";
     for my $i (0 .. $#job_names) {
-        my $colspan = $i ? @metrics * 2 : @metrics;
+        my $colspan = @metrics;
         print $html "<th colspan=\"$colspan\">$job_names[$i]</th>";
     }
     print $html "<tr>\n";
@@ -200,7 +200,7 @@ sub run {
     for my $i (0 .. $#job_names) {
 
         for my $metric (@metrics) {
-            if ($i == 0) {
+            if (1 || ($i == 0)) {
                 print $html "<th>$metric->{name}</th>";
             }
             else {
@@ -229,7 +229,8 @@ sub run {
 
                     my $slowest = $slowest_step_time{$job}{$metric->{name}};
                     my $fastest = $fastest_step_time{$job}{$metric->{name}};
-                    my $ptotal = 255 - int (255 * ($val - $fastest) / ($slowest - $fastest));
+                    my $spread = $slowest - $fastest;
+                    my $ptotal = $spread ? 255 - int (255 * ($val - $fastest) / $spread) : 0;
                     my $color = $metric->{do_color} ? sprintf '#ff%02x%02x', $ptotal, $ptotal : 'white';
                     printf $html "<td bgcolor='%s'>$fmt</td>", $color, $val;
 
@@ -237,7 +238,7 @@ sub run {
                 else {
                     printf $html "<td></td>";
                 }
-                if (exists $baseline{$metric->{name}}) {
+                if (0 && exists $baseline{$metric->{name}}) {
                     my $speedup = speedup($baseline{$metric->{name}}, $val);
                     if (defined $speedup) {
                         my $color = (
@@ -264,9 +265,6 @@ sub run {
         for my $metric (@metrics) {
             my $fmt = $metric->{fmt} || '%s';
             printf $html "<td>$fmt</td>", $totals{$job_names[$i]}{$metric->{name}};
-            if ($i) {
-                print $html "<td></td>"
-            }
         }
     }
     print $html "</tr>";
