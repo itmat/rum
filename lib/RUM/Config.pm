@@ -161,6 +161,10 @@ sub pod_for_prop {
     return $item;
 }
 
+add_prop(
+    opt => 'version',
+    desc => 'Version of RUM that was used to generate the config file',
+);
 
 add_prop(
     opt => 'paired-end',
@@ -228,7 +232,6 @@ add_prop(
     opt  => 'quiet|q',
     desc => 'Less output than normal',
     transient => 1
-    
 );
 
 add_prop(
@@ -832,6 +835,8 @@ sub set {
 sub save {
     my ($self) = @_;
 
+    $self->set('version', $RUM::Pipeline::VERSION);
+
     my @specified = grep { $_ ne 'output_dir' && $self->is_specified($_) } $self->property_names;
 
     my %copy;
@@ -886,6 +891,13 @@ sub load_default {
               "from scratch.");
     }
 
+    if (!$self->version) {
+        die("You seem to be trying to rerun a job that was set up with an " .
+            "older version of RUM (v2.0.2_02 or earlier), which is ".
+            "incompatible with the current version ($RUM::Pipeline::VERSION). ".
+            "You will need to rerun the job from the beginning using the " .
+            "current version of RUM.\n");
+    }
 
     return $self;
 }
