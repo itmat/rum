@@ -20,7 +20,7 @@ use Text::Wrap qw(wrap fill);
 use base 'RUM::Action';
 use POSIX qw(mktime);
 use Carp;
-use List::Util qw(max sum);
+use List::Util qw(max sum min);
 use Cwd qw(realpath);
 
 sub load_events {
@@ -54,9 +54,15 @@ sub rename_steps {
     for my $old_step (keys %{ $times }) {
 
         my $step = exists $step_mapping->{$old_step} ? $step_mapping->{$old_step} : $old_step;
-        print "'$old_step' => '$step'\n";
+
+        if ($step ne $old_step) {
+            print "'$old_step' => '$step'\n";
+        }
         $result{$step} ||= {};
         for my $job (keys %{ $times->{$old_step} } ) {
+            if ($step ne $old_step) {
+                print "  $job\n";
+            }
             my @these_times = @{ $times->{$old_step}{$job} };
             if (my $acc_times = $result{$step}{$job}) {
                 for my $i ( 0 .. $#these_times ) {
@@ -69,36 +75,8 @@ sub rename_steps {
         }
     }
 
-    print Dumper(\%result);
     return \%result;
 
-}
-
-sub times_for_step {
-    my ($times_for_step, $step) = @_;
-    if (my $times = $times_for_step->{$step}) {
-        return @{ $times };
-    }
-    return;
-}
-
-sub max_time_for_step {
-    my ($times_for_step, $step) = @_;
-    return max times_for_step($times_for_step, $step);
-}
-
-sub total_time_for_step {
-    my ($times_for_step, $step) = @_;
-    return sum times_for_step($times_for_step, $step);
-}
-
-sub avg_time_for_step {
-    my ($times_for_step, $step) = @_;
-    my @times = times_for_step($times_for_step, $step);
-    if (@times) {
-        return sum(@times) / @times;
-    }
-    return;
 }
 
 sub rename_names {
@@ -110,31 +88,44 @@ sub rename_names {
 sub speedup {
     my ($baseline, $x) = @_;
     if ($x) {
-        return $baseline / $x;
+        return $x - $baseline;
     }
     return;
 }
 
 
-
 sub job_total {
-    my ($times, $job, $f) = @_;
+    my ($times, $job_name, $f1, $f2) = @_;
 
     my @steps = keys %{ $times };
-    my @times = map { $_->{$job} } values %{ $times };
+    my @times = map { $_->{$job_name} } values %{ $times };
 
-    my @reduced = map { $f->(@{ $_ }) } @times;
-    return sum @reduced;
+    my @reduced = map { $f1->(@{ $_ }) } @times;
+    return $f2->(@reduced);
 }
 
 my @metrics = (
+    { name => "Chunks",
+      fn   => sub { scalar(@_) },
+      do_color => 0,
+      desc => 'The number of chunks that the given step was broken into',
+      
+  },
     { name => "Max",
-      fn   => \&max },
+      fn   => \&max,
+      do_color => 1,
+      desc => 'The time (in seconds) of the chunk that took the longest time for this step.',
+ },
     { name => "Total", 
-      fn   => \&sum },
+      fn   => \&sum,
+      do_color => 1,
+      desc => 'The total time (in seconds) that all chunks spent processing this step.',
+ },
     { name => "Avg", 
       fn   => sub { sum(@_) / @_ },
-      fmt => '%.2f'
+      fmt => '%.2f',
+      do_color => 1,
+      desc => 'The average amount of time spent on this step per chunk.'
   },
 );
 
@@ -195,9 +186,13 @@ sub run {
 
     my %totals;
 
+    my %slowest_step_time;
+    my %fastest_step_time;
     for my $name (@job_names) {
         for my $metric (@metrics) {
-            $totals{$name}{$metric->{name}} = job_total($times, $name, $metric->{fn});
+            $totals{$name}{$metric->{name}} = job_total($times, $name, $metric->{fn}, \&sum);
+            $fastest_step_time{$name}{$metric->{name}} = job_total($times, $name, $metric->{fn}, \&min);
+            $slowest_step_time{$name}{$metric->{name}} = job_total($times, $name, $metric->{fn}, \&max);
         }
     }
 
@@ -231,9 +226,12 @@ sub run {
                 my $val = $metric->{fn}->(@job_step_times);
                 if (defined $val) {
                     my $fmt = $metric->{fmt} || '%s';
-                    my $ptotal = $val / $totals{$job}{$metric->{name}};
-                    
-                    printf $html "<td>$fmt</td>", $val;
+
+                    my $slowest = $slowest_step_time{$job}{$metric->{name}};
+                    my $fastest = $fastest_step_time{$job}{$metric->{name}};
+                    my $ptotal = 255 - int (255 * ($val - $fastest) / ($slowest - $fastest));
+                    my $color = $metric->{do_color} ? sprintf '#ff%02x%02x', $ptotal, $ptotal : 'white';
+                    printf $html "<td bgcolor='%s'>$fmt</td>", $color, $val;
 
                 }
                 else {
@@ -245,7 +243,7 @@ sub run {
                         my $color = (
                             $speedup > 1 ? 'green' :
                             $speedup < 1 ? 'red'   : 'white');
-                        printf $html "<td bgcolor='$color'>%.2fx</td>", $speedup;
+                        printf $html "<td>%.2f</td>", $speedup;
                     }
                     else {
                         print $html "<td></td>";
@@ -262,17 +260,47 @@ sub run {
 
     print $html "<tr><th>Whole job</th>";
 
-
     for my $i (0 .. $#job_names) {
         for my $metric (@metrics) {
-            print $html "<td>" . $totals{$job_names[$i]}{$metric->{name}} . "</td>";
-        }
-        if ($i) {
-            print $html "<td></td>"
+            my $fmt = $metric->{fmt} || '%s';
+            printf $html "<td>$fmt</td>", $totals{$job_names[$i]}{$metric->{name}};
+            if ($i) {
+                print $html "<td></td>"
+            }
         }
     }
     print $html "</tr>";
-    print $html '</table></body></html>';
+    print $html '</table>';
+
+    print $html <<'EOF';
+
+<h2>How to read this profile</h2>
+
+<p>
+
+Each step of the pipeline is listed, in the order in which the steps
+appear in the log files. For each step, we show the number of chunks
+that ran it, the time of the chunk that took the longest, the total
+time across all chunks, and the average time per chunk. The cells are
+color coded according to the proportion of time spent in that step
+compared to the steps that took the most and least amount of time. The
+redness of the step indicates how long it took, compared to the other
+steps: the step that took the longest will be red, the step that took
+the least amount of time will be white.
+
+</p>
+EOF
+
+
+    print $html "<h2>Definitions</h2>\n";
+
+    print $html "<dl>\n";
+    for my $metric (@metrics) {
+        print $html "<dt>$metric->{name}</dt><dd>$metric->{desc}</dd>\n";
+    }
+    print $html "</dl>\n";
+
+    print $html '</body></html>';
 }
 
 sub parse_log_file {
