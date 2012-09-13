@@ -122,7 +122,7 @@ sub should_postprocess {
 
 my %PROPERTIES;
 
-sub add_prop {
+sub _add_prop {
     my (%params) = @_;
     my $prop = RUM::Property->new(%params);
     $PROPERTIES{$prop->name} = $prop;
@@ -172,27 +172,27 @@ sub pod_for_prop {
     return $item;
 }
 
-add_prop(
+_add_prop(
     opt => 'version',
     desc => 'Version of RUM that was used to generate the config file',
 );
 
-add_prop(
+_add_prop(
     opt => 'paired-end',
 );
 
-add_prop(
+_add_prop(
     opt => 'step=s',
     transient => 1
 );
 
-add_prop(
+_add_prop(
     opt => 'from-step=s',
     transient => 1,
     desc => 'Just run the job from the specified step. The step number can be found next to the step in the output of C<rum_runner status>.'
 );
 
-add_prop(
+_add_prop(
     opt => 'forward-reads=s',
     filter => \&make_absolute,
     desc => 'Forward reads',
@@ -213,7 +213,7 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt => 'reverse-reads=s',
     filter => \&make_absolute,
     desc => 'Reverse reads',
@@ -235,42 +235,42 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt => 'limit-nu-cutoff=s',
 );
 
-add_prop(
+_add_prop(
     opt  => 'quiet|q',
     desc => 'Less output than normal',
     transient => 1
 );
 
-add_prop(
+_add_prop(
     opt  => 'help|h',
     desc => 'Get help',
     transient => 1,
 );
 
 
-add_prop(
+_add_prop(
     opt  => 'verbose|v',
     desc => 'More output than normal',
     transient => 1,
 );
 
-add_prop(
+_add_prop(
     opt  => 'child',
     desc => 'Indicates that this is a child process',
     transient => 1,
 );
 
-add_prop(
+_add_prop(
     opt  => 'parent',
     desc => 'Indicates that this is a parent process',
     transient => 1,
 );
 
-add_prop(
+_add_prop(
     opt  => 'lock=s',
     desc => ('Path to the lock file, if this process is '.
              'to inherit the lock from the parent process'),
@@ -278,37 +278,37 @@ add_prop(
     transient => 1,
 );
     
-add_prop(
+_add_prop(
     opt  => 'preprocess',
     desc => 'Just run the preprocessing phase',
     transient => 1,
 );
 
-add_prop(
+_add_prop(
     opt  => 'process',
     desc => 'Just run the processing phase',
     transient => 1,
 );
 
-add_prop(
+_add_prop(
     opt  => 'postprocess',
     desc => 'Just run the postprocessing phase',
     transient => 1,
 );
 
-add_prop(
+_add_prop(
     opt  => 'chunk=i',
     desc => 'Just run the processing phase of the specified chunk.',
     transient => 1,
 );
     
-add_prop(
+_add_prop(
     opt  => 'no-clean',
     desc => 'Don\'t remove intermediate files. Useful when debugging.',
     transient => 1,
 );
 
-add_prop(
+_add_prop(
     opt  => 'output-dir|o=s',
     desc => 'Output directory for the job.',
     filter => \&make_absolute,
@@ -321,7 +321,7 @@ add_prop(
 );
 
 
-add_prop(
+_add_prop(
     opt  => 'index-dir|i=s',
     desc => 'The path to the directory that contains the RUM index for the organism you want to align against.  Please use I<rum_indexes> to install indexes.',
 
@@ -340,7 +340,7 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt  => 'name=s',
     desc => 'A string to identify this run. Use only alphanumeric, underscores, and dashes.  No whitespace or other characters.  Must be less than 250 characters.',
     filter => sub  {
@@ -371,7 +371,7 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt  => 'chunks=s',
     desc => 'Number of pieces to break the job into.  Use 1 chunk unless you are on a cluster, or have multiple cores with lots of RAM.  Have at least one processing core per chunk.  A genome like human will also need about 5 to 6 Gb of RAM per chunk.  Even with a small genome, if you have tens of millions of reads, you will still need a few Gb of RAM to get through the post-processing.',
     check => sub {
@@ -385,19 +385,19 @@ add_prop(
     },
 );
 
-add_prop(
+_add_prop(
     opt  => 'qsub',
     desc => 'Alias for \'--platform SGE\'',
     handler => sub { shift->set('platform', 'SGE') },
 );
 
-add_prop(
+_add_prop(
     opt  => 'platform=s',
     desc => 'The platform to use. Either \'Local\' for running a job locally, or \'SGE\' for Sun Grid Engine.',
     default => 'Local'
 );
 
-add_prop(
+_add_prop(
     opt  => 'alt-genes=s',
     filter => \&make_absolute,
     desc => 'File with gene models to use for calling junctions novel. If not specified will use the gene models file specified in the config file.',
@@ -412,7 +412,7 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt  => 'alt-quants=s',
     filter => \&make_absolute,
     desc => 'Use this file to quantify features in addition to the gene models file specified in the config file.  Both are reported to separate files.',
@@ -427,55 +427,55 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt  => 'blat-only',
     desc => 'Don\'t run bowtie, only blat and the parts of the pipeline that deal with blat results.',
 );
 
-add_prop(
+_add_prop(
     opt  => 'dna',
     desc => 'Run in dna mode, meaning don\'t map across splice junctions.'
 );
 
-add_prop(
+_add_prop(
     opt  => 'genome-only',
     desc => 'Do RNA mapping, but without using a transcript database.  Note: there will be no feature quantifications in this mode, because those are based on the transcript database.',
 );
 
-add_prop(
+_add_prop(
     opt  => 'junctions',
     desc => 'Use this I<if> using the -dna flag and you still want junction calls. If this is set you should have the gene models file specified in the RUM config file (if you have one).  Without the -dna flag junctions generated by default so you don\'t need to set this.'
 
 );
 
-add_prop(
+_add_prop(
     opt => 'no-bowtie-nu-limit',
     desc => 'Let bowtie produce an unlimited number of non-unique mappings for each read. This can result in extremely large intermediate files.'
 );
 
 
-add_prop(
+_add_prop(
     opt => 'bowtie-nu-limit=s',
     default => 100,
     desc => 'The maximum number of non-unique mappings to let bowtie produce for each read.'
 );
 
 
-add_prop(
+_add_prop(
     opt => 'count-mismatches',
     desc => 'Report in the last column the number of mismatches, ignoring insertions.',
 );
 
 
-add_prop(
+_add_prop(
     opt => 'input-is-preformatted',
 );
 
-add_prop(
+_add_prop(
     opt => 'input-needs-splitting',
 );
 
-add_prop(
+_add_prop(
     opt => 'nu-limit=s',
     desc => 'Limits the number of ambiguous mappers in the final output by removing all reads that map to n locations or more.',
 
@@ -496,7 +496,7 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt => 'max-insertions=s',
     desc => 'Allow at most n insertions in one read. Setting greater than 1 is only allowed for single end reads.  Don\'t raise it unless you know what you are doing, because it can greatly increase the false alignments.',
     default => 1,
@@ -514,12 +514,12 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt => 'min-identity=s',
     desc => 'TODO: Describe me',
 );
 
-add_prop(
+_add_prop(
     opt => 'min-length=s',
     desc => 'Don\'t report alignments less than this long.  The default = 50 if the readlength >= 80, else = 35 if readlength >= 45 else = 0.8 * readlength.  Don\'t set this too low you will start to pick up a lot of garbage.',
     check => sub {
@@ -536,7 +536,7 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt => 'preserve-names',
     desc => 'Keep the original read names in the SAM output file.  Note: this doesn\'t work when there are variable length reads.',
 
@@ -550,7 +550,7 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt => 'quals-file|qual-file=s',
     desc => 'Specify a qualities file separately from a reads file.',
     check => sub {
@@ -566,41 +566,41 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt => 'quantify',
     desc => 'Use this I<if> using the -dna flag and you still want quantified features.  If this is set you *must* have the gene models file specified in the RUM config file.  Without the -dna flag quantified features are generated by default so you don\'t need to set this.'
 
 
 );
 
-add_prop(
+_add_prop(
     opt => 'ram=s',
     desc => 'On some systems RUM might not be able to determine the amount of RAM you have.  In that case, with this option you can specify the number of Gb of ram you want to dedicate to each chunk.  This is rarely necessary and never necessary if you have at least 6 Gb per chunk.',
 
 
 );
 
-add_prop(
+_add_prop(
     opt => 'ram-ok'
 );
 
 
-add_prop(
+_add_prop(
     opt => 'read-length=s',
     desc => 'Specify the length of the reads. By default I will determine it from the input.',
 );
 
-add_prop(
+_add_prop(
     opt => 'strand-specific',
     desc => 'If the data are strand specific, then you can use this option to generate strand specific coverage plots and quantified values.',
 );
 
-add_prop(
+_add_prop(
     opt => 'variable-length-reads',
     desc => 'Set this if your reads are not all of the same length.'
 );
 
-add_prop(
+_add_prop(
     opt => "blat-min-identity|minIdentity=s",
     group => 'blat',
     desc => 'Run blat with the specified value for -minIdentity',
@@ -619,28 +619,28 @@ add_prop(
     }
 );
 
-add_prop(
+_add_prop(
     opt => "blat-tile-size|tileSize=s",
     group => 'blat',
     desc => 'Run blat with the specified value for -tileSize',
     default => 12
 );
 
-add_prop(
+_add_prop(
     opt => "blat-step-size|stepSize=s",
     group => 'blat',
     desc => 'Run blat with the specified value for -stepSize',
     default => 6
 );
 
-add_prop(
+_add_prop(
     opt => "blat-rep-match|repMatch=s",
     group => 'blat',
     desc => 'Run blat with the specified value for -repMatch',
     default => 256
 );
 
-add_prop(
+_add_prop(
     opt => "blat-max-intron|maxIntron=s",
     group => 'blat',
     desc => 'Run blat with the specified value for -maxIntron',
@@ -1293,4 +1293,92 @@ Return the name of the novel inferred internal exons quants file.
 Return the path to preprocessed reads file (reads.fa in the output
 directory).
 
+=item should_preprocess
 
+=item should_process
+
+=item should_postprocess
+
+These methods return true if the corresponding phase of the pipeline
+should be run, according to the options the user provided for this
+invocation of rum_runner.
+
+=item step_props
+
+Returns the list of property names that all have to do with specifying
+a step or phase of the pipeline to run.
+
+=item reads
+
+Return the list of read files that were supplied.
+
+=item property_names
+
+Return the list of names of all the valid properties.
+
+=item property
+
+Return the RUM::Property with the given name.
+
+=item pod_for_prop($property_name)
+
+Returns the POD for the property with the given name.
+
+=item make_absolute($path)
+
+Returns an absolute filename for the given path.
+
+=item parse_command_line
+
+Populate this config object with settings parsed fromt he
+command-line, and optionally loaded from a saved config file.
+
+=over 4
+
+=item options
+
+Names of RUM::Config properties that should be parsed from the command line.
+
+=item positional
+
+Names of RUM::Config properties, which should be picked in order from
+the remaining command-line options.
+
+=item load_default
+
+If true, load my defaults from the config file saved in the output
+directory specified on the command line.
+
+=back
+
+=item job_setting_props 
+
+Return the list of property names that all represent job settings that
+should be set during initialization.
+
+=item is_top_level
+
+Return true if this is a "top-level" RUM proces, and not one that was
+kicked off by another RUM process.
+
+=item changed_settings
+
+Return a list of names of properties that were changed from the
+defaults in this configuration.
+
+=item is_new
+
+Return true if this is a new job, that is, if there is not already a
+job configuraiton saved in the output directory.
+
+=item is_specified($prop_name)
+
+Return true if the user specified the given property on the
+command-line.
+
+=item common_props
+
+Return a list of property names that should be accepted by every
+action.
+
+=back
