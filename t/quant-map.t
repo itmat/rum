@@ -21,7 +21,7 @@ my @tests;
     $quant->add_feature(start => 30, end => 33, data => 'e');
     $quant->add_feature(start => 37, end => 40, data => 'f');
     
-    $quant->partition;
+    $quant->make_index;
     print Dumper($quant);
 
     push @tests, (
@@ -38,7 +38,7 @@ my @tests;
 {
     my $quant = RUM::SingleChromosomeQuantMap->new;
 
-    $quant->partition;
+    $quant->make_index;
 
     push @tests, (
         [ $quant, undef, [[0, 50]],   [qw()]],
@@ -48,7 +48,7 @@ my @tests;
 {
     my $quant = RUM::SingleChromosomeQuantMap->new;
     $quant->add_feature(start => 5, end => 15, data => 'a');
-    $quant->partition;
+    $quant->make_index;
 
     push @tests, (
         [ $quant, undef, [[0, 50]],   [qw(a)]],
@@ -70,7 +70,7 @@ my @tests;
     $quant->add_feature(chromosome => 'chr2', start => 30, end => 40, data => 'j');
     $quant->add_feature(chromosome => 'chr2', start => 30, end => 33, data => 'k');
     $quant->add_feature(chromosome => 'chr2', start => 37, end => 40, data => 'l');
-    $quant->partition;
+    $quant->make_index;
     push @tests, (
         [ $quant, 'chr1', [[0, 50]],    [qw(a b c d e f)]],
         [ $quant, 'chr1', [[0,  3]],    [qw()]],
@@ -93,7 +93,7 @@ my @tests;
         start => 3619936, 
         end => 3620090, 
         data => {});
-    $quant->partition;
+    $quant->make_index;
     push @tests, (
         [ $quant, 2, [[3618155, 3618162],
                       [3618697, 3618722],

@@ -56,8 +56,7 @@ sub read_annot_file {
         push @{ $exons_for_chr{$chr} }, { start => $start, end => $end };
     }
 
-    $quants->partition;
-#    print Dumper($quants);
+    $quants->make_index;
 
     return (\%exons_for_chr, $quants);
 

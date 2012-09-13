@@ -19,10 +19,10 @@ sub add_feature {
     $map->add_feature(%params);
 }
 
-sub partition {
+sub make_index {
     my ($self) = @_;
     for my $map (values %{ $self->{quants_for_chromosome} }) {
-        $map->partition;
+        $map->make_index;
     }
 }
 
@@ -79,7 +79,7 @@ sub add_feature {
     push @{ $self->{features} }, $feature;
 }
 
-sub partition {
+sub make_index {
     my ($self) = @_;
 
     my @events;
@@ -233,3 +233,130 @@ sub cover_features {
 
 }
 
+=head1 NAME
+
+RUM::QuantMap - Stores quantification counts for features
+
+=head1 SYNOPSIS
+
+  use RUM::QuantMap
+
+  my $quants = RUM::QuantMap->new;
+
+  { # For each feature:
+    $quants->add_feature(
+      chromosome => $chromosome,
+      start      => $start_coord,
+      end        => $end_coord,
+      data       => $data # Any additional data you want
+    );
+  }
+
+  $quants->make_index;
+
+  { # For each read:
+    my $covered = $quants->cover_features(
+      chromosome => $CHR,
+           spans => $spans,
+        callback => $handler);
+  }
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::QuantMap->new
+
+Create a new quant map.
+
+=item $quants->add_feature(params)
+
+Accepts the following params:
+
+=over 4
+
+=item chromosome
+
+ The chromosome that contains the feature
+
+=item start
+
+The start coordinate of the feature
+
+=end
+
+The end coordinate of the feature
+
+=item data
+
+Any extra data you want to associate with the feature.
+
+=back
+
+=item $quants->make_index
+
+Indicate that you are done adding features, and are ready to start
+querying.
+
+Partitions the chromosomes into non-overlapping ranges, and associates
+with each range the features that intersect with that range. The
+result is that each chromosome has a partition boundery at every
+coordinate where a feature starts or ends. This allows is to answer
+queries like "what features exist at coordinate x" in O(log(n) + k)
+time by performing a binary search on the list of partitions, where n
+is the number of partitions, and k is the number of partitions
+returned by the query.
+
+=item cover_features(%params)
+
+Takes the following params:
+
+=over 4
+
+=item chromosome
+
+The chromosome that the read is from.
+
+=item spans
+
+The spans of the read, as an array ref of pairs of start/end
+coordinates. For example, 1-10, 20-25 would be represented as [[1,
+10], [20, 25]].
+
+=item callback
+
+A callback function to call every time we hit a feature that's covered
+by this read. It will be called with one parameter: a hash ref to the
+feature, as passed in to add_feature. It will have these fields:
+
+=over 4
+
+=over 4
+
+=item chromosome
+
+The chromosome that contains the feature.
+
+=item start
+
+The start coordinate of the feature.
+
+=end
+
+The end coordinate of the feature.
+
+=item data
+
+Whatever you passed in to add_feature.
+
+=back
+  
+=back
+
+=back
+
+=item features
+
+Return the list of all features added to the quantification map.
+
+=back
