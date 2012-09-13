@@ -16,18 +16,6 @@ use RUM::Common qw(format_large_int min_match_length);
 
 my $log = RUM::Logging->get_logger;
 
-=pod
-
-=head1 NAME
-
-RUM::Pipeline - RNASeq Unified Mapper Pipeline
-
-=head1 VERSION
-
-Version 2.0.2_04
-
-=cut
-
 our $VERSION = 'v2.0.2_04';
 our $RELEASE_DATE = "September 12, 2012";
 
@@ -63,21 +51,23 @@ our $LOGO = <<'EOF';
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 EOF
 
-sub assert_new_job {
-    my $self = shift;
-
-
-}
 
 sub get_lock {
     my ($self) = @_;
+
+    # If rum_runner was called with --parent or --child, then it
+    # should have been run by a parent rum_runner process, which we
+    # will assume has the lock. So we don't need to try to get
+    # exclusive access.
     return if $self->config->parent || $self->config->child;
+
     my $c = $self->config;
     my $dir = $c->output_dir;
     my $lock = $c->lock_file;
+
     $log->info("Acquiring lock");
     RUM::Lock->acquire($lock) or die
-      "It seems like rum_runner may already be running in $dir. You can try running \"$0 kill\" to stop it. If you #are sure there's nothing running in $dir, remove $lock and try again.\n";
+      "It seems like rum_runner may already be running in $dir. You can try running \"$0 kill\" to stop it. If you are sure there's nothing running in $dir, remove $lock and try again.\n";
 }
 
 sub initialize {
@@ -85,26 +75,41 @@ sub initialize {
 
     my $c = $self->config;
 
+    # Refuse to initialize a job in a directory that already has a job in it.
     if ( ! $c->is_new ) {
         die("It looks like there's already a job initialized in " .
             $c->output_dir);
     }
     
+    # Make sure we have bowtie, blat, and mdust, and that we're not
+    # running on the head node of the PGFI cluster.
     RUM::SystemCheck::check_deps;
-    RUM::SystemCheck::check_gamma(
-        config => $c);
+    RUM::SystemCheck::check_gamma(config => $c);
     
-    $self->setup;
-    
+    # Make my output dir, .rum dir, and chunks dir.
+    my @dirs = (
+        $c->output_dir,
+        $c->output_dir . "/.rum",
+        $c->chunk_dir
+    );
+    for my $dir (@dirs) {
+        next if -d $dir;
+        mkpath($dir) or die "mkdir $dir: $!";
+    }
+
+    # If I am running all the chunks on the current machine, check to
+    # make sure we have enough ram.
     my $platform      = $self->platform;
     my $platform_name = $c->platform;
-    my $local = $platform_name =~ /Local/;
-    
+    my $local         = $platform_name =~ /Local/;
     if ($local) {
         RUM::SystemCheck::check_ram(
             config => $c,
             say => sub { $self->logsay(@_) });
     }
+
+    # Otherwise if we're running on a cluster, just assume we have
+    # enough RAM, but warn the user.
     else {
         $self->say(
             "You are running this job on a $platform_name cluster. ",
@@ -113,26 +118,11 @@ sub initialize {
             "least 6 Gigs per node");
     }
 
+    # Save the new job configuration to the output directory, and
+    # return it.
     $self->say("Saving job configuration");
     $self->config->save;
     return $self->config;
-}
-
-
-sub setup {
-    my ($self) = @_;
-    my $output_dir = $self->config->output_dir;
-    my $c = $self->config;
-    my @dirs = (
-        $c->output_dir,
-        $c->output_dir . "/.rum",
-        $c->chunk_dir
-    );
-    for my $dir (@dirs) {
-        unless (-d $dir) {
-            mkpath($dir) or die "mkdir $dir: $!";
-        }
-    }
 }
 
 sub reset_job {
@@ -154,13 +144,26 @@ sub reset_job {
 
     for my $chunk (1 .. $config->chunks) {
         my $workflow = $workflows->chunk_workflow($chunk);
-        $processing_steps = $self->reset_workflow($workflow, $wanted_step);
+        $processing_steps = $self->_reset_workflow($workflow, $wanted_step);
     }
 
-    $self->reset_workflow($workflows->postprocessing_workflow, $wanted_step - $processing_steps);
+    $self->_reset_workflow($workflows->postprocessing_workflow, $wanted_step - $processing_steps);
 }
 
-sub reset_workflow {
+sub reset_if_needed {
+    my ($self) = @_;
+    my $config = $self->config;
+    if ($config->changed_settings) {
+        $self->say("Since you specified some parameters, I am resetting the ".
+                   "job to just after the preprocessing phase.");
+        $self->reset_job;
+        $config->save;
+    }
+}
+
+
+# Reset the given workflow back to the specified step.
+sub _reset_workflow {
     my ($self, $workflow, $wanted_step) = @_;
 
     my %keep;
@@ -189,35 +192,42 @@ sub start {
 
     my ($self) = @_;
 
+    # We have to get the lock before starting
     $self->get_lock;
-    my $c = $self->config;
 
+    my $c = $self->config;
     my $platform      = $self->platform;
     my $platform_name = $c->platform;
     my $local = $platform_name =~ /Local/;
 
+    # We can't start a job if it hasn't been initialized
     if ( ! -d $c->in_output_dir('.rum')) {
         die($c->output_dir . " does not appear to be a RUM output directory." .
             " Please use 'rum_runner align' to start a new job");
     }
 
     my $report = RUM::JobReport->new($c);
-    if ( ! ($c->parent || $c->child)) {
+
+    # If I'm the top-level RUM process, initialize the job report
+    if ( $c->is_top_level ) {
         $report->print_header;
     }
 
-    if ( !$local && ! ( $c->parent || $c->child ) ) {
+    # If I'm the top-level RUM process and I'm not running locally,
+    # just kick off the process that will monitor the job, and return.
+    if ( $c->is_top_level && ! $local ) {
         $self->logsay("Submitting tasks and exiting");
         $platform->start_parent;
         return;
     }
-    my $dir = $self->config->output_dir;
+    
+    my $dir = $c->output_dir;
     $self->say(
         "If this is a big job, you should keep an eye on the rum_errors*.log",
         "files in the output directory. If all goes well they should be empty.",
         "You can also run \"$0 status -o $dir\" to check the status of the job.");
 
-    if ($self->config->should_preprocess) {
+    if ($c->should_preprocess) {
         $platform->preprocess;
     }
 
@@ -357,19 +367,6 @@ sub _all_files_end_with_newlines {
     return $result;
 }
 
-sub reset_if_needed {
-    my ($self) = @_;
-    my $config = $self->config;
-    if ($config->changed_settings) {
-        $self->say("Since you specified some parameters, I am resetting the ".
-                   "job to just after the preprocessing phase.");
-        $self->reset_job;
-        $config->save;
-    }
-
-}
-
-
 sub clean {
     my ($self, $very) = @_;
     my $c = $self->config;
@@ -505,3 +502,73 @@ sub print_postprocessing_status {
 }
 
 1;
+
+__END__
+
+=pod
+
+=head1 NAME
+
+RUM::Pipeline - RNASeq Unified Mapper Pipeline
+
+=head1 METHODS
+
+=over 4
+
+=item $pipeline->get_lock
+
+Get a lock on the directory, or if another process has the lock, fail.
+
+=item $pipeline->initialize
+
+Initialize a new job based on the settings in my configuration. This
+will fail if there's already a job initialized in the output
+directory.
+
+=item  $pipeline->reset_job
+
+Reset the job so that the next step will be either the step number
+identified by the "from_step" configuration property (if it is set),
+or the first processing step (if it isn't). This involves deleting
+files to bring the job back to the desired state.
+
+=item $pipeline->reset_if_needed
+
+If the pipeline's configuration has options that are explicitly
+specified (rather than just falling back to the saved version of the
+config file), resets the job so that it will be restarted from the
+beginning (the first processing step).
+
+=item $pipeline->start
+
+Start whatever portions of the pipeline are appropriate based on the
+configuration. The action taken will vary depending on how the job is
+configured and what state it is in.
+
+=item $pipeline->clean($very)
+
+Remove all temporary and intermediate files that may have been left
+behind. If $very is true, also remove the goal files.
+
+=item $pipeline->stop
+
+Stop a running job.
+
+=item $pipeline->print_status
+
+Print the status of all the steps in the workflow.
+
+=item $pipeline->print_processing_status
+
+Print the status of the processing steps of the workflow.
+
+=item $pipeline->print_postprocessing_status
+
+Print the status of the postprocessing steps of the workflow.
+
+=head1 VERSION
+
+Version 2.0.2_04
+
+=cut
+

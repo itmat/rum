@@ -94,6 +94,10 @@ our %DEFAULTS = (
 
 );
 
+sub is_top_level {
+    my ($self) = @_;
+    return  ! ($self->parent || $self->child)) {
+}
 
 sub should_preprocess {
     my $self = shift;

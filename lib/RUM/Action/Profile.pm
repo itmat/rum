@@ -24,6 +24,14 @@ use Carp;
 use List::Util qw(max sum min);
 use Cwd qw(realpath);
 
+my $CSS = <<'EOF';
+body {
+  font-family: "baskerville", "gill sans", "serif";
+}
+EOF
+
+
+
 sub load_events {
     my ($dir, $job_name) = @_;
     my @events;
@@ -175,17 +183,30 @@ sub run {
     mkdir 'rum_profile';
     open my $html, '>', "rum_profile/index.html";
 
-    print $html "<html><head></head><body><table>";
+    open my $css, '>', "rum_profile/profile.css";
+    print $css $CSS;
 
-    print $html "<tr><td></td>";
-    for my $i (0 .. $#job_names) {
+    my @job_name_headers = map {
         my $colspan = @metrics;
-        print $html "<th colspan=\"$colspan\">$job_names[$i]</th>";
-    }
-    print $html "<tr>\n";
+        "<th colspan=\"$colspan\">$job_names[$_]</th>";
+    } (0 .. $#job_names);
 
-    print $html "<tr>\n";
-    print $html '<th>Step</th>';
+    print $html <<"EOF";
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="profile.css"></link>
+  </head>
+  <body>
+    <table>
+      <thead>
+
+        <tr>
+          <td></td>
+          @job_name_headers
+        </tr>
+        <tr>
+          <th>Step</th>
+EOF
 
     my %totals;
 
@@ -211,7 +232,12 @@ sub run {
             }
         }
     }
-    print $html '</tr>';
+    print $html <<"EOF";
+
+        </tr>
+      </thead>
+      <tbody>
+EOF
 
     for my $i (0 .. $#names) {
         print $html '<tr>';
@@ -262,7 +288,12 @@ sub run {
         print $html '</tr>';
     }
 
-    print $html "<tr><th>Whole job</th>";
+print $html <<"EOF";
+      </tbody>
+      <tfoot>
+        <tr>
+          <th>Whole job</th>
+EOF
 
     for my $i (0 .. $#job_names) {
         for my $metric (@metrics) {
@@ -270,14 +301,15 @@ sub run {
             printf $html "<td>$fmt</td>", $totals{$job_names[$i]}{$metric->{name}};
         }
     }
-    print $html "</tr>";
-    print $html '</table>';
 
-    print $html <<'EOF';
+print $html <<"EOF";
+        </tr>
+      </tbody>
+    </table>
+    
+    <h2>How to read this profile</h2>
 
-<h2>How to read this profile</h2>
-
-<p>
+    <p>
 
 Each step of the pipeline is listed, in the order in which the steps
 appear in the log files. For each step, we show the number of chunks
@@ -289,7 +321,7 @@ redness of the step indicates how long it took, compared to the other
 steps: the step that took the longest will be red, the step that took
 the least amount of time will be white.
 
-</p>
+    </p>
 EOF
 
 
@@ -402,6 +434,7 @@ sub times_by_step {
     }
     return \%times;
 }
+
 
 1;
 
