@@ -67,7 +67,7 @@ sub get_lock {
 
     $log->info("Acquiring lock");
     RUM::Lock->acquire($lock) or die
-      "It seems like rum_runner may already be running in $dir. You can try running \"$0 kill\" to stop it. If you are sure there's nothing running in $dir, remove $lock and try again.\n";
+      "It seems like rum_runner may already be running in $dir. You can try running \"$0 stop\" to stop it. If you are sure there's nothing running in $dir, remove $lock and try again.\n";
 }
 
 sub initialize {
