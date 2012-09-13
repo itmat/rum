@@ -283,7 +283,7 @@ Accepts the following params:
 
 The start coordinate of the feature
 
-=end
+=item end
 
 The end coordinate of the feature
 
@@ -341,7 +341,7 @@ The chromosome that contains the feature.
 
 The start coordinate of the feature.
 
-=end
+=item end
 
 The end coordinate of the feature.
 
