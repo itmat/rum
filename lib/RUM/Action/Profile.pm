@@ -15,6 +15,7 @@ use warnings;
 use autodie;
 use Data::Dumper;
 use File::Find;
+use File::Path qw(rmtree);
 use Getopt::Long;
 use Text::Wrap qw(wrap fill);
 use base 'RUM::Action';
@@ -170,7 +171,9 @@ sub run {
     
     $times = rename_steps($times, $name_mapping);
 
-    open my $html, '>', "rum_profile.html";
+    rmtree('rum_profile');
+    mkdir 'rum_profile';
+    open my $html, '>', "rum_profile/index.html";
 
     print $html "<html><head></head><body><table>";
 
