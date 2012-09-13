@@ -238,20 +238,8 @@ sub start {
     # If user said --postprocess or didn't say --preprocess or
     # --process, then we need to do postprocessing.
     if ($c->should_postprocess) {
-        
-        # If we're called with "--chunk X --postprocess", that means
-        # we're supposed to process chunk X and do postprocessing only
-        # if X is the last chunk. I realize that's not very
-        # intuitive...
-        #
-        # TODO: Come up with a better way for the parent to
-        # communicate with one of its child processes, telling it to
-        # do postprocessing
-        if ( !$chunk || $chunk == $self->config->chunks ) {
-            $platform->postprocess;
-            $self->_final_check;
-        }
-
+        $platform->postprocess;
+        $self->_final_check;
     }
     RUM::Lock->release;
 }
@@ -411,7 +399,7 @@ sub clean {
         $self->say("Destroying job settings file");
         $self->config->destroy;
     }
-
+    $log->info("Removing these directories: @dirs");
     rmtree(\@dirs);
     $self->platform->clean;
 }

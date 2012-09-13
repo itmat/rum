@@ -97,18 +97,23 @@ our %DEFAULTS = (
 
 sub should_preprocess {
     my $self = shift;
-    return $self->preprocess || (!$self->process && !$self->postprocess);
+    return $self->preprocess || (!$self->chunk && 
+                                 !$self->process && 
+                                 !$self->postprocess);
 }
 
 sub should_process {
     my $self = shift;
-    return $self->process || (!$self->preprocess && !$self->postprocess);
+    return $self->process || $self->chunk || (!$self->preprocess && 
+                                              !$self->postprocess);
 }
 
 
 sub should_postprocess {
     my $self = shift;
-    return $self->postprocess || (!$self->preprocess && !$self->process);
+    return $self->postprocess || (!$self->chunk &&
+                                  !$self->preprocess && 
+                                  !$self->process);
 }
 
 my %PROPERTIES;

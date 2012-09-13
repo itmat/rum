@@ -31,7 +31,7 @@ sub chunk_workflow {
     $chunk or croak "I need a chunk";
     my $c = $config;
 
-    my $m = RUM::Workflow->new;
+    my $m = RUM::Workflow->new(name => "Chunk $chunk processing");
 
     my $index = RUM::Index->load($c->index_dir);
     local *chunk_file = sub { $c->chunk_file($_[0], $chunk) };
@@ -387,7 +387,7 @@ sub postprocessing_workflow {
     my @chunks = (1 .. $c->chunks || 1);
 
     my $name = $c->name;
-    my $w = RUM::Workflow->new();
+    my $w = RUM::Workflow->new(name => "Postprocessing");
 
     my @rum_unique_by_id = map { $c->chunk_file("RUM_Unique", $_) } @chunks;
     my @rum_nu_by_id     = map { $c->chunk_file("RUM_NU", $_) } @chunks;

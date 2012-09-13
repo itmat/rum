@@ -52,9 +52,11 @@ Return a new RUM::Workflow.
 =cut
 
 sub new {
-    my ($class) = @_;
+    my ($class, %params) = @_;
+    my $name = delete $params{name};
     return bless {
         sm => RUM::StateMachine->new(),
+        name => $name
     }, $class;
 }
 
@@ -506,6 +508,10 @@ satisfied.
 sub execute {
     my ($self, $callback, $clean) = @_;
 
+    $log->info("Starting workflow '$self->{name}'. I will".
+               ($clean ? " " : " not") .
+               "clean up intermediate temporary files along the way.");
+
     local $_;
     my $sm    = $self->state_machine;
     my $state = $self->state;
@@ -521,22 +527,30 @@ sub execute {
 
     for my $step (@plan) {
 
+        # If I've already done this step, skip it. Calling the
+        # callback with a true second arg indicates that I skipped it.
         if ($count < $skip) {
             $callback->($step, 1) if $callback;
         }
+        
         else {
             $callback->($step, 0) if $callback;
             my $state = $self->state;
-            $self->_run_step($state, $step, $sm->transition($state, $step));
+            my $next_state = $sm->transition($state, $step);
+            $self->_run_step($state, $step, $next_state);
         }
+
+        # These are the files I will need going forward
         my $need = $min_states->[$count]->union($sm->start);
 
-        for ($sm->closure->and_not($need)->flags) {
-            next unless -e;
-            my $size = -s;
-            $log->info("Size of $_ is $size");
-            if ($clean) {
-                system("rm $_") == 0 or $log->warn("Couldn't remove $_");
+        # I can delete all the files I won't need going forward
+        if ($clean) {
+            $log->info("Cleaning up after a workflow step");
+            for my $file ($sm->closure->and_not($need)->flags) {
+                next unless -e $file;
+                my $size = -s $file;
+                $log->info("Removing $file, its size is $size");
+                system("rm $file") == 0 or $log->warn("Couldn't remove $file");
             }
         }
         $count++;
