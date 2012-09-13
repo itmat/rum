@@ -51,3 +51,35 @@ sub run_blat {
 }
 
 1;
+
+=head1 NAME
+
+RUM::Blat - Interface to BLAT
+
+=head1 METHODS
+
+=over 4
+
+=item run_blat(%params)
+
+Run BLAT, and return a filehandle that contains the output streamed
+from BLAT. Accepts the following params:
+
+=over 4
+
+=item database
+
+The reference fasta file (genome).
+
+=item query
+
+The query fasta file (reads).
+
+=item blat_args
+
+Extra arguments to pass to blat, as an array ref.
+
+=back
+
+=back
+

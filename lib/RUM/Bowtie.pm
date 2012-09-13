@@ -110,3 +110,51 @@ sub run_bowtie {
 }
 
 1;
+
+=head1 NAME 
+
+RUM::Bowtie - Interface to Bowtie
+
+=head1 METHODS
+
+=over 4
+
+=item bowtie_mapping_set_reader
+
+Return a CODE ref that, when called, will return the next set of
+alignments from the given filehandle. Alignments for the same pair of
+reads will be grouped together. The resulting CODE ref returns results
+as a list of one or two array refs. If there are only forward reads,
+it returns a a list of one array ref, containing the forward
+mappings. If there are reverse reads, it returns a list of two array
+refs, one for the forward reads and one for the reverse.
+
+=item run_bowtie
+
+Run Bowtie and return a filehandle that contains the results. Accepts
+the following params:
+
+=over 4
+
+=item limit
+
+Maximum number of non-unique mappings to report for each read.
+
+=item index
+
+The path to the bowtie index to use.
+
+=item query
+
+The reads file.
+
+=item tee
+
+If defined, I'll also write the output to this file, in addition to
+streaming it through the returned filehandle.
+
+=back
+
+=back
+
+
