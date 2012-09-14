@@ -127,14 +127,14 @@ sub get_logger {
 sub log_file {
     my ($class, $chunk) = @_;
     return unless $LOGGING_DIR;
-    my $file = $chunk ? sprintf("rum_%03d.log", $chunk) : "rum.log";
+    my $file = $chunk ? sprintf("rum_%d.log", $chunk) : "rum.log";
     return "$LOGGING_DIR/$file";
 }
 
 sub error_log_file {
     my ($class, $chunk) = @_;
     return unless $LOGGING_DIR;
-    my $file = $chunk ? sprintf("rum_errors_%03d.log", $chunk) : "rum_errors.log";
+    my $file = $chunk ? sprintf("rum_errors_%d.log", $chunk) : "rum_errors.log";
     return "$LOGGING_DIR/$file";
 }
 

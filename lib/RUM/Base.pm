@@ -154,7 +154,7 @@ sub _chunk_error_logs_are_empty {
     my @errors;
     for my $chunk ($self->chunk_nums) {
         my $log_file = File::Spec->catfile(
-            $dir, sprintf("rum_errors_%03d.log", $chunk));
+            $dir, sprintf("rum_errors_%d.log", $chunk));
         if (-s $log_file) {
             push @errors, "Chunk $chunk had errors, please check $log_file";
         }
@@ -178,6 +178,7 @@ sub _chunk_error_logs_are_empty {
     }
     else {
         $self->say("All error log files are empty. That's good.");
+        return 1;
     }
 
     return 0;
