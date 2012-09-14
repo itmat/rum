@@ -110,6 +110,9 @@ sub log {
     else {
         return;
     }
+    if (!defined $msg) {
+        $msg = "";
+    }
     chomp $msg;
     if ($self->{name} =~ /^RUM::Script::/) {    
         print $msg, "\n";
