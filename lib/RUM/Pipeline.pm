@@ -566,6 +566,8 @@ Print the status of the processing steps of the workflow.
 
 Print the status of the postprocessing steps of the workflow.
 
+=back
+
 =head1 VERSION
 
 Version 2.0.2_04
