@@ -468,8 +468,7 @@ sub print_processing_status {
     for my $i (0 .. $#plan) {
         my $progress = $progress[$i] . " ";
         my $comment   = sprintf "%2d. %s", $i + 1, $workflow->comment($plan[$i]);
-        my $indent = ' ' x length($progress);
-        $self->say(wrap($progress, $indent, $comment));
+        print $progress, $comment, "\n";
     }
 
     print "\n" if @errored_chunks;
