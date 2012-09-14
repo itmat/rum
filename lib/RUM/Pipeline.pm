@@ -16,8 +16,8 @@ use RUM::Common qw(format_large_int min_match_length);
 
 my $log = RUM::Logging->get_logger;
 
-our $VERSION = 'v2.0.2_04';
-our $RELEASE_DATE = "September 12, 2012";
+our $VERSION = 'v2.0.2_05';
+our $RELEASE_DATE = "September 14, 2012";
 
 our $LOGO = <<'EOF';
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -569,7 +569,7 @@ Print the status of the postprocessing steps of the workflow.
 
 =head1 VERSION
 
-Version 2.0.2_04
+Version 2.0.2_05
 
 =cut
 
