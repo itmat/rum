@@ -252,7 +252,6 @@ t/data/sort-rum-by-id/RUM_Unique_temp2.1
 t/data/sort-rum-by-location/.running
 t/data/sort-rum-by-location/RUM_NU.1
 t/data/sort-rum-by-location/RUM_Unique.1
-t/directives.t
 t/expected/count-reads-mapped/reads-mapped
 t/expected/get-inferred-internal-exons/inferred_internal_exons.bed
 t/expected/get-inferred-internal-exons/inferred_internal_exons.txt
