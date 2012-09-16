@@ -74,6 +74,14 @@ sub parse_rum_line {
     return ($seqnum1, $dir1, $chr, $strand, \@spans);
 }
 
+sub handler_for_type {
+    my ($type) = @_;
+    return sub {
+        my $feature = shift;
+        $feature->{data}{$type}++;
+    }
+}
+
 sub read_rum_file {
 
     my ($filename, $type, $wanted_strand, $anti, $quants) = @_;
@@ -90,14 +98,9 @@ sub read_rum_file {
 
     my @last_line;
 
-    my $handler = sub {
-        my $feature = shift;
-        $feature->{data}{$type}++;
-    };
-
+    my $handler = handler_for_type($type);
     while (1) {
         $counter++;
-
         my ($seqnum1, $dir1, $CHR, $strand, $spans);
         
         # If @last_line is defined, then it's the last line read from
