@@ -139,8 +139,6 @@ sub read_rum_file {
             }
         }
 
-        $NUREADS{$seqnum1} = 1;
-
         # Read another line from the RUM file
         my $line2 = <$infile>;
         my ($seqnum2, $dir2, $chr2, $strand2, $spans2) = parse_rum_line($line2);
@@ -162,6 +160,12 @@ sub read_rum_file {
             @last_line = ($seqnum2, $dir2, $chr2, $strand2, $spans2);
         }
 
+        if ($type eq 'Ucount') {
+            $UREADS++;
+        }
+        else {
+            $NUREADS{$seqnum1} = 1;
+        }
         my $covered = $quants->cover_features(
             chromosome => $CHR,
             spans => $spans,
