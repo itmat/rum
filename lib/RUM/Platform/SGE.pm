@@ -47,6 +47,17 @@ sub new {
     return bless $self, $class;
 }
 
+sub save {
+    my ($self) = @_;
+    open my $out, ">", $self->config->in_output_dir($JOB_ID_FILE);
+    print $out Dumper($self->{jids});
+}
+
+################################################################################
+###
+### Submitting jobs
+###
+
 sub start_parent {
     my ($self) = @_;
 
@@ -61,12 +72,6 @@ sub start_parent {
     my $jid = $self->_qsub($cmd);
     push @{ $self->_parent_jids }, $jid;
     $self->save;
-}
-
-sub ram_args {
-    my ($self) = @_;
-    my $ram = ($self->config->ram || $self->config->min_ram_gb) . "G";
-    ("-l", "mem_free=$ram,h_vmem=$ram");
 }
 
 sub submit_preproc {
@@ -85,7 +90,7 @@ sub submit_proc {
 
     my @prereqs = @{ $self->_preproc_jids };
 
-    my @args = $self->ram_args;
+    my @args = $self->_ram_args;
     my @jids;
 
     if (@prereqs) {
@@ -123,6 +128,11 @@ sub submit_postproc {
     # actually submitting it.
     $self->submit_proc($self->config->chunks) unless $self->postproc_ok;
 }
+
+################################################################################
+###
+### Checking job status
+###
 
 sub log_last_status_warning { 
     my ($self) = @_;
@@ -178,17 +188,21 @@ sub postproc_ok {
     return $self->proc_ok($self->config->chunks);
 }
 
-sub save {
-    my ($self) = @_;
-    open my $out, ">", $self->config->in_output_dir($JOB_ID_FILE);
-    print $out Dumper($self->{jids});
-}
+
+
+
 
 
 ################################################################################
 ###
 ### Private methods
 ###
+
+sub _ram_args {
+    my ($self) = @_;
+    my $ram = ($self->config->ram || $self->config->min_ram_gb) . "G";
+    ("-l", "mem_free=$ram,h_vmem=$ram");
+}
 
 sub _parse_qsub_out {
     my $self = shift;
@@ -385,7 +399,6 @@ sub stop {
         ["parent",         $self->_parent_jids ],
         ["preprocessing",  $self->_preproc_jids ],
         ["processing",     $self->_proc_jids ],
-#        ["postprocessing", $self->_postproc_jids ]
     );
 
     for my $type (@JOB_TYPES) {
@@ -530,10 +543,6 @@ status of the other tasks it submits.
 
 Updates $JOB_ID_FILE so that we keep track of which jobs we've
 submitted.
-
-=item ram_args
-
-Return a list of ram-related arguments to pass to qsub.
 
 =item submit_preproc
 
