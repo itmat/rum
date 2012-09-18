@@ -17,12 +17,7 @@ sub run {
     my ($class) = @_;
 
     my $self = $class->new(name => 'status');
-
-    my $config = RUM::Config->new->parse_command_line(
-        $self->accepted_options);
-    my $pipeline = RUM::Pipeline->new($config);
-
-    $pipeline->print_status;
+    $self->pipeline->print_status;
 }
 
 sub pod_header {
