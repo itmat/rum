@@ -105,6 +105,23 @@ sub speedup {
     return;
 }
 
+sub median {
+    my @items = @_;
+    @items = sort { $a <=> $b } @items;
+
+    if (! @items ) {
+        return undef;
+    }
+    elsif (@items % 2) {
+        return $items[@items / 2];
+    }
+    else {
+        my $low = $items[@items / 2];
+        my $high = $items[@items / 2 + 1];
+        return ($high - $low) / 2;
+    }
+}
+
 
 sub job_total {
     my ($times, $job_name, $f1, $f2) = @_;
@@ -127,11 +144,6 @@ my @metrics = (
       do_percent => 0,
       
   },
-#    { name => "Max",
-#      fn   => \&max,
-#      do_color => 1,
-#      desc => 'The time (in seconds) of the chunk that took the longest time for this step.',
-#  },
     { name => "Total", 
       fn   => \&sum,
       do_color => 1,
@@ -140,6 +152,14 @@ my @metrics = (
  },
     { name => "Per Chunk Avg.", 
       fn   => sub { @_ ? sum(@_) / @_  : undef },
+      fmt => '%.2f',
+      do_color => 1,
+      do_percent => 1,
+      desc => 'The average amount of time spent on this step per chunk.'
+  },
+
+    { name => "Median Chunk", 
+      fn   => \&median,
       fmt => '%.2f',
       do_color => 1,
       do_percent => 1,
@@ -316,6 +336,9 @@ EOF
         for my $metric (@metrics) {
             my $fmt = $metric->{fmt} || '%s';
             printf $html "<td>$fmt</td>", $totals{$job_names[$i]}{$metric->{name}};
+                    if ($metric->{do_percent}) {
+                        printf $html "<td>%.2f%%</td>", 0.0;
+                    }
         }
     }
 
