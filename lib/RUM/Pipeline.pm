@@ -411,6 +411,8 @@ sub print_status {
 
     $self->{workflows} = RUM::Workflows->new($self->config);
 
+    $self->print_preprocessing_status;
+
     my $steps = $self->print_processing_status;
     $self->print_postprocessing_status($steps);
     $self->say();
@@ -420,10 +422,42 @@ sub print_status {
     $self->platform->show_running_status;
 
     my $postproc = $self->{workflows}->postprocessing_workflow;
+
     if ($postproc->is_complete) {
         $self->say("");
         $self->say("RUM Finished.");
     }
+}
+
+
+sub print_preprocessing_status {
+    my ($self) = @_;
+
+
+    $self->say("Preprocessing");
+    $self->say("-------------");
+    my @chunks = $self->chunk_nums;
+    my $progress = "";
+
+    my $last_completed_chunk = 0;
+    my $config = $self->config;
+    my $postproc = $self->{workflows}->postprocessing_workflow;
+    if ($postproc->is_complete ||
+        -f $config->in_chunk_dir("preproc_done")) {
+        $last_completed_chunk = @chunks;
+    }
+    else {
+        for my $chunk (@chunks) {
+            my $reads_fa = $self->config->chunk_file("reads.fa", $chunk);
+            if (-f $reads_fa) {
+                $last_completed_chunk = $chunk - 1;
+            }
+        }
+    }
+
+    my $progress = 'X' x $last_completed_chunk;
+    $progress .= ' ' x (@chunks - $last_completed_chunk);
+    print "$progress     Split input files\n\n";
 }
 
 sub print_processing_status {
