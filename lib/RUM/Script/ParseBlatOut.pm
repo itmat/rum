@@ -113,7 +113,7 @@ sub main {
     $head =~ /seq.(\d+)/;
     $self->{first_seq_num} = $1;
     my @tail = `tail -n 2 $seqfile`;
-    $tail[0] =~ />seq.(\d+)/ or croak "Can't parse last read number from $seqfile (line is $tail[0])";
+    $tail[0] =~ />seq.(\d+)/;
     $self->{last_seq_num} = $1;
 
     open my $seq_fh,      "<", $seqfile;
