@@ -26,7 +26,7 @@ sub new {
 }
 
 sub load_config {
-    my ($self, %options) = @_;
+    my ($self) = @_;
 
     if (!$self->{config}) {
         # Parse the command line and construct a RUM::Config

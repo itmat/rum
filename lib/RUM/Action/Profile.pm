@@ -36,9 +36,12 @@ sub load_events {
     my ($dir, $job_name) = @_;
     my @events;
     find sub {
-        return if ! /rum(_\d\d\d)?\.log/;
-        my $events = parse_log_file($File::Find::name, $job_name);
-        push @events, @{ $events };
+
+        if (/rum(_\d+)?\.log/ ||
+            /rum_postproc\.log/) {
+            my $events = parse_log_file($File::Find::name, $job_name);
+            push @events, @{ $events };
+        }
     }, "$dir/log";
     return \@events;
 }
@@ -102,14 +105,34 @@ sub speedup {
     return;
 }
 
+sub median {
+    my @items = @_;
+    @items = sort { $a <=> $b } @items;
+
+    if (! @items ) {
+        return undef;
+    }
+    elsif (@items % 2) {
+        return $items[@items / 2];
+    }
+    else {
+        my $low = $items[@items / 2];
+        my $high = $items[@items / 2 + 1];
+        return ($high - $low) / 2;
+    }
+}
+
 
 sub job_total {
     my ($times, $job_name, $f1, $f2) = @_;
+
+    croak "I need f2" unless $f2;
 
     my @steps = keys %{ $times };
     my @times = map { $_->{$job_name} } values %{ $times };
 
     my @reduced = map { $f1->(@{ $_ }) } @times;
+    @reduced = grep { defined } @reduced;
     return $f2->(@reduced);
 }
 
@@ -118,22 +141,28 @@ my @metrics = (
       fn   => sub { scalar(@_) },
       do_color => 0,
       desc => 'The number of chunks that the given step was broken into',
+      do_percent => 0,
       
   },
-    { name => "Max",
-      fn   => \&max,
-      do_color => 1,
-      desc => 'The time (in seconds) of the chunk that took the longest time for this step.',
- },
     { name => "Total", 
       fn   => \&sum,
       do_color => 1,
+      do_percent => 1,
       desc => 'The total time (in seconds) that all chunks spent processing this step.',
  },
-    { name => "Avg", 
-      fn   => sub { sum(@_) / @_ },
+    { name => "Per Chunk Avg.", 
+      fn   => sub { @_ ? sum(@_) / @_  : undef },
       fmt => '%.2f',
       do_color => 1,
+      do_percent => 1,
+      desc => 'The average amount of time spent on this step per chunk.'
+  },
+
+    { name => "Median Chunk", 
+      fn   => \&median,
+      fmt => '%.2f',
+      do_color => 1,
+      do_percent => 1,
       desc => 'The average amount of time spent on this step per chunk.'
   },
 );
@@ -187,7 +216,7 @@ sub run {
     print $css $CSS;
 
     my @job_name_headers = map {
-        my $colspan = @metrics;
+        my $colspan = 2 * grep { $_->{do_percent} } @metrics;
         "<th colspan=\"$colspan\">$job_names[$_]</th>";
     } (0 .. $#job_names);
 
@@ -212,6 +241,7 @@ EOF
 
     my %slowest_step_time;
     my %fastest_step_time;
+
     for my $name (@job_names) {
         for my $metric (@metrics) {
             $totals{$name}{$metric->{name}} = job_total($times, $name, $metric->{fn}, \&sum);
@@ -220,12 +250,15 @@ EOF
         }
     }
 
-    
+#    die "Totals are " . Dumper(\%totals);
     for my $i (0 .. $#job_names) {
 
         for my $metric (@metrics) {
             if (1 || ($i == 0)) {
                 print $html "<th>$metric->{name}</th>";
+                if ($metric->{do_percent}) {
+                    print $html "<th></th>";
+                }
             }
             else {
                 print $html "<th>$metric->{name}</th><th>(speedup)</th>";
@@ -261,11 +294,15 @@ EOF
                     my $spread = $slowest - $fastest;
                     my $ptotal = $spread ? 255 - int (255 * ($val - $fastest) / $spread) : 0;
                     my $color = $metric->{do_color} ? sprintf '#ff%02x%02x', $ptotal, $ptotal : 'white';
+                    my $total = $totals{$job}{$metric->{name}};
+                    my $percent = $total ? $val / $total : 0;
                     printf $html "<td bgcolor='%s'>$fmt</td>", $color, $val;
-
+                    if ($metric->{do_percent}) {
+                        printf $html "<td>%.2f%%</td>", $percent * 100;
+                    }
                 }
                 else {
-                    printf $html "<td></td>";
+                    printf $html "<td></td><td></td>";
                 }
                 if (0 && exists $baseline{$metric->{name}}) {
                     my $speedup = speedup($baseline{$metric->{name}}, $val);
@@ -299,6 +336,9 @@ EOF
         for my $metric (@metrics) {
             my $fmt = $metric->{fmt} || '%s';
             printf $html "<td>$fmt</td>", $totals{$job_names[$i]}{$metric->{name}};
+                    if ($metric->{do_percent}) {
+                        printf $html "<td>%.2f%%</td>", 0.0;
+                    }
         }
     }
 

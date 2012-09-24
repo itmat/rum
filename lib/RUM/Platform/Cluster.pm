@@ -1,23 +1,5 @@
 package RUM::Platform::Cluster;
 
-=head1 NAME
-
-RUM::Platform::Cluster - Abstract base class for a platform that runs on a cluster
-
-=head1 SYNOPSIS
-
-=head1 DESCRIPTION
-
-This attempts to provide an abstraction over platforms that are based
-on a cluster. There is currently only one implementation:
-L<RUM::Platform::SGE>.
-
-=head1 OBJECT METHODS
-
-=over 4
-
-=cut
-
 use strict;
 use warnings;
 
@@ -34,25 +16,11 @@ our $log = RUM::Logging->get_logger;
 our $CLUSTER_CHECK_INTERVAL = 30;
 our $NUM_CHECKS_BEFORE_RESTART = 5;
 
-=item preprocess
-
-Submits the preprocessing task.
-
-=cut
-
 sub preprocess {
     my ($self) = @_;
     $self->say("Submitting preprocessing task");
     $self->submit_preproc;
 }
-
-=item process($chunk)
-
-Submits the processing tasks, and periodically polls them to check
-their status, attempting to restart any tasks that don't seem to be
-running. If chunk is provided, I'll just do that chunk.
-
-=cut
 
 sub process {
     my ($self, $chunk) = @_;
@@ -169,13 +137,6 @@ sub process {
     return \@results;
 }
 
-=item postprocess
-
-Submits the postprocessing task, and periodically polls it to check on
-its status, restarting it if it seems to have failed.
-
-=cut
-
 sub postprocess {
     my ($self) = @_;
 
@@ -222,17 +183,62 @@ sub postprocess {
 
 }
 
+sub submit_preproc { croak "submit_preproc not implemented" }
+sub submit_proc { croak "submit_proc not implemented" }
+sub submit_postproc { croak "submit_postproc not implemented" }
+sub update_status { croak "update_status not implemented" }
+sub proc_ok { croak "proc_ok not implemented" }
+sub postproc_ok { croak "postproc_ok not implemented" }
+sub log_last_status_warning { }
+
+1;
+
+__END__
+
+=head1 NAME
+
+RUM::Platform::Cluster - Abstract base class for a platform that runs on a cluster
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+This attempts to provide an abstraction over platforms that are based
+on a cluster. There is currently only one implementation:
+L<RUM::Platform::SGE>.
+
+=head1 OBJECT METHODS
+
+=over 4
+
+=item preprocess
+
+Submits the preprocessing task.
+
+=item process($chunk)
+
+Submits the processing tasks, and periodically polls them to check
+their status, attempting to restart any tasks that don't seem to be
+running. If chunk is provided, I'll just do that chunk.
+
+=item postprocess
+
+Submits the postprocessing task, and periodically polls it to check on
+its status, restarting it if it seems to have failed.
+
 =back
 
 =head2 Abstract Methods
 
 =over 4
 
-=item submit_preproc
+=item $platform->submit_preproc
 
-=item submit_proc
+=item $platform->submit_proc
 
-=item submit_postproc
+=item $platform->submit_proc($chunk)
+
+=item $platform->submit_postproc
 
 Subclasses must implement these methods to submit the respective
 tasks.
@@ -244,32 +250,24 @@ $chunk argument. If called with no arguments, the implementation
 should submit all chunks. If called with a $chunk argument, the
 implementation should submit only the job for that chunk.
 
-=item update_status
+=item $platform->update_status
 
 A subclass should implement this so that it refreshes whatever data
 structure it uses to store the status of its jobs.
 
-=item proc_ok
+=item $platform->proc_ok($chunk)
 
-=item postproc_ok
+=item $platform->postproc_ok
 
 A subclass should implement these methods so that they return a true
 value if the processing or postprocessing phase (respectively) is in
 an 'ok' state, where it is either running or waiting to be run.
 
-=item log_last_status_warning
+=item $platform->log_last_status_warning
 
 A subclass should implement this to log a message describing the last
 status update it got from the underlying system.
 
-=cut
+=item $platform->stop
 
-sub submit_preproc { croak "submit_preproc not implemented" }
-sub submit_proc { croak "submit_proc not implemented" }
-sub submit_postproc { croak "submit_postproc not implemented" }
-sub update_status { croak "update_status not implemented" }
-sub proc_ok { croak "proc_ok not implemented" }
-sub postproc_ok { croak "postproc_ok not implemented" }
-sub log_last_status_warning { }
-
-1;
+A subclass should implement this to attempt to stop a running job.
