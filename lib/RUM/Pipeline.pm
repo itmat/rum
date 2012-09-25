@@ -591,6 +591,10 @@ Stop a running job.
 
 Print the status of all the steps in the workflow.
 
+=item $pipeline->print_preprocessing_status
+
+Print the status of the preprocessing steps of the workflow.
+
 =item $pipeline->print_processing_status
 
 Print the status of the processing steps of the workflow.
