@@ -114,17 +114,18 @@ sub _check_single_reads_file {
     my ($paired, $needs_splitting, $preformatted) = (0, 0, 0);
 
     if($nums[0] == 1 && $nums[1] == 1 && $types[0] eq 'a' && $types[1] eq 'b') {
-        $log->info("Input appears to be paired-end");
+        $self->say("Input is in a single file, but appears to be paired-end");
         ($paired, $needs_splitting, $preformatted) = (1, 1, 1);
     }
     if($nums[0] == 1 && $nums[1] == 2 && $types[0] eq 'a' && $types[1] eq 'a') {
-        $log->info("Input does not appear to be paired-end");
+        $self->say("Input is in a single file and does not appear to be paired-end");
         ($paired, $needs_splitting, $preformatted) = (0, 1, 1);
     }
 
     $config->set("paired_end", $paired);
     $config->set("input_needs_splitting", $needs_splitting);
     $config->set("input_is_preformatted", $preformatted);
+    $config->save();
 }
 
 
