@@ -69,7 +69,7 @@ our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
 FindBin->again;
 
-our $FILENAME = ".rum/job_settings";
+our $FILENAME = "rum_job_config";
 
 
 my $DEFAULT = RUM::Config->new;
@@ -85,7 +85,7 @@ our %DEFAULTS = (
     count_mismatches      => undef,
 
     # These are derived from the user-provided properties, and saved
-    # to the .rum/job_settings file
+    # to the rum_job_config file
 
     ram_ok                => undef,
     input_needs_splitting => undef,
@@ -876,14 +876,25 @@ sub destroy {
 
 sub is_new {
     my ($self) = @_;
-    my $filename = $self->in_output_dir($FILENAME);
-    return ! -e $filename;
+
+    my $new_filename = $self->in_output_dir($FILENAME);
+    my $old_filename = $self->in_output_dir(".rum/job_settings");
+
+    return ! ((-e $new_filename) ||
+              (-e $old_filename));
 }
 
 sub load_default {
     my ($self) = @_;
 
     my $filename = $self->in_output_dir($FILENAME);
+
+    if (! -f $filename) {
+        warn "It looks like this job was run before with an older version of RUM (2.0.2_06 or earlier), because the job configuration is stored in $filename. I will try to use this older configuration.";
+
+        $filename = $self->in_output_dir(".rum/job_settings");
+    }
+
     $self->{_default} = do $filename;
 
     my $class = blessed($self);
@@ -940,7 +951,7 @@ sub settings_filename {
 
 sub lock_file {
     my ($self) = @_;
-    $self->in_output_dir(".rum/lock");
+    $self->in_output_dir("rum_lock");
 }
 
 sub min_ram_gb {
@@ -1188,7 +1199,7 @@ Return the name of the file I should be saved to.
 
 =item $config->save
 
-Save the configuration to a file in the $output_dir/.rum.
+Save the configuration to a file ($output_dir/rum_job_config)
 
 =item RUM::Config->load($dir, $force)
 

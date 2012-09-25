@@ -13,7 +13,7 @@ use base 'RUM::Platform::Cluster';
 our $log = RUM::Logging->get_logger();
 
 our $MAX_UPDATE_STATUS_TRIES = 5;
-our $JOB_ID_FILE = ".rum/sge_job_ids";
+our $JOB_ID_FILE = "rum_sge_job_ids";
 our @JOB_TYPES = qw(parent preproc proc postproc);
 our %JOB_TYPE_NAMES = (
     parent => "parent",
@@ -524,7 +524,7 @@ Grid Engine, and checking on their status.
 =item new
 
 Construct a RUM::Cluster::SGE with the given configuration. Loads the
-state of the jobs from .rum/sge_job_ids in the output directory, if
+state of the jobs from rum_sge_job_ids in the output directory, if
 such a file exists.
 
 =back
