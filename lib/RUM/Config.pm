@@ -59,6 +59,7 @@ use File::Spec;
 use File::Path qw(mkpath);
 use Data::Dumper;
 use Scalar::Util qw(blessed);
+use Cwd qw(realpath);
 
 use Getopt::Long;
 use RUM::Logging;
@@ -900,13 +901,14 @@ sub load_default {
     my $class = blessed($self);
 
     ref($self->{_default}) =~ /$class/ or croak "$filename did not return a $class";
-    if ($self->{_default}->output_dir eq
-        $self->output_dir) {
+    my $output_dir = realpath($self->output_dir);
+    my $loaded_dir = realpath($self->{_default}->output_dir);
+    if ($loaded_dir eq $output_dir) {
         delete $self->{output_dir};
     }
     else {
-        croak("I loaded a config file from ".$self->output_dir.", and it " .
-              "had its output directory set to ".$self->{_default}->output_dir.". It " .
+        croak("I loaded a config file from ".$output_dir.", and it " .
+              "had its output directory set to ".$loaded_dir.". It " .
               "should be the same as the directory I loaded it from. This means " .
               "the config file is corrupt. You should probably start the job again " .
               "from scratch.");
