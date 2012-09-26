@@ -11,6 +11,7 @@ use RUM::Config;
 use RUM::Logging;
 use RUM::StateMachine;
 use RUM::Workflow qw(pre post);
+use Data::Dumper;
 
 our $log = RUM::Logging->get_logger;
 
@@ -216,7 +217,7 @@ sub chunk_workflow {
          "--non-unique-out", post($cleaned_nu),
          "--genome", $index->genome_fasta,
          "--sam-header-out", post($c->sam_header($chunk || 1)),
-         $c->faok_opt,
+         '--faok',
          $c->count_mismatches_opt,
          $c->match_length_cutoff_opt]);
 

@@ -65,7 +65,7 @@ sub preprocess {
         return;
     }
 
-    $self->_check_input();
+#    $self->_check_input();
     $self->_reformat_reads();
     $self->_determine_read_length();
     $self->config->save;
@@ -91,7 +91,7 @@ sub _check_input {
 
     $self->logsay(sprintf("Processing as %s-end data",
                           $self->config->paired_end ?
-                              "paired" : "single"));
+                          "paired" : "single"));
 }
 
 sub _check_single_reads_file {

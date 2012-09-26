@@ -799,11 +799,11 @@ sub read_length_opt         { $_[0]->opt("--read-length", $_[0]->read_length) }
 sub min_overlap_opt         { $_[0]->opt("--min-overlap", $_[0]->min_length) }
 sub max_insertions_opt      { $_[0]->opt("--max-insertions", $_[0]->max_insertions) }
 sub match_length_cutoff_opt { $_[0]->opt("--match-length-cutoff", $_[0]->min_length) }
-sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff", $_[0]->nu_limit) }
-sub faok_opt                { $_[0]->{faok} ? "--faok" : ":" }
-sub count_mismatches_opt    { $_[0]->{count_mismatches} ? "--count-mismatches" : "" } 
-sub paired_end_opt          { $_[0]->{paired_end} ? "--paired" : "--single" }
-sub dna_opt                 { $_[0]->{dna} ? "--dna" : "" }
+sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff",        $_[0]->nu_limit) }
+sub faok_opt                { $_[0]->faok             ? "--faok" : ":" }
+sub count_mismatches_opt    { $_[0]->count_mismatches ? "--count-mismatches" : "" } 
+sub paired_end_opt          { $_[0]->paired_end       ? "--paired" : "--single" }
+sub dna_opt                 { $_[0]->dna              ? "--dna" : "" }
 sub name_mapping_opt   { "" } 
 sub ram_opt {
     return $_[0]->ram ? ("--ram", $_[0]->ram || $_[0]->min_ram_gb) : ();
@@ -925,6 +925,7 @@ sub load_default {
 
 sub get {
     my ($self, $name) = @_;
+
     ref($self) or croak "Can't call get on $self";
     is_property($name) or croak "No such property $name";
     

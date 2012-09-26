@@ -13,6 +13,7 @@ use Text::Wrap qw(wrap fill);
 use RUM::SystemCheck;
 use RUM::Logging;
 use RUM::Common qw(format_large_int min_match_length);
+use RUM::Platform::Local;
 
 my $log = RUM::Logging->get_logger;
 
@@ -116,6 +117,8 @@ sub initialize {
             "If you are running a mammalian genome then you should have at ",
             "least 6 Gigs per node");
     }
+
+    RUM::Platform::Local->new($c)->_check_input;
 
     # Save the new job configuration to the output directory, and
     # return it.
