@@ -17,8 +17,8 @@ use RUM::Platform::Local;
 
 my $log = RUM::Logging->get_logger;
 
-our $VERSION = 'v2.0.2_06';
-our $RELEASE_DATE = "September 16, 2012";
+our $VERSION = 'v2.0.2_07';
+our $RELEASE_DATE = "September 26, 2012";
 
 our $LOGO = <<'EOF';
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
