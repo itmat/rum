@@ -78,7 +78,7 @@ sub preprocess {
 
 sub _check_input {
     my ($self) = @_;
-    $log->debug("Checking input files");
+    $log->info("Checking input files for quality");
     $self->_check_reads_for_quality;
 
     if (!$self->config->reverse_reads) {
@@ -114,11 +114,11 @@ sub _check_single_reads_file {
     my ($paired, $needs_splitting, $preformatted) = (0, 0, 0);
 
     if($nums[0] == 1 && $nums[1] == 1 && $types[0] eq 'a' && $types[1] eq 'b') {
-        $self->say("Input is in a single file, but appears to be paired-end");
+        $self->logsay("Input is in a single file, but appears to be paired-end");
         ($paired, $needs_splitting, $preformatted) = (1, 1, 1);
     }
     if($nums[0] == 1 && $nums[1] == 2 && $types[0] eq 'a' && $types[1] eq 'a') {
-        $self->say("Input is in a single file and does not appear to be paired-end");
+        $self->logsay("Input is in a single file and does not appear to be paired-end");
         ($paired, $needs_splitting, $preformatted) = (0, 1, 1);
     }
 
@@ -135,12 +135,17 @@ sub _check_reads_for_quality {
     for my $filename ($self->config->reads) {
         $log->debug("Checking $filename");
         open my $fh, "<", $filename;
+        my $counter = 0;
 
-        while (local $_ = <$fh>) {
-            next unless /:Y:/;
-            $_ = <$fh>;
+        while (defined (my $line = <$fh>)) {
+            last if $counter++ > 50000;
+            next unless $line =~ /:Y:/;
+            $line = <$fh>;
             chomp;
-            /^--$/ and die "you appear to have entries in your fastq file \"$filename\" for reads that didn't pass quality. These are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\". You first need to remove all such lines from the file, including the ones with the two dashes...";
+            
+            if ($line =~ /^--$/) {
+                die "you appear to have entries in your fastq file \"$filename\" for reads that didn't pass quality. These are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\". You first need to remove all such lines from the file, including the ones with the two dashes...";
+            }
         }
     }
 }
@@ -178,7 +183,7 @@ sub _check_read_file_pair {
     my $quals_temp = $config->in_output_dir("quals_temp.fa");
     my $error_log = $self->_preproc_error_log_filename;
 
-    $log->debug("Checking that reads and quality strings are the same length");
+    $log->info("Checking that reads and quality strings are the same length");
     shell("perl $parse2fasta     @reads | head -$len > $reads_temp 2>> $error_log");
     shell("perl $fastq2qualities @reads | head -$len > $quals_temp 2>> $error_log");
 
@@ -210,6 +215,8 @@ sub _check_variable_length {
 
     my ($self, $filename) = @_;
     open my $in, "<", $filename;
+
+    $log->info("Determining if reads are variable-length");
 
     my $length_flag = 0;
     my $length_hold;
