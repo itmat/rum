@@ -44,6 +44,7 @@ sub run {
     my ($class) = @_;
     my $self = $class->new;
     my $pipeline = $self->pipeline;
+    $self->show_logo;
     $pipeline->initialize;
     $pipeline->start;
 }
