@@ -86,10 +86,9 @@ sub initialize {
     RUM::SystemCheck::check_deps;
     RUM::SystemCheck::check_gamma(config => $c);
     
-    # Make my output dir, .rum dir, and chunks dir.
+    # Make my output dir and chunks dir.
     my @dirs = (
         $c->output_dir,
-        $c->output_dir . "/.rum",
         $c->chunk_dir
     );
     for my $dir (@dirs) {
@@ -201,7 +200,7 @@ sub start {
     my $local = $platform_name =~ /Local/;
 
     # We can't start a job if it hasn't been initialized
-    if ( ! -d $c->in_output_dir('.rum')) {
+    if ( $c->is_new) {
         die($c->output_dir . " does not appear to be a RUM output directory." .
             " Please use 'rum_runner align' to start a new job");
     }
