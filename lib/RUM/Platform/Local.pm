@@ -141,8 +141,7 @@ sub _check_reads_for_quality {
             last if $counter++ > 50000;
             next unless $line =~ /:Y:/;
             $line = <$fh>;
-            chomp;
-            
+            chomp $line;
             if ($line =~ /^--$/) {
                 die "you appear to have entries in your fastq file \"$filename\" for reads that didn't pass quality. These are lines that have \":Y:\" in them, probably followed by lines that just have two dashes \"--\". You first need to remove all such lines from the file, including the ones with the two dashes...";
             }
