@@ -44,6 +44,7 @@ sub run {
     my ($class) = @_;
     my $self = $class->new;
     my $pipeline = $self->pipeline;
+    $self->show_logo;
     $pipeline->initialize;
     $pipeline->start;
 }
@@ -77,7 +78,7 @@ and are described in detail below.
 
 When you run C<rum_runner align -o I<dir> OPTIONS> on output directory
 I<dir>, rum_runner will save the options you ran it with in
-I<dir/.rum/job_settings>. Then if you need to rerun the job for any
+I<dir/rum_job_config>. Then if you need to rerun the job for any
 reason, you can run C<rum_runner resume -o I<dir>> later and it will
 automatically pick up the options you specified originally.
 

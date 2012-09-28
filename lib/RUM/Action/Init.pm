@@ -26,7 +26,9 @@ sub accepted_options {
 
 sub run {
     my ($class) = @_;
-    $class->new->pipeline->initialize;
+    my $self = $class->new;
+    $self->show_logo;
+    $self->pipeline->initialize;
 }
 
 sub pod_header {

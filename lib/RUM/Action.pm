@@ -41,17 +41,17 @@ sub load_config {
                     chomp $error;
                     $msg .= "* $error\n";
                 }
+                my $pod = $self->pod;
+                open my $pod_fh, '<', \$pod;
+                pod2usage(
+                    -input => $pod_fh,
+                    -output => \*STDERR,
+                    -verbose => 0,
+                    -exitval => 'NOEXIT');
             }
             else {
                 $msg = $errors;
             }
-            my $pod = $self->pod;
-            open my $pod_fh, '<', \$pod;
-            pod2usage(
-                -input => $pod_fh,
-                -output => \*STDERR,
-                -verbose => 0,
-                -exitval => 'NOEXIT');
             die "\n$msg\n";
         }
     }

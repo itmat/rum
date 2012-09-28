@@ -59,6 +59,7 @@ use File::Spec;
 use File::Path qw(mkpath);
 use Data::Dumper;
 use Scalar::Util qw(blessed);
+use Cwd qw(realpath);
 
 use Getopt::Long;
 use RUM::Logging;
@@ -69,7 +70,7 @@ our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
 FindBin->again;
 
-our $FILENAME = ".rum/job_settings";
+our $FILENAME = "rum_job_config";
 
 
 my $DEFAULT = RUM::Config->new;
@@ -85,7 +86,7 @@ our %DEFAULTS = (
     count_mismatches      => undef,
 
     # These are derived from the user-provided properties, and saved
-    # to the .rum/job_settings file
+    # to the rum_job_config file
 
     ram_ok                => undef,
     input_needs_splitting => undef,
@@ -799,11 +800,11 @@ sub read_length_opt         { $_[0]->opt("--read-length", $_[0]->read_length) }
 sub min_overlap_opt         { $_[0]->opt("--min-overlap", $_[0]->min_length) }
 sub max_insertions_opt      { $_[0]->opt("--max-insertions", $_[0]->max_insertions) }
 sub match_length_cutoff_opt { $_[0]->opt("--match-length-cutoff", $_[0]->min_length) }
-sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff", $_[0]->nu_limit) }
-sub faok_opt                { $_[0]->{faok} ? "--faok" : ":" }
-sub count_mismatches_opt    { $_[0]->{count_mismatches} ? "--count-mismatches" : "" } 
-sub paired_end_opt          { $_[0]->{paired_end} ? "--paired" : "--single" }
-sub dna_opt                 { $_[0]->{dna} ? "--dna" : "" }
+sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff",        $_[0]->nu_limit) }
+sub faok_opt                { $_[0]->faok             ? "--faok" : ":" }
+sub count_mismatches_opt    { $_[0]->count_mismatches ? "--count-mismatches" : "" } 
+sub paired_end_opt          { $_[0]->paired_end       ? "--paired" : "--single" }
+sub dna_opt                 { $_[0]->dna              ? "--dna" : "" }
 sub name_mapping_opt   { "" } 
 sub ram_opt {
     return $_[0]->ram ? ("--ram", $_[0]->ram || $_[0]->min_ram_gb) : ();
@@ -876,26 +877,38 @@ sub destroy {
 
 sub is_new {
     my ($self) = @_;
-    my $filename = $self->in_output_dir($FILENAME);
-    return ! -e $filename;
+
+    my $new_filename = $self->in_output_dir($FILENAME);
+    my $old_filename = $self->in_output_dir(".rum/job_settings");
+
+    return ! ((-e $new_filename) ||
+              (-e $old_filename));
 }
 
 sub load_default {
     my ($self) = @_;
 
     my $filename = $self->in_output_dir($FILENAME);
+
+    if (! -f $filename) {
+        warn "It looks like this job was run before with an older version of RUM (2.0.2_06 or earlier), because the job configuration is stored in $filename. I will try to use this older configuration.";
+
+        $filename = $self->in_output_dir(".rum/job_settings");
+    }
+
     $self->{_default} = do $filename;
 
     my $class = blessed($self);
 
     ref($self->{_default}) =~ /$class/ or croak "$filename did not return a $class";
-    if ($self->{_default}->output_dir eq
-        $self->output_dir) {
+    my $output_dir = realpath($self->output_dir);
+    my $loaded_dir = realpath($self->{_default}->output_dir);
+    if ($loaded_dir eq $output_dir) {
         delete $self->{output_dir};
     }
     else {
-        croak("I loaded a config file from ".$self->output_dir.", and it " .
-              "had its output directory set to ".$self->{_default}->output_dir.". It " .
+        croak("I loaded a config file from ".$output_dir.", and it " .
+              "had its output directory set to ".$loaded_dir.". It " .
               "should be the same as the directory I loaded it from. This means " .
               "the config file is corrupt. You should probably start the job again " .
               "from scratch.");
@@ -914,6 +927,7 @@ sub load_default {
 
 sub get {
     my ($self, $name) = @_;
+
     ref($self) or croak "Can't call get on $self";
     is_property($name) or croak "No such property $name";
     
@@ -940,7 +954,7 @@ sub settings_filename {
 
 sub lock_file {
     my ($self) = @_;
-    $self->in_output_dir(".rum/lock");
+    $self->in_output_dir("rum_lock");
 }
 
 sub min_ram_gb {
@@ -1188,7 +1202,7 @@ Return the name of the file I should be saved to.
 
 =item $config->save
 
-Save the configuration to a file in the $output_dir/.rum.
+Save the configuration to a file ($output_dir/rum_job_config)
 
 =item RUM::Config->load($dir, $force)
 

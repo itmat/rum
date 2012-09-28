@@ -13,11 +13,12 @@ use Text::Wrap qw(wrap fill);
 use RUM::SystemCheck;
 use RUM::Logging;
 use RUM::Common qw(format_large_int min_match_length);
+use RUM::Platform::Local;
 
 my $log = RUM::Logging->get_logger;
 
-our $VERSION = 'v2.0.2_06';
-our $RELEASE_DATE = "September 16, 2012";
+our $VERSION = 'v2.0.2_07';
+our $RELEASE_DATE = "September 26, 2012";
 
 our $LOGO = <<'EOF';
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -86,10 +87,9 @@ sub initialize {
     RUM::SystemCheck::check_deps;
     RUM::SystemCheck::check_gamma(config => $c);
     
-    # Make my output dir, .rum dir, and chunks dir.
+    # Make my output dir and chunks dir.
     my @dirs = (
         $c->output_dir,
-        $c->output_dir . "/.rum",
         $c->chunk_dir
     );
     for my $dir (@dirs) {
@@ -117,6 +117,8 @@ sub initialize {
             "If you are running a mammalian genome then you should have at ",
             "least 6 Gigs per node");
     }
+
+    RUM::Platform::Local->new($c)->_check_input;
 
     # Save the new job configuration to the output directory, and
     # return it.
@@ -201,7 +203,7 @@ sub start {
     my $local = $platform_name =~ /Local/;
 
     # We can't start a job if it hasn't been initialized
-    if ( ! -d $c->in_output_dir('.rum')) {
+    if ( $c->is_new) {
         die($c->output_dir . " does not appear to be a RUM output directory." .
             " Please use 'rum_runner align' to start a new job");
     }

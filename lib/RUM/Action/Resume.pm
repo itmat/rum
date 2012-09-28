@@ -30,6 +30,7 @@ sub accepted_options {
 sub run {
     my ($class) = @_;
     my $self = $class->new;
+    $self->show_logo;
     my $pipeline = $self->pipeline;
     if (my $lock_file = $self->config->lock_file) {
         $log->info("Got lock_file argument (" .
