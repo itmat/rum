@@ -296,18 +296,26 @@ sub _check_read_lengths {
 
     my $fixed = ! $c->variable_length_reads;
 
-    if ( $fixed && $rl < 55 && !$c->nu_limit) {
+    if ( $fixed && $rl < 55 && $c->no_bowtie_nu_limit) {
         $self->say;
-        $self->logsay(
-            "WARNING: You have pretty short reads ($rl bases). If ",
-            "you have a large genome such as mouse or human then the files of ",
-            "ambiguous mappers could grow very large. In this case it's",
-            "recommended to run with the --limit-bowtie-nu option. You can ",
-            "watch the files that start with 'X' and 'Y' and see if they are ",
-            "growing larger than 10 gigabytes per million reads at which ",
-            "point you might want to use --limit-nu");
-    }
+        my $msg = <<"EOF";
 
+WARNING: You have pretty short reads ($rl bases), and you're running
+RUM with --no-bowtie-nu-limit. If you have short reads and a large
+genome such as mouse or human, running Bowtie without limiting the
+number of ambiguous mappers can result in extremely large output
+files. By default I will cap the number of ambiguous mappers from
+Bowtie at 100 to prevent very large output files, but using
+--no-bowtie-nu-limit disables that limit. You may want to watch the
+files that start with 'X' and 'Y' to see if they are growing larger
+than 10 gigabytes per million reads, at which point you might want to
+consider removing the --no-bowtie-nu-limit option.
+
+EOF
+     
+        $self->logsay($msg);
+   
+    }
 }
 
 sub _final_check {
