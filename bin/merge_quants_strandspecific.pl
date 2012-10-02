@@ -77,7 +77,7 @@ for(my $t=0; $t<$numtranscripts; $t++) {
 	    next;
 	}
 	if($flag == 1) {
-	    print OUTFILE "      Type\tLocation           \tmin_sense\tmax_sense\tmin_anti\tmax_anti\tUcount.min.s\tUcount.max.s\tNUcount.min.a\tNUcount.max.a\tLength\n";
+	    print OUTFILE "      Type\tLocation           \tmin_sense\tmax_sense\tmin_anti\tmax_anti\tUcount.s\tNUcount.s\tUcount.a\tNUcount.a\tLength\n";
 	    $flag++;
 	    next;
 	}
