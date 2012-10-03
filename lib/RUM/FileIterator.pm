@@ -272,7 +272,7 @@ sub sort_by_location {
     my @recs;
     my %data;
     my $count = 0;
-    $log->debug("Reading now");
+    $log->debug("Reading file");
     while (my $rec = pop_it($it)) {
         my %rec = %$rec;
         my $chr = delete $rec{chr};
@@ -291,7 +291,7 @@ sub sort_by_location {
             last;
         }
     }
-
+    $log->debug("Done reading");
 #    my $size = total_size(\%data);
 #    printf "Size of recs: %d or %.2f per rec\n", $size, $size / $count;
 

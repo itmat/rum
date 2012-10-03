@@ -10,11 +10,13 @@ use RUM::Sort qw(by_chromosome);
 use RUM::Usage;
 use RUM::FileIterator qw(file_iterator sort_by_location merge_iterators);
 use File::Copy qw(mv cp);
+use Data::Dumper;
 
 our $log = RUM::Logging->get_logger();
 $|=1;
 
 sub main {
+
     GetOptions(
         "output|o=s" => \(my $outfile),
         "separate" => \(my $separate = 0),
@@ -84,10 +86,14 @@ sub main {
             $max_count_at_once = 1500000;
         }
     }
+
+    $max_count_at_once = int(0.6666 * $max_count_at_once);
+
     my %options = (max_count_at_once => $max_count_at_once,
                    separate => $separate,
                    outfile => $outfile,
                    infile  => $infile);
+    $log->info("Will process in chunks no larger than $max_count_at_once");
     my $chr_counts = doEverything(%options);
 
     my $size_input = -s $infile;
@@ -119,6 +125,7 @@ sub main {
 sub get_chromosome_counts {
     use strict;
     my ($infile) = @_;
+    $log->info("Getting chromosome counts");
     open my $in, "<", $infile;
 
     my %counts;
@@ -141,6 +148,7 @@ sub get_chromosome_counts {
 	$num_prev = $num;
 	$type_prev = $type;
     }
+    $log->info("Chromosome counts are " . Dumper(\%counts));
     return %counts;
 }
 
@@ -169,6 +177,7 @@ sub doEverything  {
     my $chunk = 0;
     $cnt=0;
     while ($cnt < @CHR) {
+        $log->info("Working on chromosome $CHR[$cnt]");
 	my $running_count = $chr_counts{$CHR[$cnt]};
 	$CHUNK{$CHR[$cnt]} = $chunk;
 	if ($chr_counts{$CHR[$cnt]} > $max_count_at_once) { 
@@ -194,6 +203,7 @@ sub doEverything  {
     #    print STDERR "$chr\t$CHUNK{$chr}\n";
     #}
     # DEBUG
+    $log->info("Reading in file");
     my %F1;
     my $numchunks = $chunk;
     for (my $chunk=0;$chunk<$numchunks;$chunk++) {
@@ -211,7 +221,7 @@ sub doEverything  {
     for ($chunk=0;$chunk<$numchunks;$chunk++) {
 	close $F1{$chunk};
     }
-    
+    $log->info("Done reading it");
     $cnt=0;
     $chunk=0;
     
@@ -219,8 +229,10 @@ sub doEverything  {
 
 	my %chrs_current;
 	my $running_count = $chr_counts{$CHR[$cnt]};
+        $log->info("Running count is $running_count");
 	$chrs_current{$CHR[$cnt]} = 1;
 	if ($chr_counts{$CHR[$cnt]} > $max_count_at_once) { # it's a monster chromosome, going to do it in
+            $log->info("Monster chromosome");
 	    # pieces for fear of running out of RAM.
 	    my $INFILE = $infile . "_sorting_tempfile." . $CHUNK{$CHR[$cnt]};
 	    open my $sorting_chunk_in, "<", $INFILE;
@@ -236,9 +248,11 @@ sub doEverything  {
                 my $suffix = $chunk_num == 1 ? 0 : 1;
                 my $tempfilename = $CHR[$cnt] . "_temp.$suffix";
                 open my $this_chunk_out, ">", $tempfilename;
+                $log->info("Sorting a chunk");
                 my $num_read = 
                     sort_by_location($it, $this_chunk_out, 
                                      max => $max_count_at_once);
+                $log->info("Done sorting it");
                 close($this_chunk_out);
                 unless ($num_read) {
                     $FLAG = 1;
@@ -257,10 +271,12 @@ sub doEverything  {
                     open my $temp_merged_out, ">", $tempfiles[2]
                         or croak "Can't open $tempfiles[2] for writing: $!";
 
+                    $log->info("Merging sorted chunks");
                     my @iters = (
                         file_iterator($in1, separate => $separate),
                         file_iterator($in2, separate => $separate));
 		    merge_iterators($temp_merged_out, @iters);
+                    $log->info("Done merging");
                     close($temp_merged_out);
                     
                     mv $tempfiles[2], $tempfiles[0]
@@ -283,16 +299,18 @@ sub doEverything  {
 	}
 	
 	# START NORMAL CASE (SO NOT DEALING WITH A MONSTER CHROMOSOME)
-	
-	$cnt++;
+	$log->info("In the normal case");
+        $cnt++;
 	while ($cnt < @CHR && 
                    $running_count+$chr_counts{$CHR[$cnt]} < $max_count_at_once) {
+            $log->info("Incrementing running count; it is $running_count");
 	    $running_count = $running_count + $chr_counts{$CHR[$cnt]};
 	    $chrs_current{$CHR[$cnt]} = 1;
 	    $cnt++;
 	}
 	my $INFILE = $infile . "_sorting_tempfile." . $chunk;
 	open(my $sorting_file_in, "<", $INFILE);
+        
         sort_by_location($sorting_file_in, *FINALOUT, 
                          separate => $separate);
 	$chunk++;
