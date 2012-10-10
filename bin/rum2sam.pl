@@ -16,7 +16,12 @@ rum2sam.pl - Convert RUM files into a sam file
 
 =head1 SYNOPSIS
 
-rum2sam.pl [OPTIONS] --reads-in <reads_file> --sam-out <sam_outfile>
+  rum2sam.pl [OPTIONS] \
+    --reads-in  <reads_file>  \
+    --genome-in <genome_file> \
+    --unique-in <rum_unique>  \
+    --nu-in     <rum_nu>      \
+    --sam-out   <sam_outfile>
 
 =head1 OPTIONS
 
