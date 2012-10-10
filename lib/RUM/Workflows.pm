@@ -338,10 +338,12 @@ sub chunk_workflow {
             }
         }
     }
-    push @goal, $c->quant(chunk => $chunk);
-    $m->add_command(
-        name => "Generate quants",
-        commands => 
+
+    if ($c->should_quantify) {
+        push @goal, $c->quant(chunk => $chunk);
+        $m->add_command(
+            name => "Generate quants",
+            commands => 
             [["perl", $c->script("rum2quantifications.pl"),
               "--genes-in", $index->gene_annotations,
               "--unique-in", pre($rum_unique_sorted),
@@ -349,6 +351,7 @@ sub chunk_workflow {
               "-o", post($c->quant(chunk => $chunk)),
               "-countsonly"]]
         );            
+    }
     if ($c->alt_quants) {
         push @goal, $c->alt_quant(chunk => $chunk);
 
