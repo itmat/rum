@@ -67,7 +67,7 @@ sub bad {
         print "Please see $0 help for more information.\n";
     }
     else {
-        #print "Please see $0 --help for more information.\n";
+        $msg .= "\n\nPlease see $0 --help for more information.\n";
     }
 
     die "$msg\n";
@@ -77,7 +77,7 @@ sub check {
     my ($self) = @_;
     my @errors = @{ $self->{errors} };
     if (@errors) {
-        my $msg = "Usage errors:\n\n" . join("\n", @errors);
+        my $msg = "Usage errors:\n\n" . join("\n", map { "* $_" } @errors);
         my $log = RUM::Logging->get_logger();
         my ($package) = caller(0);        
         my $action;

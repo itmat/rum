@@ -77,10 +77,19 @@ sub main {
         "verbose|v" => sub { $log->more_logging(1) },
         "quiet|q"   => sub { $log->less_logging(1) });
 
-    $sam_outfile or RUM::Usage->bad(
-        "Please specify an output file with --sam-out");
-    $reads_file or RUM::Usage->bad(
-        "Please specify a reads file with --reads-in");
+    my $usage = RUM::Usage->new;
+
+    if (!$sam_outfile) {
+        $usage->bad("Please specify an output file with --sam-out");
+    }
+    if (!$reads_file) {
+        $usage->bad("Please specify a reads file with --reads-in");
+    }
+    if (! ($rum_unique_file || $rum_nu_file) ) {
+        $usage->bad("Please specify at least one of --unique-in or --non-unique in");
+    }
+    
+    $usage->check;
 
     my $allow = sub { 1 };
     if ($suppress1) {
