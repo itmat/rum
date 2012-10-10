@@ -32,6 +32,9 @@ our $RNEXT_UNAVAILABLE = '*';
 our $RNEXT_SAME        = '=';
 our $DEFAULT_MAPQ = 0;
 our $MAPQ_UNAVAILABLE = 255;
+our $MAPQ_UNIQUE     = 25;
+our $MAPQ_NON_UNIQUE = 0;
+our $MAPQ_NONE       = 0;
 our $DEFAULT_TLEN = 0;
 our $DEFAULT_QUAL = '*';
 
@@ -940,6 +943,11 @@ sub main {
 	    
                 # FORWARD:
 	    
+                my $mapq_val = (
+                    $num_mappers == 1 ? $MAPQ_UNIQUE : 
+                    $num_mappers == 0 ? $MAPQ_NONE   :
+                    $MAPQ_NON_UNIQUE);
+
                 my @forward_record = map "", (1 .. $N_REQUIRED_FIELDS);
                 my $forward_record;
 
@@ -954,7 +962,7 @@ sub main {
                 if (!($rum_u_forward =~ /\S/) && $rum_u_reverse =~ /\S/) { # forward unmapped, reverse mapped
                     $forward_record[$RNAME] = $rur[1];
                     $forward_record[$POS]   = $start_reverse;
-                    $forward_record[$MAPQ]  = $DEFAULT_MAPQ;
+                    $forward_record[$MAPQ]  = $mapq_val;
                     $forward_record[$CIGAR]  = $DEFAULT_CIGAR;
                     $forward_record[$RNEXT] = $RNEXT_SAME;
                     $forward_record[$PNEXT] = $start_reverse;
@@ -965,7 +973,7 @@ sub main {
                 else { # forward mapped
                     $forward_record[$RNAME] = $ruf[1];
                     $forward_record[$POS]   = $start_forward;
-                    $forward_record[$MAPQ]  = 255;
+                    $forward_record[$MAPQ]  = $mapq_val;
                     $forward_record[$CIGAR] = $CIGAR_f;
 
                     if ($paired eq "true") {
@@ -1018,7 +1026,7 @@ sub main {
                     if (!($rum_u_reverse =~ /\S/) && $rum_u_forward =~ /\S/) { # reverse unmapped, forward mapped
                         $reverse_record[$RNAME] = $ruf[1];
                         $reverse_record[$POS]   = $start_reverse;
-                        $reverse_record[$MAPQ]  = $DEFAULT_MAPQ;
+                        $reverse_record[$MAPQ]  = $mapq_val;
                         $reverse_record[$CIGAR] = $DEFAULT_CIGAR;
                         $reverse_record[$RNEXT] = $RNEXT_SAME;
                         $reverse_record[$PNEXT] = $start_forward;
@@ -1029,7 +1037,7 @@ sub main {
                     else {
                         $reverse_record[$RNAME] = $rur[1];
                         $reverse_record[$POS]   = $start_reverse;
-                        $reverse_record[$MAPQ]  = $MAPQ_UNAVAILABLE;
+                        $reverse_record[$MAPQ]  = $mapq_val;
                         $reverse_record[$CIGAR] = $CIGAR_r;
                         $reverse_record[$RNEXT] = $RNEXT_SAME;
 
@@ -1063,7 +1071,8 @@ sub main {
 
         if ($unique_mapper_found eq "false" && $non_unique_mappers_found eq "false") {
             # neither forward nor reverse map
-            
+            my $mapq_val = $MAPQ_NONE;
+
             if ($paired eq "false") {
                 my @rec = map "", (1 .. $N_REQUIRED_FIELDS);
 
@@ -1076,7 +1085,7 @@ sub main {
                 $rec[$FLAG] = $FLAG_SEGMENT_UNMAPPED;
                 $rec[$RNAME] = $DEFAULT_RNAME;
                 $rec[$POS]   = $DEFAULT_POS;
-                $rec[$MAPQ]  = $DEFAULT_MAPQ;
+                $rec[$MAPQ]  = $mapq_val;
                 $rec[$CIGAR] = $DEFAULT_CIGAR;
                 $rec[$RNEXT] = $RNEXT_UNAVAILABLE;
                 $rec[$PNEXT] = $DEFAULT_PNEXT;
@@ -1102,7 +1111,7 @@ sub main {
                 
                 $fwd[$RNAME] = $DEFAULT_RNAME;
                 $fwd[$POS]   = $DEFAULT_POS;
-                $fwd[$MAPQ]  = $DEFAULT_MAPQ;
+                $fwd[$MAPQ]  = $mapq_val;
                 $fwd[$CIGAR] = $DEFAULT_CIGAR;
                 $fwd[$RNEXT] = $RNEXT_SAME;
                 $fwd[$PNEXT] = $DEFAULT_PNEXT;
@@ -1125,7 +1134,7 @@ sub main {
 
                 $rev[$RNAME] = $DEFAULT_RNAME;
                 $rev[$POS]   = $DEFAULT_POS;
-                $rev[$MAPQ]  = $DEFAULT_MAPQ;
+                $rev[$MAPQ]  = $mapq_val;
                 $rev[$CIGAR] = $DEFAULT_CIGAR;
                 $rev[$RNEXT] = $RNEXT_SAME;
                 $rev[$PNEXT] = $DEFAULT_PNEXT;
