@@ -253,7 +253,7 @@ add_test {
     
     rum_fails_ok(["align", "--index", "missing-config-file",
                   "--output", tmp_out(), "--name", "asdf", "in.fq"],
-                 qr/rum_index.conf/i, "Config file that doesn't exist");
+                 qr/There is no RUM index/i, "Config file that doesn't exist");
     
     my $name = 'a' x 300;
     rum_fails_ok(
