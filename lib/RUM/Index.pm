@@ -55,8 +55,7 @@ sub load {
 
     my $filename = File::Spec->catfile($dir, $CONFIG_FILENAME);
 
-    my $map = do $filename or croak "Couldn't load index config from $filename";
-
+    my $map = do $filename or die "There is no RUM index at $dir. Has the index moved from its original location?\n";
     return $class->new(%{ $map }, directory => $dir);
 }
 
