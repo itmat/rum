@@ -355,8 +355,6 @@ sub _reformat_reads {
     $self->say("Done splitting");
 }
 
-
-
 sub _got_quals {
     my ($filename) = @_;
     open my $in, "<", $filename;

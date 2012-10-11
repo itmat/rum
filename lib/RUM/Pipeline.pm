@@ -163,6 +163,41 @@ sub reset_if_needed {
     }
 }
 
+sub _check_split_files {
+    my ($self) = @_;
+    $self->say("Checking that files were split properly");
+    my $config = $self->config;
+    my $chunks = $config->chunk;
+    my @errors;
+    for my $chunk (1 .. $config->chunks) {
+        my $filename = $config->chunk_file('reads.fa', $chunk);
+        if (-e $filename) {
+            my @lines = `tail -n 2 $filename`;
+            my $last_header = $lines[0];
+            if ($last_header !~ /^>seq.\d+/) {
+                push @errors, "Second to last line in $filename doesn't look ".
+                "like a FASTA header line";
+            }
+        }
+        else {
+            push @errors, "$filename does not exist";
+        }
+    }
+    if (@errors) {
+        my $msg = 'It looks like there was an eror splitting the input ' .
+        'files. This could mean that there was a problem with the ' .
+        'filesystem during the preprocessing phase. You should probably '.
+        'start the job over from the beginning. You can do this '  .
+        'by first clearing out the job with "rum_runner kill" and then ' .
+        'running it again with "rum_runner align". The specific errors '  .
+        'are: ';
+        $msg .= "\n\n";
+        $msg .= join('', map { "* $_\n" } @errors);
+        die $msg;
+    }
+}
+
+
 
 # Reset the given workflow back to the specified step.
 sub _reset_workflow {
@@ -233,6 +268,7 @@ sub start {
         $platform->preprocess;
     }
 
+    $self->_check_split_files();
     $self->_show_match_length;
     $self->_check_read_lengths;
 
