@@ -10,7 +10,7 @@ use File::Path qw(mkpath);
 
 use RUM::WorkflowRunner;
 use RUM::Logging;
-use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int);
+use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int open_r);
 use RUM::Workflow;
 use RUM::JobReport;
 
@@ -201,16 +201,20 @@ sub _check_read_file_pair {
     my @reads = $self->config->reads;
 
     if (@reads == 2) {
-        $self->_check_read_files_same_size();
+#        $self->_check_read_files_same_size();
     }
 
     my $config = $self->config;
 
     # Check here that the quality scores are the same length as the reads.
 
-    my $len = `head -50000 $reads[0] | wc -l`;
-    chomp($len);
-    $len =~ s/[^\d]//gs;
+    my $in = open_r($reads[0]);
+    my $len = 0;
+    while (defined(my $line = <$in>) &&
+           $len++ < 50000) {
+        
+    }
+    close $in;
 
     my $parse2fasta = $config->script("parse2fasta.pl");
     my $fastq2qualities = $config->script("fastq2qualities.pl");
@@ -333,14 +337,8 @@ sub _reformat_reads {
 
     # Going to figure out here if these are standard fastq files
 
-    my @fh;
-    for my $filename (@reads) {
-        open my $fh, "<", $filename;
-        push @fh, $fh;
-    }
-
-    my $is_fasta = is_fasta($fh[0]);
-    my $is_fastq = is_fastq($fh[0]);
+    my $is_fasta = is_fasta($reads[0]);
+    my $is_fastq = is_fastq($reads[0]);
     my $preformatted = @reads == 1 && $config->input_is_preformatted;
     my $reads_in = join(",,,", @reads);
 

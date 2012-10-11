@@ -3,6 +3,14 @@ use strict;
 
 use File::Spec;
 
+use strict;
+use warnings;
+use autodie;
+
+use FindBin qw($Bin);
+use lib ("$Bin/../lib", "$Bin/../lib/perl5");
+use RUM::Common qw(open_r);
+
 if(@ARGV<4) {
     die "
 Usage: parsefastq.pl <infile> <num chunks> <reads out> <quals out> [option]
@@ -10,7 +18,6 @@ Usage: parsefastq.pl <infile> <num chunks> <reads out> <quals out> [option]
 option:
           -name_mapping F  : If set will write a file <F> mapping modified names to
                              original names
-
 ";
 }
 
@@ -31,7 +38,6 @@ for(my $i=4; $i<@ARGV; $i++) {
 	$optionrecognized = 1;
     }
     if($optionrecognized == 0) {
-	print ERRORLOG "\nERROR: option $ARGV[$i] not recognized.\n\n";
 	die "\nERROR: option $ARGV[$i] not recognized.\n\n";
     }
 }
@@ -49,10 +55,8 @@ if($infile =~ /,,,/) {
     $infile1 = $infile;
     $paired = "false";
 }
-open(INFILE1, $infile1) or die "\nERROR: in script parsefastq.pl: cannot open '$infile1' for reading\n";
-if($paired eq "true") {
-    open(INFILE2, $infile2) or die "\nERROR: in script parsefastq.pl: cannot open '$infile2' for reading\n";
-}
+my $INFILE1 = open_r($infile1);
+my $INFILE2 = $paired eq 'true' ? open_r($infile2) : undef;
 
 my $filesize = -s $infile1;
 
@@ -107,10 +111,10 @@ if($paired eq "false") {
 	}
 	for(my $i=0; $i<$numrecords_per_chunk; $i++) {
 	    $seq_counter++;
-	    my $readname = <INFILE1>;
+	    my $readname = <$INFILE1>;
 	    $readname =~ s/^@//;
 	    $linecnt++;
-	    my $line = <INFILE1>;
+	    my $line = <$INFILE1>;
 	    $line_hold = $line;
 	    $linecnt++;
 	    chomp($line);
@@ -132,15 +136,14 @@ if($paired eq "false") {
 	    $line =~ s/\./N/g;
 	    $line = uc $line;
 	    if($line =~ /[^ACGTN.]/ || !($line =~ /\S/)) {
-		print STDERR "\nERROR: in script parsefastq.pl: There's something wrong with line $linecnt in file \"$infile1\"\nIt should be a line of sequence but it is:\n$line_hold\n\n";
-		exit();
+		die "\nERROR: in script parsefastq.pl: There's something wrong with line $linecnt in file \"$infile1\"\nIt should be a line of sequence but it is:\n$line_hold\n\n";
 	    }
 
 	    print ROUT "$line\n";
 	    print ROUTALL "$line\n";
-	    $line = <INFILE1>;
+	    $line = <$INFILE1>;
 	    $linecnt++;
-	    $line = <INFILE1>;
+	    $line = <$INFILE1>;
 	    $linecnt++;
 	    chomp($line);
 	    if($line eq '') {
@@ -185,10 +188,11 @@ if($paired eq "true") {
 	}
 	for(my $i=0; $i<$numrecords_per_chunk; $i++) {
 	    $seq_counter++;
-	    my $readname = <INFILE1>;
+	    my $readname = <$INFILE1>;
+            last if ! defined $readname;
 	    $readname =~ s/^@//;
 	    $linecnt1++;
-	    my $line = <INFILE1>;
+	    my $line = <$INFILE1>;
 	    $line_hold = $line;
 	    $linecnt1++;
 	    chomp($line);
@@ -215,9 +219,9 @@ if($paired eq "true") {
 	    }
 	    print ROUT "$line\n";
 	    print ROUTALL "$line\n";
-	    $line = <INFILE1>;
+	    $line = <$INFILE1>;
 	    $linecnt1++;
-	    $line = <INFILE1>;
+	    $line = <$INFILE1>;
 	    $linecnt1++;
 	    chomp($line);
 	    if($line eq '') {
@@ -232,10 +236,10 @@ if($paired eq "true") {
 	    print QOUT "$line\n";
 	    print QOUTALL "$line\n";
 
-	    $readname = <INFILE2>;
+	    $readname = <$INFILE2>;
 	    $readname =~ s/^@//;
 	    $linecnt2++;
-	    $line = <INFILE2>;
+	    $line = <$INFILE2>;
 	    $line_hold = $line;
 	    $linecnt2++;
 	    chomp($line);
@@ -261,9 +265,9 @@ if($paired eq "true") {
 	    }
 	    print ROUT "$line\n";
 	    print ROUTALL "$line\n";
-	    $line = <INFILE2>;
+	    $line = <$INFILE2>;
 	    $linecnt2++;
-	    $line = <INFILE2>;
+	    $line = <$INFILE2>;
 	    $linecnt2++;
 	    chomp($line);
 	    if($line eq '') {
@@ -286,9 +290,5 @@ if($paired eq "true") {
     }
 }
 
-close(INFILE1);
-if($paired eq "true") {
-    close(INFILE2);
-}
 close(ROUTALL);
 close(QOUTALL);

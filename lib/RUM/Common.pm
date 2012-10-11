@@ -1,7 +1,10 @@
 package RUM::Common;
 
 use strict;
-no warnings;
+use warnings;
+use autodie;
+
+use IO::Uncompress::Gunzip;
 
 use RUM::Logging;
 
@@ -13,7 +16,7 @@ our @EXPORT_OK = qw(getave addJunctionsToSeq roman Roman isroman arabic
                     reversecomplement format_large_int spansTotalLength
                     reversesignal read_chunk_id_mapping is_fasta is_fastq head
                     num_digits shell make_paths is_on_cluster
-                    min_match_length);
+                    min_match_length open_r);
 
 =head1 FUNCTIONS
 
@@ -308,19 +311,15 @@ $filehandle is a string rather than a GLOB, I will attempt to open it.
 =cut
 
 sub head {
-    my ($fh, $lines) = @_;
+    my ($filename, $lines) = @_;
 
-    unless (ref($fh)) {
-        open my $in, "<", $fh or confess "Can't open $fh for reading: $!";
-        return head($in, $lines);
-    }
+    my $fh = open_r($filename);
 
-    seek $fh, 0, 0;
     my @lines;
     for (1 .. $lines) {
-        defined(local $_ = <$fh>) or last;
-        chomp;
-        push @lines, $_;
+        defined(my $line = <$fh>) or last;
+        chomp $line;
+        push @lines, $line;
     }
     return @lines;
 }
@@ -334,9 +333,9 @@ false otherwise.
 
 sub is_fastq {
     shift if $_[0] eq __PACKAGE__;
-    my ($fh) = @_;
+    my ($filename) = @_;
 
-    my @lines = head($fh, 40);
+    my @lines = head($filename, 40);
 
     for my $i (0 .. $#lines / 4) {
         $lines[$i*4]   =~ /^@/               or return 0;
@@ -356,8 +355,9 @@ false otherwise.
 
 sub is_fasta {
     shift if $_[0] eq __PACKAGE__;
-    my ($fh) = @_;
-    my @lines = head($fh, 40);
+    my ($filename) = @_;
+
+    my @lines = head($filename, 40);
     for my $i (1 .. $#lines / 2) {
         $lines[$i*2]   =~ /^>/               or return 0;
         $lines[$i*2+1] =~ /^[acgtnACGTN.]+$/ or return 0;
@@ -450,6 +450,20 @@ sub min_match_length {
         $result = int(.6 * $read_length);
     }
     return $result;
+}
+
+sub open_r {
+    my ($filename) = @_;
+    if ($filename =~ /\.gz$/) {
+        return IO::Uncompress::Gunzip->new($filename);
+    }
+    eval {
+        open my $in, '<', $filename;
+        return $in;
+    };
+    if ($@) {
+        croak $@;
+    }
 }
 
 1;

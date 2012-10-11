@@ -8,6 +8,12 @@
 
 $|=1;
 use strict;
+use warnings;
+use autodie;
+
+use FindBin qw($Bin);
+use lib ("$Bin/../lib", "$Bin/../lib/perl5");
+use RUM::Common qw(open_r);
 
 my $n = @ARGV;
 if(@ARGV < 1) {
@@ -31,7 +37,7 @@ if(@ARGV < 1) {
 }
 my $optionsstart = 1;
 my $paired = "false";
-if(-e $ARGV[1]) {
+if(defined($ARGV[1]) && -e $ARGV[1]) {
     $optionsstart = 2;
     $paired = "true";
 } else {
@@ -71,14 +77,14 @@ if(($firstNArow =~ /\S/ && !($secondNArow =~ /\S/)) && ($secondNArow =~ /\S/ && 
     die "\nERROR: in script parse2fasta.pl: you must set *both* -firstrow and -secondrow, or neither\n";
 }
 
-open(INFILE1, $ARGV[0]);
+my $infile1 = open_r($ARGV[0]);
 my $cnt = 0;
 my @linearray;
 my $line;
 if($userparamsgiven == 0) {  # the following figures out how many rows per block and which row the sequence is on.
     while(1==1) { # This loop simply records in an array whether each row looks like sequence or not
-	$line = <INFILE1>;
-	if($line eq '') {
+	$line = <$infile1>;
+	if (!defined $line) {
 	    last;
 	}
 	chomp($line);
@@ -93,7 +99,6 @@ if($userparamsgiven == 0) {  # the following figures out how many rows per block
 	    last;
 	}
     }
-    close(INFILE1);
 
     my $num_lines_seq = 0;
     for(my $i=0; $i<@linearray; $i++) {
@@ -110,11 +115,12 @@ if($userparamsgiven == 0) {  # the following figures out how many rows per block
     # special case, only one line of sequence in the file:
     if($num_lines_seq == 1) {
 	print ">seq.1a\n";
-	open(INFILE, $ARGV[0]);
+        my $infile = open_r($ARGV[0]);
+
 	my $i=0;
-	$line = <INFILE>;
+	$line = <$infile>;
 	until($linearray[$i] == 1) {
-	    $line = <INFILE>;
+	    $line = <$infile>;
 	    $i++;
 	}
 	chomp($line);
@@ -125,14 +131,14 @@ if($userparamsgiven == 0) {  # the following figures out how many rows per block
 	} else {
 	    die "ERROR: in script parse2fasta.pl: There's only one line in the file '$ARGV[0]' and it doesn't\nlook like sequence.";
 	}
-	close(INFILE);
+
 	if($paired eq 'true') {
 	    print ">seq.1b\n";
-	    open(INFILE, $ARGV[1]);
+            my $infile = open_r($ARGV[1]);
 	    my $i=0;
-	    $line = <INFILE>;
+	    $line = <$infile>;
 	    until($linearray[$i] == 1) {
-		$line = <INFILE>;
+		$line = <$infile>;
 		$i++;
 	    }
 	    chomp($line);
@@ -143,7 +149,6 @@ if($userparamsgiven == 0) {  # the following figures out how many rows per block
 	    } else {
 		die "ERROR: in script parse2fasta.pl: There's only one line in the file '$ARGV[1]' and it doesn't\nlook like sequence.";
 	    }
-	    close(INFILE);
 	}
 	exit(0);
     }
@@ -197,18 +202,17 @@ my $block = $secondNArow - $firstNArow;
 # The number of the row in each block that has the sequence is $firstNArow
 
 my $linecnt = 0;
-open(INFILE1, $ARGV[0]);
-if($paired eq "true") {
-    open(INFILE2, $ARGV[1]);
-}
+$infile1 = open_r($ARGV[0]);
+my $infile2 = $paired eq "true" ? open_r($ARGV[1]) : undef;
+
 $cnt = 0;
 my $cnt2 = 1;
 my $line2;
 $linecnt = 0;
 
-while($line = <INFILE1>) {    # this loop writes out the fasta file
+while($line = <$infile1>) {    # this loop writes out the fasta file
     if($paired eq "true") {
-	$line2 = <INFILE2>;
+	$line2 = <$infile2>;
     }
     $linecnt++;
     if((($cnt - $firstNArow) % $block) == 0) {
@@ -219,8 +223,7 @@ while($line = <INFILE1>) {    # this loop writes out the fasta file
 	my $line_hold = $line;
 	$line =~ s/[^ACGTN.]$//;
 	if($line =~ /[^ACGTN.]/ || !($line =~ /\S/)) {
-	    print STDERR "\nERROR: in script parse2fasta.pl: There's something wrong with line $linecnt in file $ARGV[0]\nIt should be a line of sequence but it is:\n$line_hold\n\n";
-	    exit();
+	    die "There's something wrong with line $linecnt in file $ARGV[0]\nIt should be a line of sequence but it is:\n$line_hold\n\n";
 	}
 	$line =~ s/\./N/g;
 	print "$line\n";
@@ -241,8 +244,7 @@ while($line = <INFILE1>) {    # this loop writes out the fasta file
     }
     $cnt++;
 }
-close(INFILE1);
-close(INFILE2);
+
 if($linecnt % $block != 0) {
     print STDERR "\nWarning: the last block of lines in file $ARGV[0] is not the right size.\n\n";
 }
@@ -250,8 +252,8 @@ if($linecnt % $block != 0) {
 
 sub try_to_see_if_part_of_each_line_is_seq () {
     if($paired eq "false") {
-	open(INFILE, $ARGV[0]);
-	my $line = <INFILE>;
+	my $infile = open_r($ARGV[0]);
+	my $line = <$infile>;
 	chomp($line);
 	my @a = split(/[^ACGTN.]+/,$line);
 	my $maxlen = 0;
@@ -263,7 +265,7 @@ sub try_to_see_if_part_of_each_line_is_seq () {
 	}
 	
 	my $cnt = 0;
-	while($line = <INFILE>) {
+	while($line = <$infile>) {
 	    chomp($line);
 	    $cnt++;
 	    my @a = split(/[^ACGTN.]+/,$line);
@@ -282,9 +284,10 @@ sub try_to_see_if_part_of_each_line_is_seq () {
 	    }
 	}
     } else {
-	open(INFILE1, $ARGV[0]);
-	open(INFILE2, $ARGV[1]);
-	my $line1 = <INFILE1>;
+        my $infile1 = open_r($ARGV[0]);
+        my $infile2 = open_r($ARGV[1]);
+
+	my $line1 = <$infile1>;
 	chomp($line1);
 	my @a = split(/[^ACGTN.]+/,$line1);
 	my $maxlen = 0;
@@ -296,9 +299,9 @@ sub try_to_see_if_part_of_each_line_is_seq () {
 	}
 	
 	my $cnt = 0;
-	while($line1 = <INFILE1>) {
+	while($line1 = <$infile1>) {
 	    chomp($line1);
-	    my $line2 = <INFILE2>;
+	    my $line2 = <$infile2>;
 	    chomp($line2);
 	    $cnt++;
 	    my @a = split(/[^ACGTN.]+/,$line1);

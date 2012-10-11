@@ -1,5 +1,12 @@
 #!/usr/bin/perl
+
 use strict;
+use warnings;
+use autodie;
+
+use FindBin qw($Bin);
+use lib ("$Bin/../lib", "$Bin/../lib/perl5");
+use RUM::Common qw(open_r);
 
 use File::Spec;
 
@@ -27,11 +34,10 @@ for(my $i=3; $i<@ARGV; $i++) {
 	$map_names = "true";
 	$i++;
 	$name_mapping_file = $ARGV[$i];
-	open(NAMEMAPPINGALL, ">$name_mapping_file") or die "ERROR: in script parsefastq.pl, cannot open \"$name_mapping_file\" for writing.\n\n";
+	open(NAMEMAPPINGALL, ">$name_mapping_file");
 	$optionrecognized = 1;
     }
     if($optionrecognized == 0) {
-	print ERRORLOG "\nERROR: option $ARGV[$i] not recognized.\n\n";
 	die "\nERROR: option $ARGV[$i] not recognized.\n\n";
     }
 }
@@ -50,10 +56,8 @@ if($infile =~ /,,,/) {
     $infile1 = $infile;
     $paired = "false";
 }
-open(INFILE1, $infile1) or die "\nERROR: in script parsefasta.pl: cannot open '$infile1' for reading\n";
-if($paired eq "true") {
-    open(INFILE2, $infile2) or die "\nERROR: in script parsefasta.pl: cannot open '$infile2' for reading\n";
-}
+my $INFILE1 = open_r($infile1);
+my $INFILE2 = $paired eq "true" ? open_r($infile2) : undef;
 
 my $filesize = -s $infile1;
 
@@ -99,12 +103,12 @@ if($paired eq "false") {
 	}
 	for(my $i=0; $i<$numrecords_per_chunk; $i++) {
 	    $seq_counter++;
-	    my $line = <INFILE1>;
+	    my $line = <$INFILE1>;
 	    chomp($line);
 	    $readname = $line;
 	    $readname =~ s/^>//;
 	    my $line_hold = $line;
-	    $line = <INFILE1>;
+	    $line = <$INFILE1>;
 	    chomp($line);
 	    if($line eq '' && $line_hold ne '') {
 		print STDERR "ERROR: in script parsefasta.pl: something is wrong, the file seems to end with an incomplete record...\n";
@@ -156,12 +160,12 @@ if($paired eq "true") {
 	}
 	for(my $i=0; $i<$numrecords_per_chunk; $i++) {
 	    $seq_counter++;
-	    my $line = <INFILE1>;
-	    chomp($line);
+	    my $line = <$INFILE1>;
+            last if ! defined $line;
 	    $readname = $line;
 	    $readname =~ s/^>//;
 	    my $line_hold = $line;
-	    $line = <INFILE1>;
+	    $line = <$INFILE1>;
 	    chomp($line);
 	    if($line eq '' && $line_hold ne '') {
 		print STDERR "ERROR: in script parsefasta.pl: something is wrong, the forward file seems to end with an incomplete record...\n";
@@ -186,12 +190,12 @@ if($paired eq "true") {
 		print NAMEMAPPING "seq.$seq_counter";
 		print NAMEMAPPING "a\t$readname\n";
 	    }
-	    $line = <INFILE2>;
+	    $line = <$INFILE2>;
 	    chomp($line);
 	    $readname = $line;
 	    $readname =~ s/^>//;
 	    $line_hold = $line;
-	    $line = <INFILE2>;
+	    $line = <$INFILE2>;
 	    chomp($line);
 	    if($line eq '' && $line_hold ne '') {
 		$i = $numrecords_per_chunk;
@@ -219,8 +223,4 @@ if($paired eq "true") {
     }
 }
 
-close(INFILE1);
-if($paired eq "true") {
-    close(INFILE2);
-}
 close(ROUTALL);
