@@ -104,8 +104,9 @@ file size.
 =item B<REVERSE> (optional)
 
 For unpaired data, the single file of reads.  For paired data the
-files of forward and reverse reads. Files can be either fasta or
-fastq; the type is inferred.
+files of forward and reverse reads. The files can be either fasta or
+fastq; RUM will infer the type. RUM will accept raw text files or gzip
+compressed files.
 
 =back
 
