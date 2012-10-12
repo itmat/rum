@@ -6,21 +6,38 @@ import collections
 readid_re = re.compile('seq.(\d+)([ab]?)')
 
 class ChromosomeAlnCounter:
+    """Accumulates counts of aligments by chromosome."""
+
     def __init__(self):
+        """Create a new ChromosomeAlnCounter, with no arguments."""
         self.mapping = {}
         self.chromosomes = []
 
     def add_aln(self, chromosome):
+        """Increment the count for the given chromosome."""
         if chromosome not in self.mapping:
             self.mapping[chromosome] = 0
             self.chromosomes.append(chromosome)
         self.mapping[chromosome] += 1
 
     def results(self):
+
+        """Return the accumulated counts as a list of tuples.
+
+        Each tuple is of the format (chromosome, count), and gives the
+        count of alignments for a chromosome. There is one tuple for
+        each chromosome, and they are returned in the order that the
+        chromosomes were first seen.
+        """
+
         return [ (c, self.mapping[c]) for c in self.chromosomes ]
 
 
 class AlignmentPart:
+
+    """Once part of an alignment. May represent a forward, reverse, or
+    joined read."""
+
     def __init__(self, starts, ends, sequence):
         self.starts   = starts
         self.ends     = ends
@@ -33,6 +50,24 @@ class AlignmentPart:
         return 'AlignmentPart' + repr(self.__dict__)
 
 class Alignment:
+
+    """A RUM alignment.
+
+    An Alignment contains enough information to identify a read and
+    describe one mapping of the read to the genome. It contains the
+    read number, the chromosome and strand it mapped to, and then one
+    or two 'parts' (forward, reverse, and joined) which contain the
+    coordinates and the actual sequence. The valid combinations of
+    parts are:
+
+      * forward: Alignment for the forward read only
+      * reverse: Alignment for the reverse read only
+      * joined: An overlapping alignment for the forward and reverse
+                reads, which has been joined together.
+      * forward and reverse: Non-overlapping alignment for both the
+                forward and reverse read.
+
+                """
 
     def __init__(self, line=None, read_num=None, chromosome=None, strand=None, 
                  forward=None, reverse=None, joined=None):
@@ -74,11 +109,6 @@ class Alignment:
             self.reverse    = reverse
             self.joined     = joined
 
-    def is_mate(self, other):
-        return (self.order == other.order and 
-                ((self.is_forward and other.is_reverse) or
-                 (self.is_reverse and other.is_forward)))
-
     def __str__(self):
         return str(self.__dict__)
 
@@ -86,6 +116,11 @@ class Alignment:
         return repr(self.__dict__)
 
 def read_coverage(cov_file):
+    """Determine the total number of bases covered.
+
+    Reads in the given coverage file and computes the total number of
+    bases covered, returning that value as an int.
+    """
     header = cov_file.next()
     footprint = 0
     for line in cov_file:
@@ -296,5 +331,5 @@ RUM_NU reads per chromosome
     for (c, x) in nu_chr_counts:
         print '{:10s} {:10d}'.format(c, x)
 
-
-main()
+if __name__ == '__main__':
+    main()
