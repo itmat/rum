@@ -70,6 +70,15 @@ class Alignment:
     def __repr__(self):
         return repr(self.__dict__)
 
+def read_coverage(cov_file):
+    header = cov_file.next()
+    footprint = 0
+    for line in cov_file:
+        (chromosome, start, end, cov) = line.split("\t")
+        start = int(start)
+        end   = int(end)
+        footprint += end - start
+    return footprint
 
 def aln_iter(lines):
     alns = (Alignment(line=line) for line in lines)
@@ -106,21 +115,20 @@ def unique_stats(rum_unique, n):
     joined   = zeros(n + 1, dtype=bool)
     unjoined = zeros(n + 1, dtype=bool)
 
-    with open(rum_unique) as f:
-        for aln in aln_iter(f):
-            i = aln.read_num
-
-            if aln.joined is not None:
-                joined[i] = True
-            else:
-                fwd = aln.forward is not None
-                rev = aln.reverse is not None
-                if fwd and rev:
-                    unjoined[i] = True
-                elif fwd:
-                    fwd_only[i] = True
-                elif rev:
-                    rev_only[i] = True
+    for aln in aln_iter(rum_unique):
+        i = aln.read_num
+        
+        if aln.joined is not None:
+            joined[i] = True
+        else:
+            fwd = aln.forward is not None
+            rev = aln.reverse is not None
+            if fwd and rev:
+                unjoined[i] = True
+            elif fwd:
+                fwd_only[i] = True
+            elif rev:
+                rev_only[i] = True
 
     stats = {
         'fwd_only' : sum(fwd_only),
@@ -145,19 +153,18 @@ def nu_stats(rum_nu, n):
     rev  = zeros(n + 1, dtype=bool)
     both = zeros(n + 1, dtype=bool)
 
-    with open(rum_nu) as f:
-        for aln in aln_iter(f):
-            i = aln.read_num
+    for aln in aln_iter(rum_nu):
+        i = aln.read_num
 
-            if aln.forward is not None:
-                fwd[i] = True
-            if aln.reverse is not None:
-                rev[i] = True
+        if aln.forward is not None:
+            fwd[i] = True
+        if aln.reverse is not None:
+            rev[i] = True
 
-            if (aln.joined is not None or
-                (aln.forward is not None and
-                 aln.reverse is not None)):
-                both[i] = True
+        if (aln.joined is not None or
+            (aln.forward is not None and
+             aln.reverse is not None)):
+            both[i] = True
 
     stats = {
         'fwd' : sum(fwd & ~(rev | both)),
@@ -178,12 +185,27 @@ def add_percents(stats, n):
 
     return result
 
+def get_cov_stats(cov_unique, cov_nu, genome_size):
+    cov_u = read_coverage(cov_unique)
+    cov_nu = read_coverage(cov_nu)
+    
+    stats = add_percents({
+        'cov_u' : cov_u,
+        'cov_nu' : cov_nu
+        }, genome_size)
+
+    stats['genome_size'] = genome_size
+    return stats
+
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--rum-unique', required=True)
-    parser.add_argument('--rum-nu', required=True)
-    parser.add_argument('--max-seq', required=True, type=int)
+    parser.add_argument('--rum-unique',  required=True, type=file)
+    parser.add_argument('--rum-nu',      required=True, type=file)
+    parser.add_argument('--cov-unique',  required=True, type=file)
+    parser.add_argument('--cov-nu',      required=True, type=file)
+    parser.add_argument('--max-seq',     required=True, type=int)
+    parser.add_argument('--genome-size', required=True, type=int)
 
     args = parser.parse_args()
 
@@ -231,6 +253,16 @@ Total number reverse: %(rev)d (%(pct_rev).2f%%)
 Total number consistent: %(consistent)d (%(pct_consistent).2f%%)
 At least one of forward or reverse mapped: %(any)d (%(pct_any).2f%%)
 """ % combined
+
+
+    cov = get_cov_stats(args.cov_unique, args.cov_nu, args.genome_size)
+
+    print """
+Genome size: {genome_size:,d}
+Number of bases covered by unique mappers: {cov_u:,d} ({pct_cov_u:.2f}%)
+Number of bases covered by non-unique mappers: {cov_nu:,d} ({pct_cov_nu:.2f}%)
+""".format(**cov)
+
 
 
 
