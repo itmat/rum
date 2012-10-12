@@ -52,6 +52,7 @@ bin/rum_compute_stats.pl
 bin/RUM_finalcleanup.pl
 bin/rum_indexes
 bin/rum_junctions_to_bed
+bin/rum_mapping_stats.py
 bin/rum_merge_junctions
 bin/rum_merge_sam_headers.pl
 bin/rum_runner
@@ -225,7 +226,9 @@ t/data/shared/bad-reads.fq
 t/data/shared/forward-short.fa
 t/data/shared/forward-short.fq
 t/data/shared/forward.fa
+t/data/shared/forward.fa.gz
 t/data/shared/forward.fq
+t/data/shared/forward.fq.gz
 t/data/shared/forward.var.fa
 t/data/shared/forward.var.fq
 t/data/shared/forward64.fa
@@ -235,7 +238,9 @@ t/data/shared/good-reads-same-size-as-bad.fq
 t/data/shared/quals.fa
 t/data/shared/reads.fa
 t/data/shared/reverse.fa
+t/data/shared/reverse.fa.gz
 t/data/shared/reverse.fq
+t/data/shared/reverse.fq.gz
 t/data/shared/reverse.var.fa
 t/data/shared/reverse.var.fq
 t/data/shared/reverse64.fa
