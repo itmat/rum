@@ -452,18 +452,21 @@ sub min_match_length {
     return $result;
 }
 
+=item open_r($filename)
+
+Return a read-only filehandle for the given filename. If the filename
+ends with .gz, the filehandle will unzip it and return a stream of
+uncompressed data.
+
+=cut
+
 sub open_r {
     my ($filename) = @_;
     if ($filename =~ /\.gz$/) {
         return IO::Uncompress::Gunzip->new($filename);
     }
-    eval {
-        open my $in, '<', $filename;
-        return $in;
-    };
-    if ($@) {
-        croak $@;
-    }
+    open my $in, '<', $filename;
+    return $in;
 }
 
 1;
