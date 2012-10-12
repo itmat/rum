@@ -5,6 +5,21 @@ import collections
 
 readid_re = re.compile('seq.(\d+)([ab]?)')
 
+class ChromosomeAlnCounter:
+    def __init__(self):
+        self.mapping = {}
+        self.chromosomes = []
+
+    def add_aln(self, chromosome):
+        if chromosome not in self.mapping:
+            self.mapping[chromosome] = 0
+            self.chromosomes.append(chromosome)
+        self.mapping[chromosome] += 1
+
+    def results(self):
+        return [ (c, self.mapping[c]) for c in self.chromosomes ]
+
+
 class AlignmentPart:
     def __init__(self, starts, ends, sequence):
         self.starts   = starts
@@ -114,8 +129,10 @@ def unique_stats(rum_unique, n):
     rev_only = zeros(n + 1, dtype=bool)
     joined   = zeros(n + 1, dtype=bool)
     unjoined = zeros(n + 1, dtype=bool)
+    chr_counts = ChromosomeAlnCounter()
 
     for aln in aln_iter(rum_unique):
+        chr_counts.add_aln(aln.chromosome)
         i = aln.read_num
         
         if aln.joined is not None:
@@ -135,17 +152,15 @@ def unique_stats(rum_unique, n):
         'rev_only' : sum(rev_only),
         'joined'   : sum(joined),
         'unjoined' : sum(unjoined),
-
         }
 
 
     stats['consistent'] = stats['joined'] + stats['unjoined']
     stats['fwd'] = stats['fwd_only'] + stats['consistent']
     stats['rev'] = stats['rev_only'] + stats['consistent']
-
     stats['any'] = stats['fwd_only'] + stats['rev_only'] + stats['consistent']
 
-    return add_percents(stats, n)
+    return (add_percents(stats, n), chr_counts.results())
 
 def nu_stats(rum_nu, n):
 
@@ -153,7 +168,10 @@ def nu_stats(rum_nu, n):
     rev  = zeros(n + 1, dtype=bool)
     both = zeros(n + 1, dtype=bool)
 
+    chr_counts = ChromosomeAlnCounter()
+
     for aln in aln_iter(rum_nu):
+        chr_counts.add_aln(aln.chromosome)
         i = aln.read_num
 
         if aln.forward is not None:
@@ -174,7 +192,7 @@ def nu_stats(rum_nu, n):
 
     stats['any'] = sum(fwd | rev | both)
 
-    return add_percents(stats, n)
+    return (add_percents(stats, n), chr_counts.results())
 
 def add_percents(stats, n):
     result = {}
@@ -209,10 +227,11 @@ def main():
 
     args = parser.parse_args()
 
-    ustats = unique_stats(args.rum_unique, args.max_seq)
+    (ustats, u_chr_counts) = unique_stats(args.rum_unique, args.max_seq)
 
     print """
 UNIQUE MAPPERS
+--------------
 
 Both forward and reverse mapped consistently: %(consistent)d (%(pct_consistent).2f%%)
   - do overlap: %(joined)d (%(pct_joined).2f)
@@ -224,7 +243,7 @@ Number of reverse total: %(rev)d (%(pct_rev).2f)
 At least one of forward or reverse mapped: %(any)d (%(any).2f)
 """ % ustats
 
-    nustats = nu_stats(args.rum_nu, args.max_seq)
+    (nustats, nu_chr_counts) = nu_stats(args.rum_nu, args.max_seq)
 
     print """
 NON-UNIQUE MAPPERS
@@ -263,7 +282,19 @@ Number of bases covered by unique mappers: {cov_u:,d} ({pct_cov_u:.2f}%)
 Number of bases covered by non-unique mappers: {cov_nu:,d} ({pct_cov_nu:.2f}%)
 """.format(**cov)
 
+    print u_chr_counts
 
+    print """
+RUM_Unique reads per chromosome
+-------------------------------"""
+    for (c, x) in u_chr_counts:
+        print '{:10s} {:10d}'.format(c, x)
+
+    print """
+RUM_NU reads per chromosome
+---------------------------"""
+    for (c, x) in nu_chr_counts:
+        print '{:10s} {:10d}'.format(c, x)
 
 
 main()
