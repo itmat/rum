@@ -1,4 +1,4 @@
-from numpy import *
+import numpy as np
 import argparse
 import re
 import collections
@@ -82,8 +82,8 @@ class Alignment:
             ends   = []
             for loc in loc_str.split(', '):
                 (fwd, rev) = loc.split('-')
-                starts.append(fwd)
-                ends.append(rev)
+                starts.append(int(fwd))
+                ends.append(int(rev))
 
             self.read_num   = int(m.group(1))
             self.chromosome = chromosome
@@ -108,6 +108,29 @@ class Alignment:
             self.forward    = forward
             self.reverse    = reverse
             self.joined     = joined
+
+    def parts(self):
+        parts = []
+        if self.forward is not None: parts.append(forward)
+        if self.reverse is not None: parts.append(reverse)
+        if self.joined  is not None: parts.append(joined)
+        return parts
+    
+    def __maybe_write_part(self, out, part, direction):
+        if part is not None:
+            locs = ""
+            for i in range(len(part.starts)):
+                if i > 0:
+                    locs += ', '
+                locs += '{:d}-{:d}'.format(part.starts[i], part.ends[i])
+            if part is not None:
+                out.write("seq.{:d}{:s}\t{:s}\t{:s}\t{:s}\t{:s}".format(
+                        self.read_num, direction, self.chromosome, locs, self.strand, part.sequence))
+
+    def write(self, out):
+        self.__maybe_write_part(out, self.forward, 'a')
+        self.__maybe_write_part(out, self.reverse, 'b')
+        self.__maybe_write_part(out, self.joined, '')
 
     def __str__(self):
         return str(self.__dict__)
@@ -160,13 +183,19 @@ def aln_iter(lines):
 
 def unique_stats(rum_unique, n):
 
-    fwd_only = zeros(n + 1, dtype=bool)
-    rev_only = zeros(n + 1, dtype=bool)
-    joined   = zeros(n + 1, dtype=bool)
-    unjoined = zeros(n + 1, dtype=bool)
+    print "Reading RUM_Unique"
+
+    fwd_only = np.zeros(n + 1, dtype=bool)
+    rev_only = np.zeros(n + 1, dtype=bool)
+    joined   = np.zeros(n + 1, dtype=bool)
+    unjoined = np.zeros(n + 1, dtype=bool)
     chr_counts = ChromosomeAlnCounter()
 
+    counter = 0
     for aln in aln_iter(rum_unique):
+        counter += 1
+        if (counter % 100000) == 0:
+            print "  {:d}".format(counter)
         chr_counts.add_aln(aln.chromosome)
         i = aln.read_num
         
@@ -199,13 +228,16 @@ def unique_stats(rum_unique, n):
 
 def nu_stats(rum_nu, n):
 
-    fwd  = zeros(n + 1, dtype=bool)
-    rev  = zeros(n + 1, dtype=bool)
-    both = zeros(n + 1, dtype=bool)
+    fwd  = np.zeros(n + 1, dtype=bool)
+    rev  = np.zeros(n + 1, dtype=bool)
+    both = np.zeros(n + 1, dtype=bool)
 
     chr_counts = ChromosomeAlnCounter()
-
+    counter = 0
     for aln in aln_iter(rum_nu):
+        counter += 1
+        if (counter % 100000) == 0:
+            print "  {:d}".format(counter)
         chr_counts.add_aln(aln.chromosome)
         i = aln.read_num
 
@@ -316,8 +348,6 @@ Genome size: {genome_size:,d}
 Number of bases covered by unique mappers: {cov_u:,d} ({pct_cov_u:.2f}%)
 Number of bases covered by non-unique mappers: {cov_nu:,d} ({pct_cov_nu:.2f}%)
 """.format(**cov)
-
-    print u_chr_counts
 
     print """
 RUM_Unique reads per chromosome
