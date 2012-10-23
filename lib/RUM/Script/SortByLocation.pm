@@ -1,7 +1,8 @@
 package RUM::Script::SortByLocation;
 
 use strict;
-no warnings;
+use warnings;
+use autodie;
 
 use RUM::UsageErrors;
 use RUM::Logging;
@@ -59,8 +60,8 @@ sub main {
 
     $errors->check;
 
-    open my $in, "<", $infile or die "Can't open $infile for reading: $!";
-    open my $out, ">", $outfile or die "Can't open $outfile for writing: $!";
+    open my $in,  "<", $infile;
+    open my $out, ">", $outfile;
 
     for (my $i=0; $i<$skip; $i++) {
         my $line = <$in>;
@@ -71,19 +72,19 @@ sub main {
 
     while (defined(my $line = <$in>)) {
         chomp($line);
-        my @a = split(/\t/,$line);
+        my @a = split /\t/, $line;
         my ($chr, $start, $end);
-        if ($location_col) {
+        if (defined($location_col)) {
             my $loc = $a[$location_col];
-            $loc =~ /^(.*):(\d+)-(\d+)/;
-            $chr = $1;
+            $loc   =~ /^(.*):(\d+)-(\d+)/;
+            $chr   = $1;
             $start = $2;
-            $end = $3;
+            $end   = $3;
         }
         else {
-            $chr = $a[$chromosome_col];
+            $chr   = $a[$chromosome_col];
             $start = $a[$start_col];
-            $end = $a[$end_col];
+            $end   = $a[$end_col];
         }
         $hash{$chr}{$line}[0] = $start;
         $hash{$chr}{$line}[1] = $end;
