@@ -16,37 +16,52 @@ sort_by_location.pl - Sort a file by location
 
 =head1 SYNOPSIS
 
-sort_by_location.pl [OPTIONS] -o <out_file> --location <loc_col> INPUT
+  sort_by_location.pl [OPTIONS] -o <out_file> --location <loc_col> INPUT>
+  sort_by_location.pl [OPTIONS] -o <out_file> --chromosome <chr_col> --start <start_col> --end <end_col> <INPUT>
 
-sort_by_location.pl [OPTIONS] -o <out_file> --chromosome <chr_col> --start <start_col> --end <end_col> INPUT
+=head1 ARGUMENTS
 
-=head1 OPTIONS
+<INPUT> is a tab-delimited file with either one column giving
+locations in the format chr:start-end, or with chr, start location,
+and end location given in three different columns.
 
-=over
+You must always specify an output file with B<-o> or B<--output>.
 
-=item B<-o>, B<--output> I<out_file>
+=back
 
-The output file.
+If your input file has a single column in the format chr:start-end,
+you must specify:
 
-=item B<--location> I<n>
+=over 4
 
-The column number that has the location (start counting at one). This
-column must have the form chr:start-end.
+=item B<--location> I<loc_col>
 
-=item B<--chromosome> I<n>
+The column that specifies the location if using chr:start-end format,
+counting from 1.
 
-The column that has the chromosome (start counting at one).
+=back
 
-=item B<--start> I<n>
+Otherwise if your input file has separate chromosome, start, and end columns, you must provide these three arguments:
 
-The column that has the start location (start counting at one).
+=item B<--chromosome> I<chr_col>
 
-=item B<--end> I<n>
+=item B<--start> I<start_col>
 
-The column that has the end location (start counting at one).
+=item B<--end> I<end_col>
+
+The columns that specify the chromosome, start location, and end
+location, all counting from 1.
+
+=back
+
+=head2 Optional arguments
+
+=over 4
 
 =item B<--skip> I<n>
 
-Skip the first n lines (will preserve those lines at the top of the output).
+Skip the first n lines (will preserve those lines at the top of the
+output).
 
-=cut
+=back
+

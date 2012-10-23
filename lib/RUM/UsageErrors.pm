@@ -24,6 +24,11 @@ sub add {
 sub errors {
     return @{ shift->{errors} };
 }
+
+sub check {
+    my ($self) = @_;
+    die $self if $self->errors;
+}
 1;
 
 __END__

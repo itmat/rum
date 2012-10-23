@@ -1009,7 +1009,27 @@ sub run_with_logging {
     my $log = RUM::Logging->get_logger("RUM.ScriptRunner");
 
     require $path;
-    $script->main();
+    eval {
+	$script->main();
+    };
+    if ($@) {
+      if (ref($@) && ref($@) =~ /RUM::UsageErrors/) {
+	my $errors = $@;
+	pod2usage({
+		   -verbose => 1,
+		   -exitval => "NOEXIT"
+		  });
+	my $msg = "Usage errors:\n\n";
+	for my $error ($errors->errors) {
+	  chomp $error;
+	  $msg .= "  * $error\n";
+	}
+	die $msg;
+      }
+      else {
+	die $@;
+      }
+    }
 }
 
 =item import_scripts_with_logging

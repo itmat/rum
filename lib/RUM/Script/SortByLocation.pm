@@ -3,12 +3,10 @@ package RUM::Script::SortByLocation;
 use strict;
 no warnings;
 
-use RUM::Usage;
+use RUM::UsageErrors;
 use RUM::Logging;
 use Getopt::Long;
 use RUM::Sort qw(cmpChrs);
-
-
 
 our $log = RUM::Logging->get_logger();
 
@@ -25,32 +23,41 @@ sub main {
         "verbose|v" => sub { $log->more_logging(1) },
         "quiet|q"   => sub { $log->less_logging(1) });
 
-    my ($infile) = shift(@ARGV) or RUM::Usage->bad(
+
+    my $errors = RUM::UsageErrors->new;
+
+    my ($infile) = shift(@ARGV) or $errors->add(
         "Please provide an input file");
 
     if ($location_col) {
-        $location_col > 0 or RUM::Usage->bad(
+        $location_col > 0 or $errors->add(
             "Location column must be a positive integer");
         $location_col--;
     }
 
     elsif ($chromosome_col && $start_col && $end_col) {
-        $chromosome_col > 0 or RUM::Usage->bad(
+        $chromosome_col > 0 or $errors->add(
             "Chromosome column must be a positive integer");
-        $start_col > 0 or RUM::Usage->bad(
+        $start_col > 0 or $errors->add(
             "Start column must be a positive integer");
-        $end_col > 0 or RUM::Usage->bad(
+        $end_col > 0 or $errors->add(
             "End column must be a positive integer");
         $chromosome_col--;
         $start_col--;
         $end_col--;
     }
     else {
-        RUM::Usage->bad("Please specify either --location or --chromsome, ".
+        $errors->add("Specify either --location or --chromosome, ".
                             "--start, and --end");
     }
 
-    $skip >= 0 or RUM::Usage->bad("--skip must be an integer");
+    if (!$outfile) {
+      $errors->add("Specify an output file with -o or --output");
+    }
+
+    $skip >= 0 or $errors->add("--skip must be an integer");
+
+    $errors->check;
 
     open my $in, "<", $infile or die "Can't open $infile for reading: $!";
     open my $out, ">", $outfile or die "Can't open $outfile for writing: $!";
