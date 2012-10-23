@@ -217,8 +217,7 @@ sub _check_read_file_pair {
     my $in = open_r($reads[0]);
     my $len = 0;
     while (defined(my $line = <$in>) &&
-           $len++ < 50000) {
-        
+           ++$len < 50000) {
     }
     close $in;
 
