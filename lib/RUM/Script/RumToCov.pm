@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use autodie;
 
-use RUM::Usage;
+use RUM::UsageErrors;
 use Getopt::Long;
 
 use base 'RUM::Script::Base';
@@ -88,11 +88,15 @@ sub main {
         "stats=s"    => \($self->{stats_filename} = undef),
         "name=s"     => \($self->{name}           = undef));
 
-    $self->{out_filename} or RUM::Usage->bad(
+    my $errors = RUM::UsageErrors->new;
+
+    $self->{out_filename} or $errors->add(
         "Please specify an output file with -o or --output");
 
-    $self->{in_filename} = $ARGV[0] or RUM::Usage->bad(
+    $self->{in_filename} = $ARGV[0] or $errors->add(
         "Please provide an input file on the command line");
+
+    $errors->check;
 
     $self->{name} ||= $self->{in_filename} . " Coverage";
 
