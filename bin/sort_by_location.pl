@@ -16,7 +16,7 @@ sort_by_location.pl - Sort a file by location
 
 =head1 SYNOPSIS
 
-  sort_by_location.pl [OPTIONS] -o <out_file> --location <loc_col> INPUT>
+  sort_by_location.pl [OPTIONS] -o <out_file> --location <loc_col> <INPUT>
   sort_by_location.pl [OPTIONS] -o <out_file> --chromosome <chr_col> --start <start_col> --end <end_col> <INPUT>
 
 =head1 ARGUMENTS
@@ -26,8 +26,6 @@ locations in the format chr:start-end, or with chr, start location,
 and end location given in three different columns.
 
 You must always specify an output file with B<-o> or B<--output>.
-
-=back
 
 If your input file has a single column in the format chr:start-end,
 you must specify:
@@ -42,6 +40,8 @@ counting from 1.
 =back
 
 Otherwise if your input file has separate chromosome, start, and end columns, you must provide these three arguments:
+
+=over 4
 
 =item B<--chromosome> I<chr_col>
 
