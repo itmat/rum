@@ -466,7 +466,7 @@ sub open_r {
     my ($filename) = @_;
     my $mode = '<';
     if ($filename =~ /\.gz$/) {
-        die "I'm sorry, I don't support gzipped input at this time. Please look for this feature in the near future.\n";
+        die "I'm sorry, I don't support gzipped input at this time.  We plan on adding support for this in the near future.  In the meantime, please unzip your input files with 'gunzip' before running RUM.\n";
         $filename = "gunzip -c $filename";
         $mode = "-|";
     }
