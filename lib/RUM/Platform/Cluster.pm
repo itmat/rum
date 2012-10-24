@@ -106,7 +106,7 @@ sub process {
             # If it reported a failed status $NUM_CHECKS_BEFORE_RESTART times 
             # in a row, go ahead and start again.
             elsif ($runner->run) {
-                $log->warn("It seems  like chunk $chunk is not running, so I started it again. This may mean that there was a temporary error on the machine that is running the chunk, and restarting it may fix it. If the job runs to completion and there are no other errors in the log file, everything is probably fine.");
+                $log->warn("It seems like chunk $chunk is not running, so I started it again. This may mean that there was a temporary error on the machine that is running the chunk, and restarting it may fix it. If the job runs to completion and there are no other errors in the log file, everything is probably fine.");
                 $self->log_last_status_warning;
                 $t->{not_ok_count} = 0;
             }
