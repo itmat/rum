@@ -136,7 +136,7 @@ sub main {
             -exitval => 'NOEXIT'
         });
         close $usage;
-        exec "less", $usage;
+        exec "less", "-eF", $usage;
     }
 
     $self->run;
