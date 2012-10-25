@@ -1,53 +1,3 @@
-package RUM::Property;
-
-use strict;
-use warnings;
-
-use RUM::Usage;
-use RUM::UsageErrors;
-use Carp;
-use RUM::Pipeline;
-
-sub handle {
-    my ($conf, $opt, $val) = @_;
-    $opt =~ s/-/_/g;
-    $conf->set($opt, $val);
-}
-
-sub new {
-    my ($class, %params) = @_;
-
-    my $self = {};
-    $self->{opt}       = delete $params{opt}     or croak "Need opt";
-    $self->{desc}      = delete $params{desc};
-    $self->{filter}    = delete $params{filter}  || sub { shift };
-    $self->{handler}   = delete $params{handler} || \&handle;
-    $self->{checker}   = delete $params{check}   || sub { return };
-    $self->{default}   = delete $params{default};
-    $self->{transient} = delete $params{transient};
-    $self->{group}     = delete $params{group};
-
-    if (my @extra = keys %params) {
-        croak "Extra keys to RUM::Config->new: @extra";
-    }
-
-    $self->{name} = $self->{opt};
-    $self->{name} =~ s/[=!|].*//;
-    $self->{name} =~ s/-/_/g;
-
-    return bless $self, $class;
-}
-
-
-sub opt { shift->{opt} }
-sub handler { shift->{handler} }
-sub name { shift->{name} }
-sub desc { shift->{desc} }
-sub filter { shift->{filter} }
-sub checker { shift->{checker} }
-sub default { shift->{default} }
-sub transient { shift->{transient} }
-
 package RUM::Config;
 
 use strict;
@@ -60,8 +10,9 @@ use File::Path qw(mkpath);
 use Data::Dumper;
 use Scalar::Util qw(blessed);
 use Cwd qw(realpath);
-
 use Getopt::Long;
+
+use RUM::Property;
 use RUM::Logging;
 use RUM::ConfigFile;
 use RUM::Pipeline;

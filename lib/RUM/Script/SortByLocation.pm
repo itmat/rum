@@ -1,68 +1,97 @@
 package RUM::Script::SortByLocation;
 
 use strict;
-no warnings;
+use warnings;
+
+use Data::Dumper;
 
 use RUM::UsageErrors;
 use RUM::Logging;
-use Getopt::Long;
 use RUM::Sort qw(cmpChrs);
+use RUM::CommandLineParser;
 
 our $log = RUM::Logging->get_logger();
 
+sub check_int_gte_1 {
+    my ($props, $prop, $val) = @_;
+    if (defined($val)) {
+        if ($val !~ /^\d+$/ ||
+            int($val) < 1) {
+            $props->errors->add($prop->options . " must be an integer greater than 1");
+        }
+    }
+}
+
 sub main {
 
-    GetOptions(
-        "output|o=s"   => \(my $outfile),
-        "location=s"   => \(my $location_col),
-        "chromosome=s" => \(my $chromosome_col),
-        "start=s"      => \(my $start_col),
-        "end=s"        => \(my $end_col),
-        "skip=s"       => \(my $skip = 0),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+    my $parser = RUM::CommandLineParser->new;
 
+    $parser->add_prop(
+        opt  => 'output|o=s',
+        desc => 'Output file',
+        required => 1);
 
+    $parser->add_prop(
+        opt   => 'location=s',
+        desc  => 'Column giving the location in the format "chromosome:start-end"',
+        check => \&check_int_gte_1
+    );
+
+    $parser->add_prop(
+        opt   => 'chromosome=s',
+        desc  => 'Column giving the chromosome',
+        check => \&check_int_gte_1
+    );
+
+    $parser->add_prop(
+        opt   => 'start=s',
+        desc  => 'Column giving the start position',
+        check => \&check_int_gte_1,
+    );
+
+    $parser->add_prop(
+        opt  => 'end=s',
+        desc => 'Column giving the end position',
+        check => \&check_int_gte_1,
+    );
+
+    $parser->add_prop(
+        opt => 'skip=s',
+        desc => 'Number of rows to skip (these rows will be written to the output, but not sorted)',
+        check => \&check_int_gte_1,
+    );
+
+    $parser->add_prop(
+        opt => 'infile',
+        desc => 'Input file',
+        required => 1,
+        positional => 1
+    );
+    
+    my $props = $parser->parse;
+    
     my $errors = RUM::UsageErrors->new;
-
-    my ($infile) = shift(@ARGV) or $errors->add(
-        "Please provide an input file");
-
-    if ($location_col) {
-        $location_col > 0 or $errors->add(
-            "Location column must be a positive integer");
-        $location_col--;
-    }
-
-    elsif ($chromosome_col && $start_col && $end_col) {
-        $chromosome_col > 0 or $errors->add(
-            "Chromosome column must be a positive integer");
-        $start_col > 0 or $errors->add(
-            "Start column must be a positive integer");
-        $end_col > 0 or $errors->add(
-            "End column must be a positive integer");
-        $chromosome_col--;
-        $start_col--;
-        $end_col--;
+    
+    if ($props->has('location')) {
+        if ($props->has('chromosome') ||
+            $props->has('start')      ||
+            $props->has('end')) {
+            $errors->add("Please specify either --location or --chromosome, --start, and --end");
+        }
     }
     else {
-        $errors->add("Specify either --location or --chromosome, ".
-                            "--start, and --end");
+        if (! ($props->has('chromosome') &&
+               $props->has('start')      &&
+               $props->has('end'))) {
+            $errors->add("Please specify either --location or --chromosome, --start, and --end");
+        }
     }
-
-    if (!$outfile) {
-      $errors->add("Specify an output file with -o or --output");
-    }
-
-    $skip >= 0 or $errors->add("--skip must be an integer");
-
     $errors->check;
 
-    open my $in, "<", $infile or die "Can't open $infile for reading: $!";
-    open my $out, ">", $outfile or die "Can't open $outfile for writing: $!";
+    open my $in,  "<", $props->get('infile');
+    open my $out, ">", $props->get('output');
 
-    for (my $i=0; $i<$skip; $i++) {
+    for (my $i=0; $i < ($props->get('skip') || 0); $i++) {
         my $line = <$in>;
         print $out $line;
     }
@@ -73,17 +102,17 @@ sub main {
         chomp($line);
         my @a = split(/\t/,$line);
         my ($chr, $start, $end);
-        if ($location_col) {
-            my $loc = $a[$location_col];
+        if (defined(my $loc_col = $props->get('location'))) {
+            my $loc = $a[$loc_col - 1];
             $loc =~ /^(.*):(\d+)-(\d+)/;
             $chr = $1;
             $start = $2;
             $end = $3;
         }
         else {
-            $chr = $a[$chromosome_col];
-            $start = $a[$start_col];
-            $end = $a[$end_col];
+            $chr   = $a[$props->get('chromosome') - 1];
+            $start = $a[$props->get('start') - 1];
+            $end   = $a[$props->get('end') - 1];
         }
         $hash{$chr}{$line}[0] = $start;
         $hash{$chr}{$line}[1] = $end;
