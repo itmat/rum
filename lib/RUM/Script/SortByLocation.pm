@@ -12,6 +12,8 @@ use RUM::CommandLineParser;
 
 our $log = RUM::Logging->get_logger();
 
+use base 'RUM::Script::Base';
+
 sub check_int_gte_1 {
     my ($props, $prop, $val) = @_;
     if (defined($val)) {
@@ -22,9 +24,15 @@ sub check_int_gte_1 {
     }
 }
 
-sub main {
-
+sub command_line_parser {
     my $parser = RUM::CommandLineParser->new;
+
+    $parser->add_prop(
+        opt => 'infile',
+        desc => 'Input file',
+        required => 1,
+        positional => 1
+    );
 
     $parser->add_prop(
         opt  => 'output|o=s',
@@ -61,14 +69,13 @@ sub main {
         check => \&check_int_gte_1,
     );
 
-    $parser->add_prop(
-        opt => 'infile',
-        desc => 'Input file',
-        required => 1,
-        positional => 1
-    );
+    return $parser;
+}
+
+sub main {
     
-    my $props = $parser->parse;
+    my $self = __PACKAGE__->new;
+    my $props = $self->command_line_parser->parse;
     
     my $errors = RUM::UsageErrors->new;
     
@@ -130,6 +137,30 @@ sub main {
             }
         }
     }
+}
+
+sub synopsis {
+    return <<'EOF';
+  sort_by_location.pl [OPTIONS] -o <out_file> --location <loc_col> <INPUT>
+  sort_by_location.pl [OPTIONS] -o <out_file> --chromosome <chr_col> --start <start_col> --end <end_col> <INPUT>
+
+You must always specify an output file with B<-o> or B<--output>.
+
+If your input file has a single column in the format chr:start-end,
+you must give the --location option. If it instead has the chromosome,
+start, and end positions in separate columns, you must specify those
+options with --chromosome, --start, and --end.
+EOF
+
+}
+
+sub description {
+    return <<'EOF';
+<INPUT> is a tab-delimited file with either one column giving
+locations in the format chr:start-end, or with chr, start location,
+and end location given in three different columns.
+EOF
+
 }
 
 1;

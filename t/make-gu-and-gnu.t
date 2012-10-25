@@ -21,8 +21,11 @@ for my $type (qw(paired single)) {
 
     my $script = RUM::Script::MakeGuAndGnu->new;
     open my $in, '<', $inputs{$type};
-    $script->{paired} = 1 if $type eq 'paired';
-    $script->{max_distance_between_paired_reads} = 500000 if $type eq 'paired';
+    my $props = RUM::Properties->new;
+    $script->{properties} = $props;
+    $props->set('type', $type);
+    $props->set('max_pair_dist', 500000);
+
     $script->parse_output($in, $u, $nu);
     close $u;
     close $nu;

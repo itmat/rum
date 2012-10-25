@@ -21,10 +21,6 @@ sort_by_location.pl - Sort a file by location
 
 =head1 ARGUMENTS
 
-<INPUT> is a tab-delimited file with either one column giving
-locations in the format chr:start-end, or with chr, start location,
-and end location given in three different columns.
-
 You must always specify an output file with B<-o> or B<--output>.
 
 If your input file has a single column in the format chr:start-end,

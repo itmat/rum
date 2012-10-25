@@ -1,12 +1,14 @@
 package RUM::Script::MakeGuAndGnu;
 
-no warnings;
+use warnings;
 use autodie;
 
 use RUM::Usage;
 use RUM::Logging;
 use RUM::Bowtie;
 use Getopt::Long;
+use RUM::CommandLineParser;
+use RUM::CommonProperties;
 
 use base 'RUM::Script::Base';
 
@@ -14,55 +16,67 @@ our $log = RUM::Logging->get_logger();
 
 $|=1;
 
-sub main {
+sub summary {
+    "Run bowtie against the genome index";
+}
 
-    use strict;
-    my $self = __PACKAGE__->new;
+sub command_line_parser {
+    my ($self) = @_;
+    my $parser = RUM::CommandLineParser->new;
 
-    $self->get_options(
-
-        # Input files
-        'index=s'         => \(my $index),
-        'query=s'         => \(my $query),
-
-        # Intermediate files
-        'bowtie-out=s'    => \(my $bowtie_out),
-
-        # Output files
-        "unique=s"        => \(my $outfile1),
-        "non-unique=s"    => \(my $outfile2),
-
-        # Other params
-        "type=s"          => \(my $type),
-        "paired"          => \($self->{paired}),
-        "single"          => \($self->{single}),
-        'debug'           => \(my $debug),
-        "max-pair-dist=s" => \($self->{max_distance_between_paired_reads} = 500000),
-        'limit=s'         => \(my $limit),
+    $parser->add_prop(
+        opt => 'index=s',
+        desc => 'Bowtie genome index',
+        required => 1
     );
+    $parser->add_prop(
+        opt => 'query=s',
+        desc => 'FASTA file containing the reads',
+        required => 1
+    );
+    $parser->add_prop(
+        opt => 'unique-out=s',
+        desc => 'Output file for unique mappers',
+        required => 1
+    );
+    $parser->add_prop(
+        opt => 'non-unique-out=s',
+        desc => 'Output file for non-unique mappers',
+        required => 1
+    );
+    $parser->add_prop(RUM::CommonProperties->read_type);
+    $parser->add_prop(RUM::CommonProperties->max_pair_dist);
+    $parser->add_prop(
+        opt => 'debug',
+        desc => 'Save the output from bowtie for debugging purposes'
+    );
+    $parser->add_prop(
+        opt => 'limit=s',
+        desc => 'Limit argument for bowtie');
 
-    $index or RUM::Usage->bad(
-        "Please specify an index with --index");
-
-    $query or RUM::Usage->bad(
-        "Please specify a query with --query");
+    $parser->add_prop(
+        opt => 'bowtie-out=s',
+        desc => 'File to write intermediate bowtie output to'
+    );
+    return $parser;
     
-    $outfile1 or RUM::Usage->bad(
-        "Please specify output file for unique mappers with --unique");
+}
 
-    $outfile2 or RUM::Usage->bad(
-        "Please specify output file for non-unique mappers with --non-unique");
 
-    ($self->{single} xor $self->{paired}) or RUM::Usage->bad(
-        "Please specify exactly one type with either --single or --paired");
+
+sub run {
+    use strict;
+    my ($self) = @_;
+
+    my $props = $self->properties;
 
     my %bowtie_opts = (
-        limit => $limit,
-        index => $index,
-        query => $query);
+        limit => $props->get('limit'),
+        index => $props->get('index'),
+        query => $props->get('query'));
 
-    if ($debug) {
-        if ($bowtie_out) {
+    if ($props->get('debug')) {
+        if (my $bowtie_out = $props->get('bowtie_out')) {
             $bowtie_opts{tee} = $bowtie_out;
         }
         else {
@@ -72,9 +86,8 @@ sub main {
         }
     }
 
-
-    open my $gu,    '>', $outfile1;
-    open my $gnu,   '>', $outfile2;
+    open my $gu,  '>', $props->get('unique');
+    open my $gnu, '>', $props->get('non_unique');
     
     my $bowtie = RUM::Bowtie::run_bowtie(%bowtie_opts);
     $self->parse_output($bowtie, $gu, $gnu);
@@ -83,10 +96,11 @@ sub main {
 sub parse_output {
 
     my ($self, $bowtie, $gu, $gnu) = @_;
-
     $log->info("Parsing bowtie output (genome)");
     
     my $reader = RUM::Bowtie::bowtie_mapping_set_reader($bowtie);
+
+    my $props = $self->properties;
 
   READ: while (my ($forward, $reverse) = $reader->()) {
         
@@ -196,7 +210,7 @@ sub parse_output {
                 print $gu "$key\t$strand\n";
             }
         }
-        if (!$self->{paired}) {
+        if ($props->get('type') ne 'paired') {
             if($num_different_a > 1) { 
                 foreach $key (keys %a_reads) {
                     $key =~ /^[^\t]+\t(.)\t/;
@@ -234,7 +248,7 @@ sub parse_output {
                     $bend = $a[4];
                     $bseq = $a[5];
                     if ($astrand eq "+" && $bstrand eq "-") {
-                        if ($achr eq $bchr && $astart <= $bstart && $bstart - $astart < $self->{max_distance_between_paired_reads}) {
+                        if ($achr eq $bchr && $astart <= $bstart && $bstart - $astart < $props->get('max_pair_dist')) {
                             if ($bstart > $aend + 1) {
                                 $akey =~ s/\t\+//;
                                 $akey =~ s/\t-//;
@@ -268,7 +282,7 @@ sub parse_output {
                         }
                     }
                     if ($astrand eq "-" && $bstrand eq "+") {
-                        if ($achr eq $bchr && $bstart <= $astart && $astart - $bstart < $self->{max_distance_between_paired_reads}) {
+                        if ($achr eq $bchr && $bstart <= $astart && $astart - $bstart < $props->get('max_pair_dist')) {
                             if ($astart > $bend + 1) {
                                 $akey =~ s/\t\+//;
                                 $akey =~ s/\t-//;
@@ -323,5 +337,88 @@ sub parse_output {
     }
 
 }
+
+sub synopsis {
+    return <<'EOF';
+  make_GU_and_GNU.pl [OPTIONS]         \
+    --unique     <gu_filename>         \
+    --non-unique <gnu_filename>        \
+    --type {single|paired}             \
+    --index      <bowtie_genome_index> \
+    --query      <reads_file>
+EOF
+    
+}
+
+sub description {
+    return <<'EOF';
+
+=head2 Input
+
+This script takes the output of a bowtie mapping against the genome, which has
+been sorted by sort_bowtie.pl, and parses it to have the four columns:
+
+=over 4
+
+=item 1. read name
+
+=item 2. chromosome
+
+=item 3. span
+
+=item 4. sequence
+
+=back
+
+A line of the (input) bowtie file should look like:
+
+  seq.1a   -   chr14   1031657   CACCTAATCATACAAGTTTGGCTAGTGGAAAA
+
+Sequence names are expected to be of the form seq.Na where N in an
+integer greater than 0.  The 'a' signifies this is a 'forward' read,
+and 'b' signifies 'reverse' reads.  The file may consist of all
+forward reads (single-end data), or it may have both forward and
+reverse reads (paired-end data).  Even if single-end the sequence
+names still must end with an 'a'.
+
+=head2 Output
+
+The line above is modified by the script to be:
+
+  seq.1a   chr14   1031658-1031689   CACCTAATCATACAAGTTTGGCTAGTGGAAAA
+
+In the case of single-end reads, if there is a unique such line for
+seq.1a then it is written to the file specified by <gu_filename>.  If
+there are multiple lines for seq.1a then they are all written to the
+file specified by <gnu_filename>.
+
+In the case of paired-end reads the script tries to match up entries
+for seq.1a and seq.1b consistently, which means:
+
+=over 4
+
+=item 1. both reads are on the same chromosome
+
+=item 2. the two reads map in opposite orientations
+
+=item 3. the start of reads are further apart than ends of reads and
+no further apart than $max_distance_between_paired_reads
+
+=back
+
+If the two reads do not overlap then the consistent mapper is
+represented by two consecutive lines, the forward (a) read first and
+the reverse (b) read second.  If the two reads overlap then the two
+lines are merged into one line and the a/b designation is removed.
+
+If there is a unique consistent mapper it is written to the file
+specified by <gu_filename>.  If there are multiple consistent mappers
+they are all written to the file specified by <gnu_filename>.  If only
+the forward or reverse read map then it does not write anything.
+
+EOF
+
+}
+
 
 1;

@@ -7,6 +7,8 @@ use autodie;
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
+use RUM::CommandLineParser;
+use RUM::Property;
 
 our $log = RUM::Logging->get_logger();
 
@@ -37,6 +39,7 @@ sub main {
 
     use RUM::Common qw(format_large_int);
     my (@unique_in, @non_unique_in);
+
     GetOptions(
         "unique-in=s"     => \@unique_in,
         "non-unique-in=s" => \@non_unique_in,

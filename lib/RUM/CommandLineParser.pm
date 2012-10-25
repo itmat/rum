@@ -11,14 +11,25 @@ use RUM::Properties;
 
 sub new {
     my ($class) = @_;
-    return bless {properties => []}, $class;
+    my $self = bless {properties => []}, $class;
+    $self->add_prop(
+        opt => 'help|h' ,
+        desc => 'Get full usage information'
+    );
+    return $self;
 }
 
 sub add_prop {
-    my ($self, %params) = @_;
-    my $prop = RUM::Property->new(%params);
-    push @{ $self->{properties} }, $prop;
+    my $self = shift;
+    if (@_ == 1 && ref($_[0]) =~ /Property/) {
+        push @{ $self->{properties} }, $_[0];
+    }
+    else {
+        $self->add_prop(RUM::Property->new(@_));
+    }
 }
+
+sub properties { @{ shift->{properties} } };
 
 sub parse {
     my ($self) = @_;
@@ -51,13 +62,17 @@ sub parse {
         $props->set($prop->name, shift(@ARGV));
     }
 
+    if ($props->has('help')) {
+        return $props;
+    }
+
     for my $prop (@{ $self->{properties} }) {
 
         if ($prop->required && !$props->has($prop->name)) {
             $props->errors->add('Missing required argument ' . $prop->options . ': ' . $prop->desc);
         }
         if ($props->has($prop->name)) {
-            $prop->checker->($props, $prop, $props->get($prop->name));
+            $prop->check($props, $props->get($prop->name));
         }
     }
 
