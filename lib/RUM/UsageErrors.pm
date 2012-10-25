@@ -66,4 +66,10 @@ Add an error
 
 Return the list of errors added.
 
+=item $errors->check
+
+Die with my $self as the exception if there are any errors, otherwise
+do nothing.
+
 =back
+

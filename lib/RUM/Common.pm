@@ -4,8 +4,6 @@ use strict;
 use warnings;
 use autodie;
 
-use IO::Uncompress::Gunzip;
-
 use RUM::Logging;
 
 our $log = RUM::Logging->get_logger;
@@ -452,6 +450,10 @@ sub min_match_length {
     return $result;
 }
 
+=item is_gz($filename)
+
+Return true if $filename is a gzip-compressed file, false otherwise.
+
 =item open_r($filename)
 
 Return a read-only filehandle for the given filename. If the filename
@@ -462,11 +464,17 @@ uncompressed data.
 
 sub open_r {
     my ($filename) = @_;
+    my $mode = '<';
     if ($filename =~ /\.gz$/) {
-        return IO::Uncompress::Gunzip->new($filename);
+        die "I'm sorry, I don't support gzipped input at this time.  We plan on adding support for this in the near future.  In the meantime, please unzip your input files with 'gunzip' before running RUM.\n";
+        $filename = "gunzip -c $filename";
+        $mode = "-|";
     }
-    open my $in, '<', $filename;
+    my $in;
+    open $in, $mode, $filename;
     return $in;
 }
+
+
 
 1;
