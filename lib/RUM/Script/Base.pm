@@ -120,7 +120,6 @@ sub main {
                 print $usage "\nFor full usage information, run $0 -h\n";
             }
             close $usage;
-
             die $msg;
         }
         else {
@@ -140,6 +139,7 @@ sub main {
         exec "less", $usage;
     }
 
+    $self->run;
 }
 
 sub synopsis {

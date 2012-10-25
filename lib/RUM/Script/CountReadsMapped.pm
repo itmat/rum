@@ -1,7 +1,7 @@
 package RUM::Script::CountReadsMapped;
 
 
-no warnings;
+use warnings;
 use autodie;
 
 use RUM::Usage;
@@ -9,8 +9,17 @@ use RUM::Logging;
 use Getopt::Long;
 use RUM::CommandLineParser;
 use RUM::Property;
+use RUM::CommonProperties;
+use base 'RUM::Script::Base';
 
 our $log = RUM::Logging->get_logger();
+
+sub description {
+    return <<EOF;
+File lines should look like this:
+seq.6b  chr19   44086924-44086960, 44088066-44088143    CGTCCAATCACACGATCAAGTTCTTCATGAACTTTGG:CTTGCACCTCTGGATGCTTGACAAGGAGCAGAAGCCCGAATCTCAGGGTGGTGCTGGTTGTCTCTGTGACTGCCGTAA
+EOF
+}
 
 sub log_stray_multi_mapper {
     my ($seqnum, $count, $line) = @_;
@@ -18,6 +27,10 @@ sub log_stray_multi_mapper {
         " ", "Looks like there's\na multi-mapper in the RUM_Unique file.",
         "$seqnum ($joined{$seqnum}) $line");
     $log->warn($msg);
+}
+
+sub summary {
+    'Helps produce mapping_stats.txt'
 }
 
 sub line_iterator {
@@ -35,50 +48,45 @@ sub line_iterator {
     };
 }
 
-sub main {
+sub command_line_parser {
+    my $parser = RUM::CommandLineParser->new;
+    $parser->add_prop(
+        opt => 'unique-in=s',
+        handler => \&RUM::Property::handle_multi,
+        required => 1,
+        desc => 'File of unique mappers. You can specify this option more than once.');
+    $parser->add_prop(
+        opt => 'non-unique-in=s',
+        handler => \&RUM::Property::handle_multi,
+        required => 1,
+        desc => 'File of non-unique mappers. You can specify this option more than once.');
+    $parser->add_prop(
+        opt => 'max-seq=s',
+        desc => 'Specify the max sequence id, otherwise will just use the max seq id found in the two files',
+        check => \&RUM::CommonProperties::check_int_gte_1);
+    $parser->add_prop(
+        opt => 'min-seq=s',
+        desc => 'Specify the min sequence id, otherwise will just use the min seq id found in the two files',
+        check => \&RUM::CommonProperties::check_int_gte_1);
+    return $parser;
+}
+
+sub run {
+    my ($self) = @_;
 
     use RUM::Common qw(format_large_int);
-    my (@unique_in, @non_unique_in);
-
-    GetOptions(
-        "unique-in=s"     => \@unique_in,
-        "non-unique-in=s" => \@non_unique_in,
-        "min-seq=s"       => \(my $min_seq_num),
-        "max-seq=s"       => \(my $max_seq_num = 0),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
-
-    $max_num_seqs_specified = "false";
-    $min_num_seqs_specified = "false";
-
-    @unique_in or RUM::Usage->bad(join(
-        " ",  "Please specify a file of unique mappers with --unique-in.",
-        "You can specify this option multiple times."));
-    @non_unique_in or RUM::Usage->bad(join(
-        " ",  "Please specify a file of non-unique mappers ",
-        "with --non-unique-in. You can specify this option multiple times."));
-
-    my $unique_it = line_iterator(@unique_in);
-    my $nu_it = line_iterator(@non_unique_in);
-
-    if (defined($max_seq_num)) {
-        $max_num_seqs_specified = "true";
-        $max_seq_num =~ /^\d+$/ or RUM::Usage->bad(
-            "--max-seq must be a number, not $max_seq_num");
-    }
-    if (defined($min_seq_num)) {
-        $min_num_seqs_specified = "true";
-        $min_seq_num =~ /^\d+$/ or RUM::Usage->bad(
-            "--min-seq must be a number, not $min_seq_num");
-    }
+    
+    my $props = $self->properties;
+    my $unique_it = line_iterator(@{ $props->get('unique_in') });
+    my $nu_it = line_iterator(@{ $props->get('non_unique_in') });
+    my $max_seq_num = $props->get('max_seq');
+    my $min_seq_num = $props->get('min_seq');
 
     $flag = 0;
     $num_areads = 0;
     $num_breads = 0;
     $current_seqnum = 0;
     $previous_seqnum = 0;
-
 
     while (defined(my $line = $unique_it->())) {
 
@@ -89,12 +97,12 @@ sub main {
         $current_seqnum = $seqnum;
         if ($current_seqnum > $previous_seqnum) {
             foreach $key (keys %typea) {
-                if ($typeb{$key} == 0) {
+                if (!$typeb{$key}) {
                     $num_a_only++;
                 }
             }
             foreach $key (keys %typeb) {
-                if ($typea{$key} == 0) {
+                if (!$typea{$key}) {
                     $num_b_only++;
                 }
             }
@@ -104,14 +112,14 @@ sub main {
             undef %unjoined;
             $previous_seqnum = $current_seqnum;
         }
-        if ($flag == 0 && $min_num_seqs_specified eq "false") {
+        if ($flag == 0 && !$props->has('min_seq')) {
             $flag = 1;
             $min_seq_num = $seqnum;
         }
-        if ($seqnum > $max_seq_num && $max_num_seqs_specified eq "false") {
+        if ($seqnum > $max_seq_num && !$props->has('max_seq')) {
             $max_seq_num = $seqnum;
         }
-        if ($seqnum < $min_seq_num && $min_num_seqs_specified eq "false") {
+        if ($seqnum < $min_seq_num && !$props->has('min_seq')) {
             $min_seq_num = $seqnum;
         }
 
@@ -213,6 +221,7 @@ sub main {
     $num_ambig_consistent=0;
     $num_ambig_a_only=0;
     $num_ambig_b_only=0;
+    $num_ambig_a = 0;
 
     #print "------\n";
     while (defined($line = $nu_it->())) {
@@ -252,13 +261,13 @@ sub main {
     }
 
     foreach $seqnum (keys %allids) {
-        if ($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 > 0) {
+        if ($ambiga{$seqnum} && $ambigb{$seqnum}) {
             $num_ambig_consistent++;	
         }
-        if ($ambiga{$seqnum}+0 > 0 && $ambigb{$seqnum}+0 == 0) {
+        if ($ambiga{$seqnum} && !$ambigb{$seqnum}) {
             $num_ambig_a++;
         }
-        if ($ambiga{$seqnum}+0 == 0 && $ambigb{$seqnum}+0 > 0) {
+        if (!$ambiga{$seqnum} && $ambigb{$seqnum}) {
             $num_ambig_b++;
         }
     }
@@ -275,6 +284,8 @@ sub main {
         print "NON-UNIQUE MAPPERS: $f ($p%)\n";
     }
     $f = format_large_int($num_ambig_b);
+    $num_ambig_b ||= 0;
+
     $p = int($num_ambig_b/$total * 1000) / 10;
     if ($num_breads > 0) {
         print "Total number reverse only ambiguous: $f ($p%)\n";

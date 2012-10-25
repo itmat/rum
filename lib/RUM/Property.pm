@@ -13,6 +13,15 @@ sub handle {
     $props->set($opt, $val);
 }
 
+sub handle_multi {
+    my ($props, $opt, $val) = @_;
+    $opt =~ s/-/_/g;
+    if (!$props->has($opt)) {
+        $props->set($opt, []);
+    }
+    push @{ $props->get($opt) }, $val;
+}
+
 sub new {
     my ($class, %params) = @_;
 
@@ -28,7 +37,7 @@ sub new {
     $self->{required}   = delete $params{required};
     $self->{positional} = delete $params{positional};
     $self->{choices}    = delete $params{choices};
-
+    
     if (my @extra = keys %params) {
         croak "Extra keys to RUM::Config->new: @extra";
     }
