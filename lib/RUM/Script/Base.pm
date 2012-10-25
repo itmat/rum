@@ -116,8 +116,11 @@ sub main {
                 chomp $error;
                 print $usage "  * $error\n";
             }
-            print $usage "\nFor full usage information, run $0 -h\n";
+            if ($self->description) {
+                print $usage "\nFor full usage information, run $0 -h\n";
+            }
             close $usage;
+
             die $msg;
         }
         else {
@@ -136,7 +139,33 @@ sub main {
         close $usage;
         exec "less", $usage;
     }
-    
 
 }
+
+sub synopsis {
+    my ($self) = @_;
+    my $name = $self->script_name;
+    my @lines = ("  $name [OPTIONS]");
+    for my $prop ($self->command_line_parser->properties) {
+        next if ! $prop->required;
+        my $res = "";
+        if ($prop->positional) {
+            $res .= "    " . uc($prop->name);
+        }
+        else {
+            $res .= "    " . $prop->options('|');
+            if ($prop->opt =~ /=/) {
+                $res .= " " . uc($prop->name);
+            }
+        }
+        push @lines, $res;
+        
+    }
+    return join "\\\n", @lines;
+
+}
+
+sub description { '' }
+
+
 1;

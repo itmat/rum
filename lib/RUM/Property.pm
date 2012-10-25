@@ -59,9 +59,11 @@ sub set_required {
 }
 
 sub options {
-    my ($self) = @_;
+    my ($self, $separator) = @_;
     my $opt = $self->opt;
     
+    $separator ||= ' or ';
+
     if ($self->positional) {
         return $opt;
     }
@@ -69,7 +71,7 @@ sub options {
     $opt =~ s/=.*$//;
     my @opts = split /\|/, $opt;
     @opts = map { length > 1 ? "--$_" : "-$_" } @opts;
-    my $opts = join " or ", @opts;
+    my $opts = join $separator, @opts;
     return $opts;
 }
 
