@@ -31,7 +31,7 @@ for my $type (qw(paired)) {
              "--blat-non-unique-in", $blat_non_unique_tmp,
              "--unique-out", $merged_unique,
              "--non-unique-out", $merged_non_unique, 
-             "--$type",
+             "--type", $type,
              "--read-length", 75,
              "--quiet");
     RUM::Script::MergeBowtieAndBlat->main();

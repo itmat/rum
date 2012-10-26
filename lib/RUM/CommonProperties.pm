@@ -89,6 +89,21 @@ sub match_length_cutoff {
         default => 0);
 }
 
+sub min_overlap {
+    return RUM::Property->new(
+        opt => 'min-overlap=s',
+        desc => 'The minimum overlap required to report the intersection of two
+otherwise disagreeing alignments of the same read.',
+    );
+}
+
+sub read_length {
+    return RUM::Property->new(
+        opt => 'read-length=s',
+        desc => 'The read length. If not specified I will try to determine it, but if there aren\'t enough well-mapped reads I might not get it right. If there are variable read lengths, set n=\'v\'.'
+    );
+}
+
 sub faok {
     return RUM::Property->new(
         opt => 'faok',
