@@ -36,14 +36,13 @@ sub parse {
 
     my %getopt;
 
-    my $props = RUM::Properties->new;
+    my $props = RUM::Properties->new([$self->properties]);
 
     my @positional;
 
     my @required;
 
     for my $prop (@{ $self->{properties} } ) {
-        
         if ($prop->positional) {
             push @positional, $prop;
         }
@@ -53,6 +52,10 @@ sub parse {
                 $val = $prop->filter->($val);
                 $prop->handler->($props, $name, $val);
             };
+        }
+
+        if (defined(my $default = $prop->default)) {
+            $props->set($prop->name, $default);
         }
     }
 
@@ -79,7 +82,6 @@ sub parse {
     $props->errors->check;
 
     return $props;
-    
 }
 
 1;

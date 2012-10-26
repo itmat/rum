@@ -8,25 +8,41 @@ use Carp;
 use RUM::UsageErrors;
 
 sub new {
-    my ($class) = @_;
-    return bless {
+    my ($class, $allowed) = @_;
+    my $self = bless {
         properties => {},
-        errors => RUM::UsageErrors->new
+        errors => RUM::UsageErrors->new,
+        allowed => {},
     }, $class;
+
+    for my $prop (@{ $allowed } ) {
+        $self->{allowed}->{$prop->name} = 1;
+    }
+
+    return $self;
 }
 
 sub set {
     my ($self, $key, $value) = @_;
+    if (!$self->{allowed}{$key}) {
+        croak "Property $key is not allowed";
+    }
     $self->{properties}{$key} = $value;
 }
 
 sub get {
     my ($self, $key) = @_;
+    if (!$self->{allowed}{$key}) {
+        croak "Property $key is not allowed";
+    }
     return $self->{properties}{$key};
 }
 
 sub has {
     my ($self, $key) = @_;
+    if (!$self->{allowed}{$key}) {
+        croak "Property $key is not allowed";
+    }
     return defined $self->{properties}{$key};
 }
 

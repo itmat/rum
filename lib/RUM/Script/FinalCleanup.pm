@@ -1,49 +1,54 @@
 package RUM::Script::FinalCleanup;
 
-no warnings;
+use warnings;
 
 use Getopt::Long;
 use File::Temp qw(tempfile);
+use Data::Dumper;
 
 use RUM::Usage;
 use RUM::Logging;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
+use RUM::CommandLineParser;
+use RUM::CommonProperties;
+use base 'RUM::Script::Base';
 
 our $log = RUM::Logging->get_logger();
-$|=1;
 
-sub main {
+sub summary {
+    return 'Cleans up RUM_Unique and RUM_NU files';
+}
 
-    GetOptions(
-        "unique-in=s" => \(my $unique_in),
-        "non-unique-in=s" => \(my $non_unique_in),
-        "unique-out=s" => \(my $unique_out),
-        "non-unique-out=s" => \(my $non_unique_out),
-        "sam-header-out=s"   => \(my $sam_header_out),
-        "genome=s" => \(my $genome),
-        "match-length-cutoff=s" => \(my $match_length_cutoff = 0),
-        "faok"  => \(my $faok),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) },
-    );
+sub description {
+    return <<'EOF';
+This script modifies the RUM_Unique and RUM_NU files to clean
+up things like mismatches at the ends of alignments.
+EOF
+}
 
-    $unique_in or RUM::Usage->bad(
-        "Please provide input file of unique mappers with --unique-in");
-    $non_unique_in or RUM::Usage->bad(
-        "Please provide input file of non-unique mappers with --non-unique-in");
-    $unique_out or RUM::Usage->bad(
-        "Please provide output file of unique mappers with --unique-out");
-    $non_unique_out or RUM::Usage->bad(
-        "Please provide output file of non-unique mappers with --non-unique-out");
-    $genome or RUM::Usage->bad(
-        "Please provide genome fasta file with --genome");
+sub command_line_parser {
+    my $parser = RUM::CommandLineParser->new;
+    $parser->add_prop(RUM::CommonProperties->unique_in->set_required);
+    $parser->add_prop(RUM::CommonProperties->non_unique_in->set_required);
+    $parser->add_prop(RUM::CommonProperties->unique_out->set_required);
+    $parser->add_prop(RUM::CommonProperties->non_unique_out->set_required);
+    $parser->add_prop(RUM::CommonProperties->genome->set_required);
+    $parser->add_prop(RUM::CommonProperties->match_length_cutoff);
+    $parser->add_prop(RUM::CommonProperties->faok);
+    $parser->add_prop(
+        opt => 'sam-header-out=s',
+        desc => 'Sam header output file',
+        required => 1);
+    return $parser;
+}
 
-    $sam_header_out or RUM::Usage->bad(
-        "Please provide sam header output file with --sam-header-out");
+sub run {
+    my ($self) = @_;
 
-    my (undef, $dir, undef) = File::Spec->splitpath($unique_out);
+    my $props = $self->properties;
+
+    my (undef, $dir, undef) = File::Spec->splitpath($props->get('unique_out'));
 
     if (!$faok) {
         $log->info("Modifying genome fa file");
@@ -52,7 +57,7 @@ sub main {
                                  UNLINK => 1, 
                                  DIR => $dir);
 
-        open(INFILE, $genome);
+        open(INFILE, $props->get('genome'));
         $flag = 0;
         while ($line = <INFILE>) {
             if ($line =~ />/) {
@@ -74,13 +79,13 @@ sub main {
             or die "Can't open temp file ".$fh->filename." for reading: $!";
     } else {
         $log->info("Genome fa file does not need fixing");
-        open(GENOMESEQ, $genome);
+        open(GENOMESEQ, $props->get('genome'));
     }
     
     # Truncate output files
-    open(OUTFILE, ">$unique_out");
+    open(OUTFILE, '>', $props->get('unique_out'));
     close(OUTFILE);
-    open(OUTFILE, ">$non_unique_out");
+    open(OUTFILE, '>', $props->get('non_unique_out'));
     close(OUTFILE);
 
     $FLAG = 0;
@@ -92,7 +97,7 @@ sub main {
         $totalsize = 0;
         while ($sizeflag == 0) {
             $line = <GENOMESEQ>;
-            if ($line eq '') {
+            if (!defined $line) {
                 $FLAG = 1;
                 $sizeflag = 1;
             } else {
@@ -111,23 +116,24 @@ sub main {
                 }
             }
         }
-        &clean($unique_in, $unique_out);
-        &clean($non_unique_in, $non_unique_out);
+        clean($props->get('unique_in'), $props->get('unique_out'),
+              $props->get('match_length_cutoff'));
+        clean($props->get('non_unique_in'), $props->get('non_unique_out'),
+               $props->get('match_length_cutoff'));
     }
     close(GENOMESEQ);
 
     $log->info("Writing sam header");
-    open(SAMHEADER, ">$sam_header_out");
+    open my $sam_header, '>', $props->get('sam_header_out');
     foreach $chr (sort {cmpChrs($a,$b)} keys %samheader) {
         $outstr = $samheader{$chr};
-        print SAMHEADER $outstr;
+        print $sam_header $outstr;
     }
-    close(SAMHEADER);
 
 }
 
-sub clean () {
-    ($infilename, $outfilename) = @_;
+sub clean {
+    my ($infilename, $outfilename, $match_length_cutoff) = @_;
     open(INFILE, $infilename);
     open(OUTFILE, ">>$outfilename");
     while ($line = <INFILE>) {
@@ -195,7 +201,7 @@ sub clean () {
     close(OUTFILE);
 }
 
-sub removefirst () {
+sub removefirst  {
     ($n_1, $spans_1, $seq_1) = @_;
     $seq_1 =~ s/://g;
     @a_1 = split(/, /, $spans_1);
@@ -222,7 +228,7 @@ sub removefirst () {
     }
 }
 
-sub removelast () {
+sub removelast {
     ($n_1, $spans_1, $seq_1) = @_;
     $seq_1 =~ s/://g;
     @a_1 = split(/, /, $spans_1);
