@@ -174,6 +174,9 @@ sub synopsis {
         my $res = "";
         if ($prop->positional) {
             $res .= "    " . uc($prop->name);
+            if ($prop->nargs eq '+') {
+                $res .= "...";
+            }
         }
         else {
             $res .= "    " . $prop->options('|');

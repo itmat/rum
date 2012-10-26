@@ -62,7 +62,14 @@ sub parse {
     GetOptions(%getopt);
 
     for my $prop (@positional) {
-        $props->set($prop->name, shift(@ARGV));
+        if ($prop->nargs eq '+') {
+            while (@ARGV) {
+                $prop->handler->($props, $prop->name, shift(@ARGV));
+            }
+        }
+        else {
+            $props->set($prop->name, shift(@ARGV));
+        }
     }
 
     if ($props->has('help')) {

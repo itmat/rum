@@ -5,20 +5,30 @@ no warnings;
 
 use Carp;
 
-use RUM::Usage;
 use RUM::Logging;
-use Getopt::Long;
+
+use base 'RUM::Script::Base';
 
 our $log = RUM::Logging->get_logger();
 
-sub main {
+sub summary {
+    'Merge two or more non-unique stats files'
+}
 
-    GetOptions(
-        "help|h" => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'nu_stats',
+            desc => 'Input file',
+            nargs => '+',
+            handler => \&RUM::Property::handle_multi,
+            positional => 1,
+            required => 1));
+}
 
-    my @nu_stats = @ARGV;
+sub run {
+    my ($self) = @_;
+    my @nu_stats = @{ $self->properties->get('nu_stats') };
 
     $log->info("Merging non-unique stats");
 

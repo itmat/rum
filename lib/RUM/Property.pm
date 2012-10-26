@@ -37,7 +37,8 @@ sub new {
     $self->{required}   = delete $params{required};
     $self->{positional} = delete $params{positional};
     $self->{choices}    = delete $params{choices};
-    
+    $self->{nargs}      = delete $params{nargs};
+
     if (my @extra = keys %params) {
         croak "Extra keys to RUM::Config->new: @extra";
     }
@@ -60,6 +61,7 @@ sub transient { shift->{transient} }
 sub required { shift->{required} }
 sub positional { shift->{positional} }
 sub choices { @{ shift->{choices} || [] } }
+sub nargs { shift->{nargs} }
 
 sub set_required {
     my ($self) = @_;
