@@ -9,6 +9,17 @@ use Pod::Usage;
 use Getopt::Long;
 use File::Temp;
 
+use RUM::CommandLineParser;
+
+sub command_line_parser {
+    my ($self) = @_;
+    my $parser = RUM::CommandLineParser->new;
+    for my $opt ($self->accepted_options) {
+        $parser->add_prop($opt);
+    }
+    return $parser;
+}
+
 sub new {
     my ($class, %self) = @_;
     return bless \%self, $class;
@@ -62,7 +73,10 @@ sub pod {
     $pod .= "=head1 SYNOPSIS\n\n";
     $pod .= $self->synopsis;
     $pod .= "\n\n";
-    $pod .= "=head1 DESCRIPTION\n\n" . $self->description . "\n\n=head1 ARGUMENTS\n\n";
+
+    if (my $desc = $self->description) {
+        $pod .= "=head1 DESCRIPTION\n\n" . $self->description . "\n\n=head1 ARGUMENTS\n\n";
+    }
 
     my $parser = $self->command_line_parser;
     $pod .= "\n\n=over 4\n\n";

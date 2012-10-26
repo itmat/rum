@@ -2,34 +2,50 @@ package RUM::Script::GetNuStats;
 
 use strict;
 no warnings;
+use autodie;
 
 use File::Copy;
-use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
+
 our $log = RUM::Logging->get_logger();
-$|=1;
 
-sub main {
+use base 'RUM::Script::Base';
 
-    GetOptions(
-        "output|o=s" => \(my $outfile),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+sub summary {
+    'Read a sam file and print counts for non-unique mappers'
+}
 
-    my $samfile = $ARGV[0] or RUM::Usage->bad(
-        "Please provide a sam file");
-    open(INFILE, $samfile) or die "Can't open $samfile for reading: $!";
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'output|o=s', 
+            desc => 'The output file.',
+            default => \*STDOUT),
+        RUM::Property->new(
+            opt => 'samfile',
+            desc => 'SAM input file',
+            required => 1,
+            positional => 1)
+      );
+}
+
+sub run {
+    my ($self) = @_;
+    my $props = $self->properties;
+    my $outfile = $props->get('output');
+    my $samfile = $props->get('samfile');
+
+    open INFILE, '<', $samfile;
 
     my $out;
     if ($outfile) {
-        open $out, ">", $outfile or die "Can't open $outfile for writing: $!";
+        open $out, ">", $outfile;
     }
     else {
         $out = *STDOUT;
     }
-    
+
     my $doing = "seq.0";
     while (defined(my $line = <INFILE>)) {
         if($line =~ /LN:\d+/) {
@@ -50,7 +66,7 @@ sub main {
         }
         #    print "id=$id\n";
         #    print "cnt=$cnt\n";
-        if($doing eq $id) {
+        if ($doing eq $id) {
             next;
         } else {
             $doing = $id;
@@ -58,7 +74,7 @@ sub main {
         }
     }
     close(INFILE);
-    
+
     print $out "num_locs\tnum_reads\n";
     for my $cnt (sort {$a<=>$b} keys %hash) {
         print $out "$cnt\t$hash{$cnt}\n";
