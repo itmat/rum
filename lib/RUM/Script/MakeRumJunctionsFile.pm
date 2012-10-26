@@ -1,13 +1,88 @@
 package RUM::Script::MakeRumJunctionsFile;
 
 no warnings;
-use RUM::Usage;
+
 use RUM::Logging;
-use Getopt::Long;
+use RUM::CommonProperties;
 
 our $log = RUM::Logging->get_logger();
 
-sub main {
+use base 'RUM::Script::Base';
+
+sub summary {
+    'Make RUM junctions file'
+}
+
+sub description {
+    return <<'EOF';
+
+This script finds the junctions in the RUM_Unique and RUM_NU files
+and reports them to a junctions file that can be uploaded to the UCSC
+browser.
+
+In the high quality junctions, junctions in the annotation file are
+colored blue, others are colored green.  Those with standard splice
+signals (or those specified by -signal) are colored a shade lighter.
+EOF
+}
+
+sub accepted_options {
+    return (
+        RUM::CommonProperties->unique_in->set_required,
+        RUM::CommonProperties->non_unique_in->set_required,
+        RUM::CommonProperties->genome->set_required,
+        RUM::Property->new(
+            opt => 'genes=s',
+            desc => 'The RUM gene models file; omit there are no known gene
+models'),
+        RUM::Property->new(
+            opt => 'all-rum-out=s',
+            desc => 'The output file for all junctions in RUM format.',
+            required => 1),
+        RUM::Property->new(
+            opt => 'all-bed-out=s',
+            desc => 'The output file for all junctions in BED format.',
+            required => 1),
+        RUM::Property->new(
+            opt => 'high-bed-out=s',
+            desc => 'The output file for high-quality junctions in BED format.',
+            required => 1),
+        RUM::CommonProperties->faok,
+        RUM::CommonProperties->strand,
+        RUM::Property->new(
+            opt => 'signal=s',
+            desc => 'Use this alternate splice signal; wx is the donor and yz is the acceptor. Multiple may be specified, separated by commas without whitespace. If not specified, the standard signals will be used, with the canonical colored darker in the high quality junctions file.'),
+        RUM::Property->new(
+            opt => 'minintron=s',
+            desc => 'The size of the smallest intron allowed. Must be > 0',
+            default => 15,
+            check => \&RUM::CommonProperties::check_int_gte_0
+            ),
+        RUM::Property->new(
+            opt => 'overlap=s',
+            desc => 'There must be at least this many bases spanning either side of a junction to qualify as high quality.',
+            default => 8
+        ));
+
+}
+
+sub run {
+
+    my ($self) = @_;
+    my $props = $self->properties;
+    my $rumU = $props->get('unique_in');
+    my $rumNU = $props->get('non_unique_in');
+    my $genome_sequence = $props->get('genome');
+    my $gene_annot = $props->get('genes');
+
+    my $outfile1 = $props->get('all_rum_out');
+    my $outfile2 = $props->get('all_bed_out');
+    my $outfile3 = $props->get('high_bed_out');
+    my $faok     = $props->get('faok');
+    my $userstrand   = $props->get('strand');
+    my $signal   = $props->get('signal');
+    my $minintron = $props->get('minintron');
+    my $allowable_overlap = $props->get('overlap');
 
     # Written by Gregory R. Grant
     # University of Pennsylvania, 2010
@@ -89,59 +164,13 @@ sub main {
 
     my @argv = @ARGV;
 
-    GetOptions(
-        "unique-in=s" => \(my $rumU),
-        "non-unique-in=s" => \(my $rumNU),
-        "genome=s" => \(my $genome_sequence),
-        "genes=s" => \(my $gene_annot),
-        "all-rum-out=s" => \(my $outfile1),        
-        "all-bed-out=s" => \(my $outfile2),
-        "high-bed-out=s" => \(my $outfile3),
-        "faok" => \(my $faok),
-        "strand=s" => \(my $userstrand),
-        "signal=s" => \(my $signal),
-        "minintron=s" => \(my $minintron = 15),
-        "overlap=s"   => \(my $allowable_overlap = 8),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) }
-    );
-
-    $rumU or RUM::Usage->bad(
-        "Please provide a RUM_Unique file with --non-unique-in");
-
-    $rumNU or RUM::Usage->bad(
-        "Please provide a RUM_NU file with --non-unique-in");
-
-    $genome_sequence or RUM::Usage->bad(
-        "Please provide a genome fasta file with --genome");
-
-    $gene_annot or RUM::Usage->bad(
-        "Please provide a gene annotation file with --genes");
-
-    $outfile1 or RUM::Usage->bad(
-        "Please specify a RUM output file for all junctions ".
-            "with --all-ru-out");
-    $outfile2 or RUM::Usage->bad(
-        "Please specify a bed output file for all junctions ".
-            "with --all-bed-out");
-    $outfile3 or RUM::Usage->bad(
-        "Please specify a bed output file for high-quality junctions ".
-            "with --high-bed-out");
-
-    open(OUTFILE1, ">$outfile1") or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$outfile1' for writing\n\n";
-
-    open(OUTFILE2, ">$outfile2") or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$outfile2' for writing\n\n";
-
-    open(OUTFILE3, ">$outfile3") or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$outfile3' for writing\n\n";
-
-
-
+    open OUTFILE1, '>', $outfile1;
+    open OUTFILE2, '>', $outfile2;
+    open OUTFILE3, '>', $outfile3;
 
     if ($userstrand) {
         $strandspecified = "true";
         $arg = $userstrand;
-        
         if ($arg eq "p") {
             $strand = "+";
         } elsif ($arg eq "m") {

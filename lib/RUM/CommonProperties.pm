@@ -95,5 +95,12 @@ sub faok {
         desc => 'Indicate that the FASTA file already has each sequence on one line');
 }
 
+sub strand {
+    return RUM::Property->new(
+        opt => 'strand=s',
+        desc => 'Plus (p) or minus (m) strand',
+        choices => ['p', 'm']
+    );
+}
 
 1;
