@@ -1,22 +1,5 @@
 package RUM::Script::JunctionsToBed;
 
-=pod
-
-=head1 NAME
-
-RUM::Script::JunctionsToBed - Script converting junctions to bed format
-
-=head1 SYNOPSIS
-
-use RUM::Script::JunctionsToBed;
-RUM::Script::JunctionsToBed->main();
-
-=head1 METHODS
-
-=over 4
-
-=cut
-
 use strict;
 use warnings;
 
@@ -25,6 +8,8 @@ use Getopt::Long;
 use RUM::Usage;
 use RUM::Logging;
 
+use base 'RUM::Script::Base';
+
 my @OVERLAP_FIELDS = qw(long_overlap_unique_reads
                         short_overlap_unique_reads
                         long_overlap_nu_reads
@@ -32,38 +17,76 @@ my @OVERLAP_FIELDS = qw(long_overlap_unique_reads
 
 our $log = RUM::Logging->get_logger();
 
-=item $script->main()
+sub summary {
+    'Convert junctions_all.rum to bed format'
+}
 
-Main method, runs the script. Expects @ARGV to be populated.
+sub description {
+    return <<'EOF';
+Converts a junctions_all.rum file into two files in bed format. All
+records from the input are written to F<ALL>. Only high-quality
+records are written to F<HQ>. F<INPUT> should be a tab-delimited file
+with the following fields:
 
-=cut
+=over 4
 
-sub main {
-    GetOptions(
-        "all|a=s"          => \(my $all_filename),
-        "high-quality|q=s" => \(my $hq_filename),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+=item * intron
 
-    my $in_filename = shift(@ARGV);
+=item * strand
 
-    $all_filename or RUM::Usage->bad(
-        "Please provide an output file for all junctions with --all");
-    $hq_filename or RUM::Usage->bad(
-        "Please provide an output file for high-quality junctions with --high-quality");
-    $in_filename or RUM::Usage->bad(
-        "Please provide an input file");
+=item * score
 
-    open my $all_out, ">", $all_filename
-        or croak "Can't open $all_filename for writing: $!";
-    open my $hq_out, ">", $hq_filename
-        or croak "Can't open $hq_filename for writing: $!";
-    open my $in, "<", $in_filename 
-        or croak "Can't open $in_filename for reading: $!";
+=item * known
+
+=item * standard_splice_signal
+
+=item * signal_not_canonical
+
+=item * ambiguous      
+
+=item * long_overlap_unique_reads
+
+=item * short_overlap_unique_reads
+
+=item * long_overlap_nu_reads
+
+=item * short_overlap_nu_reads
+
+=back
+EOF
+
+}
+
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'all|a=s',
+            desc => 'Write all junctions here',
+            required => 1),
+        RUM::Property->new(
+            opt => 'high-quality=s',
+            desc => 'Write high quality junctions here',
+            required => 1),
+        RUM::Property->new(
+            opt => 'infile',
+            desc => 'The junctions_all rum file',
+            positional => 1,
+            required => 1));
+}
+
+sub run {
+
+    my ($self) = @_;
+    my $props = $self->properties;
+    my $in_filename  = $props->get('infile');
+    my $all_filename = $props->get('all');
+    my $hq_filename  = $props->get('high_quality');
+
+    open my $all_out, ">", $all_filename;
+    open my $hq_out,  ">", $hq_filename;
+    open my $in,      "<", $in_filename;
     print "Reading $in_filename\n";
 
-    my $self = __PACKAGE__->new();
     $self->read_file($in, $all_out, $hq_out);
 }
 
