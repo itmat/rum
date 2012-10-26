@@ -55,7 +55,7 @@ sub script_name {
 }
 
 sub pod {
-    my ($self) = @_;
+    my ($self, $verbose) = @_;
     my $pod = "";
     $pod .= "=head1 NAME\n\n";
     $pod .= script_name() . " - " . $self->summary() . "\n\n";
@@ -63,15 +63,25 @@ sub pod {
     $pod .= $self->synopsis;
     $pod .= "\n\n";
     $pod .= "=head1 DESCRIPTION\n\n" . $self->description . "\n\n=head1 ARGUMENTS\n\n";
-    
+
     my $parser = $self->command_line_parser;
     $pod .= "\n\n=over 4\n\n";
-    
+
+    my $skipped = 0;
     for my $prop ($parser->properties()) {
-        $pod .= $prop->pod;
+        if ($prop->required || $verbose) {
+            $pod .= $prop->pod;
+        }
+        else {
+            $skipped++;
+        }
     }
-    
+
     $pod .= "=back\n\n";
+
+    if ($skipped) {
+        $pod .= "(See " . $self->script_name . " -h for more optional arguments)\n\n";
+    }
 
     $pod .= <<'EOF';
 
@@ -131,7 +141,7 @@ sub main {
         my $usage = File::Temp->new;
         pod2usage({
             -verbose => 2,
-            -input => $self->pod,
+            -input => $self->pod(1),
             -output => $usage,
             -exitval => 'NOEXIT'
         });

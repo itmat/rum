@@ -72,7 +72,9 @@ sub parse {
     for my $prop (@{ $self->{properties} }) {
 
         if ($prop->required && !$props->has($prop->name)) {
-            $props->errors->add('Missing required argument ' . $prop->options . ': ' . $prop->desc);
+            my $desc = $prop->desc;
+            $desc =~ s/^(.*?)\..*$/$1/;
+            $props->errors->add('Missing required argument ' . $prop->options . ': ' . $desc);
         }
         if ($props->has($prop->name)) {
             $prop->check($props, $props->get($prop->name));

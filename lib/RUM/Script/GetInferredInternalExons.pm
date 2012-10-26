@@ -3,35 +3,65 @@ package RUM::Script::GetInferredInternalExons;
 no warnings;
 use RUM::Usage;
 use RUM::Logging;
-use Getopt::Long;
+use RUM::CommandLineParser;
 use RUM::CoverageMap;
 use RUM::Common qw(roman Roman arabic isroman);
 use RUM::Sort qw(cmpChrs by_chromosome);
 
 our $log = RUM::Logging->get_logger();
 
-sub main {
+use base 'RUM::Script::Base';
 
-    GetOptions(
-        "junctions=s" => \(my $junctionsinfile),
-        "coverage=s"  => \(my $covinfile),
-        "genes=s"     => \(my $annotfile),
-        "bed=s"       => \(my $bedfile),
-        "rum=s"       => \(my $rumoutfile),
-        "min-score=s" => \(my $minscore = 1),
-        "max-exon=s"  => \(my $maxexon = 500),
-        "help|h"      => sub { RUM::Usage->help },
-        "verbose|v"   => sub { $log->more_logging(1) },
-        "quiet|q"     => sub { $log->less_logging(1) });
+sub summary {
+    'Get inferred internal exons'
+}
 
-    $junctionsinfile or RUM::Usage->bad(
-        "Please provide a junctions input file with --junctions");
+sub command_line_parser {
+    my $parser = RUM::CommandLineParser->new;
+    $parser->add_prop(
+        opt => 'junctions=s',
+        desc => 'The high-quality junctions file output by RUM, sorted by chromosome.  It should be sorted already when it comes out of RUM.  It does not matter what gene annotation was used to generate it, the annotation used to aid in inferring exons is taken from the <annnot file> parameter.',
+        required => 1);
 
-    $covinfile or RUM::Usage->bad(
-        "Please provide a coverage file with --coverage");
+    $parser->add_prop(
+        opt => 'coverage=s',
+        desc => 'The coverage file output by RUM, sorted by chromosome. It should be sorted already when it comes out of RUM.',
+        required => 1);
 
-    $annotfile or RUM::Usage->bad(
-        "Please provide an annotation file with --genes");
+    $parser->add_prop(
+        opt => 'genes=s',
+        desc => 'Transcript models file, in the format of the RUM gene info file.',
+        required => 1);
+
+    $parser->add_prop(
+        opt => 'min-score=s',
+        desc => 'Don\'t use junctions unless they have at least this score.  Note: this will only be applied to things with coverage at the junction of at least 5 times the minscore.',
+        default => 1);
+
+    $parser->add_prop(
+        opt => 'max-exon=s',
+        desc => 'Don\'t infer exons larger than this.',
+        default => 500);
+
+    $parser->add_prop(
+        opt => 'bed=s',
+        desc => 'Output to the given bed file');
+    $parser->add_prop(
+        opt => 'rum=s',
+        desc => 'Output to the given rum file');
+    return $parser;
+}
+
+sub run {
+    my ($self) = @_;
+    my $props = $self->properties;
+    my $junctionsinfile = $props->get('junctions');
+    my $covinfile       = $props->get('coverage');
+    my $annotfile       = $props->get('genes');
+    my $bedfile         = $props->get('bed');
+    my $rumoutfile      = $props->get('rum');
+    my $minscore        = $props->get('min_score');
+    my $maxexon         = $props->get('max_exon');
 
     my %debughash;              # xxx get rid of this later...
 
