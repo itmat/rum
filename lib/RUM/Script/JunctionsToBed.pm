@@ -2,10 +2,9 @@ package RUM::Script::JunctionsToBed;
 
 use strict;
 use warnings;
+use autodie;
 
 use Carp;
-use Getopt::Long;
-use RUM::Usage;
 use RUM::Logging;
 
 use base 'RUM::Script::Base';

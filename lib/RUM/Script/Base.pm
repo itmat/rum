@@ -52,7 +52,6 @@ sub properties {
         $self->command_line_parser->parse;
     }
     return $self->{properties};
-    
 }
 
 sub parse_command_line {
