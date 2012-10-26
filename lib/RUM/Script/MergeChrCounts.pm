@@ -1,43 +1,42 @@
 package RUM::Script::MergeChrCounts;
 
+use strict;
 no warnings;
-use RUM::Usage;
+
 use RUM::Logging;
 use RUM::Common qw(read_chunk_id_mapping);
-use Getopt::Long;
 use RUM::Sort qw(by_chromosome);
 our $log = RUM::Logging->get_logger();
 
-use strict;
+use base 'RUM::Script::Base';
 
-sub main {
+sub summary {
+    'Merge two or more chr counts files'
+}
 
-    GetOptions(
-        "output|o=s" => \(my $outfile),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) },
-        "chunk-ids-file=s" => \(my $chunk_ids_file));
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'output|o=s',
+            desc => 'Output file',
+            required => 1),
+        RUM::Property->new(
+            opt => 'input',
+            desc => 'Input file',
+            positional => 1,
+            required => 1,
+            nargs => '+'));
+}
 
-    $outfile or RUM::Usage->bad(
-        "Please specify an output file with --output or -o");
-    
-    my @file = @ARGV;
-    
-    @file > 0 or RUM::Usage->bad(
-        "Please list the input files on the command line");
-    
-    my %chunk_ids_mapping = read_chunk_id_mapping($chunk_ids_file);
+sub run {
+
+    my ($self) = @_;
+    my $props = $self->properties;
+
+    my $outfile = $props->get('output');
+    my @file = @{ $props->get('input') };
 
     open(OUTFILE, ">>", $outfile) or die "Can't open $outfile for appending";
-    
-    for (my $i=0; $i<@file; $i++) {
-        my $j = $i+1;
-        if ($chunk_ids_file =~ /\S/ && $chunk_ids_mapping{$j} =~ /\S/) {
-            $file[$i] =~ s/(\d|\.)+$//;
-            $file[$i] = $file[$i] . ".$j." . $chunk_ids_mapping{$j};
-        }
-    }
 
     my %chrcnt;
     for my $filename (@file) {
@@ -53,13 +52,11 @@ sub main {
         }
         close(INFILE);
     }
-    
+
     for my $chr (sort by_chromosome keys %chrcnt) {
         my $cnt = $chrcnt{$chr};
         print OUTFILE "$chr\t$cnt\n";
     }
-    
-    
 }
 
     1;
