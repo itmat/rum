@@ -29,7 +29,7 @@ sub new {
     $self->{opt}        = delete $params{opt}     or croak "Need opt";
     $self->{desc}       = delete $params{desc};
     $self->{filter}     = delete $params{filter}  || sub { shift };
-    $self->{handler}    = delete $params{handler} || \&handle;
+    $self->{handler}    = delete $params{handler};
     $self->{checker}    = delete $params{check}   || sub { return };
     $self->{default}    = delete $params{default};
     $self->{transient}  = delete $params{transient};
@@ -37,7 +37,11 @@ sub new {
     $self->{required}   = delete $params{required};
     $self->{positional} = delete $params{positional};
     $self->{choices}    = delete $params{choices};
-    $self->{nargs}      = delete $params{nargs};
+    $self->{nargs}      = delete $params{nargs} || '';
+
+    if (!$self->{handler}) {
+        $self->{handler} = $self->{nargs} eq '+' ? \&handle_multi : \&handle;
+    }
 
     if (my @extra = keys %params) {
         croak "Extra keys to RUM::Config->new: @extra";
@@ -72,7 +76,7 @@ sub set_required {
 sub options {
     my ($self, $separator) = @_;
     my $opt = $self->opt;
-    
+
     $separator ||= ' or ';
 
     if ($self->positional) {
@@ -100,7 +104,6 @@ sub pod {
     }
     else {
         for my $form (@forms) {
-            
             my $spec = sprintf('B<%s%s>',
                                (length($form) == 1 ? '-' : '--'),
                                $form);

@@ -188,6 +188,8 @@ sub synopsis {
 
     my $one_line = join " ", @lines;
 
+    my $result;
+
     if (length($one_line) > 74) {
 
         for my $i (1 .. $#lines) {
@@ -202,15 +204,20 @@ sub synopsis {
         for my $i (1 .. $#lines) {
             $multiline .= sprintf $format, $lines[$i];
         }
-        return $multiline . "\n\n longest is $longest\n";
+        $result = $multiline;
     }
     else {
-        return $one_line;
+        $result = $one_line;
     }
+
+    if ($self->synopsis_footer) {
+        $result .= "\n\n" . $self->synopsis_footer;
+    }
+    return $result;
 
 }
 
 sub description { '' }
-
+sub synopsis_footer { '' }
 
 1;

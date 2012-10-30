@@ -81,7 +81,22 @@ sub parse {
         if ($prop->required && !$props->has($prop->name)) {
             my $desc = $prop->desc;
             $desc =~ s/^(.*?)\..*$/$1/;
-            $props->errors->add('Missing required argument ' . $prop->options . ': ' . $desc);
+            if ($prop->positional) {
+                my $desc = $prop->desc;
+                $desc = lcfirst $desc;
+                if ($prop->nargs eq '+') {
+                    $props->errors->add(
+                        "Please give one or more ${desc}s on the command line");
+                }
+                else {
+                    $props->errors->add(
+                        "Please give ${desc}s on the command line");
+            }
+            }
+            else {
+                $props->errors->add('Missing required argument ' . $prop->options . ': ' . $desc);
+
+            }
         }
         if ($props->has($prop->name)) {
             $prop->check($props, $props->get($prop->name));
