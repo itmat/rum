@@ -8,8 +8,9 @@ use Scalar::Util qw(blessed);
 use Pod::Usage;
 use Getopt::Long;
 use File::Temp;
-
+use RUM::Logging;
 use RUM::CommandLineParser;
+use List::Util qw(max);
 
 sub command_line_parser {
     my ($self) = @_;
@@ -166,25 +167,46 @@ sub main {
 sub synopsis {
     my ($self) = @_;
     my $name = $self->script_name;
-    my @lines = ("  $name [OPTIONS]");
+    my @lines = ("$name [OPTIONS]");
     for my $prop ($self->command_line_parser->properties) {
         next if ! $prop->required;
         my $res = "";
         if ($prop->positional) {
-            $res .= "    " . uc($prop->name);
+            $res .= uc($prop->name);
             if ($prop->nargs eq '+') {
                 $res .= "...";
             }
         }
         else {
-            $res .= "    " . $prop->options('|');
+            $res .= $prop->options('|');
             if ($prop->opt =~ /=/) {
                 $res .= " " . uc($prop->name);
             }
         }
         push @lines, $res;
     }
-    return join "\\\n", @lines;
+
+    my $one_line = join " ", @lines;
+
+    if (length($one_line) > 74) {
+
+        for my $i (1 .. $#lines) {
+            $lines[$i] = "  $lines[$i]";
+        }
+
+        my @lengths = map { length() } @lines;
+        my $longest = max(@lengths) + 1;
+        my $format = "  %-${longest}s\\\n";
+
+        my $multiline = sprintf $format, $lines[0];
+        for my $i (1 .. $#lines) {
+            $multiline .= sprintf $format, $lines[$i];
+        }
+        return $multiline . "\n\n longest is $longest\n";
+    }
+    else {
+        return $one_line;
+    }
 
 }
 

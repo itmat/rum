@@ -5,23 +5,40 @@ no warnings;
 use Carp;
 use RUM::Sort qw(by_chromosome);
 
-use Getopt::Long;
-use RUM::Usage;
-use RUM::Logging;
+use base 'RUM::Script::Base';
 
 our $log = RUM::Logging->get_logger();
 
-sub main {
+sub summary {
+    'Merge together the SAM header files listed on the command line and
+print the merged headers to stdout'
+}
 
-    GetOptions(
-        "name=s"    => \(my $name = "unknown"),
-        "help|h"    => sub { RUM::Usage->help },
-        "quiet|q"   => sub { $log->less_logging(1) },
-        "verbose|v" => sub { $log->more_logging(1) });
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'name=s',
+            desc => 'Name',
+            default => 'unknown'
+        ),
+        RUM::Property->new(
+            opt => 'sam_header',
+            desc => 'Sam header file',
+            positional => 1,
+            nargs => '+',
+            required => 1),
+    );
+}
+
+sub run {
+    my ($self) = @_;
+
+    my $props = $self->properties;
+    my $name  = $props->get('name');
 
     local $_;
     my %header;
-    for my $filename (@ARGV) {
+    for my $filename (@{ $props->get('sam_header') }) {
         open my $in, "<", $filename;
         while (defined($_ = <$in>)) {
             chomp;
