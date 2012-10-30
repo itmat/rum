@@ -117,4 +117,11 @@ sub strand {
     );
 }
 
+sub strand_sense {
+    return RUM::Property->new(
+        opt => 'strand=s',
+        desc => 'ps, ms, pa, or ma (p: plus, m: minus, s: sense, a: antisense)',
+        choices => [qw(ps ms pa ma)]);
+}
+
 1;

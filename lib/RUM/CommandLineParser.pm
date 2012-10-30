@@ -62,7 +62,7 @@ sub parse {
     GetOptions(%getopt);
 
     for my $prop (@positional) {
-        if ($prop->nargs eq '+') {
+        if (defined($prop->nargs) && $prop->nargs eq '+') {
             while (@ARGV) {
                 $prop->handler->($props, $prop->name, shift(@ARGV));
             }
