@@ -1,30 +1,14 @@
 package RUM::Script::MergeJunctions;
 
-=pod
-
-=head1 NAME
-
-RUM::Script::MergeJunctions - Script for merging junction files
-
-=head1 SYNOPSIS
-
-use RUM::Script::MergeJunctions;
-RUM::Script::MergeJunctions->main();
-
-=head1 METHODS
-
-=over 4
-
-=cut
-
 use strict;
 use warnings;
+use autodie;
 
 use Carp;
 use RUM::Sort qw(by_chromosome);
-use RUM::Usage;
 use RUM::Logging;
-use Getopt::Long;
+
+use base 'RUM::Script::Base';
 
 our @MIN_FIELDS = qw(ambiguous signal_not_canonical);
 our @MAX_FIELDS = qw(known standard_splice_signal);
@@ -36,49 +20,89 @@ our @SUM_FIELDS = qw(score
 
 our $log = RUM::Logging->get_logger();
 
-=item $script->main()
+sub summary {
+    'Merge junctions_*.rum files together'
+}
 
-Main method, runs the script. Expects @ARGV to be populated.
+sub description {
+    return <<'EOF';
+Takes n input files and produces 1 output file. Input files must be
+tab-delimited and must have the following columns:
 
-=cut
+=over 4
 
-sub main {
-    GetOptions(
-        "output|o=s" => \(my $output_filename),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
-    $output_filename or RUM::Usage->bad(
-        "Please provide an output file with -o or --output");
+=item intron
 
-    my $self = __PACKAGE__->new();
+=item strand
 
-    for my $filename (@ARGV) {
+=item score
+
+=item known
+
+=item standard_splice_signal
+
+=item signal_not_canonical
+
+=item ambiguous      
+
+=item long_overlap_unique_reads
+
+=item short_overlap_unique_reads
+
+=item long_overlap_nu_reads
+
+=item short_overlap_nu_reads
+
+=back
+
+Reads in all the input files and produces a merged output file, where
+there is a record for each intron that appeared in any of the input
+files. For rows in the input that have the same intron, the new values
+of I<score>, I<long_overlap_unique_reads>,
+I<short_overlap_unique_reads>, I<long_overlap_nu_reads>, and
+I<short_overlap_nu_reads> are the sum of the corresponding fields for
+those records in the input data.
+EOF
+
+}
+
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'output|o=s',
+            desc => 'The locatation to write the output data to',
+            required => 1,
+        ),
+        RUM::Property->new(
+            opt => 'input',
+            desc => 'Input file',
+            required => 1,
+            positional => 1,
+            nargs => '+')
+    );
+}
+
+sub new {
+    my ($self) = @_;
+    my $props = $self->properties;
+    my $output_filename = $props->get('output');
+
+    for my $filename (@{ $props->get('input') }) {
         print "Reading $filename\n";
-        open my $in, "<", $filename 
-            or croak "Can't open $filename for reading: $!";
+        open my $in, "<", $filename;
         $self->read_file($in);
     }
-    open my $out, ">", $output_filename
-        or croak "Can't open $output_filename for writing: $!";
+    open my $out, ">", $output_filename;
     $self->print_output($out);
 }
 
-
-=item RUM::Script::MergeJunctions->new()
-
-Make an instance of the script.
-
-=cut
-
 sub new {
     my ($class) = @_;
-    my $self = { 
-        headers => [],
-        data    => {},
-        diffs   => {}
-    };
-    return bless $self, $class;
+    my $self = $class->SUPER::new;
+    $self->{headers} = [];
+    $self->{data}    = {};
+    $self->{diffs}   = {};
+    return $self;
 }
 
 =item $script->read_file($in)

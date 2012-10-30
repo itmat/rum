@@ -5,78 +5,9 @@ use warnings;
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");
 use RUM::Script::MergeJunctions;
-
 RUM::Script::MergeJunctions->main();
 
-=pod
 
-=head1 NAME
 
-rum_merge_junctions - Merge junctions_*.rum files together.
 
-=head1 SYNOPSIS
 
-rum_merge_junctions [-v] --output OUTPUT INPUTS
-
-=head1 DESCRIPTION
-
-Takes n input files and produces 1 output file. Input files must be
-tab-delimited and must have the following columns:
-
-=over 4
-
-=item intron
-
-=item strand
-
-=item score
-
-=item known
-
-=item standard_splice_signal
-
-=item signal_not_canonical
-
-=item ambiguous      
-
-=item long_overlap_unique_reads
-
-=item short_overlap_unique_reads
-
-=item long_overlap_nu_reads
-
-=item short_overlap_nu_reads
-
-=back
-
-Reads in all the input files and produces a merged output file, where
-there is a record for each intron that appeared in any of the input
-files. For rows in the input that have the same intron, the new values
-of I<score>, I<long_overlap_unique_reads>,
-I<short_overlap_unique_reads>, I<long_overlap_nu_reads>, and
-I<short_overlap_nu_reads> are the sum of the corresponding fields for
-those records in the input data.
-
-=head1 OPTIONS
-
-=over 4
-
-=item B<-o>, B<--output>
-
-The locatation to write the output data to.
-
-=item B<-v>, B<--verbose>
-
-Print extra output.
-
-=back
-
-=head1 AUTHOR
-
-Mike DeLaurentis (delaurentis@gmail.com)
-
-=head1 COPYRIGHT
-
-Copyright University of Pennsylvania, 2012
-
-=cut
