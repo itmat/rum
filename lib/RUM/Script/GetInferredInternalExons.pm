@@ -16,40 +16,39 @@ sub summary {
     'Get inferred internal exons'
 }
 
-sub command_line_parser {
-    my $parser = RUM::CommandLineParser->new;
-    $parser->add_prop(
+sub accepted_options {
+    return (
+        RUM::Property->new(
         opt => 'junctions=s',
         desc => 'The high-quality junctions file output by RUM, sorted by chromosome.  It should be sorted already when it comes out of RUM.  It does not matter what gene annotation was used to generate it, the annotation used to aid in inferring exons is taken from the <annnot file> parameter.',
-        required => 1);
+        required => 1),
 
-    $parser->add_prop(
+    RUM::Property->new(
         opt => 'coverage=s',
         desc => 'The coverage file output by RUM, sorted by chromosome. It should be sorted already when it comes out of RUM.',
-        required => 1);
+        required => 1),
 
-    $parser->add_prop(
+    RUM::Property->new(
         opt => 'genes=s',
         desc => 'Transcript models file, in the format of the RUM gene info file.',
-        required => 1);
+        required => 1),
 
-    $parser->add_prop(
+    RUM::Property->new(
         opt => 'min-score=s',
         desc => 'Don\'t use junctions unless they have at least this score.  Note: this will only be applied to things with coverage at the junction of at least 5 times the minscore.',
-        default => 1);
+        default => 1),
 
-    $parser->add_prop(
+    RUM::Property->new(
         opt => 'max-exon=s',
         desc => 'Don\'t infer exons larger than this.',
-        default => 500);
+        default => 500),
 
-    $parser->add_prop(
+    RUM::Property->new(
         opt => 'bed=s',
-        desc => 'Output to the given bed file');
-    $parser->add_prop(
+        desc => 'Output to the given bed file'),
+    RUM::Property->new(
         opt => 'rum=s',
-        desc => 'Output to the given rum file');
-    return $parser;
+        desc => 'Output to the given rum file'));
 }
 
 sub run {
