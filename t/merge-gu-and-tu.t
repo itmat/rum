@@ -18,18 +18,18 @@ my $tnu = "$INPUT_DIR/TNU.1";
 for my $type (qw(paired single)) {
     my $bowtie_unique  = temp_filename(TEMPLATE=>"$type-bowtie-unique.XXXXXX");
     my $cnu = temp_filename(TEMPLATE => "$type-cnu.XXXXXX",
-                        UNLINK => 0);
-    @ARGV = ("--gu", $gu, 
-             "--tu", $tu, 
-             "--gnu", $gnu, 
+                            UNLINK => 0);
+    @ARGV = ("--gu", $gu,
+             "--tu", $tu,
+             "--gnu", $gnu,
              "--tnu", $tnu,
-             "--bowtie-unique", $bowtie_unique, 
-             "--cnu", $cnu, 
-             "--$type", 
+             "--bowtie-unique", $bowtie_unique,
+             "--cnu", $cnu,
+             "--type", $type,
              "--read-length", 75);
-    
+
     RUM::Script::MergeGuAndTu->main();
-    no_diffs($bowtie_unique, "$EXPECTED_DIR/$type-bowtie-unique", 
+    no_diffs($bowtie_unique, "$EXPECTED_DIR/$type-bowtie-unique",
          "$type bowtie unique");
     no_diffs($cnu, "$EXPECTED_DIR/$type-cnu", "$type cnu");
 }

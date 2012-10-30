@@ -127,7 +127,7 @@ sub main {
             my $errors = $@;          
 
             open my $usage, '>', \(my $msg);
-            
+
             pod2usage({
                 -verbose => 1,
                 -exitval => "NOEXIT",
@@ -139,9 +139,7 @@ sub main {
                 chomp $error;
                 print $usage "  * $error\n";
             }
-            if ($self->description) {
-                print $usage "\nFor full usage information, run $0 -h\n";
-            }
+            print $usage "\nFor full usage information, run $0 -h\n";
             close $usage;
             die $msg;
         }
@@ -149,7 +147,7 @@ sub main {
             die $@;
         }
     }
-    
+
     if ($props->has('help')) {
         my $usage = File::Temp->new;
         pod2usage({
@@ -185,7 +183,6 @@ sub synopsis {
             }
         }
         push @lines, $res;
-        
     }
     return join "\\\n", @lines;
 

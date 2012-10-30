@@ -92,8 +92,7 @@ sub match_length_cutoff {
 sub min_overlap {
     return RUM::Property->new(
         opt => 'min-overlap=s',
-        desc => 'The minimum overlap required to report the intersection of two
-otherwise disagreeing alignments of the same read.',
+        desc => 'The minimum overlap required to report the intersection of two otherwise disagreeing alignments of the same read.',
     );
 }
 
