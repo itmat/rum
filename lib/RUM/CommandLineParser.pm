@@ -11,10 +11,13 @@ use RUM::Properties;
 
 sub new {
     my ($class) = @_;
-    my $self = bless {properties => []}, $class;
+    my $self = bless {
+        properties => [],
+        checkers   => []
+    }, $class;
     $self->add_prop(
         opt => 'help|h' ,
-        desc => 'Get full usage information'
+        desc => 'Get full usage information',
     );
     return $self;
 }
@@ -103,9 +106,18 @@ sub parse {
         }
     }
 
+    for my $f (@{ $self->{checkers} }) {
+        $f->($props);
+    }
+
     $props->errors->check;
 
     return $props;
+}
+
+sub add_check {
+    my ($self, $check) = @_;
+    push @{ $self->{checkers} }, $check;
 }
 
 1;

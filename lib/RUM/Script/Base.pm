@@ -126,7 +126,7 @@ sub main {
     my $props = eval { $self->parse_command_line };
     if ($@) {
         if (ref($@) && ref($@) =~ /RUM::UsageErrors/) {
-            my $errors = $@;          
+            my $errors = $@;
 
             open my $usage, '>', \(my $msg);
 

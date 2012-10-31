@@ -14,86 +14,53 @@ our $log = RUM::Logging->get_logger();
 
 use base 'RUM::Script::Base';
 
-sub check_int_gte_1 {
-    my ($props, $prop, $val) = @_;
-    if (defined($val)) {
-        if ($val !~ /^\d+$/ ||
-            int($val) < 1) {
-            $props->errors->add($prop->options . " must be an integer greater than 1");
-        }
-    }
+sub summary {
+    'Sort a file by location'
 }
 
-sub command_line_parser {
-    my $parser = RUM::CommandLineParser->new;
 
-    $parser->add_prop(
-        opt => 'infile',
-        desc => 'Input file',
-        required => 1,
-        positional => 1
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'infile',
+            desc => 'Input file',
+            required => 1,
+            positional => 1),
+        RUM::Property->new(
+            opt  => 'output|o=s',
+            desc => 'Output file',
+            required => 1),
+        RUM::Property->new(
+            opt   => 'location=s',
+            desc  => 'Column giving the location in the format "chromosome:start-end"',
+            check => \&RUM::CommonProperties::check_int_gte_1
+        ),
+        RUM::Property->new(
+            opt   => 'chromosome=s',
+            desc  => 'Column giving the chromosome',
+            check => \&RUM::CommonProperties::check_int_gte_1
+        ),
+        RUM::Property->new(
+            opt   => 'start=s',
+            desc  => 'Column giving the start position',
+            check => \&RUM::CommonProperties::check_int_gte_1
+        ),
+        RUM::Property->new(
+            opt  => 'end=s',
+            desc => 'Column giving the end position',
+            check => \&RUM::CommonProperties::check_int_gte_1
+        ),
+        RUM::Property->new(
+            opt => 'skip=s',
+            desc => 'Number of rows to skip (these rows will be written to the output, but not sorted)',
+            check => \&RUM::CommonProperties::check_int_gte_1
+        ),
     );
-
-    $parser->add_prop(
-        opt  => 'output|o=s',
-        desc => 'Output file',
-        required => 1);
-
-    $parser->add_prop(
-        opt   => 'location=s',
-        desc  => 'Column giving the location in the format "chromosome:start-end"',
-        check => \&check_int_gte_1
-    );
-
-    $parser->add_prop(
-        opt   => 'chromosome=s',
-        desc  => 'Column giving the chromosome',
-        check => \&check_int_gte_1
-    );
-
-    $parser->add_prop(
-        opt   => 'start=s',
-        desc  => 'Column giving the start position',
-        check => \&check_int_gte_1,
-    );
-
-    $parser->add_prop(
-        opt  => 'end=s',
-        desc => 'Column giving the end position',
-        check => \&check_int_gte_1,
-    );
-
-    $parser->add_prop(
-        opt => 'skip=s',
-        desc => 'Number of rows to skip (these rows will be written to the output, but not sorted)',
-        check => \&check_int_gte_1,
-    );
-
-    return $parser;
 }
 
-sub main {
-    
-    my $self = __PACKAGE__->new;
-    my $props = $self->command_line_parser->parse;
-    
-    my $errors = RUM::UsageErrors->new;
-    
-    if ($props->has('location')) {
-        if ($props->has('chromosome') ||
-            $props->has('start')      ||
-            $props->has('end')) {
-            $errors->add("Please specify either --location or --chromosome, --start, and --end");
-        }
-    }
-    else {
-        if (! ($props->has('chromosome') &&
-               $props->has('start')      &&
-               $props->has('end'))) {
-            $errors->add("Please specify either --location or --chromosome, --start, and --end");
-        }
-    }
-    $errors->check;
+sub run {
+    my ($self) = @_;
+    my $props = $self->properties;
 
     open my $in,  "<", $props->get('infile');
     open my $out, ">", $props->get('output');
@@ -137,6 +104,34 @@ sub main {
             }
         }
     }
+}
+
+sub command_line_parser {
+    my ($self) = @_;
+    my $parser = RUM::CommandLineParser->new;
+    for my $opt ($self->accepted_options) {
+        $parser->add_prop($opt);
+    }
+    $parser->add_check(
+        sub {
+            my ($props) = @_;
+            if ($props->has('location')) {
+                if ($props->has('chromosome') ||
+                    $props->has('start')      ||
+                    $props->has('end')) {
+                    $props->errors->add("Please specify either --location or --chromosome, --start, and --end");
+                }
+            }
+            else {
+                if (! ($props->has('chromosome') &&
+                       $props->has('start')      &&
+                       $props->has('end'))) {
+                    $props->errors->add("Please specify either --location or --chromosome, --start, and --end");
+                }
+            }
+        }
+    );
+    return $parser;
 }
 
 sub synopsis {
