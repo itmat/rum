@@ -120,7 +120,7 @@ sub run {
     my $gene_annot_file = $props->get('genes');
     my $index = $props->get('index');
     my $query = $props->get('query');
-    my $query = $props->get('bowtie_out');
+    my $bowtie_out = $props->get('bowtie_out');
     my $unique_out = $props->get('unique_out');
     my $non_unique_out = $props->get('non_unique_out');
     my $debug = $props->get('debug');

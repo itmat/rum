@@ -86,9 +86,9 @@ sub run {
         }
     }
 
-    open my $gu,  '>', $props->get('unique');
-    open my $gnu, '>', $props->get('non_unique');
-    
+    open my $gu,  '>', $props->get('unique_out');
+    open my $gnu, '>', $props->get('non_unique_out');
+
     my $bowtie = RUM::Bowtie::run_bowtie(%bowtie_opts);
     $self->parse_output($bowtie, $gu, $gnu);
 }
@@ -97,13 +97,12 @@ sub parse_output {
 
     my ($self, $bowtie, $gu, $gnu) = @_;
     $log->info("Parsing bowtie output (genome)");
-    
+
     my $reader = RUM::Bowtie::bowtie_mapping_set_reader($bowtie);
 
     my $props = $self->properties;
 
   READ: while (my ($forward, $reverse) = $reader->()) {
-        
         my @seqs_a = @{ $forward };
         my @seqs_b = @{ $reverse };
 

@@ -2,7 +2,6 @@ package RUM::Blat;
 
 use strict;
 use warnings;
-use autodie;
 
 use File::Temp qw(tempdir);
 use RUM::BinDeps;
@@ -42,7 +41,14 @@ sub run_blat {
 
     $log->info("Running blat: @cmd");    
     if (my $pid = fork) {
-        open my $fh, '<', $fifo;
+        my $tries = 0;
+      TRY: while ( ! -s $fifo ) {
+            sleep 1;
+            if ($tries++ == 10) {
+                die "It looks like BLAT is not producing any output. I waited $tries seconds for BLAT to start producing results, and it hasn't written anything to the output file yet. The blat command was $cmd\n";
+            }
+        }
+        open my $fh, '<', $fifo or die "Couldn't open fifo";
         return ($fh, $pid);
     }
     else {

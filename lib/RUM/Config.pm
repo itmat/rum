@@ -754,7 +754,8 @@ sub match_length_cutoff_opt { $_[0]->opt("--match-length-cutoff", $_[0]->min_len
 sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff",        $_[0]->nu_limit) }
 sub faok_opt                { $_[0]->faok             ? "--faok" : ":" }
 sub count_mismatches_opt    { $_[0]->count_mismatches ? "--count-mismatches" : "" } 
-sub paired_end_opt          { $_[0]->paired_end       ? "--paired" : "--single" }
+sub paired_end_opt          { ('--type',
+                               $_[0]->paired_end ? "paired" : "single") }
 sub dna_opt                 { $_[0]->dna              ? "--dna" : "" }
 sub name_mapping_opt   { "" } 
 sub ram_opt {
