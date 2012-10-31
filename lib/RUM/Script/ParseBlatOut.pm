@@ -180,16 +180,11 @@ sub run {
 
     }
 
-    warn "Running blat\n";
     my ($blat_fh, $pid) = RUM::Blat::run_blat(%blat_opts);
-    warn "Now waiting\n";
-    waitpid $pid, 0;
-
-    warn "Ran it";
     my $mdust_fh = RUM::Mdust::run_mdust($seqfile);
 
     $self->parse_output($blat_fh, $seq_fh, $mdust_fh, $blat_unique, $blat_nu);
-    warn "waiting";
+    waitpid $pid, 0;
 }
 
 sub parse_output {
