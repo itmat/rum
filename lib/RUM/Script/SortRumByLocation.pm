@@ -1,6 +1,7 @@
 package RUM::Script::SortRumByLocation;
 
 no warnings;
+use autodie;
 
 use FindBin qw($Bin);
 
@@ -63,7 +64,7 @@ sub run {
     my $ram = $props->get('ram');
     my $maxchunksize = $props->get('max_chunk_size');
     my $allowsmallchunks = $props->get('allow_small_chunks');
-
+    my $infile = $props->get('input');
     my $running_indicator_file = $outfile;
     $running_indicator_file =~ s![^/]+$!!;
     $running_indicator_file = $running_indicator_file . ".running";

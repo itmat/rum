@@ -272,7 +272,7 @@ sub chunk_workflow {
     $m->step(
         "Create SAM file",
         ["perl", $c->script("rum2sam.pl"),
-         "--genome-in", $genome_fasta,
+         "--genome", $genome_fasta,
          "--unique-in", pre($rum_unique),
          "--non-unique-in", pre($rum_nu),
          "--reads-in", $reads_fa,
@@ -325,7 +325,7 @@ sub chunk_workflow {
                     name => "Generate quants for strand $strand, sense $sense",
                     commands => 
                         [["perl", $c->script("rum2quantifications.pl"),
-                          "--genes-in", $gene_annotations,
+                          "--genes", $gene_annotations,
                           "--unique-in", pre($rum_unique_sorted),
                           "--non-unique-in", pre($rum_nu_sorted),
                           "-o", post($file),
@@ -344,7 +344,7 @@ sub chunk_workflow {
                         name => "Generate alt quants for strand $strand, sense $sense",
                         commands => 
                             [["perl", $c->script("rum2quantifications.pl"),
-                              "--genes-in", $c->alt_quants,
+                              "--genes", $c->alt_quants,
                               "--unique-in", pre($rum_unique_sorted),
                               "--non-unique-in", pre($rum_nu_sorted),
                               "-o", post($file),
@@ -363,7 +363,7 @@ sub chunk_workflow {
             name => "Generate quants",
             commands => 
             [["perl", $c->script("rum2quantifications.pl"),
-              "--genes-in", $gene_annotations,
+              "--genes", $gene_annotations,
               "--unique-in", pre($rum_unique_sorted),
               "--non-unique-in", pre($rum_nu_sorted),
               "-o", post($c->quant(chunk => $chunk)),
@@ -377,7 +377,7 @@ sub chunk_workflow {
             name => "Generate alt quants",
             commands => 
                 [["perl", $c->script("rum2quantifications.pl"),
-                  "--genes-in", $c->alt_quants,
+                  "--genes", $c->alt_quants,
                   "--unique-in", pre($rum_unique_sorted),
                   "--non-unique-in", pre($rum_nu_sorted),
                   "-o", post($c->alt_quant(chunk => $chunk)),
