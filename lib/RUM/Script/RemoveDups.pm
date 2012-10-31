@@ -2,37 +2,46 @@ package RUM::Script::RemoveDups;
 
 no warnings;
 
-use RUM::Usage;
-use RUM::Logging;
-use Getopt::Long;
+use base 'RUM::Script::Base';
 
 our $log = RUM::Logging->get_logger();
 $|=1;
 
-sub main {
+sub summary {
+    'Remove duplicates from a RUM non-unique mapper file.'
+}
 
-    GetOptions(
-        "non-unique-out=s" => \(my $outfile),
-        "unique-out=s" => \(my $outfileu),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+sub description {
+    'This was made for the RUM NU file which accrued some duplicates along its way through the pipeline.'
+}
 
-    my $infile = $ARGV[0] or RUM::Usage->bad(
-        "Please provide an input file of non-unique mappers");
-    $outfile or RUM::Usage->bad(
-        "Specify an output file for non-unique mappers with --non-unique-out");
-    $outfileu or RUM::Usage->bad(
-        "Specify an output file for unique mappers with --unique-out");
+sub accepted_options {
+    return (
+        RUM::CommonProperties->non_unique_out->set_required,
+        RUM::CommonProperties->unique_out->set_required,
+        RUM::Property->new(
+            opt => 'input',
+            desc => 'input file. Should be RUM_NU file',
+            required => 1,
+            positional => 1,
+            required => 1
+        )
+    );
+}
 
-    open(RUMNU, $infile) or die "Can't open $infile for reading: $!";
+sub run {
+    my ($self) = @_;
+    my $props = $self->properties;
+    my $outfile  = $props->get('non_unique_out');
+    my $outfileu = $props->get('unique_out');
+    my $infile   = $props->get('input');
+
+    open RUMNU, $infile;
     $flag = 0;
     $entry = "";
     $seqnum = 1;
-    open(OUTFILE, ">", $outfile) 
-        or die "Can't open $outfile for writing: $!";
-    open(OUTFILEU, ">>", $outfileu) 
-        or die "Can't open $outfileu for appending: $!";
+    open OUTFILE, ">", $outfile;
+    open OUTFILEU, ">>", $outfileu;
     while ($flag == 0) {
         $line = <RUMNU>;
         chomp($line);
