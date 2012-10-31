@@ -136,7 +136,7 @@ sub pod {
 
 sub check {
     my ($self, $props, $val) = @_;
-    $self->checker->($self, $props, $val);
+    $self->checker->($props, $self, $val);
     if ($self->choices) {
         my @picked = grep { $_ eq $val } $self->choices;
         if (!@picked) {

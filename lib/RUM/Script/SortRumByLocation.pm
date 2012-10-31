@@ -37,7 +37,7 @@ sub accepted_options {
             desc => 'Do not necessarily keep forward and reverse reads together. By default they are kept together.'),
         RUM::Property->new(
             opt => 'ram=s',
-            check => \&RUM::CommonProperties::check_int_gte_1,
+            check => \&RUM::CommonProperties::check_positive,
             desc => 'Number of GB of RAM if less than 8, otherwise will assume you have 8, give or take, and pray... If you have some millions of reads and not at least 4GB then thisis probably not going to work.'),
         RUM::Property->new(
             opt => 'max-chunk-size=s',

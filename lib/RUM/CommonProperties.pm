@@ -59,6 +59,14 @@ sub check_int_gte_0 {
     }
 }
 
+sub check_positive {
+    my ($props, $prop, $val) = @_;
+    if (defined($val)) {
+        if ($val <= 0) {
+            $props->errors->add($prop->options . " must be a number greater than 0");
+        }
+    }
+}
 
 sub unique_in {
     return RUM::Property->new(
