@@ -191,9 +191,7 @@ sub accepted_options {
             desc => 'The file to write the results to',
             required => 1),
         RUM::CommonProperties->strand,
-        RUM::Property->new(
-            opt => 'anti',
-            desc => 'Use in conjunction with -strand to record anti-sense transcripts instead of sense.'),
+        RUM::CommonProperties->anti,
         RUM::CommonProperties->counts_only,
         RUM::Property->new(
             opt => 'novel',

@@ -32,6 +32,13 @@ sub genome {
         desc => 'Genome FASTA input file');
 }
 
+sub genes {
+    return RUM::Property->new(
+        opt => 'genes=s',
+        desc => 'Gene annotation input file');
+}
+
+
 sub check_int_gte_1 {
     my ($props, $prop, $val) = @_;
     if (defined($val)) {
@@ -130,4 +137,11 @@ sub counts_only {
         desc => 'Output only a simple file with feature names and counts',
     )
 }
+
+sub anti {
+    RUM::Property->new(
+        opt => 'anti',
+        desc => 'Use in conjunction with -strand to record anti-sense transcripts instead of sense.'),
+    }
+
 1;

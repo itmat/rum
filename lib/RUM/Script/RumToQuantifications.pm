@@ -2,12 +2,12 @@ package RUM::Script::RumToQuantifications;
 
 use strict;
 no warnings;
+use autodie;
 
-use RUM::Usage;
-use RUM::Logging;
-use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
+
+use base 'RUM::Script::Base';
 
 our $log = RUM::Logging->get_logger();
 
@@ -32,20 +32,52 @@ my $UREADS=0;
 my %EXON;
 my %INTRON;
 
-sub new {
-    my ($class) = @_;
-    bless {}, $class;
-    
+sub summary {
+    ''
 }
 
-sub main {
+sub accepted_options {
+    return (
+        RUM::CommonProperties->genes->set_required,
+        RUM::CommonProperties->unique_in->set_required,
+        RUM::CommonProperties->non_unique_in->set_required,
+        RUM::Property->new(
+            opt => 'output|o=s',
+            desc => 'The file to write the results to',
+            required => 1),
+        RUM::Property->new(
+            opt => 'sepout=s',
+            desc => 'Make separate files for the min and max experssion values.  In this case will write the min values to <outfile> and the max values to the file specified by \'filename\'.  There are two extra columns in each file if done this way, one giving the raw count and one giving the count normalized only by the feature length.'),
+        RUM::CommonProperties->strand,
+        RUM::Property->new(
+            opt => 'posonly',
+            desc => 'Output results only for transcripts that have non-zero intensity. Note: if using -sepout, this will output results to both files for a transcript if either one of the unique or non-unique counts is zero.'),
+        RUM::CommonProperties->counts_only,
+        RUM::CommonProperties->anti,
+        RUM::Property->new(
+            opt => 'info=s',
+            desc => 'A file that maps gene IDs to info (such as annotation or other gene ids).  Must be tab delmited with the first column of known ids and second column of annotation.')
+
+    );
+}
+
+sub run {
+
+    my ($self) = @_;
+    my $props = $self->properties;
 
     my $outfile2;
-    
-    my $annotfile;
-    my $U_readsfile;
-    my $NU_readsfile;
-    my $outfile1;
+
+    my $annotfile    = $props->get('genes');
+    my $U_readsfile  = $props->get('unique_in');
+    my $NU_readsfile = $props->get('non_unique_in');
+    my $outfile1     = $props->get('output');
+    $outfile2     = $props->get('sepout');
+    $strand       = $props->get('strand');
+    $countsonly   = $props->get('countsonly');
+    $anti         = $props->get('anti');
+    $infofile     = $props->get('info');
+    $posonly      = $props->get('posonly');
 
     undef %TRANSCRIPT;
     undef %EXON_temp;
@@ -60,49 +92,10 @@ sub main {
     undef $UREADS;
     undef %EXON;
     undef %INTRON;
-    
-    $annotfile = "";
-    $U_readsfile = "";
-    $NU_readsfile = "";
-    $outfile1 = "";
 
-    $sepout = "false";
-    undef $posonly;
-    undef $countsonly;
-    undef $strand;
-    undef $anti;
 
-    GetOptions(
-        "genes-in=s"      => \$annotfile,
-        "unique-in=s"     => \$U_readsfile,
-        "non-unique-in=s" => \$NU_readsfile,
-        "output|o=s"      => \$outfile1,
-        "sepout=s"        => \$outfile2,
-        "strand=s"        => \$strand,
-        "posonly"         => \$posonly,
-        "countsonly"      => \$countsonly,
-        "anti"            => \$anti,
-        "info=s"          => \$infofile,
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
 
-    $annotfile or RUM::Usage->bad(
-        "Please provide a gene annotation file with --genes-in");
-    $U_readsfile or RUM::Usage->bad(
-        "Please provide a sorted file of unique mappers with --unique-in");
-    $NU_readsfile or RUM::Usage->bad(
-        "Please provide a sorted file of non-unique mappers with ".
-            "--non-unique-in");
-    $outfile1 or RUM::Usage->bad(
-        "Please specify an output file with --output or -o");
-
-    if ($outfile2) {
-        $sepout = "true";
-    }
-
-    !$strand || $strand eq 'p' || $strand eq 'm' or RUM::Usage->bad(
-        "--strand must be either 'p' or 'm', not '$strand'");
+    $sepout = $outfile2 ? 'true' : 'false';
 
     # read in the info file, if given
 
