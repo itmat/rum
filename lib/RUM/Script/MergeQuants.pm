@@ -36,10 +36,7 @@ sub accepted_options {
             desc => 'The number of chunks',
             required => 1,
         ),
-        RUM::Property->new(
-            opt => 'countsonly',
-            desc => 'Output only a simple file with feature names and counts',
-        ),
+        RUM::CommonProperties->counts_only,
         RUM::Property->new(
             opt => 'alt',
             desc => 'Need this if using --altquant when running RUM',

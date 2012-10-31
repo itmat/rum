@@ -10,6 +10,7 @@ use Getopt::Long;
 use File::Temp;
 use RUM::Logging;
 use RUM::CommandLineParser;
+use RUM::CommonProperties;
 use List::Util qw(max);
 
 sub command_line_parser {
@@ -62,7 +63,7 @@ sub parse_command_line {
 
 sub script_name {
     my ($vol, $dir, $file) = File::Spec->splitdir($0);
-    return $file;
+    return $file || $0;
 }
 
 sub pod {

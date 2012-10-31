@@ -124,4 +124,10 @@ sub strand_sense {
         choices => [qw(ps ms pa ma)]);
 }
 
+sub counts_only {
+    RUM::Property->new(
+        opt => 'countsonly',
+        desc => 'Output only a simple file with feature names and counts',
+    )
+}
 1;
