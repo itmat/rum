@@ -5,66 +5,80 @@ no warnings;
 use FindBin qw($Bin);
 
 use Carp;
-use Getopt::Long;
 use RUM::Sort qw(by_chromosome);
-use RUM::Usage;
 use RUM::FileIterator qw(file_iterator sort_by_location merge_iterators);
 use File::Copy qw(mv cp);
 use Data::Dumper;
+use RUM::CommonProperties;
 
 our $log = RUM::Logging->get_logger();
 $|=1;
 
-sub main {
+use base 'RUM::Script::Base';
 
-    GetOptions(
-        "output|o=s" => \(my $outfile),
-        "separate" => \(my $separate = 0),
-        "ram=s"    => \(my $ram = 6),
-        "max-chunk-size=s" => \(my $maxchunksize),
-        "allow-small-chunks" => \(my $allowsmallchunks = 0),
-        "name=s" => \(my $name),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
-        
-    my $infile = $ARGV[0] or RUM::Usage->bad(
-        "Please specify an input file");
+sub summary {
+    'Sort a RUM file by location'
+}
 
-    $outfile or RUM::Usage->bad(
-        "Please specify an output file with -o or --output");
+sub description {
+    'Sorts sequences a RUM file by mapped location, optionally keeping
+forward and reverse reads together.'
+}
+
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'output|o=s',
+            desc => 'The output file.',
+            required => 1),
+        RUM::Property->new(
+            opt => 'separate',
+            desc => 'Do not necessarily keep forward and reverse reads together. By default they are kept together.'),
+        RUM::Property->new(
+            opt => 'ram=s',
+            check => \&RUM::CommonProperties::check_int_gte_1,
+            desc => 'Number of GB of RAM if less than 8, otherwise will assume you have 8, give or take, and pray... If you have some millions of reads and not at least 4GB then thisis probably not going to work.'),
+        RUM::Property->new(
+            opt => 'max-chunk-size=s',
+            check => \&RUM::CommonProperties::check_int_gte_1,
+            default => 9000000,
+            desc => 'Maximum number of reads that the program tries to read into memory all at once.'),
+        RUM::Property->new(
+            opt => 'allow-small-chunks',
+            desc => 'Allow --max-chunk-size to be less than 500,000. This may be useful for testing purposes.'),
+        RUM::Property->new(
+            opt => 'input',
+            desc => 'Input file, either RUM_Unique or RUM_NU',
+            required => 1,
+            positional => 1)
+    );
+}
+
+
+sub run {
+    my ($self) = @_;
+    my $props = $self->properties;
+    my $outfile = $props->get('output');
+    my $separate = $props->get('separate');
+    my $ram = $props->get('ram');
+    my $maxchunksize = $props->get('max_chunk_size');
+    my $allowsmallchunks = $props->get('allow_small_chunks');
 
     my $running_indicator_file = $outfile;
     $running_indicator_file =~ s![^/]+$!!;
     $running_indicator_file = $running_indicator_file . ".running";
 
-    open(OUTFILE, ">$running_indicator_file") 
-        or die "Can't open $running_indicator_file for writing: $!";
+    open OUTFILE, ">$running_indicator_file";
     print OUTFILE "0";
     close(OUTFILE);
-    
-    my $maxchunksize_specified;
-    my $name;
 
-    if (defined($ram)) {
-        int($ram) > 0 or RUM::Usage->bad(
-            "--ram must be a positive integer; you gave $ram");
-    }
-        
-    if (defined($maxchunksize)) {
-        $maxchunksize_specified = 1;
-        int($maxchunksize) > 0 or RUM::Usage->bad(
-            "--max-chunk-size must be a positive integer; you gave $ram");
-    }
-    else {
-        $maxchunksize = 9000000
-    }
+    my $maxchunksize_specified;
 
     # We have a test that exercises the ability to merge chunks together,
     # so allow max chunk sizes smaller than 500000 if that flag is set.
     $maxchunksize >= 500000 || $allowsmallchunks or
         RUM::Usage->bad("--max-chunks-ize must be at least 500,000.");
-    
+
     my $max_count_at_once;
     if ($maxchunksize_specified) {
         $max_count_at_once = $maxchunksize;
@@ -278,7 +292,7 @@ sub doEverything  {
 		    merge_iterators($temp_merged_out, @iters);
                     $log->info("Done merging");
                     close($temp_merged_out);
-                    
+
                     mv $tempfiles[2], $tempfiles[0]
                         or croak "Couldn't move $tempfiles[2] to $tempfiles[0]: $!";
                     unlink($tempfiles[1]);
@@ -297,7 +311,7 @@ sub doEverything  {
 	    $chunk++;
 	    next;
 	}
-	
+
 	# START NORMAL CASE (SO NOT DEALING WITH A MONSTER CHROMOSOME)
 	$log->info("In the normal case");
         $cnt++;
@@ -310,41 +324,15 @@ sub doEverything  {
 	}
 	my $INFILE = $infile . "_sorting_tempfile." . $chunk;
 	open(my $sorting_file_in, "<", $INFILE);
-        
         sort_by_location($sorting_file_in, *FINALOUT, 
                          separate => $separate);
 	$chunk++;
     }
     close(FINALOUT);
-    
+
     for ($chunk=0;$chunk<$numchunks;$chunk++) {
 	unlink($infile . "_sorting_tempfile." . $chunk);
     }
-    #$timeend = time();
-    #$timelapse = $timeend - $timestart;
-    #if($timelapse < 60) {
-    #    if($timelapse == 1) {
-    #	print "\nIt took one second to sort '$infile'.\n\n";
-    #    } else {
-    #	print "\nIt took $timelapse seconds to sort '$infile'.\n\n";
-    #    }
-    #}
-    #else {
-    #    $sec = $timelapse % 60;
-    #    $min = int($timelapse / 60);
-    #    if($min > 1 && $sec > 1) {
-    #	print "\nIt took $min minutes, $sec seconds to sort '$infile'.\n\n";
-    #    }
-    #    if($min == 1 && $sec > 1) {
-    #	print "\nIt took $min minute, $sec seconds to sort '$infile'.\n\n";
-    #    }
-    #    if($min > 1 && $sec == 1) {
-    #	print "\nIt took $min minutes, $sec second to sort '$infile'.\n\n";
-    #    }
-    #    if($min == 1 && $sec == 1) {
-    #	print "\nIt took $min minute, $sec second to sort '$infile'.\n\n";
-    #    }
-    #}
 
     return \%chr_counts;
 }
