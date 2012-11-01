@@ -20,8 +20,7 @@ plan skip_all => "Pod::Coverage $min_pc required for testing POD coverage"
 # it has a lot of tiny methods that are not worth documenting right
 # now and are self-explanatory.
 my @modules = grep {
-
-    /RUM::Script::RumToCov/ || !/^RUM::(Script::|Action)/
+    !/^RUM::(Script::|Action)/
 } all_modules();
 
 plan tests => scalar(@modules);
