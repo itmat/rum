@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use autodie;
 
-use RUM::Common qw(open_r);
+use RUM::Common qw(open_r is_fasta is_fastq);
 
 use base 'RUM::Script::Base';
 
@@ -47,9 +47,25 @@ sub accepted_options {
 
 sub parser {
     my ($filename) = @_;
+
     if (!$filename) {
         return;
     }
+
+    if (is_fasta($filename)) {
+        return fasta_parser($filename);
+    }
+    elsif (is_fastq($filename)) {
+        return fastq_parser($filename);
+    }
+    else {
+        die "I don't know how to parse $filename. It doesn't look like either a FASTA or a FASTQ file.\n";
+    }
+}
+
+
+sub fasta_parser {
+    my ($filename) = @_;
     my $in = open_r($filename);
 
     return sub {
@@ -66,31 +82,52 @@ sub parser {
         chomp $header;
         chomp $sequence;
         $header =~ s/^>//;
-
+        $sequence =~ s/\./N/g;
+        $sequence = uc $sequence;
         return ($header, $sequence);
     };
 }
 
-sub all_dir   { shift->properties->get('all_dir') }
-sub split_dir { shift->properties->get('split_dir') }
+sub fastq_parser {
+    my ($filename) = @_;
+    my $in = open_r($filename);
+
+    return sub {
+        my $name   = <$in>;
+        my $read   = <$in>;
+        my $ignore = <$in>; # Skip over quality header
+        my $qual   = <$in>;
+
+        # When the name line isn't defined, that means we've hit a
+        # normal EOF. If the name is defined but the read or qual line
+        # isn't, the file is incomplete.
+        if (!defined $name) {
+            return;
+        }
+        if (!defined $read) {
+            die "The input file $filename seems to be incomplete. It is missing the sequence for read $name\n";
+        }
+        if (!defined $qual) {
+            die "The input file $filename seems to be incomplete. It is missing a quality line for read $name on line $.. Last line was $ignore.\n"
+        }
+
+        chomp ($name, $read, $qual);
+        $name =~ s/^@//;
+        $read =~ s/\./N/g;
+        $read = uc $read;
+        return ($name, $read, $qual);
+    };
+}
 
 sub filename {
     my ($self, $base, $extension, $chunk) = @_;
     if ($chunk) {
-        return File::Spec->catfile($self->split_dir, "$base.$extension.$chunk");
+        my $dir = $self->properties->get('split_dir');
+        return File::Spec->catfile($dir, "$base.$extension.$chunk");
     }
     else {
-        return File::Spec->catfile($self->all_dir, "$base.$extension");
-    }
-}
-
-sub name_filename {
-    my ($self, $chunk) = @_;
-    if ($chunk) {
-        return File::Spec->catfile($self->split_dir, "reads.fa.$chunk");
-    }
-    else {
-        return File::Spec->catfile($self->all_dir, "reads.fa");
+        my $dir = $self->properties->get('all_dir');
+        return File::Spec->catfile($dir, "$base.$extension");
     }
 }
 
@@ -131,11 +168,6 @@ sub name_handlers {
 
     my ($self) = @_;
 
-    if (!$self->properties->get('preserve_names')) {
-        warn "Not doing names";
-        return;
-    }
-    warn "Doing names";
     my @handlers;
     open my $all_fh, '>', $self->filename('read_names', 'tab');
     for my $chunk ($self->chunk_numbers) {
@@ -167,13 +199,18 @@ sub run {
     my $rev = parser($props->get('reverse'));
 
     my @read_handlers = $self->read_handlers;
-    my @name_handlers = $self->name_handlers;
-    my @qual_handlers;# = $self->qual_handlers;
+    my @name_handlers;
+    my @qual_handlers;
+
+    if ($props->get('preserve_names')) {
+        @name_handlers = $self->name_handlers;
+    }
+    if (is_fastq($props->get('forward'))) {
+        @qual_handlers = $self->qual_handlers;
+    }
 
     my $handler = sub {
-        my ($seq_num, $dir,
-            $read_header, $read,
-            $qual_header, $qual) = @_;
+        my ($seq_num, $dir, $name, $read, $qual) = @_;
         my $i = ($seq_num - 1) % $chunks;
 
         # This will print the header and sequence to the "all reads"
@@ -187,7 +224,7 @@ sub run {
         }
         # Likewise if we are printing name mappings
         if (@name_handlers) {
-            $name_handlers[$i]->($seq_num, $dir, $read_header);
+            $name_handlers[$i]->($seq_num, $dir, $name);
         }
     };
 

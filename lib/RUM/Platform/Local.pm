@@ -372,7 +372,6 @@ sub _reformat_reads {
         $self->say("Splitting fasta file into reads and quals");
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
-        
         $have_quals = _got_quals($quals_fa);
     }
     else {
@@ -381,7 +380,6 @@ sub _reformat_reads {
 
     # This should only be entered when we have one read file
     $self->say("Splitting read file, please be patient...");        
-    
     $self->_breakup_file($reads_fa, 0);
 
     if ($have_quals) {
