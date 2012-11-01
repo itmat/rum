@@ -791,12 +791,13 @@ sub postprocessing_workflow {
         ["perl", $c->script("rum_merge_sam_headers.pl"),
          "--name", $c->name,
          map(pre($_), @sam_headers), "> ", post($c->sam_header)]);
-
-    $w->step("Concatenate SAM files",
-         ["cat", 
-          pre($c->sam_header), 
-          map(pre($_), @sam_files), 
-          ">", post($sam_file)]);
+    
+    $w->step(
+        "Merge SAM files",
+        ["perl", $c->script("rum_merge_sam_files.pl"),
+         pre($c->sam_header),
+         map(pre($_), @sam_files), 
+         ">", post($sam_file)]);
 
     $w->step(
         "Finish mapping stats",

@@ -241,8 +241,9 @@ sub run {
     open(my $sam_out, ">", $sam_outfile);
     my $sam = RUM::SamIO->new(-fh => $sam_out);
 
-    for (my $seqnum = $firstseqnum; $seqnum <= $lastseqnum; $seqnum++) {
-
+    while ($forward_read = <READS>) {
+        $forward_read =~ /seq\.(\d+)/;
+        $seqnum = $1;
         undef @FORWARD;
         undef @REVERSE;
         undef @JOINED;
@@ -252,7 +253,6 @@ sub run {
 	$MMf = 0;
 	$MMr = 0;
 
-        $forward_read = <READS>;
         $forward_read = <READS>;
         chomp($forward_read);
         $forward_read_hold = $forward_read;

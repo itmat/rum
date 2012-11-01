@@ -218,7 +218,6 @@ sub _check_read_file_pair {
     while (defined(my $line = <$in>) &&
            ++$len < 50000) {
     }
-    close $in;
 
     my $parse2fasta = $config->script("parse2fasta.pl");
     my $fastq2qualities = $config->script("fastq2qualities.pl");
