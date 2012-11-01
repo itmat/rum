@@ -93,7 +93,7 @@ sub parse {
                 }
                 else {
                     $props->errors->add(
-                        "Please give ${desc}s on the command line");
+                        "Please give ${desc} on the command line");
             }
             }
             else {

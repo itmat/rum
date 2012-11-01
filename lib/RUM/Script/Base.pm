@@ -170,15 +170,22 @@ sub synopsis {
     my $name = $self->script_name;
     my @lines = ("$name [OPTIONS]");
     for my $prop ($self->command_line_parser->properties) {
-        next if ! $prop->required;
         my $res = "";
         if ($prop->positional) {
+            if (!$prop->required) {
+                $res .= '[';
+            }
             $res .= uc($prop->name);
             if ($prop->nargs eq '+') {
                 $res .= "...";
             }
+            if (!$prop->required) {
+                $res .= ']';
+            }
         }
         else {
+            next if ! $prop->required;
+
             $res .= $prop->options('|');
             if ($prop->opt =~ /=/) {
                 $res .= " " . uc($prop->name);

@@ -360,7 +360,7 @@ sub is_fasta {
     for my $i (1 .. $#lines / 2) {
         $lines[$i*2]   =~ /^>/               or return 0;
         $lines[$i*2+1] =~ /^[acgtnACGTN.]+$/ or return 0;
-    }    
+    }
     return 1;
 }
 
@@ -475,7 +475,5 @@ sub open_r {
     open $in, $mode, $filename;
     return $in;
 }
-
-
 
 1;
