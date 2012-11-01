@@ -123,7 +123,6 @@ sub _check_single_reads_file {
     }
 
     $config->set("paired_end", $paired);
-    $config->set("input_needs_splitting", $needs_splitting);
     $config->set("input_is_preformatted", $preformatted);
     $config->save();
 }
@@ -280,12 +279,11 @@ sub _check_variable_length {
         }
         $length_hold = length($line1);
     }
-    
 }
 
 
 sub _determine_read_length {
-    
+
     my ($self) = @_;
 
     my @lines = head($self->config->in_output_dir("reads.fa"), 2);
@@ -321,12 +319,6 @@ sub _reformat_reads {
     $self->say("Reformatting reads file... please be patient.");
 
     my $config = $self->config;
-    my $output_dir = $config->output_dir;
-    my $parse_fastq = $config->script("parsefastq.pl");
-    my $parse_fasta = $config->script("parsefasta.pl");
-    my $parse_2_fasta = $config->script("parse2fasta.pl");
-    my $parse_2_quals = $config->script("fastq2qualities.pl");
-    my $num_chunks = $config->chunks || 1;
 
     mkpath($config->chunk_dir);
 
@@ -335,47 +327,36 @@ sub _reformat_reads {
     my $reads_fa = $config->in_output_dir("reads.fa");
     my $quals_fa = $config->in_output_dir("quals.fa");
 
-    my $name_mapping_opt = $config->preserve_names ?
-        "-name_mapping $output_dir/read_names_mapping" : "";    
-    
     my $error_log = $self->_preproc_error_log_filename;
-
-    # Going to figure out here if these are standard fastq files
-
-    my $is_fasta = is_fasta($reads[0]);
-    my $is_fastq = is_fastq($reads[0]);
-    my $preformatted = @reads == 1 && $config->input_is_preformatted;
-    my $reads_in = join(",,,", @reads);
 
     my $have_quals = 0;
 
-    if($is_fastq && !$config->variable_length_reads) {
-        $self->say("Splitting fastq file into $num_chunks chunks ",
-                   "with separate reads and quals");
-        shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $error_log");
-        my @errors = `grep -A 2 "something wrong with line" $error_log`;
-        croak "@errors" if @errors;
-        $have_quals = 1;
-        $self->{input_needs_splitting} = 0;
+    if (@reads == 1 && $config->input_is_preformatted) {
+        link $reads[0], $reads_fa;
+    }
+    elsif (is_fasta($reads[0]) || is_fastq($reads[0])) {
+        my @cmd = (
+            'perl', $config->script('rum_split_reads.pl'),
+            '--chunks',    $config->chunks,
+            '--all-dir',   $config->output_dir,
+            '--split-dir', $config->chunk_dir,
+            @reads);
+        if ($config->preserve_names) {
+            push @cmd, '--preserve-names';
+        }
+        system @cmd;
+        if ($?) {
+            die "There was an error splitting the input files";
+        }
         return;
     }
- 
-    elsif ($is_fasta && !$config->variable_length_reads && !$preformatted) {
-        $self->say("Splitting fasta file into $num_chunks chunks");
-        shell("perl $parse_fasta $reads_in $num_chunks $reads_fa $name_mapping_opt 2>> $error_log");
-        $have_quals = 0;
-        $self->{input_needs_splitting} = 0;
-        return;
-     } 
-
-    elsif (!$preformatted) {
+    else {
         $self->say("Splitting fasta file into reads and quals");
+        my $parse_2_fasta = $config->script("parse2fasta.pl");
+        my $parse_2_quals = $config->script("fastq2qualities.pl");
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
         $have_quals = _got_quals($quals_fa);
-    }
-    else {
-        link $reads_in, $reads_fa;
     }
 
     # This should only be entered when we have one read file

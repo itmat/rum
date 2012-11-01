@@ -472,13 +472,16 @@ uncompressed data.
 
 sub open_r {
     my ($filename) = @_;
-    my $mode = '<';
-
-    if (is_gz($filename)) {
-        $filename = "gunzip -c $filename";
-        $mode = "-|";
+    my $mode = '-|';
+    my $in;
+    my $gunzip = "gunzip -cf $filename";
+    eval {
+        open $in, $mode, $gunzip;
+    };
+    if ($@) {
+        warn "Error opening file using command '$gunzip', trying regular open";
+        open $in, '<', $filename;
     }
-    open my ($in), $mode, $filename;
     return $in;
 }
 
