@@ -4,6 +4,8 @@ use strict;
 use warnings;
 use autodie;
 
+use RUM::Common qw(open_r);
+
 use base 'RUM::Script::Base';
 
 sub summary {
@@ -48,7 +50,7 @@ sub parser {
     if (!$filename) {
         return;
     }
-    open my $in, '<', $filename;
+    my $in = open_r($filename);
 
     return sub {
         my $header = <$in>;

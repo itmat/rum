@@ -455,6 +455,13 @@ sub min_match_length {
 
 Return true if $filename is a gzip-compressed file, false otherwise.
 
+=cut
+sub is_gz {
+    my ($filename) = @_;
+    system 'gunzip', '-t', $filename;
+    return ! $?;
+}
+
 =item open_r($filename)
 
 Return a read-only filehandle for the given filename. If the filename
@@ -466,13 +473,12 @@ uncompressed data.
 sub open_r {
     my ($filename) = @_;
     my $mode = '<';
-    if ($filename =~ /\.gz$/) {
-        die "I'm sorry, I don't support gzipped input at this time.  We plan on adding support for this in the near future.  In the meantime, please unzip your input files with 'gunzip' before running RUM.\n";
+
+    if (is_gz($filename)) {
         $filename = "gunzip -c $filename";
         $mode = "-|";
     }
-    my $in;
-    open $in, $mode, $filename;
+    open my ($in), $mode, $filename;
     return $in;
 }
 
