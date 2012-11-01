@@ -68,19 +68,30 @@ sub fasta_parser {
     my ($filename) = @_;
     my $in = open_r($filename);
 
+    my $line = <$in>;
+
     return sub {
-        my $header = <$in>;
-        if (! defined $header) {
+        if (! defined $line) {
             return;
         }
 
-        my $sequence = <$in>;
-        if (!defined $sequence) {
+        my $header = $line;
+        my $sequence = '';
+
+      SEQ_LINE: while (defined($line = <$in>)) {
+            chomp $line;
+            if ($line =~ /^>/) {
+                last SEQ_LINE;
+            }
+            else {
+                $sequence .= $line;
+            }
+        }
+
+        if (!$sequence) {
             die "The input file $filename seems to be incomplete. It ends with header line $header\n";
         }
 
-        chomp $header;
-        chomp $sequence;
         $header =~ s/^>//;
         $sequence =~ s/\./N/g;
         $sequence = uc $sequence;

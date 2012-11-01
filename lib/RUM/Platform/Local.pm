@@ -360,7 +360,7 @@ sub _reformat_reads {
     }
 
     # This should only be entered when we have one read file
-    $self->say("Splitting read file, please be patient...");        
+    $self->say("Splitting read file, please be patient...");
     $self->_breakup_file($reads_fa, 0);
 
     if ($have_quals) {
@@ -417,7 +417,7 @@ sub _breakup_file  {
 
     my $F2 = $FILE;
     $F2 =~ s!.*/!!;
-    
+
     my $PS = $c->paired_end ? $piecesize * 2 : $piecesize;
     my $base_name = $qualflag ? "quals.fa" : "reads.fa";
     for(my $i=1; $i < $c->chunks; $i++) {

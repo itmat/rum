@@ -356,11 +356,46 @@ sub is_fasta {
     shift if $_[0] eq __PACKAGE__;
     my ($filename) = @_;
 
-    my @lines = head($filename, 40);
-    for my $i (1 .. $#lines / 2) {
-        $lines[$i*2]   =~ /^>/               or return 0;
-        $lines[$i*2+1] =~ /^[acgtnACGTN.]+$/ or return 0;
+    my $in = open_r($filename);
+
+    my $header_line;
+    my @seq_lines;
+
+    # Check the first 1000 lines in the file
+    my $counter = 1000;
+    while (defined(my $line = <$in>) && $counter--) {
+        warn "Got line $line\n";
+        chomp $line;
+
+        # If it's a header line...
+        if ($line =~ /^>/) {
+            # We should have read some sequence lines since the last
+            # header line.
+            if ($header_line && !@seq_lines) {
+                return;
+            }
+
+            $header_line = $line;
+            undef @seq_lines;
+        }
+
+        # Otherwise it should be a sequence line
+        elsif ($line =~ /^[acgtnACGTN.]+$/) {
+            # The first line in the file should always be a header
+            if (!$header_line) {
+                return;
+            }
+            else {
+                push @seq_lines, $line;
+            }
+        }
+
+        # If it's not header or sequence, don't recognize it as fasta
+        else {
+            return;
+        }
     }
+
     return 1;
 }
 
