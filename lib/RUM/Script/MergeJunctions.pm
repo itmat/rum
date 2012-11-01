@@ -62,6 +62,7 @@ of I<score>, I<long_overlap_unique_reads>,
 I<short_overlap_unique_reads>, I<long_overlap_nu_reads>, and
 I<short_overlap_nu_reads> are the sum of the corresponding fields for
 those records in the input data.
+
 EOF
 
 }
@@ -104,13 +105,6 @@ sub new {
     $self->{diffs}   = {};
     return $self;
 }
-
-=item $script->read_file($in)
-
-Read the junctions from the given filehandle and accumulate them into
-$script->{data}.
-
-=cut
 
 sub read_file {
     my ($self, $fh) = @_;
@@ -193,13 +187,6 @@ sub read_file {
     return %stats;
 }
 
-=item $script->print_output($out)
-
-Sort $self->{data} by location and print all the records to the given
-filehandle.
-
-=cut
-
 sub print_output {
     my ($self, $fh) = @_;
     my @headers = @{ $self->{headers} };
@@ -240,8 +227,5 @@ sub print_output {
 
 }
 
-=back
-
-=cut
 
 1;

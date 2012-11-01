@@ -39,7 +39,7 @@ BEGIN {
 }
 
 if (-e $index) {
-    plan tests => 87;
+    plan tests => 85;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -362,7 +362,6 @@ add_test {
         
         ok($rum->config->paired_end, "$prefix is paired end");
         ok($rum->config->input_is_preformatted, "$prefix is preformatted");
-        ok($rum->config->input_needs_splitting, "$prefix needs splitting");
         ok(-e $rum->config->in_output_dir("chunks/reads.fa.1"), "$prefix: made reads");
         ok(! -e $rum->config->in_output_dir("quals.fa.1"), "$prefix: didn't make quals");
     }
@@ -378,16 +377,7 @@ add_test {
         my $prefix = "1, single, fa, no chunks";
         ok( ! $rum->config->paired_end, "$prefix: not paired end");
         ok($rum->config->input_is_preformatted, "$prefix: is preformatted");
-        ok($rum->config->input_needs_splitting, "$prefix: needs splitting");
     }
-    
-    # TODO: What to do for single reads file that is not preformatted?
-    #    $rum = rum(@argv, $forward_64_fq);
-    #    $rum->preprocess;
-    #    ok( ! $rum->config->paired_end, "Not paired end");
-    #    ok( ! $rum->config->input_is_preformatted, "Not preformatted");
-    #    ok($rum->config->input_needs_splitting, "Needs splitting");
-    
     
     # Check that we process a pair of fastq files correctly
     {
@@ -484,7 +474,7 @@ add_test {
                    "--strand-specific quantifications");
     chunk_cmd_like([@standard_args],
                    "Run Bowtie on transcriptome",
-                   qr/--paired/i, 
+                   qr/--type paired/i, 
                    "--paired option gets passed to make_TU_and_TNU");
 
 

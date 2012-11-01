@@ -52,6 +52,7 @@ with the following fields:
 =item * short_overlap_nu_reads
 
 =back
+
 EOF
 
 }
@@ -88,26 +89,6 @@ sub run {
 
     $self->read_file($in, $all_out, $hq_out);
 }
-
-
-=item RUM::Script::MergeJunctions->new()
-
-Make an instance of the script.
-
-=cut
-
-sub new {
-    my ($class) = @_;
-    my $self = { };
-    return bless $self, $class;
-}
-
-=item $script->read_file($in)
-
-Read the junctions from the given filehandle and accumulate them into
-$script->{data}.
-
-=cut
 
 sub read_file {
     my ($self, $fh, $all_out, $hq_out) = @_;
@@ -204,9 +185,5 @@ sub read_file {
         }
     }
 }
-
-=back
-
-=cut
 
 1;
