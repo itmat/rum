@@ -41,7 +41,7 @@ sub accepted_options {
         RUM::Property->new(
             opt => 'reverse',
             desc => 'File containing reverse reads, if reads are paired',
-            positional => 1)
+            positional => 1),
       );
 }
 

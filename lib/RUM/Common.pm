@@ -364,7 +364,6 @@ sub is_fasta {
     # Check the first 1000 lines in the file
     my $counter = 1000;
     while (defined(my $line = <$in>) && $counter--) {
-        warn "Got line $line\n";
         chomp $line;
 
         # If it's a header line...

@@ -76,6 +76,7 @@ sub preprocess {
     close $flag_fh;
 }
 
+
 sub _check_input {
     my ($self) = @_;
     $log->info("Checking input files for quality");
@@ -93,6 +94,7 @@ sub _check_input {
                           $self->config->paired_end ?
                           "paired" : "single"));
 }
+
 
 sub _check_single_reads_file {
     my ($self) = @_;
@@ -126,6 +128,7 @@ sub _check_single_reads_file {
     $config->set("input_is_preformatted", $preformatted);
     $config->save();
 }
+
 
 sub _check_split_files {
     my ($self) = @_;
@@ -162,9 +165,6 @@ sub _check_split_files {
 }
 
 
-
-
-
 sub _check_reads_for_quality {
     my ($self) = @_;
 
@@ -196,7 +196,7 @@ sub _check_read_files_same_size {
 sub _check_read_file_pair {
 
     my ($self) = @_;
-    
+
     my @reads = $self->config->reads;
 
     if (@reads == 2) {
@@ -385,71 +385,42 @@ sub _got_quals {
 }
 
 sub _breakup_file  {
-    my ($self, $FILE, $qualflag) = @_;
+    my ($self, $filename, $qualflag) = @_;
 
     my $c = $self->config;
+    my $chunks = $c->chunks;
 
-    open(INFILE, $FILE);
+    my $in = open_r($filename);
 
-    my $tail = `tail -2 $FILE | head -1`;
-    $tail =~ /seq.(\d+)/s;
-    my $numseqs = $1;
-    my $piecesize = int($numseqs / ($c->chunks || 1));
-
-    my $t = `tail -2 $FILE`;
-    $t =~ /seq.(\d+)/s;
-    my $NS = $1;
-    my $piecesize2 = format_large_int($piecesize);
-    if(!($FILE =~ /qual/)) {
-	if($c->chunks > 1) {
-	    $self->say("processing in ".
-                     $c->chunks . 
-                         " pieces of approx $piecesize2 reads each\n");
-	} else {
-	    my $NS2 = format_large_int($NS);
-	    $self->say("processing in one piece of $NS2 reads\n");
-	}
+    if($filename !~ /qual/) {
+        $self->say("processing in ". $c->chunks . " pieces");
     }
-    if($piecesize % 2 == 1) {
-	$piecesize++;
-    }
-    my $bflag = 0;
 
-    my $F2 = $FILE;
-    $F2 =~ s!.*/!!;
-
-    my $PS = $c->paired_end ? $piecesize * 2 : $piecesize;
     my $base_name = $qualflag ? "quals.fa" : "reads.fa";
-    for(my $i=1; $i < $c->chunks; $i++) {
-	my $outfilename = $c->chunk_file($base_name, $i);
 
-        $log->debug("Building $outfilename");
-	open(OUTFILE, ">$outfilename");
-	for(my $j=0; $j<$PS; $j++) {
-	    my $line = <INFILE>;
-	    chomp($line);
-	    if($qualflag == 0) {
-		$line =~ s/[^ACGTNab]$//s;
-	    }
-	    print OUTFILE "$line\n";
-	    $line = <INFILE>;
-	    chomp($line);
-	    if($qualflag == 0) {
-		$line =~ s/[^ACGTNab]$//s;
-	    }
-	    print OUTFILE "$line\n";
-	}
-	close(OUTFILE);
+    my @fhs;
+    for my $chunk ( 1 .. $c->chunks ) {
+        open my $out, '>', $c->chunk_file($base_name, $chunk);
+        push @fhs, $out;
     }
 
-    my $outfilename = $c->chunk_file($base_name, $c->chunks);
-    open(OUTFILE, ">$outfilename");
-    while(my $line = <INFILE>) {
-	print OUTFILE $line;
+    my $counter = 0;
+    while (1) {
+        my $header = <$in>;
+        my $seq    = <$in>;
+        if (!defined($header)) {
+            last;
+        }
+        if (!defined($seq)) {
+            die "Input file seems to be incomplete. It ends with a header line '$header'\n";
+        }
+        my $fh = $fhs[($counter++ % $chunks)];
+        if($qualflag == 0) {
+            $header =~ s/[^ACGTNab]$//s;
+            $seq    =~ s/[^ACGTNab]$//s;
+        }
+        print $fh "$header\n$seq\n";
     }
-    close(OUTFILE);
-
-    return 0;
 }
 
 ## Processing
