@@ -25,7 +25,7 @@ sub new {
 sub set {
     my ($self, $key, $value) = @_;
     if (!$self->{allowed}{$key}) {
-        croak "Property $key is not allowed";
+        confess "Property $key is not allowed";
     }
     $self->{properties}{$key} = $value;
 }
@@ -33,7 +33,7 @@ sub set {
 sub get {
     my ($self, $key) = @_;
     if (!$self->{allowed}{$key}) {
-        croak "Property $key is not allowed";
+        confess "Property $key is not allowed";
     }
     return $self->{properties}{$key};
 }
@@ -41,7 +41,7 @@ sub get {
 sub has {
     my ($self, $key) = @_;
     if (!$self->{allowed}{$key}) {
-        croak "Property $key is not allowed";
+        confess "Property $key is not allowed";
     }
     return defined $self->{properties}{$key};
 }

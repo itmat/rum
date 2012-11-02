@@ -6,7 +6,6 @@ use warnings;
 use RUM::Config;
 use RUM::Usage;
 use RUM::Workflows;
-use Getopt::Long qw(:config pass_through);
 use Data::Dumper;
 use base 'RUM::Script::Base';
 
@@ -34,7 +33,11 @@ sub accepted_options {
         desc => 'The action for rum_runner to perform',
         choices => [qw(align init status resume stop clean profile kill help version)],
         positional => 1,
-        required => 1));
+        required => 1),
+            RUM::Property->new(
+                opt => 'help|h',
+                desc => 'Get help')
+        );
 }
 
 sub summary {
@@ -65,10 +68,25 @@ return <<'EOF';
 EOF
 }
 
+sub parse_command_line {
+    my ($self) = @_;
+    my $action = shift @ARGV;
+    my $props = $self->{properties} = RUM::Properties->new([$self->accepted_options]);
+    if ($ACTIONS{$action}) {
+        $props->set('action', $action);
+    }
+    else {
+        $props->errors->add('Please specify an action');
+    }
+    $props->errors->check;
+    return $props;
+}
+
 sub run {
     my ($self) = @_;
+
     my $props = $self->properties;
-    Getopt::Long::Configure('default');
+
     my $action = $props->get('action');
 
     my $class = $ACTIONS{$action};
