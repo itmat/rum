@@ -10,13 +10,8 @@ use Data::Dumper;
 use base 'RUM::Script::Base';
 
 our %ACTIONS = (
-    help     => "RUM::Action::Help",
-    '-h'     => "RUM::Action::Help",
-    '-help'  => "RUM::Action::Help",
-    '--help' => "RUM::Action::Help",
 
     version  => "RUM::Action::Version",
-
     align    => "RUM::Action::Align",
     init     => "RUM::Action::Init",
     status   => "RUM::Action::Status",
@@ -68,16 +63,41 @@ return <<'EOF';
 EOF
 }
 
+my $HELP_RE = qr/^(help|--help|-help|-h|-\?|--man|-man)$/;
+
+sub load_class {
+    my ($class) = @_;
+    my $file = $class;
+    $file =~ s/::/\//g;
+    $file .= ".pm";
+    require $file;
+}
+
 sub parse_command_line {
     my ($self) = @_;
     my $action = shift @ARGV;
+
     my $props = $self->{properties} = RUM::Properties->new([$self->accepted_options]);
     if ($ACTIONS{$action}) {
         $props->set('action', $action);
     }
-    else {
-        $props->errors->add('Please specify an action');
+    elsif ($action =~ $HELP_RE) {
+        my $second_action = shift @ARGV || '';
+        if (my $class = $ACTIONS{$second_action}) {
+            load_class($class);
+            $class->show_help;
+        }
+        else {
+            $self->show_help;
+        }
     }
+    elsif ($action) {
+        $props->errors->add("Unknown action '$action'; please specify one of the actions listed above");
+    } 
+    else {
+        $props->errors->add("Please specify an action, for example \"rum_runner align\".");
+    }
+
     $props->errors->check;
     return $props;
 }
@@ -86,17 +106,10 @@ sub run {
     my ($self) = @_;
 
     my $props = $self->properties;
-
     my $action = $props->get('action');
-
     my $class = $ACTIONS{$action};
-
     RUM::Script::Base::set_script_command($action);
-          
-    my $file = $class;
-    $file =~ s/::/\//g;
-    $file .= ".pm";
-    require $file;
+    load_class($class);
     $class->main;
 }
 

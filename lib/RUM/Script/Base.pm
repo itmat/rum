@@ -169,18 +169,23 @@ sub main {
     }
 
     if ($props->has('help')) {
-        my $usage = File::Temp->new;
-        pod2usage({
-            -verbose => 2,
-            -input => $self->pod(1),
-            -output => $usage,
-            -exitval => 'NOEXIT'
-        });
-        close $usage;
-        exec "less", "-eF", $usage;
+        $self->show_help;
     }
 
     $self->run;
+}
+
+sub show_help {
+    my ($self) = @_;
+    my $usage = File::Temp->new;
+    pod2usage({
+        -verbose => 2,
+        -input => $self->pod(1),
+        -output => $usage,
+        -exitval => 'NOEXIT'
+    });
+    close $usage;
+    exec "less", "-eF", $usage;
 }
 
 sub synopsis {
