@@ -110,6 +110,10 @@ sub parse {
         $f->($props);
     }
 
+    if (@ARGV) {
+        $props->errors->add("There are unrecognized command line arguments: @ARGV");
+    }
+
     $props->errors->check;
 
     return $props;

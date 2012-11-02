@@ -33,8 +33,7 @@ sub load_config {
 
         my $props = $self->properties;
         # Parse the command line and construct a RUM::Config
-        warn "Here!\n";
-        warn "Building a config from " . Dumper($props) . "\n";
+
         my $config = $self->{config} = RUM::Config->new(properties => $props);
 
         if ($self->load_default) {

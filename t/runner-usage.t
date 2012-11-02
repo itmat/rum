@@ -8,6 +8,7 @@ use RUM::Pipeline;
 use RUM::Usage;
 use RUM::Script::Main;
 use RUM::Action::Align;
+use RUM::Action::Init;
 use File::Path;
 use File::Temp qw(tempdir);
 use strict;
@@ -89,13 +90,22 @@ sub rum_fails_ok {
     my ($args, $re, $name) = @_;
     open my $out, ">", \(my $data) or die "Can't open output string: $!";
 
-    *STDOUT_BAK = *STDOUT;
-
     @ARGV = @$args;
 
-    *STDOUT = $out;
-    throws_ok { RUM::Script::Main->main } $re, $name;
-    *STDOUT = *STDOUT_BAK;
+    if (my $pid = fork) {
+        waitpid $pid, 0;
+        open my $errors_fh, '<', 't/stderr';
+        my $errors = join ('', (<$errors_fh>));
+        like $errors, $re, $name;
+    }
+    else {
+        close STDERR;
+        open STDERR, '>', 't/stderr';
+        close STDOUT;
+        open STDOUT, '>', 't/stdout';
+        
+        RUM::Script::Main->main;
+    }
 }
 
 sub rum {
@@ -215,23 +225,14 @@ add_test {
 
 add_test {
 
-    # Check that --help-config prints a description of the help file
-    like(run_rum("help", "config"),
-         qr/gene annotation file/, "help config prints config info");
-    like(run_rum("help", "config"),
-         qr/bowtie genome index/, "help config prints config info");
-} 'help';
-
-add_test {
-
     # Check that it fails if required arguments are missing
     rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
                   '--chunks', 1],
-                 qr/please.*read files/im, "Missing read files");
+                 qr/forward reads/im, "Missing read files");
     
     rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
                   "1.fq", "2.fq", "3.fq" , '--chunks', 1],
-                 qr/extra/im, "Too many read files");
+                 qr/unrecognized/im, "Too many read files");
     
     rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
                   "1.fq", "1.fq", '--chunks', 1],
@@ -309,7 +310,7 @@ add_test {
 
     # Check that rum fails if a read file is missing
     rum_fails_ok(["align","--index", $index, "--output", tmp_out(),
-                  "--name", "asdf", "asdf.fq", "-q", '--chunks', 1],
+                  "--name", "asdf", "asdf.fq", '--chunks', 1],
                  qr/asdf.fq.*no such file/i,
                  "Read file doesn't exist");    
     rum_fails_ok(["align", 
@@ -317,7 +318,7 @@ add_test {
                   '--output', tmp_out(), 
                   '--name',   'asdf', 
                   '--chunks', 1,
-                  $forward_64_fq, "asdf.fq", "-q"],
+                  $forward_64_fq, "asdf.fq"],
                  qr/asdf.fq.*no such file/i, 
                  "Read file doesn't exist");    
     
@@ -327,7 +328,7 @@ add_test {
                   '--output', tmp_out(),
                   '--name',   'asdf', 
                   '--chunks', 1,
-                  $bad_reads, '-q'],
+                  $bad_reads],
                  qr/you appear to have entries/i, 'Bad reads');    
     
     rum_fails_ok(['align', 
@@ -614,6 +615,8 @@ add_test {
                    "Generate alt quants with --alt-quant");
 } 'alt_genes_and_quants';
 
+
+warn "Running tests\n";
 for my $test (@TESTS) {
     my ($code, $name) = @{ $test };
     next if defined($wanted_test) && $name ne $wanted_test;
