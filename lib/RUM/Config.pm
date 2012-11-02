@@ -659,8 +659,12 @@ sub new {
         }
     }
     elsif (my $props = $params{properties}) {
+        $self->{_default} = $class->new(default => 1);
         for my $name ($props->names) {
-            $self->{$name} = $props->get($name);
+            my $val = $props->get($name);
+            if ($val ne $self->{_default}->get($name)) {
+                $self->{$name} = $props->get($name);
+            }
         }
     }
 
