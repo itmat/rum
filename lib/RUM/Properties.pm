@@ -50,4 +50,8 @@ sub errors {
     shift->{errors};
 }
 
+sub names {
+    keys %{ shift->{properties} }
+}
+
 1;

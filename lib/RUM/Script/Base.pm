@@ -13,6 +13,12 @@ use RUM::CommandLineParser;
 use RUM::CommonProperties;
 use List::Util qw(max);
 
+my $SCRIPT_COMMAND;
+
+sub set_script_command {
+    $SCRIPT_COMMAND = shift;
+}
+
 sub command_line_parser {
     my ($self) = @_;
     my $parser = RUM::CommandLineParser->new;
@@ -63,22 +69,16 @@ sub parse_command_line {
 
 sub script_name {
     my ($vol, $dir, $file) = File::Spec->splitdir($0);
-    return $file || $0;
+    my $name = $file || $0;
+    if ($SCRIPT_COMMAND) {
+        $name .= " $SCRIPT_COMMAND";
+    }
+    return $name;
 }
 
-sub pod {
+sub argument_pod {
     my ($self, $verbose) = @_;
-    my $pod = "";
-    $pod .= "=head1 NAME\n\n";
-    $pod .= script_name() . " - " . $self->summary() . "\n\n";
-    $pod .= "=head1 SYNOPSIS\n\n";
-    $pod .= $self->synopsis;
-    $pod .= "\n\n";
-
-    if (my $desc = $self->description) {
-        $pod .= "=head1 DESCRIPTION\n\n" . $self->description . "\n\n=head1 ARGUMENTS\n\n";
-    }
-
+    my $pod = '';
     my $parser = $self->command_line_parser;
     $pod .= "\n\n=over 4\n\n";
 
@@ -97,6 +97,24 @@ sub pod {
     if ($skipped) {
         $pod .= "(See " . $self->script_name . " -h for more optional arguments)\n\n";
     }
+
+    return $pod;
+}
+
+sub pod {
+    my ($self, $verbose) = @_;
+    my $pod = "";
+    $pod .= "=head1 NAME\n\n";
+    $pod .= script_name() . " - " . $self->summary() . "\n\n";
+    $pod .= "=head1 SYNOPSIS\n\n";
+    $pod .= $self->synopsis;
+    $pod .= "\n\n";
+
+    if (my $desc = $self->description) {
+        $pod .= "=head1 DESCRIPTION\n\n" . $self->description . "\n\n=head1 ARGUMENTS\n\n";
+    }
+
+    $pod .= $self->argument_pod;
 
     $pod .= <<'EOF';
 

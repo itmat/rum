@@ -5,11 +5,10 @@ use warnings;
 
 use Carp;
 use Getopt::Long;
-use RUM::Usage;
 use RUM::Logging;
 use RUM::UsageErrors;
-use Pod::Usage;
-use base 'RUM::Base';
+use Data::Dumper;
+use base 'RUM::Script::Base';
 
 my $log = RUM::Logging->get_logger;
 
@@ -18,44 +17,39 @@ sub new {
     my $self = $class->SUPER::new;
 
     $self->{config} = $params{config};
-    $self->{name}   = $params{name} or croak "Please give 'name' param";
-    $self->{usage_errors}  = RUM::Usage->new(action => $self->{name});
+    $self->{name}   = $params{name} || 'foo' or croak "Please give 'name' param";
     $self->{loaded_config} = undef;
-    
-    return bless $self, $class;
+    return $self;
+}
+
+sub config {
+    shift->load_config;
 }
 
 sub load_config {
     my ($self) = @_;
 
     if (!$self->{config}) {
+
+        my $props = $self->properties;
         # Parse the command line and construct a RUM::Config
-        eval {
-            $self->{config} = RUM::Config->new->parse_command_line(
-                $self->accepted_options);
-        };
-        if (my $errors = $@) {
-            my $msg;
-            if ($errors->isa('RUM::UsageErrors')) {
-                for my $error ($errors->errors) {
-                    chomp $error;
-                    $msg .= "* $error\n";
+        warn "Here!\n";
+        warn "Building a config from " . Dumper($props) . "\n";
+        my $config = $self->{config} = RUM::Config->new(properties => $props);
+
+        if ($self->load_default) {
+            if ($config->output_dir) {
+                if ( $config->is_new ) {
+                    die "There does not seem to be a RUM job in " . $config->output_dir . "\n";
                 }
-                my $pod = $self->pod;
-                open my $pod_fh, '<', \$pod;
-                pod2usage(
-                    -input => $pod_fh,
-                    -output => \*STDERR,
-                    -verbose => 0,
-                    -exitval => 'NOEXIT');
+                $config->load_default;
             }
             else {
-                $msg = $errors;
+                die RUM::UsageErrors->new(
+                    errors => ['Please specify an output directory with --output or -o']);
             }
-            die "\n$msg\n";
         }
     }
-
     return $self->{config};
 }
 
@@ -75,7 +69,7 @@ RUM Version $RUM::Pipeline::VERSION
 
 $RUM::Pipeline::LOGO
 EOF
-    $self->say($msg);
+    print $msg;
 
 }
 
@@ -85,14 +79,16 @@ sub pod_footer {
 
 }
 
-sub pod {
+sub pod_ {
     my ($class) = @_;
 
     my $pod = $class->pod_header;
 
     $pod .= "=head1 OPTIONS\n\n";
 
-    my %options = $class->accepted_options;
+    my @options = $class->accepted_options;
+
+    my %options = map { ($_->name => $_) } @options;
 
     my @named      = sort @{ $options{options} || [] };
 

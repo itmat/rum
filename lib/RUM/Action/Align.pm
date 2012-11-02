@@ -10,10 +10,6 @@ use Text::Wrap qw(wrap fill);
 use Carp;
 use Data::Dumper;
 
-use RUM::Action::Clean;
-use RUM::Action::Init;
-use RUM::Action::Start;
-
 use RUM::Logging;
 use RUM::Workflows;
 use RUM::Usage;
@@ -30,43 +26,37 @@ our $LOGO;
 
 RUM::Lock->register_sigint_handler;
 
-sub new { shift->SUPER::new(name => 'align', @_) }
-
-sub accepted_options {
-    return (        
-        options => [RUM::Config->common_props,
-                    RUM::Config->job_setting_props,
-                    'chunks', 'output_dir'],
-        positional => ['forward_reads', 'reverse_reads']);
+sub summary {
+    'Run the RUM pipeline.'
 }
 
+sub accepted_options {
+    my @names = RUM::Config->job_setting_props;
+    push @names, 'chunks', 'output_dir';
+    my %props = map { ($_ => RUM::Config->property($_)) } @names;
+    $props{index_dir}->set_required;
+    $props{name}->set_required;
+    $props{chunks}->set_required;
+    $props{output_dir}->set_required;
+
+    my @props = values %props;
+    push @props, RUM::Config->property('forward_reads')->set_required;
+    push @props, RUM::Config->property('reverse_reads');
+    return @props;
+}
+
+sub load_default { }
+
 sub run {
-    my ($class) = @_;
-    my $self = $class->new;
+    my ($self) = @_;
     my $pipeline = $self->pipeline;
     $self->show_logo;
     $pipeline->initialize;
     $pipeline->start;
 }
 
-sub pod_header {
+sub description {
     return <<'EOF';
-=head1 NAME
-
-rum_runner align - Run the RUM pipeline.
-
-=head1 SYNOPSIS
-
-  # Start a job
-  rum_runner align           
-      --index-dir INDEX_DIR  
-      --name      JOB_NAME   
-      --output    OUTPUT_DIR 
-      --chunks    NUM_CHUNKS
-      FORWARD_READS [ REVERSE_READS ]
-      [ OPTIONS ]
-
-=head1 DESCRIPTION
 
 Runs the RUM pipeline. Use C<rum_runner align> to run a new job in a
 new output directory. If you need to resume an existing job, please

@@ -6,6 +6,9 @@ use warnings;
 use RUM::Config;
 use RUM::Usage;
 use RUM::Workflows;
+use Getopt::Long qw(:config pass_through);
+use Data::Dumper;
+use base 'RUM::Script::Base';
 
 our %ACTIONS = (
     help     => "RUM::Action::Help",
@@ -25,23 +28,136 @@ our %ACTIONS = (
     kill     => 'RUM::Action::Kill',
 );
 
-sub main {
-    my ($class) = @_;
+sub accepted_options {
+    return (RUM::Property->new(
+        opt => 'action',
+        desc => 'The action for rum_runner to perform',
+        choices => [qw(align init status resume stop clean profile kill help version)],
+        positional => 1,
+        required => 1));
+}
 
-    my $action = shift(@ARGV) || "";
+sub summary {
+    'RNA-Seq Unified Mapper'
+}
 
-    if (!$action) {
-        RUM::Usage->bad("Please specify an action");
-    }
+sub synopsis {
+return <<'EOF';
 
-    elsif (my $class = $ACTIONS{$action}) {
-        my $file = $class;
-        $file =~ s/::/\//g;
-        $file .= ".pm";
-        require $file;
-        $class->run;
-    }
-    else {
-        RUM::Usage->bad("Unknown action '$action'");
-    }
+  # Run the RUM pipeline
+  rum_runner align        \
+    [OPTIONS]             \
+    --output *dir*        \
+    --index  *index_dir*  \
+    --name   *job_name*   \
+    --chunks *num_chunks* \
+    *forward_reads* [*reverse_reads*]
+
+  # or perform other tasks
+  rum_runner clean   -o *dir* [--very]
+  rum_runner kill    -o *dir*
+  rum_runner resume  -o *dir* [OPTIONS]
+  rum_runner status  -o *dir*
+  rum_runner stop    -o *dir*
+  rum_runner version
+  rum_runner help    [ACTION]
+
+EOF
+}
+
+sub run {
+    my ($self) = @_;
+    my $props = $self->properties;
+    Getopt::Long::Configure('default');
+    my $action = $props->get('action');
+
+    my $class = $ACTIONS{$action};
+
+    RUM::Script::Base::set_script_command($action);
+          
+    my $file = $class;
+    $file =~ s/::/\//g;
+    $file .= ".pm";
+    require $file;
+    $class->main;
+}
+
+sub description {
+    return <<'EOF';
+
+Use this program to run the RUM pipeline, as well as to do things like
+check the status of a job, kill a job, and clean up after a job.
+
+Every time you run rum_runner you must give it an action that tells it
+what to do. When you run the pipeline using C<rum_runner align>,
+rum_runner puts all of its output files in one directory, specified by
+the B<-o> or B<--output> option.
+
+While the job is running you can check the status by running
+C<rum_runner status -o I<dir>>, where I<dir> is the output
+directory.
+
+If you need to stop a job but leave all of its output intact so you
+can restart it from where it left off, use C<rum_runner stop -o
+I<dir>>. You can then resume the job with C<rum_runner resume -o
+I<dir>>, and it should start at the step it was on when it was
+stopped.
+
+If you realized you started a job with incorrect settings and you want
+to kill it and restart it from scratch, you can use C<rum_runner kill
+-o I<dir>>. This will stop the job and remove all output files
+associated with it, so you can safely run it again with different
+settings.
+
+B<Note>: Please run C<rum_runner help align> to see all of the options
+you can use when running an alignment.
+
+EOF
+}
+
+sub argument_pod {
+
+return <<'EOF';
+
+Every time you run rum_runner, you must provide an action that tells the program what to do:
+
+=over 4
+
+=item B<align>
+
+Run the RUM pipeline (this is usually what you want).
+
+=item B<clean>
+
+Delete intermediate files in the specified output directory. 
+
+=item B<kill>
+
+Stop the job running in the specified output directory and remove all
+output files associated with it, so you can restart the job from
+scratch with different settings.
+
+=item B<status>
+
+Check the status of a job running in the output directory specified by
+-o or --output.
+
+=item B<stop>
+
+Stop the job running in the specified output directory. Note that if
+you're running a job in a terminal you also stop it using CTRL-C.
+
+=item B<version>
+
+Print out the version of RUM.
+
+=item B<help> [I<action>]
+
+Print usage information. If I<action> is provided, print help
+information specific to that action.
+
+=back
+
+EOF
+
 }

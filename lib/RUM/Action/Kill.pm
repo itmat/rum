@@ -3,41 +3,32 @@ package RUM::Action::Kill;
 use strict;
 use warnings;
 
-use RUM::Action::Stop;
-use RUM::Action::Clean;
-
 use base 'RUM::Action';
 
-sub new { shift->SUPER::new(name => 'clean', @_) }
+sub load_default { 1 }
 
 sub accepted_options {
     return (
-        options => [qw(output_dir)],
-        load_default => 1);
+        RUM::Config->property('output_dir')->set_required
+      );
 }
 
 sub run {
-    my ($class) = @_;
-
-    my $self = $class->new;
+    my ($self) = @_;
 
     $self->pipeline->stop;
     $self->pipeline->clean(1);
 
-    $self->say("RUM job in " . $self->config->output_dir . " has been killed.");
+    print "RUM job in " . $self->config->output_dir . " has been killed.";
 }
 
-sub pod_header {
+sub summary {
+    'Clean up files for a job'
+}
+
+sub description {
 
 return <<'EOF';
-
-=head1 NAME
-
-rum_runner kill - Clean up files for a job
-
-=head1 SYNOPSIS
-
-rum_runner kill -o dir
 
 =head1 DESCRIPTION
 
