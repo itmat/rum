@@ -6,6 +6,7 @@ use File::Copy;
 use RUM::Usage;
 use RUM::Logging;
 use Getopt::Long;
+use List::Util qw(max min);
 use RUM::Common qw(addJunctionsToSeq reversecomplement spansTotalLength);
 use RUM::SamIO qw(:flags);
 
@@ -938,13 +939,26 @@ sub main {
                     $start_forward = $start_reverse;
                     $end_forward = $start_reverse;
                 }
+
                 if ($rum_u_forward =~ /\S/ && $rum_u_reverse =~ /\S/) {
-                    if ($ruf[3] eq "+") {
-                        $idist_f = $end_reverse - $start_forward;
-                    } else {
-                        $idist_f = $end_forward - $start_reverse;
+
+                    my @fwd_endpoints = ($start_forward, $end_forward);
+                    my @rev_endpoints = ($start_reverse, $end_reverse);
+                    my @endpoints = (@fwd_endpoints, @rev_endpoints);
+
+                    my $abs_tlen = max(@endpoints) - min(@endpoints);
+                    if ($start_forward < $start_reverse) {
+                        $idist_f = $abs_tlen;
+                        $idist_r = 0 - $abs_tlen;
                     }
-                    $idist_r = -1 * $idist_f;
+                    elsif ($start_forward == $start_reverse) {
+                        $idist_f = $abs_tlen;
+                        $idist_r = $abs_tlen;
+                    }
+                    else {
+                        $idist_f = 0 - $abs_tlen;
+                        $idist_r = $abs_tlen;
+                    }
                 }
 	    
 	    
