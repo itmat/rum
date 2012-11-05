@@ -55,3 +55,35 @@ sub names {
 }
 
 1;
+
+=head1 NAME
+
+RUM::Properties - Group of properties parsed from command line
+
+=over 4
+
+=item RUM::Properties->new($allowed)
+
+Create a new group of properties, with the given list of allowed names.
+
+=item $props->set($name, $value)
+
+Set the $name to $value. Will die if $name was not included in the list of allowed names in the constructor.
+
+=item $props->get($name)
+
+Return the value that $name is set to, or die if $name is not allowed.
+
+=item $props->has($name)
+
+Return true if the given name was set.
+
+=item $props->errors
+
+Return the RUM::UsageErrors object for this group of properties.
+
+=item $props->names
+
+Return the list of names set for this proeprty group.
+
+=back

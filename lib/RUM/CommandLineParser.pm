@@ -125,3 +125,33 @@ sub add_check {
 }
 
 1;
+
+=head1 NAME
+
+RUM::CommandLineParser - Command line parser
+
+=head1 METHODS
+
+=over 4
+
+=item RUM::CommandLineParser->new
+
+Constructor
+
+=item $parser->add_prop($prop)
+
+Add a RUM::Property to this parser
+
+=item $parser->properties
+
+Return the list of properties added to this parser 
+
+=item $parser->parse
+
+Parse the command line and return the resulting RUM::Properties object
+
+=item $parser->add_check($checker)
+
+Add a callback function to run in order to check the command line options.  $checker will be called with one argument: the RUM::Properties obejct.
+
+=back

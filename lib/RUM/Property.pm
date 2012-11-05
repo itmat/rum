@@ -146,3 +146,91 @@ sub check {
 }
 
 1;
+
+=head1 NAME
+
+RUM::Property - A RUM command-line option
+
+=over 4
+
+=item RUM::Property->new(%options)
+
+=over 4
+
+=item opt
+
+The option specification, as you would use for Getopt::Long.
+
+=item desc
+
+Help message for the option.
+
+=item filter
+
+Function to apply to the raw value entered by the user. For example \&int to turn it into an int, or sub { open my $in, '<', shift; return $in } to open as a readable filehandle.
+
+=item handler
+
+Function that is called when an option is recognized.
+
+=item checker
+
+Function that is called to validate an option. Called with three arguments: a RUM::Properties object that contains all the options recognized, a RUM::Property object representing this option, and the actual value of the option.
+
+=item default
+
+The default value.
+
+=item transient
+
+True means that the option shouldn't be saved in the job's config file. Defaults to false.
+
+=item group
+
+=item required
+
+True means the option is required.
+
+=item positional
+
+True means the option is not a flag (e.g. --output or -o), but rather a positional command-line argument.
+
+=item choices
+
+If the option has a discrete set of choices, supply those choices here.
+
+=item nargs
+
+Number of arguments to use, for positional arguments.
+
+=back
+
+=item handle($props, $name, $value)
+
+Set $name to $value in the given RUM::Properties object.
+
+=item handle_multi($props, $name, $value)
+
+Append $value to the list of values for $name in the given RUM::Properties object.
+
+=item $prop->check($props, $val)
+
+Validate the given property.
+
+=item $prop->name
+
+Return the name for the property, to be used in usage messages.
+
+=item $prop->options
+
+Return a string representing the options for the property (e.g. "--output|-o"), for usage messages.
+
+=item $prop->pod
+
+Return the POD for the property.
+
+=item $prop->set_required
+
+Set the 'required' flag on the property.
+
+=back
