@@ -507,8 +507,8 @@ satisfied.
 
 sub execute {
     my ($self, $callback, $clean) = @_;
-
-    $log->info("Starting workflow '$self->{name}'. I will".
+    my $wf_name = $self->{name} || '';
+    $log->info("Starting workflow '$wf_name'. I will " .
                ($clean ? " " : " not") .
                "clean up intermediate temporary files along the way.");
 

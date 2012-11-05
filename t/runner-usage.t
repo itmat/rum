@@ -89,13 +89,22 @@ sub rum_fails_ok {
     my ($args, $re, $name) = @_;
     open my $out, ">", \(my $data) or die "Can't open output string: $!";
 
-    *STDOUT_BAK = *STDOUT;
-
     @ARGV = @$args;
 
-    *STDOUT = $out;
-    throws_ok { RUM::Script::Main->main } $re, $name;
-    *STDOUT = *STDOUT_BAK;
+    if (my $pid = fork) {
+        waitpid $pid, 0;
+        open my $errors_fh, '<', 't/stderr';
+        my $errors = join ('', (<$errors_fh>));
+        like $errors, $re, $name;
+    }
+    else {
+        close STDERR;
+        open STDERR, '>', 't/stderr';
+        close STDOUT;
+        open STDOUT, '>', 't/stdout';
+        
+        RUM::Script::Main->main;
+    }
 }
 
 sub rum {

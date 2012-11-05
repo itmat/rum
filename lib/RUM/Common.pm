@@ -203,9 +203,10 @@ Return X formatted with commas between every triplet of digits.
 =cut
 
 sub format_large_int {
-    shift if $_[0] eq __PACKAGE__;
+    shift if (($_[0] || '') eq __PACKAGE__);
     my ($int) = @_;
-    my @a = split(//,"$int");
+    $int = '' if ! defined $int;
+    my @a = split //, $int;
     my $j = 0;
     my $newint = "";
     my $n = @a;
@@ -402,7 +403,7 @@ output status and croak if it fails.
 sub shell {
     my @cmd = @_;
     $log->info("Running @cmd");
-    system(@cmd) == 0 or croak "Error running @cmd: $!";
+    system(@cmd) == 0 or croak "Error running @cmd";
 }
 
 =item is_on_cluster
