@@ -269,16 +269,22 @@ sub chunk_workflow {
          pre($cleaned_unique),
          "-o", post($rum_unique)]);
     
-    $m->step(
-        "Create SAM file",
-        ["perl", $c->script("rum2sam.pl"),
-         "--genome", $genome_fasta,
-         "--unique-in", pre($rum_unique),
-         "--non-unique-in", pre($rum_nu),
-         "--reads-in", $reads_fa,
-         "--quals-in", $quals_fa,
-         "--sam-out", post($sam_file),
-         $c->name_mapping_opt]);
+    my @rum2sam_cmd = (
+        "perl", $c->script("rum2sam.pl"),
+        "--genome", $genome_fasta,
+        "--unique-in", pre($rum_unique),
+        "--non-unique-in", pre($rum_nu),
+        "--reads-in", $reads_fa,
+             "--sam-out", post($sam_file));
+
+    if (-e $quals_fa) {
+        push @rum2sam_cmd, "--quals-in", $quals_fa;
+    }
+    if ($c->preserve_names) {
+        push @rum2sam_cmd, '--name-mapping', chunk_file('read_names.tab');
+    }
+
+    $m->step("Create SAM file", \@rum2sam_cmd);
     
     $m->step(
         "Create non-unique stats",
@@ -286,8 +292,6 @@ sub chunk_workflow {
           pre($sam_file),
          '-o', post($nu_stats)]);
 
-
-    
     $m->step(
         "Sort RUM_Unique by location", 
         ["perl", $c->script("sort_RUM_by_location.pl"),

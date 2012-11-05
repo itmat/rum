@@ -614,7 +614,6 @@ sub count_mismatches_opt    { $_[0]->count_mismatches ? "--count-mismatches" : "
 sub paired_end_opt          { ('--type',
                                $_[0]->reverse_reads ? "paired" : "single") }
 sub dna_opt                 { $_[0]->dna              ? "--dna" : "" }
-sub name_mapping_opt   { "" } 
 sub ram_opt {
     return $_[0]->ram ? ("--ram", $_[0]->ram || $_[0]->min_ram_gb) : ();
 }

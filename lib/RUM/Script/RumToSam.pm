@@ -1,7 +1,7 @@
 package RUM::Script::RumToSam;
 
 no warnings;
-
+use autodie;
 use File::Copy;
 use RUM::Common qw(addJunctionsToSeq reversecomplement spansTotalLength);
 use RUM::SamIO qw(:flags);
@@ -122,13 +122,12 @@ sub run {
     my %namemapping;
     if ($name_mapping_file) {
         $map_names = "true";
-        open(NAMEMAPPING, $name_mapping_file) or die "ERROR: in script parsefastq.pl, cannot open \"$name_mapping_file\" for reading.\n\n";
-        while (my $line = <NAMEMAPPING>) {
+        open my $fh, '<', $name_mapping_file;
+        while (defined(my $line = <$fh>)) {
             chomp($line);
-            @a = split(/\t/,$line);
-            $namemapping{$a[0]} = $a[1];
+            my ($new_name, $orig_name) = split /\t/,$line;
+            $namemapping{$new_name} = $orig_name;
         }
-        close(NAMEMAPPING);
     }
 
     open(INFILE, $genome_infile);
@@ -1041,8 +1040,7 @@ sub run {
                 if ($paired eq "true") {
                     my @reverse_record = map "", (1 .. $N_REQUIRED_FIELDS);
                     if ($map_names eq "true") {
-                        $$tmp = "seq.$seqnum" . "b";
-                        $reverse_record[$QNAME] = $namemapping{$tmp};
+                        $reverse_record[$QNAME] = $namemapping{"seq.${seqnum}b"};
                     } else {
                         $reverse_record[$QNAME] = "seq.$seqnum";
                     }
@@ -1102,8 +1100,7 @@ sub run {
                 my @rec = map "", (1 .. $N_REQUIRED_FIELDS);
 
                 if ($map_names eq "true") {
-                    my $tmp = "seq.$seqnum" . "a";
-                    $rec[$QNAME] = $namemapping{$tmp};
+                    $rec[$QNAME] = $namemapping{"seq.${seqnum}a"};
                 } else {
                     $rec[$QNAME] = "seq.$seqnum";
                 }
@@ -1122,8 +1119,7 @@ sub run {
             } else {
                 my @fwd = map "", (1 .. $N_REQUIRED_FIELDS);
                 if ($map_names eq "true") {
-                    my $tmp = "seq.$seqnum" . "a";
-                    $fwd[$QNAME] = $namemapping{$tmp};
+                    $fwd[$QNAME] = $namemapping{"seq.${seqnum}a"};
                 } else {
                     $fwd[$QNAME] = "seq.$seqnum";
                 }
@@ -1146,8 +1142,7 @@ sub run {
 
                 my @rev = map "", (1 .. $N_REQUIRED_FIELDS);
                 if ($map_names eq "true") {
-                    my $tmp = "seq.$seqnum" . "b";
-                    $rev[$QNAME] = $namemapping{$tmp};
+                    $rev[$QNAME] = $namemapping{"seq.${seqnum}b"};
                 } else {
                     $rev[$QNAME] = "seq.$seqnum";
                 }
