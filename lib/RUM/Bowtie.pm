@@ -8,6 +8,8 @@ use RUM::BinDeps;
 
 use Carp;
 
+my $log = RUM::Logging->get_logger;
+
 sub bowtie_mapping_set_reader {
     my ($fh) = @_;
 
@@ -104,6 +106,8 @@ sub run_bowtie {
     if (defined $tee) {
         $cmd .= " | tee $tee";
     }
+
+    $log->info("Running bowtie: $cmd");
 
     open my $bowtie_out, '-|', $cmd;
     return $bowtie_out;
