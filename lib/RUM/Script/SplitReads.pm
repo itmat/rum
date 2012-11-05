@@ -69,6 +69,7 @@ sub fasta_parser {
     my $in = open_r($filename);
 
     my $line = <$in>;
+    chomp $line;
 
     return sub {
         if (! defined $line) {
