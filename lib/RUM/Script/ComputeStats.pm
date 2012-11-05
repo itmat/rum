@@ -6,9 +6,12 @@ use warnings;
 use Carp;
 use Getopt::Long;
 
-use RUM::Usage;
 use RUM::Logging;
 use RUM::Common;
+use RUM::CommandLineParser;
+use RUM::CommonProperties;
+
+use base 'RUM::Script::Base';
 
 our $log = RUM::Logging->get_logger;
 
@@ -22,37 +25,36 @@ sub _read_footprint {
 }
 
 
-sub main {
+sub summary {
+    return "Compute final mapping stats";
+}
 
-    GetOptions(
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) },
-        "u-footprint=s" => \(my $uf_filename),
-        "nu-footprint=s" => \(my $nuf_filename),
-        "genome-size=s" => \(my $genome_size));
+sub command_line_parser {
+    my $parser = RUM::CommandLineParser->new;
+    $parser->add_prop(
+        opt => 'u-footprint=s',
+        desc => 'File containing number of bases covered by unique mappers, produced by rum2cov.pl',
+        required => 1);
+    $parser->add_prop(
+        opt => 'nu-footprint=s',
+        desc => 'File containing number of bases covered by non-unique mappers, produced by rum2cov.pl',
+        required => 1);
+    $parser->add_prop(RUM::CommonProperties->genome_size);
+    $parser->add_prop(
+        opt => 'mapping_stats',
+        desc => 'Mapping stats input file',
+        positional => 1,
+        required => 1);
+    return $parser;
+}
 
+sub run {
+    my ($self) = @_;
 
-    my $usage = RUM::Usage->new;
-    $uf_filename or $usage->bad(
-        "Please provide the unique footprint filename "
-            . "with --u-footprint");
-
-    $nuf_filename or $usage->bad(
-        "Please provide the non-unique footprint filename "
-            . "with --nu-footprint");
-
-    $genome_size or $usage->bad(
-        "Please provide the genome size with --genome-size");
-
-    my $mapping_stats = shift @ARGV or $usage->bad(
-        "Please provide the mapping stats input file ".
-            "as the last command line argument");
-
-    $usage->check;
-
-    my $uf   = _read_footprint($uf_filename);
-    my $nuf  = _read_footprint($nuf_filename);
+    my $props = $self->properties;
+    my $uf   = _read_footprint($props->get('u_footprint'));
+    my $nuf  = _read_footprint($props->get('nu_footprint'));
+    my $genome_size = $props->get('genome_size');
     my $UF   = RUM::Common->format_large_int($uf);
     my $NUF  = RUM::Common->format_large_int($nuf);
     my $UFp  = int($uf / $genome_size * 10000) / 100;
@@ -67,7 +69,7 @@ sub main {
     
     $log->info("$_\n") for @lines;
     
-    open my $in, "<", $mapping_stats or croak "Can't read from $mapping_stats: $!";
+    open my $in, "<", $props->get('mapping_stats');
     my $newfile = "";
     while (local $_ = <$in>) {
         chomp;

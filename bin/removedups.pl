@@ -7,21 +7,9 @@ use strict;
 use warnings;
 use FindBin qw($Bin);
 use lib ("$Bin/../lib", "$Bin/../lib/perl5");
-use RUM::Script;
-RUM::Script->run_with_logging("RUM::Script::RemoveDups");
+use RUM::Script::RemoveDups;
+RUM::Script::RemoveDups->main;
 
-=head1 NAME
-
-removedups.pl - Remove duplicates from a RUM non-unique mapper file
-
-=head1 SYNOPSIS
-
-removedups.pl [OPTIONS] <rum_nu_infile> --non-unique-out <rum_nu_outfile> --unique-out <rum_unique_outfile>
-
-=head1 DESCRIPTION
-
-This was made for the RUM NU file which accrued some duplicates
-along its way through the pipeline.
 
 =head1 OPTIONS
 

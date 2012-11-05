@@ -2,33 +2,48 @@ package RUM::Script::MergeGnuAndTnuAndCnu;
 
 no warnings;
 
-use RUM::Usage;
 use RUM::Logging;
-use Getopt::Long;
 
 our $log = RUM::Logging->get_logger();
 
-$|=1;
+use base 'RUM::Script::Base';
 
-sub main {
+sub summary {
+    'Merge the GNU, TNU, and CNU files'
+}
 
-    GetOptions(
-        "gnu-in=s" => \(my $infile1),
-        "tnu-in=s" => \(my $infile2),
-        "cnu-in=s" => \(my $infile3),
-        "output=s" => \(my $outfile),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'gnu-in=s',
+            required => 1,
+            desc => 'File of non-unique genome mappers'),
+        RUM::Property->new(
+            opt => 'tnu-in=s',
+            required => 1,
+            desc => 'File of non-unique transcriptome mappers'),
+        RUM::Property->new(
+            opt => 'cnu-in=s',
+            required => 1,
+            desc => 'File of consistent non-unique mappers'),
+        RUM::Property->new(
+            opt => 'output=s',
+            desc => 'Merged output file',
+            required => 1)
+    );
+}
 
-    $infile1 or RUM::Usage->bad("Missing --gnu-in option");
-    $infile2 or RUM::Usage->bad("Missing --tnu-in option");
-    $infile3 or RUM::Usage->bad("Missing --cnu-in option");
-    $outfile or RUM::Usage->bad("Missing --output option");
-    
-    open(INFILE1, "<", $infile1) or die "Can't open $infile1 for reading: $!";
-    open(INFILE2, "<", $infile2) or die "Can't open $infile2 for reading: $!";
-    open(INFILE3, "<", $infile3) or die "Can't open $infile3 for reading: $!";
+sub run {
+    my ($self) = @_;
+    my $props = $self->properties;
+    my $infile1 = $props->get('gnu_in');
+    my $infile2 = $props->get('tnu_in');
+    my $infile3 = $props->get('cnu_in');
+    my $outfile = $props->get('output');
+
+    open INFILE1, "<", $infile1;
+    open INFILE2, "<", $infile2;
+    open INFILE3, "<", $infile3;
 
     $x1 = `tail -1 $infile1`;
     $x2 = `tail -1 $infile2`;

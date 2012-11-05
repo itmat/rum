@@ -19,7 +19,7 @@ my $unmapped   = temp_filename("unmapped.XXXXXX");
     "--unique-in", $unique, 
     "--non-unique-in", $non_unique, 
     "--output", $unmapped,
-    "--paired",
+    "--type", "paired",
     "-q");
 
 RUM::Script::MakeUnmappedFile->main();

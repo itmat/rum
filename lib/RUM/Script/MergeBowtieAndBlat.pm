@@ -2,33 +2,62 @@ package RUM::Script::MergeBowtieAndBlat;
 
 no warnings;
 
-use RUM::Usage;
 use RUM::Logging;
 use RUM::Common qw(addJunctionsToSeq spansTotalLength);
-use Getopt::Long;
+use RUM::CommonProperties;
 
 our $log = RUM::Logging->get_logger();
 
 $|=1;
 
-sub main {
+use base 'RUM::Script::Base';
 
-    GetOptions(
-        "bowtie-unique-in=s"     => \(my $bowtie_unique_in),
-        "blat-unique-in=s"       => \(my $blat_unique_in),
-        "bowtie-non-unique-in=s" => \(my $bowtie_non_unique_in),
-        "blat-non-unique-in=s"   => \(my $blat_non_unique_in),
-        "unique-out=s"           => \(my $unique_out),
-        "non-unique-out=s"       => \(my $non_unique_out),
-        "single"                 => \(my $single),
-        "paired"                 => \(my $paired),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "read-length"     => \(my $readlength = 0),
-        "min-overlap=i"   => \(my $user_min_overlap),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) }
-    );
+sub summary {
+    'Merge results from bowtie and blat'
+}
+
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'bowtie-unique-in=s',
+            desc => 'The file of unique mappers produced by merge_GU_and_TU.pl',
+            required => 1),
+        RUM::Property->new(
+            opt => 'bowtie-non-unique-in=s',
+            desc => 'The file of non-unique mappers produced by merge_GU_and_TU.pl',
+            required => 1),
+        RUM::Property->new(
+            opt => 'blat-unique-in=s',
+            desc => 'The file of unique mappers from blat',
+            required => 1),
+        RUM::Property->new(
+            opt => 'blat-non-unique-in=s',
+            desc => 'The file of non-unique mappers from blat',
+            required => 1),
+        RUM::CommonProperties->unique_out->set_required,
+        RUM::CommonProperties->non_unique_out->set_required,
+        RUM::CommonProperties->read_type->set_required,
+        RUM::CommonProperties->max_pair_dist,
+        RUM::CommonProperties->min_overlap,
+        RUM::CommonProperties->read_length
+);
+}
+
+
+sub run {
+    my ($self) = @_;
+    my $props = $self->properties;
+    my $bowtie_unique_in = $props->get('bowtie_unique_in');
+    my $bowtie_non_unique_in = $props->get('bowtie_non_unique_in');
+    my $blat_unique_in = $props->get('blat_unique_in');
+    my $blat_non_unique_in = $props->get('blat_non_unique_in');
+    my $unique_out = $props->get('unique_out');
+    my $non_unique_out = $props->get('non_unique_out');
+    my $single = $props->get('type') eq 'single';
+    my $paired = $props->get('type') eq 'paired';
+    my $max_distance_between_paired_reads = $props->get('max_pair_dist');
+    my $readlength = $props->get('read_length');
+    my $user_min_overlap = $props->get('min_overlap');
 
     # Input files
     $bowtie_unique_in or RUM::Usage->bad(

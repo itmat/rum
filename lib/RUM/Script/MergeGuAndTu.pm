@@ -1,50 +1,85 @@
 package RUM::Script::MergeGuAndTu;
 
 no warnings;
+use autodie;
 
 use RUM::Logging;
-use RUM::Usage;
-use Getopt::Long;
+use RUM::CommonProperties;
+
 
 our $log = RUM::Logging->get_logger();
 
+use base 'RUM::Script::Base';
+
 $|=1;
 
-sub main {
+sub summary {
+    'Merge the unique mappers from the genome and transcriptome alignments'
+}
 
-    GetOptions(
-        "gu-in=s"            => \(my $infile3),
-        "tu-in=s"            => \(my $infile4),
-        "gnu-in=s"           => \(my $infile1),
-        "tnu-in=s"           => \(my $infile2),
-        "bowtie-unique-out=s" => \(my $outfile1),
-        "cnu-out=s"           => \(my $outfile2),
-        "paired"          => \(my $paired),
-        "single"          => \(my $single),
-        "max-pair-dist=s" => \(my $max_distance_between_paired_reads = 500000),
-        "read-length=s"   => \(my $readlength),
-        "min-overlap=s"   => \(my $user_min_overlap),
-        "help|h"          => sub { RUM::Usage->help },
-        "quiet|q"         => sub { $log->less_logging(1) },
-        "verbose|v"         => sub { $log->more_logging(1) });
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'gu-in=s',
+            desc => 'The file of unique mappers that is output from the script
+make_GU_and_GNU.pl',
+            required => 1,
+        ),
+        RUM::Property->new(
+            opt => 'tu-in=s',
+            desc => 'The file of unique mappers that is output from the script
+make_TU_and_TNU.pl',
+            required => 1,
+        ),
+        RUM::Property->new(
+            opt => 'gnu-in=s',
+            desc => 'The file of non-unique mappers that is output from the script
+make_GU_and_GNU.pl',
+            required => 1,
+        ),
+        RUM::Property->new(
+            opt => 'tnu-in=s',
+            desc => 'The file of non-unique mappers that is output from the script
+make_TU_and_TNU.pl',
+            required => 1,
+        ),
+        RUM::Property->new(
+            opt => 'bowtie-unique-out=s',
+            desc => 'The name of the file of unique mappers to be output',
+            required => 1
+        ),
+        RUM::Property->new(
+            opt => 'cnu-out=s',
+            desc => 'The name of the file of non-unique mappers to be output',
+            required => 1
+        ),
+        RUM::CommonProperties->read_type->set_required,
+        RUM::CommonProperties->max_pair_dist,
+        RUM::CommonProperties->read_length,
+        RUM::CommonProperties->min_overlap,
+    );
+}
 
-    $infile3 or RUM::Usage->bad(
-        "Please specify a genome unique input file with --gu");
-    $infile4 or RUM::Usage->bad(
-        "Please specify a transcriptome unique input file with --tu");
-    $infile1 or RUM::Usage->bad(
-        "Please specify a genome non-unique input file with --gnu");
-    $infile2 or RUM::Usage->bad(
-        "Please specify a transcriptome non-unique input file with --tnu");
-    $outfile1 or RUM::Usage->bad(
-        "Please specify the bowtie-unique output file with --bowtie-unique");
-    $outfile2 or RUM::Usage->bad(
-        "Please specify the cnu output file with --cnu");
-    ($paired xor $single) or RUM::Usage->bad(
-        "Please specify exactly one type with either --single or --paired");
+sub run {
+
+    my ($self) = @_;
+
+    my $props = $self->properties;
+
+    my $infile3     = $props->get('gu_in');
+    my $infile4     = $props->get('tu_in');
+    my $infile1     = $props->get('gnu_in');
+    my $infile2     = $props->get('tnu_in');
+    my $outfile1    = $props->get('bowtie_unique_out');
+    my $outfile2    = $props->get('cnu_out');
+    my $readlength  = $props->get('read_length');
+    my $min_overlap = $props->get('min_overlap');
+    my $paired   = $props->get('type') eq 'paired';
+    my $single   = $props->get('type') eq 'single';
+    my $max_distance_between_paired_reads = $props->get('max_pair_dist');
 
     $paired_end = $paired ? "true" : "false";
-    
+
     if ($readlength) {
         if ($readlength =~ /^\d+$/) {
             if ($readlength < 5) {
@@ -63,8 +98,8 @@ sub main {
             RUM::Usage->bad("--min-overlap must be an integer > 4");
         }
     }
-    
-    open(INFILE, "<", $infile4) or die "Can't open $infile4 for reading: $!";
+
+    open INFILE, "<", $infile4;
 
     if ($readlength == 0) {
         $cnt = 0;
@@ -90,8 +125,7 @@ sub main {
             }
         }
         close(INFILE);
-        open(INFILE, "<", $infile3) 
-            or die "Can't open $infile3 for reading: $!";
+        open INFILE, "<", $infile3;
 
         $cnt = 0;
         while ($line = <INFILE>) {
@@ -117,8 +151,7 @@ sub main {
         }
         close(INFILE);
         $cnt = 0;
-        open(INFILE, "<", $infile1) 
-            or die "Can't open $infile1 for reading: $!";
+        open INFILE, "<", $infile1;
         while ($line = <INFILE>) {
             if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
                 chomp($line);
@@ -142,8 +175,7 @@ sub main {
         }
         close(INFILE);
         $cnt = 0;
-        open(INFILE, $infile2) 
-            or die "Can't open $infile2 for reading: $!";
+        open INFILE, $infile2;
         while ($line = <INFILE>) {
             if ($line =~ /seq.\d+a/ || $line =~ /seq.\d+b/) {
                 chomp($line);
@@ -189,29 +221,23 @@ sub main {
         $min_overlap1 = $user_min_overlap;
         $min_overlap2 = $user_min_overlap;
     }
-    open(INFILE, $infile1) 
-        or die "Can't open $infile1 for reading: $!";
+    open INFILE, $infile1;
 
     while ($line = <INFILE>) {
         $line =~ /^seq.(\d+)/;
         $ambiguous_mappers{$1}++;
     }
     close(INFILE);
-    open(INFILE, $infile2) 
-        or die "Can't open $infile2 for reading: $!";
+    open INFILE, $infile2;
     while ($line = <INFILE>) {
         $line =~ /^seq.(\d+)/;
         $ambiguous_mappers{$1}++;
     }
     close(INFILE);
-    open(INFILE1, $infile3)
-        or die "Can't open $infile3 for reading: $!";
-    open(INFILE2, $infile4) 
-        or die "Can't open $infile4 for reading: $!";
-    open(OUTFILE1, ">", $outfile1) 
-        or die "Can't open $outfile1 for writing: $!";
-    open(OUTFILE2, ">", $outfile2) 
-        or die "Can't open $outfile2 for writing: $!";
+    open INFILE1, $infile3;
+    open INFILE2, $infile4;
+    open OUTFILE1, ">", $outfile1;
+    open OUTFILE2, ">", $outfile2;
 
     $num_lines_at_once = 10000;
     $linecount = 0;

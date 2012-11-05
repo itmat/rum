@@ -10,9 +10,10 @@ use POSIX qw(mkfifo);
 
 use RUM::Blat;
 use RUM::Mdust;
-use RUM::Usage;
-use RUM::Logging;
 use RUM::Common qw(getave addJunctionsToSeq);
+use RUM::CommonProperties;
+
+use base 'RUM::Script::Base';
 
 # Given a filehandle, skip over all rows that appear to be header
 # rows. After I return, the filehandle will be positioned at the first
@@ -42,6 +43,56 @@ sub next_non_header_line {
     return $line;
 }
 
+sub summary {
+    'Run BLAT and parse the output'
+}
+
+sub description {
+    return <<'EOF';
+I<Note:> All three files should preferrably be in order by sequence
+number, and if paired end the a's come before the b's.  The blat file
+will be checked for this and fixed if not, the other two are not
+checked, so make sure they conform.
+EOF
+
+}
+
+sub accepted_options {
+    return (
+        RUM::CommonProperties->genome->set_required,
+        RUM::Property->new(
+            opt => "reads-in=s",
+            desc => 'The fasta file of reads output from make_unmapped_file.pl',
+            required => 1),
+        RUM::Property->new(
+            opt => 'blat-out=s',
+            desc => 'Output from blat. We write to this file if --debug is turned on, and we read from it if --no-blat is turned on.'
+        ),
+        RUM::Property->new(
+            opt => 'mdust-out=s',
+            desc => 'Output from mdust. We write to this file if --debug is turned on, and we read from it if --no-blat is turned on.'
+        ),
+
+        RUM::CommonProperties->unique_out->set_required,
+        RUM::CommonProperties->non_unique_out->set_required,
+        RUM::CommonProperties->max_pair_dist,
+        RUM::Property->new(
+            opt => 'max-insertions=s',
+            default => 1,
+            desc => 'Allow n insertions in one read.  The default is n=1.  Setting n>1 only allowed for single end reads.  Don\'t raise it unless you know what you are doing, because it can greatly increase the false alignments.'
+        ),
+
+        RUM::CommonProperties->match_length_cutoff,
+        RUM::Property->new(
+            opt => 'dna',
+            desc => 'Set this flag if aligning DNA sequence data.'
+        ),
+        RUM::Property->new(
+            opt => 'debug',
+            desc => 'Save intermediate output files from blat and mdust'
+        ),
+    );
+}
 
 
 $| = 1;
@@ -59,43 +110,31 @@ $| = 1;
 # Blat should be run with the following parameters for speed:
 # -ooc=11.ooc -minScore=M -minIdentity=93
 
-sub main {
+sub run {
 
-    my $self = __PACKAGE__->new;
+    my ($self) = @_;
 
-    $self->get_options(
+    my $props = $self->properties;
 
-        # Input files
-        'genome=s'              => \(my $genome),
-        "reads-in=s"            => \(my $seqfile),
+    my $genome = $props->get('genome');
+    my $seqfile = $props->get('reads_in');
+    my $blat_out = $props->get('blat_out');
+    my $mdust_out = $props->get('mdust_out');
+    my $outfile1 = $props->get('unique_out');
+    my $outfile2 = $props->get('non_unique_out');
+    $self->{max_distance_between_paired_reads} = $props->get('max_pair_dist');
+    $self->{num_insertions_allowed} = $props->get('max_insertions');
+    $self->{match_length_cutoff} = $props->get('match_length_cutoff');
+    my $dna = $props->get('dna');
+    my $debug = $props->get('debug');
 
-        # Intermediate files. We write to these files if --debug is
-        # turned on, and we read from them if --no-blat is turned on.
-        "blat-out=s"            => \(my $blat_out),
-        "mdust-out=s"           => \(my $mdust_out),
-
-        # Output files
-        'unique-out=s'          => \(my $outfile1),
-        'non-unique-out=s'      => \(my $outfile2),
-
-        # Other parameters
-        "max-pair-dist=i"       => \($self->{max_distance_between_paired_reads} = 500000),
-        "max-insertions=i"      => \($self->{num_insertions_allowed} = 1),
-        "match-length-cutoff=i" => \($self->{match_length_cutoff} = 0),
-        "dna"                   => \(my $dna),
-
-        'debug' => \(my $debug),
-    );
-
-    
     my @blat_args;
     while (my $arg = shift @ARGV) {
         push @blat_args, $arg;
     }
 
     $self->logger->debug("Blat args are '@blat_args'");
-    $seqfile or RUM::Usage->bad(
-        "Please provide a file of unmapped reads with --reads-in");
+
     $outfile1 or RUM::Usage->bad(
         "Specify an output file for unique mappers with --unique-out");
     $outfile2 or RUM::Usage->bad(
@@ -142,9 +181,8 @@ sub main {
     }
 
     my ($blat_fh, $pid) = RUM::Blat::run_blat(%blat_opts);
-
     my $mdust_fh = RUM::Mdust::run_mdust($seqfile);
-        
+
     $self->parse_output($blat_fh, $seq_fh, $mdust_fh, $blat_unique, $blat_nu);
     waitpid $pid, 0;
 }

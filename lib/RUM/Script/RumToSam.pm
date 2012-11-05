@@ -3,12 +3,11 @@ package RUM::Script::RumToSam;
 no warnings;
 
 use File::Copy;
-use RUM::Usage;
-use RUM::Logging;
-use Getopt::Long;
 use List::Util qw(max min);
 use RUM::Common qw(addJunctionsToSeq reversecomplement spansTotalLength);
 use RUM::SamIO qw(:flags);
+
+use base 'RUM::Script::Base';
 
 our $log = RUM::Logging->get_logger();
 $|=1;
@@ -59,38 +58,56 @@ sub both_segments_mapped {
     return ! ( $rec->[$FLAG] & $mask );
 }
 
-sub main {
+sub summary {
+    'Convert RUM files into a SAM file'
+}
 
+sub accepted_options {
+    return (
+        RUM::CommonProperties->genome->set_required,
+        RUM::CommonProperties->unique_in->set_required,
+        RUM::CommonProperties->non_unique_in->set_required,
+        RUM::Property->new(
+            opt => 'reads-in=s',
+            desc => 'The FASTA file of reads, from parse2fasta.pl',
+            required => 1),
+        RUM::Property->new(
+            opt => 'quals-in=s',
+            desc => 'The file of qualities, from parse2fasta.pl'),
+        RUM::Property->new(
+            opt => 'sam-out=s',
+            desc => 'The SAM output file',
+            required => 1),
+        RUM::Property->new(
+            opt => 'name-mapping=s',
+            desc => 'If set, will use F<name_mapping_file> to map names in the rum file to names in the sam file.'),
+        RUM::Property->new(
+            opt => 'suppress1',
+            desc => ''),
+        RUM::Property->new(
+            opt => 'suppress2',
+            desc => 'Don\'t report records of non-mapper, even if their pair mapped.'),
+        RUM::Property->new(
+            opt => 'suppress3',
+            desc => 'Don\'t report records unless both forward and reverse mapped.')
+      )
+}
+
+sub run {
+    my ($self) = @_;
+    my $props = $self->properties;
     my $map_names = "false";
 
-    GetOptions(
-        "suppress1" => \(my $suppress1),
-        "suppress2" => \(my $suppress2),
-        "suppress3" => \(my $suppress3),
-        "sam-out=s" => \(my $sam_outfile),
-        "genome-in=s" => \(my $genome_infile),
-        "quals-in=s" => \(my $qual_file),
-        "reads-in=s" => \(my $reads_file),
-        "non-unique-in=s" => \(my $rum_nu_file),
-        "unique-in=s" => \(my $rum_unique_file),
-        "name-mapping=s" => \(my $name_mapping_file),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
-
-    my $usage = RUM::Usage->new;
-
-    if (!$sam_outfile) {
-        $usage->bad("Please specify an output file with --sam-out");
-    }
-    if (!$reads_file) {
-        $usage->bad("Please specify a reads file with --reads-in");
-    }
-    if (! ($rum_unique_file || $rum_nu_file) ) {
-        $usage->bad("Please specify at least one of --unique-in or --non-unique in");
-    }
-    
-    $usage->check;
+    my $suppress1 = $props->get('suppress1');
+    my $suppress2 = $props->get('suppress2');
+    my $suppress3 = $props->get('suppress3');
+    my $sam_outfile = $props->get('sam_out');
+    my $genome_infile = $props->get('genome');
+    my $qual_file = $props->get('quals_in');
+    my $reads_file = $props->get('reads_in');
+    my $rum_nu_file = $props->get('non_unique_in');
+    my $rum_unique_file = $props->get('unique_in');
+    my $name_mapping_file = $props->get('name_mapping');
 
     my $allow = sub { 1 };
     if ($suppress1) {
@@ -103,7 +120,6 @@ sub main {
         $allow = \&both_segments_mapped;
     }
 
-    
     my %namemapping;
     if ($name_mapping_file) {
         $map_names = "true";

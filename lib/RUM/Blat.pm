@@ -2,7 +2,6 @@ package RUM::Blat;
 
 use strict;
 use warnings;
-use autodie;
 
 use File::Temp qw(tempdir);
 use RUM::BinDeps;
@@ -42,7 +41,7 @@ sub run_blat {
 
     $log->info("Running blat: @cmd");    
     if (my $pid = fork) {
-        open my $fh, '<', $fifo;
+        open my $fh, '<', $fifo or die "Couldn't open fifo";
         return ($fh, $pid);
     }
     else {

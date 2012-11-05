@@ -4,16 +4,15 @@ use strict;
 use warnings;
 use autodie;
 
-use RUM::Usage;
-use RUM::Logging;
 use RUM::QuantMap;
-use Getopt::Long;
 use RUM::Common qw(roman Roman isroman arabic);
 use RUM::Sort qw(cmpChrs);
 our $log = RUM::Logging->get_logger();
 
 use Data::Dumper;
 use Time::HiRes qw(time);
+
+use base 'RUM::Script::Base';
 
 my $LOG_INTERVAL = 10_000;
 
@@ -175,38 +174,47 @@ sub read_rum_file {
     return $UREADS || (scalar keys %NUREADS);
 }
 
-sub main {
+sub summary {
+    'Quantify exons'
+}
+
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'exons-in=s',
+            desc => 'List of exons in format chr:start-end, one per line.',
+            required => 1),
+        RUM::CommonProperties->unique_in->set_required,
+        RUM::CommonProperties->non_unique_in->set_required,
+        RUM::Property->new(
+            opt => 'output|o=s',
+            desc => 'The file to write the results to',
+            required => 1),
+        RUM::CommonProperties->strand,
+        RUM::CommonProperties->anti,
+        RUM::CommonProperties->counts_only,
+        RUM::Property->new(
+            opt => 'novel',
+            desc => 'Output novel exons only'),
+    );
+}
+
+sub run {
+
+    my ($self) = @_;
+    my $props = $self->properties;
 
     my @A;
     my @B;
-    
-    GetOptions(
-        "exons-in=s"      => \(my $annotfile),    
-        "unique-in=s"     => \(my $U_readsfile),
-        "non-unique-in=s" => \(my $NU_readsfile),
-        "output|o=s"      => \(my $outfile1),
-        "info=s"          => \(my $infofile),
-        "strand=s"        => \(my $wanted_strand),
-        "anti"            => \(my $anti),
-        "countsonly"      => \(my $countsonly),
-        "novel"           => \(my $novel),
-        "help|h"          => sub { RUM::Usage->help },
-        "verbose|v"       => sub { $log->more_logging(1) },
-        "quiet|q"         => sub { $log->less_logging(1) });
-    
-    $annotfile or RUM::Usage->bad(
-        "Please specify an exons file with --exons-in");
-    $U_readsfile or RUM::Usage->bad(
-        "Please specify a RUM_Unique file with --unique-in");
-    $NU_readsfile or RUM::Usage->bad(
-        "Please specify a RUM_NU file with --non-unique-in");
-    $outfile1 or RUM::Usage->bad(
-        "Please specify an output file with -o or --output");
 
-    if ($wanted_strand) {
-        $wanted_strand eq 'p' || $wanted_strand eq 'm' or RUM::Usage->bad(
-            "--strand must be p or m, not $wanted_strand");
-    }
+    my $annotfile     = $props->get('exons_in');
+    my $U_readsfile   = $props->get('unique_in');
+    my $NU_readsfile  = $props->get('non_unique_in');
+    my $outfile1      = $props->get('output');
+    my $wanted_strand = $props->get('strand');
+    my $anti          = $props->get('anti');
+    my $countsonly    = $props->get('countsonly');
+    my $novel         = $props->get('novel');
 
     # read in the transcript models
     my ($EXON, $quants) = read_annot_file($annotfile, $wanted_strand, $novel);

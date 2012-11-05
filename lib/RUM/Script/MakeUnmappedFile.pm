@@ -5,27 +5,55 @@ no warnings;
 use RUM::Logging;
 use RUM::Usage;
 use Getopt::Long;
+use RUM::CommonProperties;
+
+use base 'RUM::Script::Base';
 
 our $log = RUM::Logging->get_logger();
 
+sub summary {
+    'Build file of reads that remain unmapped after bowtie'
+}
+
+sub description {
+    return <<'EOF';
+Reads in a reads file and files of unique and non-unique mappings
+obtained from bowtie, and outputs a file of reads that remain
+unmapped.
+EOF
+}
+
 # FIX THIS SO THAT READS CAN SPAN MORE THAN ONE LINE IN THE FASTA FILE
 
-sub main {
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'reads-in=s',
+            desc => 'The FASTA file of reads',
+            required => 1),
+        RUM::CommonProperties->unique_in->set_required,
+        RUM::CommonProperties->non_unique_in->set_required,
+        RUM::Property->new(
+            opt => 'output=s',
+            desc => 'The file to write the unmapped reads to',
+            required => 1),
+        RUM::CommonProperties->read_type
+    );
+}
 
-    GetOptions(
-        "reads-in=s"      => \(my $infile),
-        "unique-in=s"     => \(my $infile1),
-        "non-unique-in=s" => \(my $infile2),
-        "output|o=s"      => \(my $outfile),
-        "single"          => \(my $single),
-        "paired"          => \(my $paired),
-        "verbose|v"       => sub { $log->more_logging(1) },
-        "quiet|q"         => sub { $log->less_logging(1) },
-        "help|h"          => sub { RUM::Usage->help });
+sub run {
+    my ($self) = @_;
+    my $props = $self->properties;
+
+    my $infile = $props->get('reads_in');
+    my $infile1 = $props->get('unique_in');
+    my $infile2 = $props->get('non_unique_in');
+    my $outfile = $props->get('output');
+    my $single = $props->get('type') eq 'single';
+    my $paired = $props->get('type') eq 'paired';
 
     # Check command line args
-    $infile or RUM::Usage->bad(
-        "Please provide a reads file with --reads-in");
+
     $infile1 or RUM::Usage->bad(
         "Please provide a unique mapper file with --unique-in");
     $infile2 or RUM::Usage->bad(
@@ -94,7 +122,7 @@ sub main {
     }
     close(INFILE);
     close(OUTFILE);
-    
+
     $log->info("Starting BLAT on '$outfile'.");
     return 0;
 }

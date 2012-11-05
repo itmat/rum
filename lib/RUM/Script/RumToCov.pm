@@ -9,18 +9,62 @@ use Getopt::Long;
 
 use base 'RUM::Script::Base';
 
+sub summary {
+    'Generate coverage report for a RUM file'
+}
+
+sub description {
+    return <<'EOF';
+Generates a coverage report for a given RUM file. The input file must be sorted. If it's not, first run sort_RUM_by_location.pl to sort, and I<do not> use the -separate option.
+EOF
+}
+
+sub synopsis_footer {
+    'where <rum file> is the *sorted* RUM_Unique or RUM_NU file. <coverage_file> is the name of the output file, should end in .cov'
+}
+
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'output|o=s',
+            desc => 'The output file.',
+            required => 1
+        ),
+        RUM::Property->new(
+            opt => 'stats=s',
+            desc => 'Output footprint size to this file.',
+        ),
+        RUM::Property->new(
+            opt => 'name=s',
+            desc => 'The name of the track.',
+        ),
+        RUM::Property->new(
+            opt => 'input',
+            desc => 'RUM input file',
+            positional => 1,
+            required => 1
+        )
+    );
+}
+
 sub run {
-    
+
     my ($self) = @_;
-    
-    open my $in_fh,  '<', $self->{in_filename};
-    open my $out_fh, '>', $self->{out_filename};
-    my $name = $self->{name};
+    my $props = $self->properties;
+
+    my $in_filename    = $props->get('input');
+    my $out_filename   = $props->get('output');
+    my $stats_filename = $props->get('stats');
+    my $name           = $props->get('name') || "$in_filename Coverage";
+
+    $self->logger->info("Making coverage plot $out_filename...");
+
+    open my $in_fh,  '<', $in_filename;
+    open my $out_fh, '>', $out_filename;
 
     print $out_fh qq{track type=bedGraph name="$name" description="$name" visibility=full color=255,0,0 priority=10\n};
 
     my $footprint = 0;
-    
     my $last_chr = '';
 
   LINE: while (1) {
@@ -72,36 +116,11 @@ sub run {
         $self->add_spans(\@spans);
     }
 
-    if (my $statsfile = $self->{stats_filename}) {
-        open my $stats_out, '>', $statsfile;
-        print $stats_out "footprint for $self->{in_filename} : $footprint\n";
+    if ($stats_filename) {
+        open my $stats_out, '>', $stats_filename;
+        print $stats_out "footprint for $in_filename : $footprint\n";
     }
 
-}
-
-sub main {
-
-    my $self = __PACKAGE__->new;
-
-    $self->get_options(
-        "output|o=s" => \($self->{out_filename}   = undef),
-        "stats=s"    => \($self->{stats_filename} = undef),
-        "name=s"     => \($self->{name}           = undef));
-
-    my $errors = RUM::UsageErrors->new;
-
-    $self->{out_filename} or $errors->add(
-        "Please specify an output file with -o or --output");
-
-    $self->{in_filename} = $ARGV[0] or $errors->add(
-        "Please provide an input file on the command line");
-
-    $errors->check;
-
-    $self->{name} ||= $self->{in_filename} . " Coverage";
-
-    $self->logger->info("Making coverage plot $self->{out_filename}...");
-    $self->run;
 }
 
 sub add_spans {

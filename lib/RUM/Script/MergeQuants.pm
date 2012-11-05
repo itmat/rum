@@ -1,45 +1,72 @@
 package RUM::Script::MergeQuants;
 
 no warnings;
-use RUM::Usage;
+use autodie;
+
+
 use RUM::Logging;
-use RUM::Common qw(read_chunk_id_mapping);
-use Getopt::Long;
+use RUM::CommonProperties;
 
 our $log = RUM::Logging->get_logger();
 
 our @VALID_STRANDS = qw(pa ma ps ms);
 
-sub main {
+use base 'RUM::Script::Base';
 
-    GetOptions(
-        "output|o=s" => \(my $outfile),
-        "chunks|n=s" => \(my $numchunks),
-        "strand=s"   => \(my $strand),
-        "chunk-ids-file=s" => \(my $chunk_id_file),
-        "countsonly"       => \(my $countsonly),
-        "alt"              => \(my $alt),
-        "header"           => \(my $header),
-        "help|h"    => sub { RUM::Usage->help },
-        "verbose|v" => sub { $log->more_logging(1) },
-        "quiet|q"   => sub { $log->less_logging(1) });
+sub summary {
+    'Merge quantification reports'
+}
 
-    my $output_dir = shift(@ARGV) or RUM::Usage->bad(
-        "Please provide the directory containing the quant.* files");
+sub description {
+    return <<'EOF';
+This script will look in F<dir> for files named quant.1, quant.2,
+etc..  up to quant.numchunks.  Unless -strand S is set in which case
+it looks for quant.S.1, quant.S.2, etc...
+EOF
+}
 
-    $outfile or RUM::Usage->bad(
-        "Please specify an output file with o or --output");
+sub accepted_options {
+    return (
+        RUM::Property->new(
+            opt => 'outfile|o=s',
+            desc => 'The output file',
+        ),
+        RUM::Property->new(
+            opt => 'chunks|n=s',
+            desc => 'The number of chunks',
+            required => 1,
+        ),
+        RUM::CommonProperties->counts_only,
+        RUM::Property->new(
+            opt => 'alt',
+            desc => 'Need this if using --altquant when running RUM',
+        ),
+        RUM::Property->new(
+            opt => 'header',
+            desc => 'Print a header row',
+        ),
+        RUM::CommonProperties->strand_sense,
+        RUM::Property->new(
+            opt => 'output_dir',
+            desc => 'Directory containing quants files',
+            positional => 1,
+            required => 1,
+        ),
+    );
+}
 
-    $numchunks or RUM::Usage->bad(
-        "Please indicate the number of chunks with -n or --chunks");
+sub run {
 
-    if ($strand) {
-        grep { $_ eq $strand } @VALID_STRANDS or RUM::Usage->bad(
-            "--strand must be one of (@VALID_STRANDS), not '$strand'");
-    }
-    
-    my %chunk_ids_mapping = read_chunk_id_mapping($chunk_ids_file);
+    my ($self) = @_;
+    my $props = $self->properties;
 
+    my $outfile    = $props->get('outfile');
+    my $numchunks  = $props->get('chunks');
+    my $strand     = $props->get('strand');
+    my $countsonly = $props->get('countsonly');
+    my $alt        = $props->get('alt');
+    my $header     = $props->get('header');
+    my $output_dir = $props->get('output_dir');
     $num_reads = 0;
     $first = 1;
     my @counts;
@@ -57,14 +84,10 @@ sub main {
                 $filename = "quant.altquant.$i";
             }
         }
-        if ($chunk_ids_file =~ /\S/ && $chunk_ids_mapping{$i} =~ /\S/) {
-            $filename = $filename . "." . $chunk_ids_mapping{$i};
-        }
 
         $log->info("Reading from $filename");
 
-        open(INFILE, "$output_dir/$filename")
-            or die "Can't open $output_dir/$filename for reading: $!";
+        open INFILE, "$output_dir/$filename";
 
         $line = <INFILE>;
         $line =~ /num_reads = (\d+)/;
@@ -89,8 +112,7 @@ sub main {
     }
     $num_reads_hold = $num_reads;
     $num_reads = $num_reads / 1000000;
-    open(OUTFILE, ">$outfile") 
-        or die "Can't open $output_dir/$outfile for writing: $!";
+    open OUTFILE, ">$outfile";
     print OUTFILE "number of reads used for normalization: $num_reads_hold\n";
     if ($header) {
         print OUTFILE "      Type\tLocation           \tmin\tmax\tUcount\tNUcount\tLength\n";

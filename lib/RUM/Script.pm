@@ -1014,20 +1014,40 @@ sub run_with_logging {
     };
     if ($@) {
       if (ref($@) && ref($@) =~ /RUM::UsageErrors/) {
-	my $errors = $@;
-	pod2usage({
-		   -verbose => 1,
-		   -exitval => "NOEXIT"
-		  });
-	my $msg = "Usage errors:\n\n";
-	for my $error ($errors->errors) {
-	  chomp $error;
-	  $msg .= "  * $error\n";
-	}
-	die $msg;
+          my $errors = $@;          
+          my $pod = "";
+          $pod .= "=head1 NAME\n\n";
+          $pod .= "Foo - bar\n\n";
+          $pod .= "=head1 SYNOPSIS\n\n";
+          $pod .= $script->synopsis;
+          $pod .= "\n\n";
+          $pod .= "=head1 DESCRIPTION\n\n" . $script->description . "\n\n=head1 ARGUMENTS\n\n";
+
+          my $parser = $script->command_line_parser;
+          $pod .= "\n\n=over 4\n\n";
+
+          for my $prop ($parser->properties()) {
+              $pod .= $prop->pod;
+          }
+              
+          $pod .= "=back\n\n";
+
+          open my $pod_fh, '<', \$pod;
+
+          pod2usage({
+              -verbose => 1,
+              -exitval => "NOEXIT",
+              -input => $pod_fh,
+          });
+          my $msg = "Usage errors:\n\n";
+          for my $error ($errors->errors) {
+              chomp $error;
+              $msg .= "  * $error\n";
+          }
+          die $msg;
       }
       else {
-	die $@;
+          die $@;
       }
     }
 }

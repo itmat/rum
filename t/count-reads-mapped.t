@@ -26,6 +26,6 @@ open $out_fh, ">", $out;
 RUM::Script::CountReadsMapped->main();
 *STDOUT = *OLD;
 close $out_fh;
-
+system "cat $out";
 no_diffs($out, "$EXPECTED_DIR/reads-mapped");
 
