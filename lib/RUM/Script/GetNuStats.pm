@@ -21,7 +21,7 @@ sub accepted_options {
         RUM::Property->new(
             opt => 'output|o=s', 
             desc => 'The output file.',
-            default => \*STDOUT),
+            required => 1),
         RUM::Property->new(
             opt => 'samfile',
             desc => 'SAM input file',

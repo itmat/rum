@@ -132,9 +132,9 @@ sub run {
         } else {
             $i = 2;
             $clean = "true";
-            print $stats_out "\n$infile reads per chromosome:\n\nchr_name\tnum_reads\n";
+            print $stats_fh "\n$infile reads per chromosome:\n\nchr_name\tnum_reads\n";
             foreach my $chr (sort by_chromosome keys %$chr_counts) {
-                print $stats_out "$chr\t$chr_counts->{$chr}\n";
+                print $stats_fh "$chr\t$chr_counts->{$chr}\n";
             }
         }
     }

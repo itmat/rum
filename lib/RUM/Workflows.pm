@@ -284,7 +284,9 @@ sub chunk_workflow {
         "Create non-unique stats",
         ["perl", $c->script("get_nu_stats.pl"),
           pre($sam_file),
-         "> ", post($nu_stats)]);
+         '-o', post($nu_stats)]);
+
+
     
     $m->step(
         "Sort RUM_Unique by location", 
