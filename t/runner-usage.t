@@ -9,6 +9,7 @@ use RUM::Usage;
 use RUM::Script::Main;
 use RUM::Action::Align;
 use RUM::Action::Init;
+use Data::Dumper;
 use File::Path;
 use File::Temp qw(tempdir);
 use strict;
@@ -40,7 +41,7 @@ BEGIN {
 }
 
 if (-e $index) {
-    plan tests => 85;
+    plan tests => 83;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -271,8 +272,8 @@ add_test {
              '--chunks', 1,
              $forward_64_fq);
     
-    my $init = RUM::Action::Init->new->pipeline;
-
+    my $init = RUM::Action::Init->new;
+    $init->load_config;
     my $c = $init->config or BAIL_OUT("Can't get RUM");
     is($c->name, "asdf", "Name");
     like($c->output_dir, qr/foo$/, "Output dir");
@@ -292,7 +293,6 @@ add_test {
 
 # Check that we clean up a name
 add_test {
-
     my $init = RUM::Action::Init->new;
 
     @ARGV = ('--index', $index,

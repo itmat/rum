@@ -57,7 +57,7 @@ sub option {
 sub properties {
     my ($self) = @_;
     if (!$self->{properties}) {
-        $self->command_line_parser->parse;
+        $self->{properties} = $self->command_line_parser->parse;
     }
     return $self->{properties};
 }

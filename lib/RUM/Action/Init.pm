@@ -6,10 +6,6 @@ use autodie;
 
 use base 'RUM::Action';
 
-use RUM::Logging;
-use RUM::SystemCheck;
-use RUM::Pipeline;
-
 our $log = RUM::Logging->get_logger;
 
 RUM::Lock->register_sigint_handler;

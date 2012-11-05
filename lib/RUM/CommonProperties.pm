@@ -59,12 +59,33 @@ sub check_int_gte_0 {
     }
 }
 
+sub check_int_gte {
+    my ($min) = @_;
+    return sub {
+        my ($props, $prop, $val) = @_;
+        if (defined($val)) {
+            if ($val !~ /^\d+$/ ||
+                    int($val) < $min) {
+                $props->errors->add($prop->options . " must be an integer greater than or equal to $min");
+            }
+        }
+    }
+}
+
+
 sub check_positive {
     my ($props, $prop, $val) = @_;
     if (defined($val)) {
         if ($val <= 0) {
             $props->errors->add($prop->options . " must be a number greater than 0");
         }
+    }
+}
+
+sub readable_file {
+    my ($props, $prop, $val) = @_;
+    if ( ! -r $val) {
+        $props->errors->add("I can't read from the file specified for " . $prop->options . " ($val): $!");
     }
 }
 

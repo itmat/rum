@@ -16,6 +16,7 @@ use RUM::Property;
 use RUM::Logging;
 use RUM::ConfigFile;
 use RUM::Pipeline;
+use RUM::CommonProperties;
 
 our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
@@ -151,13 +152,7 @@ _add_prop(
     filter => \&make_absolute,
     desc => 'Forward reads',
     positional => 1,
-    check => sub {
-        my ($props, $prop, $val) = @_;
-        if ($val && ! -r $val) {
-            $props->errors->add(
-                "Can't read from forward reads file $val: $!");
-        }
-    }
+    check => \&RUM::CommonProperties::readable_file
 );
 
 _add_prop(
@@ -319,30 +314,14 @@ _add_prop(
     opt  => 'alt-genes=s',
     filter => \&make_absolute,
     desc => 'File with gene models to use for calling junctions novel. If not specified will use the gene models file specified in the config file.',
-    check => sub {
-        my $c = shift;
-        if ($c->alt_genes && ! -r $c->alt_genes) {
-            return ("Can't read from alt gene file ".$c->alt_genes.": $!");
-        }
-        else {
-            return;
-        }
-    }
+    check => \&RUM::CommonProperties::readable_file
 );
 
 _add_prop(
     opt  => 'alt-quants=s',
     filter => \&make_absolute,
     desc => 'Use this file to quantify features in addition to the gene models file specified in the config file.  Both are reported to separate files.',
-    check => sub {
-        my $c = shift;
-        if ($c->alt_quants && ! -r $c->alt_quants) {
-            return ("Can't read from alt quant file ".$c->alt_quants.": $!");
-        }
-        else {
-            return;
-        }
-    }
+    check => \&RUM::CommonProperties::readable_file
 );
 
 _add_prop(
@@ -397,21 +376,7 @@ _add_prop(
     opt => 'nu-limit=s',
     desc => 'Limits the number of ambiguous mappers in the final output by removing all reads that map to n locations or more.',
 
-    check => sub {
-        my $conf = shift;
-        
-        if (!defined($conf->nu_limit)) {
-            return;
-        }
-
-        elsif ($conf->nu_limit =~ /^\d+$/ &&
-               $conf->nu_limit > 0) {
-            return;
-        }
-        else {
-            return ("--nu-limit must be an integer greater than zero");
-        }
-    }
+    check => RUM::CommonProperties::check_int_gte(1),
 );
 
 _add_prop(
@@ -422,7 +387,7 @@ _add_prop(
         my ($props, $prop, $val) = shift;
         if ($props->has('forward_reads') &&
             $props->has('reverse_reads') && 
-            $val > 1) {
+                ($val || 0) > 1) {
             $props->errors->add('For paired-end data, you can\'t set ' .
                     '--max-insertions > 1');
         }
@@ -440,18 +405,7 @@ _add_prop(
 _add_prop(
     opt => 'min-length=s',
     desc => 'Don\'t report alignments less than this long.  The default = 50 if the readlength >= 80, else = 35 if readlength >= 45 else = 0.8 * readlength.  Don\'t set this too low you will start to pick up a lot of garbage.',
-    check => sub {
-        my ($conf) = @_;
-        my $x = $conf->min_length;
-
-        if ((!defined $x) ||
-            $x =~ /^\d+$/ && $x >= 10) {
-            return;
-        }
-        else {
-            return ('--min-length must be an integer greater than 9');
-        }
-    }
+    check => RUM::CommonProperties::check_int_gte(10)
 );
 
 _add_prop(
@@ -459,11 +413,15 @@ _add_prop(
     desc => 'Keep the original read names in the SAM output file.  Note: this doesn\'t work when there are variable length reads.',
 
     check => sub {
-        my $c = shift;
-        if ($c->preserve_names && $c->variable_length_reads) {
-            return ('Cannot use both --preserve-names and ' .
+        my ($props, $prop, $val) = @_;
+        warn "Checking! val is $val\n";
+        warn "Var length is " . $props->get('variable_length_reads');
+
+        if ($val && $props->has('variable_length_reads')) {
+            $props->errors->add(
+                'Cannot use both --preserve-names and ' .
                     '--variable-read-lengths at the same time. Sorry, we ' .
-                    'will fix this eventually.');
+                        'will fix this eventually.');
         }
     }
 );
@@ -661,8 +619,8 @@ sub new {
     elsif (my $props = $params{properties}) {
         $self->{_default} = $class->new(default => 1);
         for my $name ($props->names) {
-            my $val = $props->get($name);
-            if ($val ne $self->{_default}->get($name)) {
+            my $val = $props->get($name) || '';
+            if ($val ne ($self->{_default}->get($name) || '')) {
                 $self->{$name} = $props->get($name);
             }
         }
@@ -727,7 +685,7 @@ sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff",        $_[0]->nu_limit) }
 sub faok_opt                { $_[0]->faok             ? "--faok" : ":" }
 sub count_mismatches_opt    { $_[0]->count_mismatches ? "--count-mismatches" : "" } 
 sub paired_end_opt          { ('--type',
-                               $_[0]->paired_end ? "paired" : "single") }
+                               $_[0]->reverse_reads ? "paired" : "single") }
 sub dna_opt                 { $_[0]->dna              ? "--dna" : "" }
 sub name_mapping_opt   { "" } 
 sub ram_opt {
@@ -864,7 +822,6 @@ sub get {
     }
     else {
         return;
-        #croak "Property $name was not set. Config is " . Dumper($self);
     }
 }
 
@@ -999,7 +956,6 @@ sub changed_settings {
     my ($self) = @_;
     my @props = $self->job_setting_props;
     my @changed = grep { $self->is_specified($_) } @props;
-    warn "Changed is " . join(', ', @changed);
     return @changed;
 }
 
