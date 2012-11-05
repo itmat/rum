@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 29;
+use Test::More tests => 23;
 
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
@@ -89,40 +89,8 @@ is $c->quant(chunk => 1,
              '--chunks', 3,
              $reads->filename);
 
-    $conf->parse_command_line(
-        options => [qw(name chunks)],
-        positional => [qw(forward_reads reverse_reads)]
-    );
-
-    is $conf->name, 'foo';
-    is $conf->chunks, 3;
-    is $conf->forward_reads, $reads;
-
 }
 
-{
-    my $conf = RUM::Config->new;
-    $conf->parse_command_line(
-        options => [qw(bowtie_nu_limit no_bowtie_nu_limit)]);
-    is $conf->bowtie_nu_limit, 100;
-}
-
-{
-    my $conf = RUM::Config->new;
-    @ARGV = ('--bowtie-nu-limit', 50);
-    $conf->parse_command_line(
-        options => [qw(bowtie_nu_limit no_bowtie_nu_limit)]);
-    is $conf->bowtie_nu_limit, 50;
-}
-
-
-{
-    my $conf = RUM::Config->new;
-    @ARGV = ('--max-insertions', 5);
-    $conf->parse_command_line(
-        options => [qw(max_insertions)]);
-    is $conf->max_insertions, 5;
-}
 
 {
 

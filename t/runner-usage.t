@@ -8,6 +8,8 @@ use RUM::Pipeline;
 use RUM::Usage;
 use RUM::Script::Main;
 use RUM::Action::Align;
+use RUM::Action::Init;
+use Data::Dumper;
 use File::Path;
 use File::Temp qw(tempdir);
 use strict;
@@ -39,7 +41,7 @@ BEGIN {
 }
 
 if (-e $index) {
-    plan tests => 87;
+    plan tests => 83;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -224,23 +226,14 @@ add_test {
 
 add_test {
 
-    # Check that --help-config prints a description of the help file
-    like(run_rum("help", "config"),
-         qr/gene annotation file/, "help config prints config info");
-    like(run_rum("help", "config"),
-         qr/bowtie genome index/, "help config prints config info");
-} 'help';
-
-add_test {
-
     # Check that it fails if required arguments are missing
     rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
                   '--chunks', 1],
-                 qr/please.*read files/im, "Missing read files");
+                 qr/forward reads/im, "Missing read files");
     
     rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
                   "1.fq", "2.fq", "3.fq" , '--chunks', 1],
-                 qr/extra/im, "Too many read files");
+                 qr/unrecognized/im, "Too many read files");
     
     rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
                   "1.fq", "1.fq", '--chunks', 1],
@@ -279,8 +272,8 @@ add_test {
              '--chunks', 1,
              $forward_64_fq);
     
-    my $init = RUM::Action::Init->new->pipeline;
-
+    my $init = RUM::Action::Init->new;
+    $init->load_config;
     my $c = $init->config or BAIL_OUT("Can't get RUM");
     is($c->name, "asdf", "Name");
     like($c->output_dir, qr/foo$/, "Output dir");
@@ -300,7 +293,6 @@ add_test {
 
 # Check that we clean up a name
 add_test {
-
     my $init = RUM::Action::Init->new;
 
     @ARGV = ('--index', $index,
@@ -318,7 +310,7 @@ add_test {
 
     # Check that rum fails if a read file is missing
     rum_fails_ok(["align","--index", $index, "--output", tmp_out(),
-                  "--name", "asdf", "asdf.fq", "-q", '--chunks', 1],
+                  "--name", "asdf", "asdf.fq", '--chunks', 1],
                  qr/asdf.fq.*no such file/i,
                  "Read file doesn't exist");    
     rum_fails_ok(["align", 
@@ -326,7 +318,7 @@ add_test {
                   '--output', tmp_out(), 
                   '--name',   'asdf', 
                   '--chunks', 1,
-                  $forward_64_fq, "asdf.fq", "-q"],
+                  $forward_64_fq, "asdf.fq"],
                  qr/asdf.fq.*no such file/i, 
                  "Read file doesn't exist");    
     
@@ -336,7 +328,7 @@ add_test {
                   '--output', tmp_out(),
                   '--name',   'asdf', 
                   '--chunks', 1,
-                  $bad_reads, '-q'],
+                  $bad_reads],
                  qr/you appear to have entries/i, 'Bad reads');    
     
     rum_fails_ok(['align', 
@@ -371,7 +363,6 @@ add_test {
         
         ok($rum->config->paired_end, "$prefix is paired end");
         ok($rum->config->input_is_preformatted, "$prefix is preformatted");
-        ok($rum->config->input_needs_splitting, "$prefix needs splitting");
         ok(-e $rum->config->in_output_dir("chunks/reads.fa.1"), "$prefix: made reads");
         ok(! -e $rum->config->in_output_dir("quals.fa.1"), "$prefix: didn't make quals");
     }
@@ -387,16 +378,7 @@ add_test {
         my $prefix = "1, single, fa, no chunks";
         ok( ! $rum->config->paired_end, "$prefix: not paired end");
         ok($rum->config->input_is_preformatted, "$prefix: is preformatted");
-        ok($rum->config->input_needs_splitting, "$prefix: needs splitting");
     }
-    
-    # TODO: What to do for single reads file that is not preformatted?
-    #    $rum = rum(@argv, $forward_64_fq);
-    #    $rum->preprocess;
-    #    ok( ! $rum->config->paired_end, "Not paired end");
-    #    ok( ! $rum->config->input_is_preformatted, "Not preformatted");
-    #    ok($rum->config->input_needs_splitting, "Needs splitting");
-    
     
     # Check that we process a pair of fastq files correctly
     {
@@ -493,7 +475,7 @@ add_test {
                    "--strand-specific quantifications");
     chunk_cmd_like([@standard_args],
                    "Run Bowtie on transcriptome",
-                   qr/--paired/i, 
+                   qr/--type paired/i, 
                    "--paired option gets passed to make_TU_and_TNU");
 
 
@@ -633,6 +615,8 @@ add_test {
                    "Generate alt quants with --alt-quant");
 } 'alt_genes_and_quants';
 
+
+warn "Running tests\n";
 for my $test (@TESTS) {
     my ($code, $name) = @{ $test };
     next if defined($wanted_test) && $name ne $wanted_test;

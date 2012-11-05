@@ -33,6 +33,10 @@ sub accepted_options {
             desc => 'The output file.',
             required => 1),
         RUM::Property->new(
+            opt => 'stats-out=s',
+            desc => 'Write mapping stats here.',
+            required => 1),
+        RUM::Property->new(
             opt => 'separate',
             desc => 'Do not necessarily keep forward and reverse reads together. By default they are kept together.'),
         RUM::Property->new(
@@ -52,7 +56,7 @@ sub accepted_options {
             desc => 'Input file, either RUM_Unique or RUM_NU',
             required => 1,
             positional => 1)
-    );
+      );
 }
 
 
@@ -65,6 +69,10 @@ sub run {
     my $maxchunksize = $props->get('max_chunk_size');
     my $allowsmallchunks = $props->get('allow_small_chunks');
     my $infile = $props->get('input');
+    my $stats_out = $props->get('stats_out');
+
+    open my $stats_fh, '>', $stats_out;
+
     my $running_indicator_file = $outfile;
     $running_indicator_file =~ s![^/]+$!!;
     $running_indicator_file = $running_indicator_file . ".running";
@@ -124,9 +132,9 @@ sub run {
         } else {
             $i = 2;
             $clean = "true";
-            print "\n$infile reads per chromosome:\n\nchr_name\tnum_reads\n";
+            print $stats_fh "\n$infile reads per chromosome:\n\nchr_name\tnum_reads\n";
             foreach my $chr (sort by_chromosome keys %$chr_counts) {
-                print "$chr\t$chr_counts->{$chr}\n";
+                print $stats_fh "$chr\t$chr_counts->{$chr}\n";
             }
         }
     }

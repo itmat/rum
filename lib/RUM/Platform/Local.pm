@@ -76,6 +76,7 @@ sub preprocess {
     close $flag_fh;
 }
 
+
 sub _check_input {
     my ($self) = @_;
     $log->info("Checking input files for quality");
@@ -93,6 +94,7 @@ sub _check_input {
                           $self->config->paired_end ?
                           "paired" : "single"));
 }
+
 
 sub _check_single_reads_file {
     my ($self) = @_;
@@ -123,10 +125,10 @@ sub _check_single_reads_file {
     }
 
     $config->set("paired_end", $paired);
-    $config->set("input_needs_splitting", $needs_splitting);
     $config->set("input_is_preformatted", $preformatted);
     $config->save();
 }
+
 
 sub _check_split_files {
     my ($self) = @_;
@@ -163,9 +165,6 @@ sub _check_split_files {
 }
 
 
-
-
-
 sub _check_reads_for_quality {
     my ($self) = @_;
 
@@ -197,7 +196,7 @@ sub _check_read_files_same_size {
 sub _check_read_file_pair {
 
     my ($self) = @_;
-    
+
     my @reads = $self->config->reads;
 
     if (@reads == 2) {
@@ -219,7 +218,6 @@ sub _check_read_file_pair {
     while (defined(my $line = <$in>) &&
            ++$len < 50000) {
     }
-    close $in;
 
     my $parse2fasta = $config->script("parse2fasta.pl");
     my $fastq2qualities = $config->script("fastq2qualities.pl");
@@ -280,12 +278,11 @@ sub _check_variable_length {
         }
         $length_hold = length($line1);
     }
-    
 }
 
 
 sub _determine_read_length {
-    
+
     my ($self) = @_;
 
     my @lines = head($self->config->in_output_dir("reads.fa"), 2);
@@ -321,12 +318,6 @@ sub _reformat_reads {
     $self->say("Reformatting reads file... please be patient.");
 
     my $config = $self->config;
-    my $output_dir = $config->output_dir;
-    my $parse_fastq = $config->script("parsefastq.pl");
-    my $parse_fasta = $config->script("parsefasta.pl");
-    my $parse_2_fasta = $config->script("parse2fasta.pl");
-    my $parse_2_quals = $config->script("fastq2qualities.pl");
-    my $num_chunks = $config->chunks || 1;
 
     mkpath($config->chunk_dir);
 
@@ -335,44 +326,35 @@ sub _reformat_reads {
     my $reads_fa = $config->in_output_dir("reads.fa");
     my $quals_fa = $config->in_output_dir("quals.fa");
 
-    my $name_mapping_opt = $config->preserve_names ?
-        "-name_mapping $output_dir/read_names_mapping" : "";    
-    
     my $error_log = $self->_preproc_error_log_filename;
-
-    # Going to figure out here if these are standard fastq files
-
-    my $is_fasta = is_fasta($reads[0]);
-    my $is_fastq = is_fastq($reads[0]);
-    my $preformatted = @reads == 1 && $config->input_is_preformatted;
-    my $reads_in = join(",,,", @reads);
 
     my $have_quals = 0;
 
-    if($is_fastq && !$config->variable_length_reads) {
-        $self->say("Splitting fastq file into $num_chunks chunks ",
-                   "with separate reads and quals");
-        shell("perl $parse_fastq $reads_in $num_chunks $reads_fa $quals_fa $name_mapping_opt 2>> $error_log");
-        my @errors = `grep -A 2 "something wrong with line" $error_log`;
-        croak "@errors" if @errors;
-        $have_quals = 1;
-        $self->{input_needs_splitting} = 0;
+    if (@reads == 1 && $config->input_is_preformatted) {
+        link $reads[0], $reads_fa;
+    }
+    elsif (is_fasta($reads[0]) || is_fastq($reads[0])) {
+        my @cmd = (
+            'perl', $config->script('rum_split_reads.pl'),
+            '--chunks',    $config->chunks,
+            '--all-dir',   $config->output_dir,
+            '--split-dir', $config->chunk_dir,
+            @reads);
+        if ($config->preserve_names) {
+            push @cmd, '--preserve-names';
+        }
+        system @cmd;
+        if ($?) {
+            die "There was an error splitting the input files";
+        }
         return;
     }
- 
-    elsif ($is_fasta && !$config->variable_length_reads && !$preformatted) {
-        $self->say("Splitting fasta file into $num_chunks chunks");
-        shell("perl $parse_fasta $reads_in $num_chunks $reads_fa $name_mapping_opt 2>> $error_log");
-        $have_quals = 0;
-        $self->{input_needs_splitting} = 0;
-        return;
-     } 
-
-    elsif (!$preformatted) {
+    else {
         $self->say("Splitting fasta file into reads and quals");
+        my $parse_2_fasta = $config->script("parse2fasta.pl");
+        my $parse_2_quals = $config->script("fastq2qualities.pl");
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
-        
         $have_quals = _got_quals($quals_fa);
     }
     else {
@@ -380,8 +362,7 @@ sub _reformat_reads {
     }
 
     # This should only be entered when we have one read file
-    $self->say("Splitting read file, please be patient...");        
-    
+    $self->say("Splitting read file, please be patient...");
     $self->_breakup_file($reads_fa, 0);
 
     if ($have_quals) {
@@ -406,71 +387,42 @@ sub _got_quals {
 }
 
 sub _breakup_file  {
-    my ($self, $FILE, $qualflag) = @_;
+    my ($self, $filename, $qualflag) = @_;
 
     my $c = $self->config;
+    my $chunks = $c->chunks;
 
-    open(INFILE, $FILE);
+    my $in = open_r($filename);
 
-    my $tail = `tail -2 $FILE | head -1`;
-    $tail =~ /seq.(\d+)/s;
-    my $numseqs = $1;
-    my $piecesize = int($numseqs / ($c->chunks || 1));
-
-    my $t = `tail -2 $FILE`;
-    $t =~ /seq.(\d+)/s;
-    my $NS = $1;
-    my $piecesize2 = format_large_int($piecesize);
-    if(!($FILE =~ /qual/)) {
-	if($c->chunks > 1) {
-	    $self->say("processing in ".
-                     $c->chunks . 
-                         " pieces of approx $piecesize2 reads each\n");
-	} else {
-	    my $NS2 = format_large_int($NS);
-	    $self->say("processing in one piece of $NS2 reads\n");
-	}
+    if($filename !~ /qual/) {
+        $self->say("processing in ". $c->chunks . " pieces");
     }
-    if($piecesize % 2 == 1) {
-	$piecesize++;
-    }
-    my $bflag = 0;
 
-    my $F2 = $FILE;
-    $F2 =~ s!.*/!!;
-    
-    my $PS = $c->paired_end ? $piecesize * 2 : $piecesize;
     my $base_name = $qualflag ? "quals.fa" : "reads.fa";
-    for(my $i=1; $i < $c->chunks; $i++) {
-	my $outfilename = $c->chunk_file($base_name, $i);
 
-        $log->debug("Building $outfilename");
-	open(OUTFILE, ">$outfilename");
-	for(my $j=0; $j<$PS; $j++) {
-	    my $line = <INFILE>;
-	    chomp($line);
-	    if($qualflag == 0) {
-		$line =~ s/[^ACGTNab]$//s;
-	    }
-	    print OUTFILE "$line\n";
-	    $line = <INFILE>;
-	    chomp($line);
-	    if($qualflag == 0) {
-		$line =~ s/[^ACGTNab]$//s;
-	    }
-	    print OUTFILE "$line\n";
-	}
-	close(OUTFILE);
+    my @fhs;
+    for my $chunk ( 1 .. $c->chunks ) {
+        open my $out, '>', $c->chunk_file($base_name, $chunk);
+        push @fhs, $out;
     }
 
-    my $outfilename = $c->chunk_file($base_name, $c->chunks);
-    open(OUTFILE, ">$outfilename");
-    while(my $line = <INFILE>) {
-	print OUTFILE $line;
+    my $counter = 0;
+    while (1) {
+        my $header = <$in>;
+        my $seq    = <$in>;
+        if (!defined($header)) {
+            last;
+        }
+        if (!defined($seq)) {
+            die "Input file seems to be incomplete. It ends with a header line '$header'\n";
+        }
+        my $fh = $fhs[($counter++ % $chunks)];
+        if($qualflag == 0) {
+            $header =~ s/[^ACGTNab]$//s;
+            $seq    =~ s/[^ACGTNab]$//s;
+        }
+        print $fh "$header\n$seq\n";
     }
-    close(OUTFILE);
-
-    return 0;
 }
 
 ## Processing

@@ -356,11 +356,45 @@ sub is_fasta {
     shift if $_[0] eq __PACKAGE__;
     my ($filename) = @_;
 
-    my @lines = head($filename, 40);
-    for my $i (1 .. $#lines / 2) {
-        $lines[$i*2]   =~ /^>/               or return 0;
-        $lines[$i*2+1] =~ /^[acgtnACGTN.]+$/ or return 0;
-    }    
+    my $in = open_r($filename);
+
+    my $header_line;
+    my @seq_lines;
+
+    # Check the first 1000 lines in the file
+    my $counter = 1000;
+    while (defined(my $line = <$in>) && $counter--) {
+        chomp $line;
+
+        # If it's a header line...
+        if ($line =~ /^>/) {
+            # We should have read some sequence lines since the last
+            # header line.
+            if ($header_line && !@seq_lines) {
+                return;
+            }
+
+            $header_line = $line;
+            undef @seq_lines;
+        }
+
+        # Otherwise it should be a sequence line
+        elsif ($line =~ /^[acgtnACGTN.]+$/) {
+            # The first line in the file should always be a header
+            if (!$header_line) {
+                return;
+            }
+            else {
+                push @seq_lines, $line;
+            }
+        }
+
+        # If it's not header or sequence, don't recognize it as fasta
+        else {
+            return;
+        }
+    }
+
     return 1;
 }
 
@@ -455,6 +489,13 @@ sub min_match_length {
 
 Return true if $filename is a gzip-compressed file, false otherwise.
 
+=cut
+sub is_gz {
+    my ($filename) = @_;
+    system 'gunzip', '-t', $filename;
+    return ! $?;
+}
+
 =item open_r($filename)
 
 Return a read-only filehandle for the given filename. If the filename
@@ -465,17 +506,17 @@ uncompressed data.
 
 sub open_r {
     my ($filename) = @_;
-    my $mode = '<';
-    if ($filename =~ /\.gz$/) {
-        die "I'm sorry, I don't support gzipped input at this time.  We plan on adding support for this in the near future.  In the meantime, please unzip your input files with 'gunzip' before running RUM.\n";
-        $filename = "gunzip -c $filename";
-        $mode = "-|";
-    }
+    my $mode = '-|';
     my $in;
-    open $in, $mode, $filename;
+    my $gunzip = "gunzip -cf $filename";
+    eval {
+        open $in, $mode, $gunzip;
+    };
+    if ($@) {
+        warn "Error opening file using command '$gunzip', trying regular open";
+        open $in, '<', $filename;
+    }
     return $in;
 }
-
-
 
 1;

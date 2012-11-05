@@ -383,7 +383,7 @@ sub clean {
     local $_;
 
     # Remove any temporary files (those that end with .tmp.XXXXXXXX)
-    $self->logsay("Removing files");
+    $self->logsay("Removing files from " . $c->output_dir);
     find sub {
         if (/\.tmp\.........$/) {
             unlink $File::Find::name;

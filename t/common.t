@@ -1,16 +1,16 @@
 #!perl
 # -*- cperl -*-
 
-use Test::More tests => 30;
+use Test::More tests => 36;
 use lib "lib";
-
+use File::Temp;
 use strict;
 use warnings;
 
 BEGIN { 
   use_ok('RUM::Common', qw(getave format_large_int reversesignal 
                            spansTotalLength addJunctionsToSeq Roman arabic
-                           isroman roman num_digits));
+                           isroman roman num_digits is_fasta is_fastq));
 }
 
 is(getave("10184-10303"), "10243.5");
@@ -61,3 +61,28 @@ is(num_digits(10), 2);
 is(num_digits(99), 2);
 is(num_digits(100), 3);
 
+my @fasta_inputs = (
+    ">foo\nACTG\n>bar\nGTCA\n",
+    ">foo\nACTG\nGTCA\n>bar\nGGGG\nTTTT\n"
+);
+
+my @fastq_inputs = (
+    "\@foo\nAAAA\n+foo\naojh\n\@bar\nGGGG\n+bar\n5361\n",
+);
+
+for my $fasta (@fasta_inputs) {
+    my $tmp = File::Temp->new;
+    print $tmp $fasta;
+    close $tmp;
+    ok(is_fasta($tmp),  "Fasta input is fasta:\n$fasta");
+    ok(!is_fastq($tmp), "Fasta input is not fastq:\n$fasta");
+}
+
+
+for my $fastq (@fastq_inputs) {
+    my $tmp = File::Temp->new;
+    print $tmp $fastq;
+    close $tmp;
+    ok(is_fastq($tmp),  "Fastq input is fastq:\n$fastq");
+    ok(!is_fasta($tmp), "Fastq input is not fasta:\n$fastq");
+}

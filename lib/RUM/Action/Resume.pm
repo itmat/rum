@@ -6,30 +6,25 @@ use autodie;
 
 use base 'RUM::Action';
 
-
-use RUM::Logging;
-use RUM::Action::Clean;
-use RUM::Action::Reset;
-
 our $log = RUM::Logging->get_logger;
 
 RUM::Lock->register_sigint_handler;
 
-sub new { shift->SUPER::new(name => 'align', @_) }
+sub load_default { 1 }
 
 sub accepted_options {
-    return ( 
-        options => [RUM::Config->job_setting_props,
-                    RUM::Config->step_props,
-                    RUM::Config->common_props,
-                    'from_step',
-                    'no_clean', 'output_dir', 'lock'],
-        load_default => 1);
+    my @names = RUM::Config->job_setting_props;
+    push @names, 'output_dir', 'from_step', 'no_clean', 'lock';
+    push @names, qw(preprocess process postprocess chunk parent child);
+    my %props = map { ($_ => RUM::Config->property($_)) } @names;
+    $props{output_dir}->set_required;
+    delete $props{max_insertions};
+    my @props = values %props;
+    return @props;
 }
 
 sub run {
-    my ($class) = @_;
-    my $self = $class->new;
+    my ($self) = @_;
     $self->show_logo;
     my $pipeline = $self->pipeline;
     if (my $lock_file = $self->config->lock_file) {
@@ -46,22 +41,11 @@ sub run {
     $pipeline->start;
 }
 
-sub pod_header {
+sub summary { 'Resume a job' }
+
+sub description {
 
     return << 'EOF';
-
-=head1 NAME
-
-rum_runner resume - Resume a job
-
-=head1 SYNOPSIS
-
-  rum_runner restart
-      --output-dir OUTPUT_DIR
-      [ --from-step STEP ]
-      [ OPTIONS ]
-
-=head1 DESCRIPTION
 
 Runs a job that has already been initialized or partially run. Use
 this if you have a job that crashed or that you had to stop for some

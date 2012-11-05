@@ -983,82 +983,12 @@ sub _open_in_and_out {
 }
 
 
-=item run_with_logging($script)
-
-Call the main() method on the script with the given name, wrapping the
-call in logging messages that indicate when the script is starting and
-stopping. For example:
-
-  RUM::Script->run_with_logging("RUM::Script:MergeSortedRumFiles")
-
-Will print a message indicating that the script is starting, then call
-RUM::Script::MergeSortedRumFiles->main(), then log a message saying
-that the script has finished.
-
-If we catch an error while the main method is running, we log the
-message.
-
-=cut
-
-sub run_with_logging {
-    my ($class, $script) = @_;
-    my @parts = split /\:\:/, $script;
-    my $path = join("/", @parts) . ".pm";
-
-    my $cmd =  "$0 @ARGV";
-    my $log = RUM::Logging->get_logger("RUM.ScriptRunner");
-
-    require $path;
-    eval {
-	$script->main();
-    };
-    if ($@) {
-      if (ref($@) && ref($@) =~ /RUM::UsageErrors/) {
-          my $errors = $@;          
-          my $pod = "";
-          $pod .= "=head1 NAME\n\n";
-          $pod .= "Foo - bar\n\n";
-          $pod .= "=head1 SYNOPSIS\n\n";
-          $pod .= $script->synopsis;
-          $pod .= "\n\n";
-          $pod .= "=head1 DESCRIPTION\n\n" . $script->description . "\n\n=head1 ARGUMENTS\n\n";
-
-          my $parser = $script->command_line_parser;
-          $pod .= "\n\n=over 4\n\n";
-
-          for my $prop ($parser->properties()) {
-              $pod .= $prop->pod;
-          }
-              
-          $pod .= "=back\n\n";
-
-          open my $pod_fh, '<', \$pod;
-
-          pod2usage({
-              -verbose => 1,
-              -exitval => "NOEXIT",
-              -input => $pod_fh,
-          });
-          my $msg = "Usage errors:\n\n";
-          for my $error ($errors->errors) {
-              chomp $error;
-              $msg .= "  * $error\n";
-          }
-          die $msg;
-      }
-      else {
-          die $@;
-      }
-    }
-}
-
 =item import_scripts_with_logging
 
 Import all the script methods into the current package, wrapping them
 in code that prints out a message before and after the script runs.
 
 =cut
-
 
 sub import_scripts_with_logging {
   my @names = @{$RUM::Script::EXPORT_TAGS{scripts}};

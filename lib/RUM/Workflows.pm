@@ -269,30 +269,36 @@ sub chunk_workflow {
          pre($cleaned_unique),
          "-o", post($rum_unique)]);
     
-    $m->step(
-        "Create SAM file",
-        ["perl", $c->script("rum2sam.pl"),
-         "--genome", $genome_fasta,
-         "--unique-in", pre($rum_unique),
-         "--non-unique-in", pre($rum_nu),
-         "--reads-in", $reads_fa,
-         "--quals-in", $quals_fa,
-         "--sam-out", post($sam_file),
-         $c->name_mapping_opt]);
+    my @rum2sam_cmd = (
+        "perl", $c->script("rum2sam.pl"),
+        "--genome", $genome_fasta,
+        "--unique-in", pre($rum_unique),
+        "--non-unique-in", pre($rum_nu),
+        "--reads-in", $reads_fa,
+             "--sam-out", post($sam_file));
+
+    if (-e $quals_fa) {
+        push @rum2sam_cmd, "--quals-in", $quals_fa;
+    }
+    if ($c->preserve_names) {
+        push @rum2sam_cmd, '--name-mapping', chunk_file('read_names.tab');
+    }
+
+    $m->step("Create SAM file", \@rum2sam_cmd);
     
     $m->step(
         "Create non-unique stats",
         ["perl", $c->script("get_nu_stats.pl"),
           pre($sam_file),
-         "> ", post($nu_stats)]);
-    
+         '-o', post($nu_stats)]);
+
     $m->step(
         "Sort RUM_Unique by location", 
         ["perl", $c->script("sort_RUM_by_location.pl"),
          $c->ram_opt,
          pre($rum_unique),
          "-o", post($rum_unique_sorted),
-         ">>", post($chr_counts_u)]);
+         "--stats-out", post($chr_counts_u)]);
     
     $m->step(
         "Sort RUM_NU", 
@@ -300,7 +306,7 @@ sub chunk_workflow {
          $c->ram_opt,
          pre($rum_nu),
          "-o", post($rum_nu_sorted),
-         ">>", post($chr_counts_nu)]);
+         "--stats-out", post($chr_counts_nu)]);
     
     my @goal = ($rum_unique_sorted,
                 $rum_nu_sorted,
@@ -792,12 +798,13 @@ sub postprocessing_workflow {
         ["perl", $c->script("rum_merge_sam_headers.pl"),
          "--name", $c->name,
          map(pre($_), @sam_headers), "> ", post($c->sam_header)]);
-
-    $w->step("Concatenate SAM files",
-         ["cat", 
-          pre($c->sam_header), 
-          map(pre($_), @sam_files), 
-          ">", post($sam_file)]);
+    
+    $w->step(
+        "Merge SAM files",
+        ["perl", $c->script("rum_merge_sam_files.pl"),
+         pre($c->sam_header),
+         map(pre($_), @sam_files), 
+         ">", post($sam_file)]);
 
     $w->step(
         "Finish mapping stats",

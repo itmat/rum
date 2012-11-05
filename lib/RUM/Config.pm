@@ -16,6 +16,7 @@ use RUM::Property;
 use RUM::Logging;
 use RUM::ConfigFile;
 use RUM::Pipeline;
+use RUM::CommonProperties;
 
 our $AUTOLOAD;
 our $log = RUM::Logging->get_logger;
@@ -76,8 +77,10 @@ my %PROPERTIES;
 
 sub _add_prop {
     my (%params) = @_;
-    my $prop = RUM::Property->new(%params);
-    $PROPERTIES{$prop->name} = $prop;
+    my $name = RUM::Property->new(%params)->name;
+    $PROPERTIES{$name} = sub {
+        RUM::Property->new(%params);
+    };
 }
 
 sub make_absolute {
@@ -92,7 +95,7 @@ sub reads {
 
 sub pod_for_prop {
     my ($self, $name) = @_;
-    my $prop = $PROPERTIES{$name};
+    my $prop = $self->property($name);
 
     my ($forms, $arg) = split /=/, $prop->{opt};
 
@@ -148,41 +151,26 @@ _add_prop(
     opt => 'forward-reads=s',
     filter => \&make_absolute,
     desc => 'Forward reads',
-    check => sub {
-        my $conf = shift;
-        if (!defined($conf->forward_reads)) {
-            return ('Please provide one or two read files');
-        }
-        if (defined($conf->forward_reads) &&
-            ! -r $conf->forward_reads) {
-            return ('Can\'t read from forward reads file ' .
-                    $conf->forward_reads . ": $!");
-        }
-        else {
-            return;
-        }
-        
-    }
+    positional => 1,
+    check => \&RUM::CommonProperties::readable_file
 );
 
 _add_prop(
     opt => 'reverse-reads=s',
     filter => \&make_absolute,
+    positional => 1,
     desc => 'Reverse reads',
     check => sub {
-        my $conf = shift;
-        return if ! defined($conf->reverse_reads);
+        my ($props, $prop, $val) = @_;
+        return if ! defined $val;
         
-        if ($conf->reverse_reads eq $conf->forward_reads) {
-            return ('You specified the same file for the forward '.
-                    'and reverse reads.');
+        if ($val eq $props->get('forward_reads')) {
+            $props->errors->add(
+                'You specified the same file for the forward and reverse reads');
         }
-        elsif (! -r $conf->reverse_reads) {
-            return ('Can\'t read from reverse reads file ' .
-                    $conf->reverse_reads . ": $!");
-        }
-        else {
-            return;
+        elsif (! -r $val) {
+            $props->errors->add(
+                "Can't read from reverse reads file $val: $!");
         }
     }
 );
@@ -264,12 +252,6 @@ _add_prop(
     opt  => 'output-dir|o=s',
     desc => 'Output directory for the job.',
     filter => \&make_absolute,
-    check => sub {
-        my $conf = shift;
-        if (!$conf->output_dir) {
-            return ('Please specify an output directory with -o or --output');
-        }
-    }
 );
 
 
@@ -279,15 +261,9 @@ _add_prop(
 
     filter => \&make_absolute,
     check => sub {
-        my $conf = shift;
-        if (!$conf->index_dir) {
-            return ('Please specify an index directory with -i or --index-dir');
-        }
-        elsif (!RUM::Index->load($conf->index_dir)) {
-            return ($conf->index_dir . " does not seem to be a RUM index directory");
-        }
-        else {
-            return;
+        my ($props, $prop, $val) = @_;
+        if (!RUM::Index->load($val)) {
+            $props->errors->add("$val does not seem to be a RUM index directory");
         }
     }
 );
@@ -309,16 +285,9 @@ _add_prop(
 
 
     check => sub {
-        my $conf = shift;
-        
-        if (! $conf->name ) {
-            return ('Please specify a job name with --name');
-        }
-        elsif (length $conf->name > 250) {
-            return ('The name must be less than 250 characters');
-        }
-        else {
-            return;
+        my ($props, $prop, $val) = @_;
+        if (length $val > 250) {
+            $props->errors->add('The name must be less than 250 characters');
         }
     }
 );
@@ -326,15 +295,7 @@ _add_prop(
 _add_prop(
     opt  => 'chunks=s',
     desc => 'Number of pieces to break the job into.  Use 1 chunk unless you are on a cluster, or have multiple cores with lots of RAM.  Have at least one processing core per chunk.  A genome like human will also need about 5 to 6 Gb of RAM per chunk.  Even with a small genome, if you have tens of millions of reads, you will still need a few Gb of RAM to get through the post-processing.',
-    check => sub {
-        my $conf = shift;
-        if ($conf->chunks) {
-            return;
-        }
-        else {
-            return ('Please specify the number of chunks to use with --chunks');
-        }
-    },
+    check => \&RUM::CommonProperties::check_int_gte_1
 );
 
 _add_prop(
@@ -353,30 +314,14 @@ _add_prop(
     opt  => 'alt-genes=s',
     filter => \&make_absolute,
     desc => 'File with gene models to use for calling junctions novel. If not specified will use the gene models file specified in the config file.',
-    check => sub {
-        my $c = shift;
-        if ($c->alt_genes && ! -r $c->alt_genes) {
-            return ("Can't read from alt gene file ".$c->alt_genes.": $!");
-        }
-        else {
-            return;
-        }
-    }
+    check => \&RUM::CommonProperties::readable_file
 );
 
 _add_prop(
     opt  => 'alt-quants=s',
     filter => \&make_absolute,
     desc => 'Use this file to quantify features in addition to the gene models file specified in the config file.  Both are reported to separate files.',
-    check => sub {
-        my $c = shift;
-        if ($c->alt_quants && ! -r $c->alt_quants) {
-            return ("Can't read from alt quant file ".$c->alt_quants.": $!");
-        }
-        else {
-            return;
-        }
-    }
+    check => \&RUM::CommonProperties::readable_file
 );
 
 _add_prop(
@@ -431,21 +376,7 @@ _add_prop(
     opt => 'nu-limit=s',
     desc => 'Limits the number of ambiguous mappers in the final output by removing all reads that map to n locations or more.',
 
-    check => sub {
-        my $conf = shift;
-        
-        if (!defined($conf->nu_limit)) {
-            return;
-        }
-
-        elsif ($conf->nu_limit =~ /^\d+$/ &&
-               $conf->nu_limit > 0) {
-            return;
-        }
-        else {
-            return ("--nu-limit must be an integer greater than zero");
-        }
-    }
+    check => RUM::CommonProperties::check_int_gte(1),
 );
 
 _add_prop(
@@ -453,11 +384,11 @@ _add_prop(
     desc => 'Allow at most n insertions in one read. Setting greater than 1 is only allowed for single end reads.  Don\'t raise it unless you know what you are doing, because it can greatly increase the false alignments.',
     default => 1,
     check => sub {
-        my $conf = shift;
-        if ($conf->forward_reads &&
-            $conf->reverse_reads && 
-            $conf->max_insertions > 1) {
-            return ('For paired-end data, you can\'t set ' .
+        my ($props, $prop, $val) = shift;
+        if ($props->has('forward_reads') &&
+            $props->has('reverse_reads') && 
+                ($val || 0) > 1) {
+            $props->errors->add('For paired-end data, you can\'t set ' .
                     '--max-insertions > 1');
         }
         else {
@@ -474,18 +405,7 @@ _add_prop(
 _add_prop(
     opt => 'min-length=s',
     desc => 'Don\'t report alignments less than this long.  The default = 50 if the readlength >= 80, else = 35 if readlength >= 45 else = 0.8 * readlength.  Don\'t set this too low you will start to pick up a lot of garbage.',
-    check => sub {
-        my ($conf) = @_;
-        my $x = $conf->min_length;
-
-        if ((!defined $x) ||
-            $x =~ /^\d+$/ && $x >= 10) {
-            return;
-        }
-        else {
-            return ('--min-length must be an integer greater than 9');
-        }
-    }
+    check => RUM::CommonProperties::check_int_gte(10)
 );
 
 _add_prop(
@@ -493,11 +413,15 @@ _add_prop(
     desc => 'Keep the original read names in the SAM output file.  Note: this doesn\'t work when there are variable length reads.',
 
     check => sub {
-        my $c = shift;
-        if ($c->preserve_names && $c->variable_length_reads) {
-            return ('Cannot use both --preserve-names and ' .
+        my ($props, $prop, $val) = @_;
+        warn "Checking! val is $val\n";
+        warn "Var length is " . $props->get('variable_length_reads');
+
+        if ($val && $props->has('variable_length_reads')) {
+            $props->errors->add(
+                'Cannot use both --preserve-names and ' .
                     '--variable-read-lengths at the same time. Sorry, we ' .
-                    'will fix this eventually.');
+                        'will fix this eventually.');
         }
     }
 );
@@ -558,14 +482,13 @@ _add_prop(
     desc => 'Run blat with the specified value for -minIdentity',
     default => 93,
     check => sub {
-        my ($conf) = @_;
-        my $x = $conf->blat_min_identity;
-        if ((!defined $x) ||
-            $x =~ /^\d+$/ && $x <= 100) {
+        my ($props, $prop, $val) = @_;
+        if ((!defined $val) ||
+            $val =~ /^\d+$/ && $val <= 100) {
             return;
         }
         else {
-            return ('--blat-min-identity or --minIdentity must be an integer ' .
+            $props->errors->add('--blat-min-identity or --minIdentity must be an integer ' .
                     'between 0 and 100');
         }
     }
@@ -604,79 +527,6 @@ sub is_specified {
     return defined $self->{$name};
 }
 
-sub parse_command_line {
-
-    my ($self, %params) = @_;
-
-    my $options = delete $params{options};
-    my $positional = delete $params{positional} || [];
-    
-    my %getopt;
-
-    for my $name (@{ $options }, 'help') {
-        my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
-        $getopt{$prop->opt} = sub {
-            my ($name, $val) = @_;
-            $val = $prop->filter->($val);
-            $prop->handler->($self, $name, $val);
-        };        
-    }
-
-
-    my @errors;
-
-    my $old_warn = $SIG{__WARN__};
-
-    $SIG{__WARN__} = sub {
-        push @errors, $_[0];
-    };
-
-    my $status = GetOptions(%getopt);
-    
-    $SIG{__WARN__} = $old_warn;
-    
-  POSITIONAL: for my $name (@{ $positional }) {
-        my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
-        last POSITIONAL if ! @ARGV;
-        $prop->handler->($self, $prop->name, shift(@ARGV));
-    }
-
-    if ($params{load_default}) {
-        if ($self->output_dir) {
-            if ( $self->is_new ) {
-                die "There does not seem to be a RUM job in " . $self->output_dir . "\n";
-            }
-            $self->load_default;
-        }
-        else {
-            die RUM::UsageErrors->new(
-                errors => ['Please specify an output directory with --output or -o']);
-        }
-    }
-
-    for my $name (@{ $options }, 
-                  @{ $positional }) {
-        my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
-        my @these_errors = $prop->checker->($self);
-        push @errors, grep { $_ } @these_errors;
-    }
-
-    if (@ARGV) {
-        push @errors, "There were extra command-line arguments: @ARGV";
-    }
-
-    if (@errors || !$status) {
-        die RUM::UsageErrors->new(errors => \@errors)
-    }
-
-    if ($self->reverse_reads) {
-        $self->set('paired_end', 1);
-    }
-
-    return $self;
-}
-
-
 sub new {
 
     my ($class, %params) = @_;
@@ -686,14 +536,21 @@ sub new {
     my $self = {};
 
     if ($is_default) {
-        for my $prop (values %PROPERTIES) {
+        for my $name (keys %PROPERTIES) {
+            my $prop = $PROPERTIES{$name}->();
             if (defined (my $v = $prop->default)) {
                 $self->{$prop->name} = $v;
             }
         }
     }
-    else {
+    elsif (my $props = $params{properties}) {
         $self->{_default} = $class->new(default => 1);
+        for my $name ($props->names) {
+            my $val = $props->get($name) || '';
+            if ($val ne ($self->{_default}->get($name) || '')) {
+                $self->{$name} = $props->get($name);
+            }
+        }
     }
 
     return bless $self, $class;
@@ -755,9 +612,8 @@ sub limit_nu_cutoff_opt     { $_[0]->opt("--cutoff",        $_[0]->nu_limit) }
 sub faok_opt                { $_[0]->faok             ? "--faok" : ":" }
 sub count_mismatches_opt    { $_[0]->count_mismatches ? "--count-mismatches" : "" } 
 sub paired_end_opt          { ('--type',
-                               $_[0]->paired_end ? "paired" : "single") }
+                               $_[0]->reverse_reads ? "paired" : "single") }
 sub dna_opt                 { $_[0]->dna              ? "--dna" : "" }
-sub name_mapping_opt   { "" } 
 sub ram_opt {
     return $_[0]->ram ? ("--ram", $_[0]->ram || $_[0]->min_ram_gb) : ();
 }
@@ -806,8 +662,9 @@ sub save {
     my %copy;
 
     for my $k (keys %{ $self }) {
+
         if (!$PROPERTIES{$k} ||
-            !$PROPERTIES{$k}->transient) {
+            !$PROPERTIES{$k}->()->transient) {
             $copy{$k} = $self->{$k};
         }
     }
@@ -891,7 +748,6 @@ sub get {
     }
     else {
         return;
-        #croak "Property $name was not set. Config is " . Dumper($self);
     }
 }
 
@@ -1002,16 +858,13 @@ sub property_names {
 
 sub property {
     my ($class, $name) = @_;
-    return $PROPERTIES{$name};
+    return $PROPERTIES{$name}->();
 }
 
 sub step_props {
     return qw(preprocess process postprocess chunk parent child);
 }
 
-sub common_props {
-    return qw(quiet verbose help);
-}
 
 sub job_setting_props {
     return qw(index_dir name qsub
