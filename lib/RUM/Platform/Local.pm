@@ -10,7 +10,7 @@ use File::Path qw(mkpath);
 
 use RUM::WorkflowRunner;
 use RUM::Logging;
-use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int open_r);
+use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int open_r shell);
 use RUM::Workflow;
 use RUM::JobReport;
 
@@ -331,7 +331,7 @@ sub _reformat_reads {
     my $have_quals = 0;
 
     if (@reads == 1 && $config->input_is_preformatted) {
-        link $reads[0], $reads_fa;
+        shell("ln", "-s", $reads[0], $reads_fa);
     }
     elsif (is_fasta($reads[0]) || is_fastq($reads[0])) {
         my @cmd = (

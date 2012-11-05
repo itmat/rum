@@ -104,8 +104,7 @@ is $c->quant(chunk => 1,
     mkdir "$dir/.rum";
     $conf->save;
     
-    my $conf = RUM::Config->new->set(
-        output_dir => $dir);
+    $conf = RUM::Config->new->set(output_dir => $dir);
     $conf->load_default;
     ok ! $conf->verbose, 'Not verbose after loading again';
 

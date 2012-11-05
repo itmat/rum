@@ -2,8 +2,8 @@ package RUM::Script::SortByLocation;
 
 use strict;
 use warnings;
-
 use Data::Dumper;
+use autodie;
 
 use RUM::UsageErrors;
 use RUM::Logging;
@@ -74,14 +74,14 @@ sub run {
 
     while (defined(my $line = <$in>)) {
         chomp($line);
-        my @a = split(/\t/,$line);
+        my @a = split /\t/, $line;
         my ($chr, $start, $end);
         if (defined(my $loc_col = $props->get('location'))) {
             my $loc = $a[$loc_col - 1];
             $loc =~ /^(.*):(\d+)-(\d+)/;
             $chr = $1;
             $start = $2;
-            $end = $3;
+            $end   = $3;
         }
         else {
             $chr   = $a[$props->get('chromosome') - 1];

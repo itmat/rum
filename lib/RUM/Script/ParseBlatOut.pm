@@ -1216,6 +1216,7 @@ sub parse_output {
         undef %maxlength;
         undef %blathits;
         undef %Ncount;
+        undef %cutoff;
         undef %cnt;
         undef @one_dir_only_candidate;
         undef @read_mapping_to_genome_coords;

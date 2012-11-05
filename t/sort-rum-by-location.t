@@ -14,7 +14,7 @@ my @types = qw(Unique NU);
 for my $type (@types) {
     my $in       = "$INPUT_DIR/RUM_$type.1";
     my $out      = temp_filename(TEMPLATE => "$type.XXXXXX");
-    @ARGV = ("-o", $out, $in);
+    @ARGV = ("-o", $out, $in, '--stats-out', '/dev/null');
     RUM::Script::SortRumByLocation->main();
     is_sorted_by_location($out);
 }
@@ -22,7 +22,11 @@ for my $type (@types) {
 for my $type (@types) {
     my $in       = "$INPUT_DIR/RUM_$type.1";
     my $out      = temp_filename(TEMPLATE => "$type.XXXXXX");
-    @ARGV = ("-o", $out, $in, "--max-chunk", 8, "--allow-small-chunks");
+    @ARGV = ("-o", $out, 
+             $in,
+             "--max-chunk", 8,
+             "--allow-small-chunks",
+             '--stats-out', '/dev/null');
     RUM::Script::SortRumByLocation->main();
     is_sorted_by_location($out);
 }

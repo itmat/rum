@@ -771,7 +771,7 @@ sub min_ram_gb {
     my $genome_size = $index->genome_size;
     defined($genome_size) or croak "Can't get min ram without genome size";
     my $gsz = $genome_size / 1000000000;
-    my $min_ram = int($gsz * 1.67)+1;
+    my $min_ram = ceil($gsz * 1.67)+1;
     return $min_ram;
 }
 

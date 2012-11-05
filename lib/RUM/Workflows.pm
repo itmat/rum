@@ -580,14 +580,15 @@ sub postprocessing_workflow {
             my @alt_quants = map { $c->alt_quant(chunk => $_) } @chunks; 
             push @start, @quants;
             push @start, @alt_quants if $c->alt_quants;
+            my @merge_quants_cmd = (
+                "perl", $c->script("merge_quants.pl"));
+            push @merge_quants_cmd, '--chunks', $c->chunks || 1;
+            push @merge_quants_cmd, '-o', post($c->quant);
+            push @merge_quants_cmd, $c->chunk_dir;
             $w->add_command(
                 name => "Merge quants",
                 pre => [$rum_unique, @quants],
-                commands => [[
-                    "perl", $c->script("merge_quants.pl"),
-                    "--chunks", $c->chunks || 1,
-                    "-o", post($c->quant), 
-                    $c->output_dir. "/chunks"]]);
+                commands => [\@merge_quants_cmd]);
             
             $w->add_command(
                 name => "Merge alt quants",
