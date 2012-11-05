@@ -110,12 +110,6 @@ sub parse {
         $f->($props);
     }
 
-    my @extra = grep { defined($_) && $_ ne '' } @ARGV;
-
-    if (@extra) {
-        $props->errors->add("There are unrecognized command line arguments: @extra");
-    }
-
     $props->errors->check;
 
     return $props;
