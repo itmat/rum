@@ -10,7 +10,7 @@ use File::Path qw(mkpath);
 
 use RUM::WorkflowRunner;
 use RUM::Logging;
-use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int open_r);
+use RUM::Common qw(is_fasta is_fastq head num_digits shell format_large_int open_r shell);
 use RUM::Workflow;
 use RUM::JobReport;
 
@@ -376,7 +376,7 @@ sub _reformat_reads {
         $have_quals = _got_quals($quals_fa);
     }
     else {
-        link $reads_in, $reads_fa;
+        shell("ln", "-s", $reads_in, $reads_fa);
     }
 
     # This should only be entered when we have one read file
