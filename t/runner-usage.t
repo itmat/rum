@@ -636,7 +636,7 @@ add_test {
 for my $test (@TESTS) {
     my ($code, $name) = @{ $test };
     next if defined($wanted_test) && $name ne $wanted_test;
-    diag "Group $name";
+    note "Group $name";
     $code->();
 }
 
