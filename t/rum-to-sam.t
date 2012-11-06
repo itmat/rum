@@ -6,7 +6,7 @@ use warnings;
 use Test::More tests => 10;
 use FindBin qw($Bin);
 use File::Copy;
-use lib "$Bin/../../lib";
+use lib "$Bin/../lib";
 use RUM::Script::RumToSam;
 use RUM::TestUtils;
 
