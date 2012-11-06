@@ -111,12 +111,39 @@ my $line = <$infile>;
 while ($line =~ /^@..\t/) {
     $line = <$infile>;
 }
+
+sub xs_a_tag_for_intron {
+    my ($upstream, $downstream) = @_;
+    
+    for my $sig (0 .. $#donor) {
+        if ($upstream eq $donor[$sig] && $downstream eq $acceptor[$sig]) {
+            return "XS:A:+";
+        }
+        elsif ($upstream eq $acceptor_rev[$sig] && $downstream eq $donor_rev[$sig]) {
+            return "XS:A:-";
+        }
+    }
+    return;
+}
+
 while (defined $line) {
     chomp $line;
-    my (undef, undef, $chr, $current_loc, undef, $cigar, undef) 
-        = split /\t/, $line;
+    my ($qname, $flag, $rname, $pos, $mapq, $cigar, $rnext, $pnext, $tlen, 
+        $seq, $qual, @optional) = split /\t/, $line;
+    my $xs_tag = xs_a_tag_for_sam($rname, $pos, $cigar, $seq_for_chr);
+    if (defined($xs_tag)) {
+        print "$line\t$xs_tag\n";
+    }
+    else {
+        print "$line\n";
+    }
+    $line = <$infile>;
+}
+
+sub xs_a_tag_for_sam {
+    my ($rname, $pos, $cigar, $seq_for_rname) = @_;
     my $intron_at_span;
-    $chr =~ s/:.*//;
+    $rname =~ s/:.*//;
 
     # Examine the CIGAR string to build up a list of spans, and mark a
     # span (in $intron_at_span) that is over an intron.
@@ -125,41 +152,29 @@ while (defined $line) {
         my ($num, $type) = ($1, $2);
 
 	if ($type eq 'M') {
-	    my $E = $current_loc + $num - 1;
-            push @spans, [$current_loc, $E];
-	    $current_loc = $E;
+	    my $E = $pos + $num - 1;
+            push @spans, [$pos, $E];
+	    $pos = $E;
 	}
 	if ($type eq 'D' || $type eq 'N') {
-	    $current_loc = $current_loc + $num + 1;
+	    $pos = $pos + $num + 1;
 	}
         if ($type eq 'N') {
 	    $intron_at_span = $#spans;
 	}
 	if ($type eq 'I') {
-	    $current_loc++;
+	    $pos++;
 	}
 	$cigar =~ s/^\d+[^\d]//;
     }
 
-    my $XS_tag = "";
-    if(defined($intron_at_span)) {
-	my $istart = $spans[$intron_at_span    ][1] + 1;
-        my $iend   = $spans[$intron_at_span + 1][0] - 1;
-	my $splice_signal_upstream   = substr $seq_for_chr->{$chr}, $istart - 1, 2;
-	my $splice_signal_downstream = substr $seq_for_chr->{$chr}, $iend   - 2, 2;
-        
-      SIGNAL: for my $sig (0 .. $#donor) {
-	    if ($splice_signal_upstream   eq $donor[$sig] && 
-                    $splice_signal_downstream eq $acceptor[$sig]) {
-                $XS_tag = "\tXS:A:+";
-            }
-            elsif ($splice_signal_upstream   eq $acceptor_rev[$sig] &&
-                       $splice_signal_downstream eq $donor_rev[$sig]) {
-                $XS_tag = "\tXS:A:-";
-            }
-            last SIGNAL if $XS_tag;
-	}
-    }
-    print "$line$XS_tag\n";
-    $line = <$infile>;
+    return if ! defined $intron_at_span;
+
+    my $istart = $spans[$intron_at_span    ][1] + 1;
+    my $iend   = $spans[$intron_at_span + 1][0] - 1;
+
+    my $upstream   = substr $seq_for_rname->{$rname}, $istart - 1, 2;
+    my $downstream = substr $seq_for_rname->{$rname}, $iend   - 2, 2;
+    
+    return xs_a_tag_for_intron($upstream, $downstream);
 }
