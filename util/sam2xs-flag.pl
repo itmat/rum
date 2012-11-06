@@ -128,7 +128,7 @@ until($line eq '') {
 	if($type eq 'D' || $type eq 'N') {
 	    $current_loc = $current_loc + $num + 1;
 	}
-	if($type eq 'N') {
+        if($type eq 'N') {
 	    $intron_flag = 1;
 	    $intron_at_span = $span_cnt;
 	}
@@ -145,9 +145,9 @@ until($line eq '') {
 	}
 	if($type eq 'I') {
 	    $current_loc++;
-	    substr($seq, $offset, 0, "+");
+#	    substr($seq, $offset, 0, "+");
 	    $offset = $offset  + $num + 1;
-	    substr($seq, $offset, 0, "+");
+#	    substr($seq, $offset, 0, "+");
 	    $offset = $offset + 1;
 	}
 	$matchstring =~ s/^\d+[^\d]//;
