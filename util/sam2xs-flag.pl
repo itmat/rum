@@ -98,78 +98,52 @@ while($line =~ /^@..\t/) {
     print $line;
     $line = <INFILE>;
 }
-until($line eq '') {
-    chomp($line);
-    @a = split(/\t/,$line);
-    $intron_flag = 0;
-    $intron_at_span = 0;
-    $span_cnt = 0;
-    $spans = "";
-    $matchstring = $a[5];
-    $a[2] =~ s/:.*//;
-    $chr = $a[2];
-    $start = $a[3];
-    $current_loc = $start;
-    $offset = 0;
-    while($matchstring =~ /^(\d+)([^\d])/) {
+while (defined $line) {
+    chomp $line;
+    my (undef, undef, $chr, $current_loc, undef, $cigar, undef) 
+        = split /\t/, $line;
+    my $intron_at_span;
+    $chr =~ s/:.*//;
+
+    # Examine the CIGAR string to build up a list of spans, and mark a
+    # span (in $intron_at_span) that is over an intron.
+    my @spans;
+    while($cigar =~ /^(\d+)([^\d])/) {
 	$num = $1;
 	$type = $2;
-	if($type eq 'M') {
+	if ($type eq 'M') {
 	    $E = $current_loc + $num - 1;
-	    if($spans =~ /\S/) {
-		$spans = $spans . ", " .  $current_loc . "-" . $E;
-		$span_cnt++;
-	    } else {
-		$spans = $current_loc . "-" . $E;
-	    }
-	    $offset = $offset + $num;
+            push @spans, [$current_loc, $E];
 	    $current_loc = $E;
 	}
-	if($type eq 'D' || $type eq 'N') {
+	if ($type eq 'D' || $type eq 'N') {
 	    $current_loc = $current_loc + $num + 1;
 	}
-        if($type eq 'N') {
-	    $intron_flag = 1;
-	    $intron_at_span = $span_cnt;
+        if ($type eq 'N') {
+	    $intron_at_span = $#spans;
 	}
-	if($type eq 'S') {
-	    if($matchstring =~ /^\d+S\d/) {
-		for($i=0; $i<$num; $i++) {
-		    $seq =~ s/^.//;
-		}
-	    } elsif($matchstring =~ /\d+S$/) {
-		for($i=0; $i<$num; $i++) {
-		    $seq =~ s/.$//;
-		}
-	    }
-	}
-	if($type eq 'I') {
+	if ($type eq 'I') {
 	    $current_loc++;
-#	    substr($seq, $offset, 0, "+");
-	    $offset = $offset  + $num + 1;
-#	    substr($seq, $offset, 0, "+");
-	    $offset = $offset + 1;
 	}
-	$matchstring =~ s/^\d+[^\d]//;
+	$cigar =~ s/^\d+[^\d]//;
     }
 
     $XS_tag = "";
-    if($intron_flag == 1) {
-	@a = split(/, /, $spans);
-	$a[$intron_at_span] =~ /-(\d+)$/;
-	$istart = $1 + 1;
-	$a[$intron_at_span+1] =~ /^(\d+)-/;
-	$iend = $1 - 1;
-	$splice_signal_upstream = substr($CHR2SEQ{$chr}, $istart-1, 2);
-	$splice_signal_downstream = substr($CHR2SEQ{$chr}, $iend-2, 2);
+    if(defined($intron_at_span)) {
+	$istart = $spans[$intron_at_span    ][1] + 1;
+        $iend   = $spans[$intron_at_span + 1][0] - 1;
+	$splice_signal_upstream   = substr $CHR2SEQ{$chr}, $istart - 1, 2;
+	$splice_signal_downstream = substr $CHR2SEQ{$chr}, $iend   - 2, 2;
+        
 	for ($sig=0; $sig<@donor; $sig++) {
-	    if (($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig]) || ($splice_signal_upstream eq $acceptor_rev[$sig] && $splice_signal_downstream eq $donor_rev[$sig])) {
-		if (($splice_signal_upstream eq $donor[$sig] && $splice_signal_downstream eq $acceptor[$sig])) {
-		    $XS_tag = "\tXS:A:+";
-		} else {
-		    $XS_tag = "\tXS:A:-";
-		}
-	    }
+	    if ($splice_signal_upstream   eq $donor[$sig] && 
+                $splice_signal_downstream eq $acceptor[$sig]) {
+                $XS_tag = "\tXS:A:+";
+            }
+            elsif ($splice_signal_upstream   eq $acceptor_rev[$sig] &&
+                   $splice_signal_downstream eq $donor_rev[$sig]) {
+                $XS_tag = "\tXS:A:-";
+            }
 	}
     }
     print "$line$XS_tag\n";
