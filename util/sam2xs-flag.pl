@@ -1,5 +1,10 @@
 #!/usr/bin/perl
 
+use strict;
+use warnings;
+use autodie;
+
+
 # Written by Gregory R. Grant
 # University of Pennsylvania, 2010
 
@@ -10,9 +15,11 @@ Usage: sam2xs-flag.pl <sam file> <genome seq>
 ";
 }
 
-$genome_sequence = $ARGV[1];
+my $genome_sequence = $ARGV[1];
 
 $|=1;
+
+my (@donor, @donor_rev, @acceptor, @acceptor_rev);
 
 # Splice Junctions:
 # ----------------
@@ -81,22 +88,28 @@ $donor_rev[11] = "TA";
 $acceptor[11] = "GA";
 $acceptor_rev[11] = "TC";
 
-open(GENOMESEQ, $genome_sequence) or die "\nError: in script make_RUM_junctions_file.pl: cannot open file '$genome_sequence' for reading\n\n";
-while($line = <GENOMESEQ>) {
-    chomp($line);
-    $line =~ s/^>//;
-    $name = $line;
-    $line = <GENOMESEQ>;
-    chomp($line);
-    $CHR2SEQ{$name} = $line;
-}
-close(GENOMESEQ);
+sub load_genome {
+    my ($genome_filename) = @_;
+    my %seq_for_chr;
 
-open(INFILE, $ARGV[0]) or die "\nError: Cannot open '$ARGV[0]' for reading\n\n";
-$line = <INFILE>;
-while($line =~ /^@..\t/) {
-    print $line;
-    $line = <INFILE>;
+    open my $genome_fh, '<', $genome_filename;
+    while (defined (my $line = <$genome_fh>)) {
+        chomp($line);
+        $line =~ s/^>//;
+        my $name = $line;
+        $line = <$genome_fh>;
+        chomp($line);
+        $seq_for_chr{$name} = $line;
+    }
+    return \%seq_for_chr;
+}
+
+my $seq_for_chr = load_genome($genome_sequence);
+
+open my $infile, $ARGV[0];
+my $line = <$infile>;
+while ($line =~ /^@..\t/) {
+    $line = <$infile>;
 }
 while (defined $line) {
     chomp $line;
@@ -109,10 +122,10 @@ while (defined $line) {
     # span (in $intron_at_span) that is over an intron.
     my @spans;
     while($cigar =~ /^(\d+)([^\d])/) {
-	$num = $1;
-	$type = $2;
+        my ($num, $type) = ($1, $2);
+
 	if ($type eq 'M') {
-	    $E = $current_loc + $num - 1;
+	    my $E = $current_loc + $num - 1;
             push @spans, [$current_loc, $E];
 	    $current_loc = $E;
 	}
@@ -128,24 +141,25 @@ while (defined $line) {
 	$cigar =~ s/^\d+[^\d]//;
     }
 
-    $XS_tag = "";
+    my $XS_tag = "";
     if(defined($intron_at_span)) {
-	$istart = $spans[$intron_at_span    ][1] + 1;
-        $iend   = $spans[$intron_at_span + 1][0] - 1;
-	$splice_signal_upstream   = substr $CHR2SEQ{$chr}, $istart - 1, 2;
-	$splice_signal_downstream = substr $CHR2SEQ{$chr}, $iend   - 2, 2;
+	my $istart = $spans[$intron_at_span    ][1] + 1;
+        my $iend   = $spans[$intron_at_span + 1][0] - 1;
+	my $splice_signal_upstream   = substr $seq_for_chr->{$chr}, $istart - 1, 2;
+	my $splice_signal_downstream = substr $seq_for_chr->{$chr}, $iend   - 2, 2;
         
-	for ($sig=0; $sig<@donor; $sig++) {
+      SIGNAL: for my $sig (0 .. $#donor) {
 	    if ($splice_signal_upstream   eq $donor[$sig] && 
-                $splice_signal_downstream eq $acceptor[$sig]) {
+                    $splice_signal_downstream eq $acceptor[$sig]) {
                 $XS_tag = "\tXS:A:+";
             }
             elsif ($splice_signal_upstream   eq $acceptor_rev[$sig] &&
-                   $splice_signal_downstream eq $donor_rev[$sig]) {
+                       $splice_signal_downstream eq $donor_rev[$sig]) {
                 $XS_tag = "\tXS:A:-";
             }
+            last SIGNAL if $XS_tag;
 	}
     }
     print "$line$XS_tag\n";
-    $line = <INFILE>;
+    $line = <$infile>;
 }
