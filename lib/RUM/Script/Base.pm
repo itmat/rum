@@ -78,6 +78,7 @@ sub script_name {
 
 sub argument_pod {
     my ($self, $verbose) = @_;
+
     my $pod = '';
     my $parser = $self->command_line_parser;
     $pod .= "=head1 ARGUMENTS\n\n=over 4\n\n";
@@ -114,7 +115,7 @@ sub pod {
         $pod .= "=head1 DESCRIPTION\n\n" . $self->description . "\n\n";
     }
 
-    $pod .= $self->argument_pod;
+    $pod .= $self->argument_pod($verbose);
 
     $pod .= <<'EOF';
 
@@ -195,7 +196,6 @@ sub synopsis {
     my @optional = grep { ! $_->required && $_->name ne 'help' } $self->command_line_parser->properties;
 
     if (@optional) {
-        warn "Optional are " . join(', ', @optional);
         $lines[0] .= " [OPTIONS]";
     }
 
