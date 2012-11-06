@@ -27,6 +27,8 @@ our $log = RUM::Logging->get_logger;
 
 my @TESTS;
 
+my $TMP_DIR = File::Temp->newdir;
+
 my $wanted_test = shift @ARGV;
 
 sub add_test(&$) {
@@ -93,15 +95,15 @@ sub rum_fails_ok {
 
     if (my $pid = fork) {
         waitpid $pid, 0;
-        open my $errors_fh, '<', 't/stderr';
+        open my $errors_fh, '<', "$TMP_DIR/stderr";
         my $errors = join ('', (<$errors_fh>));
         like $errors, $re, $name;
     }
     else {
         close STDERR;
-        open STDERR, '>', 't/stderr';
+        open STDERR, '>', "$TMP_DIR/stderr";
         close STDOUT;
-        open STDOUT, '>', 't/stdout';
+        open STDOUT, '>', "$TMP_DIR/stdout";
         
         RUM::Script::Main->main;
     }
