@@ -3,7 +3,6 @@ package RUM::Property;
 use strict;
 use warnings;
 
-use POSIX;
 use RUM::Usage;
 use RUM::UsageErrors;
 use Carp;
@@ -54,6 +53,7 @@ package RUM::Config;
 use strict;
 use warnings;
 
+use POSIX qw(ceil);
 use Carp;
 use FindBin qw($Bin);
 use File::Spec;
@@ -1035,8 +1035,9 @@ sub preprocessed_reads {
 }
 
 sub AUTOLOAD {
+    confess "Undefined method $AUTOLOAD called on @_" unless ref $_[0];
     my ($self) = @_;
-    croak "Can't get property on $self" unless ref $self;
+
     my @parts = split /::/, $AUTOLOAD;
     my $name = $parts[-1];
     
