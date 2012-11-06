@@ -50,20 +50,6 @@ while ($line =~ /^@..\t/) {
     $line = <$infile>;
 }
 
-sub xs_a_tag_for_intron {
-    my ($upstream, $downstream) = @_;
-    
-    for my $sig (0 .. $#donor) {
-        if ($upstream eq $donor[$sig] && $downstream eq $acceptor[$sig]) {
-            return "XS:A:+";
-        }
-        elsif ($upstream eq $acceptor_rev[$sig] && $downstream eq $donor_rev[$sig]) {
-            return "XS:A:-";
-        }
-    }
-    return;
-}
-
 while (defined $line) {
     chomp $line;
     my ($qname, $flag, $rname, $pos, $mapq, $cigar, $rnext, $pnext, $tlen, 
@@ -80,7 +66,7 @@ while (defined $line) {
 
 sub xs_a_tag_for_sam {
     my ($rname, $pos, $cigar, $seq_for_rname) = @_;
-    my $intron_at_span;
+    my @intron_at_span;
     $rname =~ s/:.*//;
 
     # Examine the CIGAR string to build up a list of spans, and mark a
@@ -98,7 +84,7 @@ sub xs_a_tag_for_sam {
 	    $pos = $pos + $num + 1;
 	}
         if ($type eq 'N') {
-	    $intron_at_span = $#spans;
+	    push @intron_at_span, $#spans;
 	}
 	if ($type eq 'I') {
 	    $pos++;
@@ -106,13 +92,35 @@ sub xs_a_tag_for_sam {
 	$cigar =~ s/^\d+[^\d]//;
     }
 
-    return if ! defined $intron_at_span;
-
-    my $istart = $spans[$intron_at_span    ][1] + 1;
-    my $iend   = $spans[$intron_at_span + 1][0] - 1;
-
-    my $upstream   = substr $seq_for_rname->{$rname}, $istart - 1, 2;
-    my $downstream = substr $seq_for_rname->{$rname}, $iend   - 2, 2;
+    return if ! @intron_at_span;
     
-    return xs_a_tag_for_intron($upstream, $downstream);
+    my @tags;
+
+    my $plus  = 0;
+    my $minus = 0;
+
+    for my $intron_at_span (@intron_at_span) {
+        my $istart = $spans[$intron_at_span    ][1] + 1;
+        my $iend   = $spans[$intron_at_span + 1][0] - 1;
+
+        my $upstream   = substr $seq_for_rname->{$rname}, $istart - 1, 2;
+        my $downstream = substr $seq_for_rname->{$rname}, $iend   - 2, 2;
+
+        for my $sig (0 .. $#donor) {
+            if ($upstream eq $donor[$sig] && $downstream eq $acceptor[$sig]) {
+                $plus++;
+            }
+            elsif ($upstream eq $acceptor_rev[$sig] && $downstream eq $donor_rev[$sig]) {
+                $minus++;
+            }
+        }
+    }
+    
+    if ($plus && !$minus) {
+        return "XS:A:+";
+    }
+    elsif ($minus && !$plus) {
+        return "XS:A:-";
+    }
+    return;
 }
