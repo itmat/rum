@@ -16,11 +16,9 @@ BEGIN {
 }
 
 my $w = RUM::Workflow->new();
-my $step1 = temp_filename(TEMPLATE => "workflow-runner.XXXXXX");
-my $step2 = temp_filename(TEMPLATE => "workflow-runner.XXXXXX");
-
-system "rm -f $step1";
-system "rm -f $step2";
+my $tmpdir = File::Temp->newdir;
+my $step1 = "$tmpdir/step1";
+my $step2 = "$tmpdir/step2";
 
 $w->add_command(
     name => "step1",

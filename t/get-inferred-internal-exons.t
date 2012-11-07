@@ -30,8 +30,7 @@ SKIP: {
     @ARGV = ("--junctions", $junctions,
              "--coverage", $cov, 
              "--genes", $genes, 
-             "--bed", $bed_out,
-             "-q");
+             "--bed", $bed_out);
     
     RUM::Script::GetInferredInternalExons->main();
     *STDOUT = *STDOUT_BAK;

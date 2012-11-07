@@ -148,6 +148,7 @@ lib/RUM/Script/SortByLocation.pm
 lib/RUM/Script/SortRumById.pm
 lib/RUM/Script/SortRumByLocation.pm
 lib/RUM/Sort.pm
+lib/RUM/SpliceSignals.pm
 lib/RUM/State.pm
 lib/RUM/StateMachine.pm
 lib/RUM/Subproc.pm
@@ -331,6 +332,7 @@ t/expected/sort-by-location/junctions_all.rum
 t/expected/sort-by-location/junctions_high-quality.bed
 t/expected/sort-rum-by-id/RUM_Unique_idsorted.1
 t/file_iterator.t
+t/get-inferred-internal-exons.t
 t/get-nu-stats.t
 t/heap.t
 t/indexing.t
@@ -343,6 +345,7 @@ t/integration/rum-to-sam.t
 t/junctions-to-bed.t
 t/limit-nu.t
 t/make-gu-and-gnu.t
+t/make-rum-junctions-file.t
 t/make-tu-and-tnu.t
 t/make-unmapped-file.t
 t/manifest.t
@@ -364,7 +367,10 @@ t/quantify-exons.t
 t/remove-dups.t
 t/repository.t
 t/rum-config-file.t
+t/rum-final-cleanup.t
 t/rum-to-cov.t
+t/rum-to-quantifications.t
+t/rum-to-sam.t
 t/runner-usage.t
 t/samio.t
 t/sge.t

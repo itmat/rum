@@ -59,7 +59,6 @@ for my $test (@tests) {
         "--all-bed-out",   $all_bed_out,
         "--high-bed-out",  $high_bed_out,
         "-faok",
-        "-q",
         @{ $test->{options} } );
     
   SKIP: {

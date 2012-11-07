@@ -30,8 +30,7 @@ SKIP: {
                      "--non-unique-out", $non_unique_out,
                      "--genome", $genome,
                      "--sam-header-out", $sam_header_out,
-                     $faok,
-                     "-q");
+                     $faok);
             RUM::Script::FinalCleanup->main();
             no_diffs($unique_out,     "$EXPECTED_DIR/RUM_Unique_temp2.1");
             no_diffs($non_unique_out, "$EXPECTED_DIR/RUM_NU_temp2.1");

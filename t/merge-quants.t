@@ -15,7 +15,7 @@ plan tests => 3;
 
 use_ok("RUM::Script::MergeQuants");
 my $out = temp_filename(TEMPLATE => "merge-quants.XXXXXX", UNLINK => 0);
-@ARGV = ($INPUT_DIR, "-n", 2, "-o", $out, "-q");
+@ARGV = ($INPUT_DIR, "-n", 2, "-o", $out);
 
 RUM::Script::MergeQuants->main();
 no_diffs($out, "$EXPECTED_DIR/feature_quantifications_test");

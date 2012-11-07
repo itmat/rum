@@ -3,7 +3,7 @@ package RUM::CommandLineParser;
 use strict;
 use warnings;
 
-use Getopt::Long;
+use Getopt::Long qw(:config pass_through);
 use Data::Dumper;
 
 use RUM::Property;
@@ -108,6 +108,10 @@ sub parse {
 
     for my $f (@{ $self->{checkers} }) {
         $f->($props);
+    }
+
+    if (@ARGV) {
+        $props->errors->add("There were unrecognized command line arguments: @ARGV");
     }
 
     $props->errors->check;
