@@ -13,7 +13,7 @@ use RUM::TestUtils;
 my $in = "$INPUT_DIR/RUM_Unique_temp2.1";
 my $out = temp_filename(TEMPLATE => "id-sorted.XXXXXX");
 
-@ARGV = ($in, "-o", $out, "-q");
+@ARGV = ($in, "-o", $out);
 RUM::Script::SortRumById->main();
 
 no_diffs($out, "$EXPECTED_DIR/RUM_Unique_idsorted.1");

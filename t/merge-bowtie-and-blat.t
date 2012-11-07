@@ -32,8 +32,7 @@ for my $type (qw(paired)) {
              "--unique-out", $merged_unique,
              "--non-unique-out", $merged_non_unique, 
              "--type", $type,
-             "--read-length", 75,
-             "--quiet");
+             "--read-length", 75);
     RUM::Script::MergeBowtieAndBlat->main();
     no_diffs($merged_unique,     "$EXPECTED_DIR/RUM_Unique_temp.1");
     no_diffs($merged_non_unique, "$EXPECTED_DIR/RUM_NU_temp.1");

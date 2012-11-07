@@ -33,7 +33,7 @@ for my $fh (@fhs) {
 my $out = temp_filename();
 
 {
-    @ARGV = ("-o", $out->filename, @names, "-q");
+    @ARGV = ("-o", $out->filename, @names);
     RUM::Script::MergeSortedRumFiles->main();
     is_sorted_by_location($out);
 }

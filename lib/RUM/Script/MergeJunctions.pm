@@ -83,7 +83,7 @@ sub accepted_options {
     );
 }
 
-sub new {
+sub run {
     my ($self) = @_;
     my $props = $self->properties;
     my $output_filename = $props->get('output');

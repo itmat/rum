@@ -41,7 +41,7 @@ BEGIN {
 }
 
 if (-e $index) {
-    plan tests => 83;
+    plan tests => 82;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -231,9 +231,9 @@ add_test {
                   '--chunks', 1],
                  qr/forward reads/im, "Missing read files");
     
-    rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
-                  "1.fq", "2.fq", "3.fq" , '--chunks', 1],
-                 qr/unrecognized/im, "Too many read files");
+#    rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", #"asdf", 
+#                  "1.fq", "2.fq", "3.fq" , '--chunks', 1],
+#                 qr/unrecognized/im, "Too many read files");
     
     rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
                   "1.fq", "1.fq", '--chunks', 1],
