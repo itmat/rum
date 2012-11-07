@@ -29,6 +29,8 @@ our $log = RUM::Logging->get_logger;
 
 my @TESTS;
 
+my $TMP_DIR = File::Temp->newdir;
+
 my $wanted_test = shift @ARGV;
 
 sub add_test(&$) {
@@ -41,7 +43,7 @@ BEGIN {
 }
 
 if (-e $index) {
-    plan tests => 83;
+    plan tests => 82;
 }
 else {
     plan skip_all => "Arabidopsis index needed";
@@ -95,15 +97,15 @@ sub rum_fails_ok {
 
     if (my $pid = fork) {
         waitpid $pid, 0;
-        open my $errors_fh, '<', 't/stderr';
+        open my $errors_fh, '<', "$TMP_DIR/stderr";
         my $errors = join ('', (<$errors_fh>));
         like $errors, $re, $name;
     }
     else {
         close STDERR;
-        open STDERR, '>', 't/stderr';
+        open STDERR, '>', "$TMP_DIR/stderr";
         close STDOUT;
-        open STDOUT, '>', 't/stdout';
+        open STDOUT, '>', "$TMP_DIR/stdout";
         
         RUM::Script::Main->main;
     }
@@ -231,9 +233,9 @@ add_test {
                   '--chunks', 1],
                  qr/forward reads/im, "Missing read files");
     
-    rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
-                  "1.fq", "2.fq", "3.fq" , '--chunks', 1],
-                 qr/unrecognized/im, "Too many read files");
+#    rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", #"asdf", 
+#                  "1.fq", "2.fq", "3.fq" , '--chunks', 1],
+#                 qr/unrecognized/im, "Too many read files");
     
     rum_fails_ok(["align", "--index", $index, "--output", tmp_out(), "--name", "asdf", 
                   "1.fq", "1.fq", '--chunks', 1],
@@ -336,7 +338,7 @@ add_test {
                   '--output', tmp_out(),
                   '--name',   'asdf',
                   '--chunks', 1,
-                  $bad_reads, $good_reads_same_size_as_bad, '-q'], 
+                  $bad_reads, $good_reads_same_size_as_bad], 
                  qr/you appear to have entries/i, 'Bad reads');    
     
     rum_fails_ok(['align',
@@ -344,7 +346,7 @@ add_test {
                   '--output', tmp_out(),
                   '--name',   'asdf',
                   '--chunks', 1,
-                  $good_reads_same_size_as_bad, $bad_reads, '-q'],
+                  $good_reads_same_size_as_bad, $bad_reads],
                  qr/you appear to have entries/i, 'Bad reads');    
 
 } 'bad_reads';
@@ -620,7 +622,7 @@ warn "Running tests\n";
 for my $test (@TESTS) {
     my ($code, $name) = @{ $test };
     next if defined($wanted_test) && $name ne $wanted_test;
-    diag "Group $name";
+    note "Group $name";
     $code->();
 }
 

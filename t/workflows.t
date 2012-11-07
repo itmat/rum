@@ -18,7 +18,7 @@ my $repo = RUM::Repository->new(root_dir => "$Bin/../");
 # we'll skip the tests anyway.
 my @indexes = eval { $repo->indexes(pattern => qr/TAIR/); };
 
-my $out_dir = "$Bin/tmp/40-workflows";
+my $out_dir = File::Temp->newdir;
 my $conf_dir = $repo->conf_dir;
 my $index_dir = $repo->indexes_dir;
 my $annotations = $RUM::TestUtils::GENE_INFO;

@@ -2,6 +2,7 @@ package RUM::Script::SortByLocation;
 
 use strict;
 use warnings;
+use Data::Dumper;
 use autodie;
 
 use RUM::UsageErrors;
@@ -61,13 +62,8 @@ sub run {
     my ($self) = @_;
     my $props = $self->properties;
 
-<<<<<<< HEAD
-    open my $in,  "<", $infile;
-    open my $out, ">", $outfile;
-=======
     open my $in,  "<", $props->get('infile');
     open my $out, ">", $props->get('output');
->>>>>>> usage
 
     for (my $i=0; $i < ($props->get('skip') || 0); $i++) {
         my $line = <$in>;
@@ -80,30 +76,17 @@ sub run {
         chomp($line);
         my @a = split /\t/, $line;
         my ($chr, $start, $end);
-<<<<<<< HEAD
-        if (defined($location_col)) {
-            my $loc = $a[$location_col];
-            $loc   =~ /^(.*):(\d+)-(\d+)/;
-            $chr   = $1;
-=======
         if (defined(my $loc_col = $props->get('location'))) {
             my $loc = $a[$loc_col - 1];
             $loc =~ /^(.*):(\d+)-(\d+)/;
             $chr = $1;
->>>>>>> usage
             $start = $2;
             $end   = $3;
         }
         else {
-<<<<<<< HEAD
-            $chr   = $a[$chromosome_col];
-            $start = $a[$start_col];
-            $end   = $a[$end_col];
-=======
             $chr   = $a[$props->get('chromosome') - 1];
             $start = $a[$props->get('start') - 1];
             $end   = $a[$props->get('end') - 1];
->>>>>>> usage
         }
         $hash{$chr}{$line}[0] = $start;
         $hash{$chr}{$line}[1] = $end;

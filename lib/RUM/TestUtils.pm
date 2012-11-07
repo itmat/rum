@@ -95,12 +95,14 @@ sub is_sorted_by_location {
     is_deeply(\@recs, \@sorted, "Sorted by location");
 }
 
+my $temp_dir = File::Temp->newdir;
+
 sub temp_filename {
     my (%options) = @_;
     mkdir "$Bin/tmp";
-    $options{DIR}      = "$Bin/tmp" unless exists $options{DIR};
-    $options{UNLINK}   = 1        unless exists $options{UNLINK};
-    $options{TEMPLATE} = "XXXXXX" unless exists $options{TEMPLATE};
+    $options{DIR}      = $temp_dir unless exists $options{DIR};
+    $options{UNLINK}   = 1         unless exists $options{UNLINK};
+    $options{TEMPLATE} = "XXXXXX"  unless exists $options{TEMPLATE};
     File::Temp->new(%options);
 }
 

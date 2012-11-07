@@ -12,6 +12,7 @@ use Test::More;
 use RUM::Config;
 use RUM::Platform::Cluster;
 use RUM::TestUtils;
+use RUM::Properties;
 
 BEGIN { 
     my @libs = qw(Test::Exception
@@ -30,11 +31,18 @@ BEGIN {
 
 $RUM::Platform::Cluster::CLUSTER_CHECK_INTERVAL=0;
 
-our %DEFAULTS = (name    => 'cluster.t',
+my $props = RUM::Properties->new([RUM::Config->property('name'),
+                                  RUM::Config->property('chunks'),
+                                  RUM::Config->property('index_dir')]);
+
+$props->set('name',      'cluster.t');
+$props->set('chunks',    1);
+$props->set('index_dir', $INDEX_DIR);
+our %DEFAULTS = (
                  chunks  => 1,
                  index_dir => $INDEX_DIR);
 
-sub config { RUM::Config->new->set(%DEFAULTS) }
+sub config { RUM::Config->new(properties => $props)->set(%DEFAULTS) }
 
 sub cluster {
     Test::MockObject::Extends->new(

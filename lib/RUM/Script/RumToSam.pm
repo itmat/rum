@@ -3,9 +3,18 @@ package RUM::Script::RumToSam;
 no warnings;
 use autodie;
 use File::Copy;
+use RUM::Usage;
+use RUM::Logging;
+use Getopt::Long;
 use List::Util qw(max min);
 use RUM::Common qw(addJunctionsToSeq reversecomplement spansTotalLength);
 use RUM::SamIO qw(:flags);
+use RUM::SpliceSignals;
+
+my @donor = RUM::SpliceSignals->donor;
+my @donor_rev = RUM::SpliceSignals->donor_rev;
+my @acceptor = RUM::SpliceSignals->acceptor;
+my @acceptor_rev = RUM::SpliceSignals->acceptor_rev;
 
 use base 'RUM::Script::Base';
 
@@ -241,7 +250,23 @@ sub run {
     open(my $sam_out, ">", $sam_outfile);
     my $sam = RUM::SamIO->new(-fh => $sam_out);
 
+    my $write_rec = sub {
+        my ($rec) = @_;
+        return if ! $allow->($rec);
+        my @rec = @{ $rec };
+        
+        my ($qname, $flag, $rname, $pos, $mapq, $cigar, $rnext, $pnext, $tlen, 
+            $seq, $qual, @tags) = @rec;
+        
+        if (my $xs_tag = xs_a_tag_for_sam($rname, $pos, $cigar, \%GENOMESEQ)) {
+            push @rec, $xs_tag;
+        }
+
+        $sam->write_rec(\@rec);
+    };
+
     while ($forward_read = <READS>) {
+        my $sn;
         $forward_read =~ /seq\.(\d+)/;
         $seqnum = $1;
         undef @FORWARD;
@@ -1047,7 +1072,7 @@ sub run {
                 $MM = $mapper+1;
                 push @forward_record, "IH:i:$num_mappers", "HI:i:$MM";
 
-                $sam->write_rec(\@forward_record) if $allow->(\@forward_record);
+                $write_rec->(\@forward_record);
 	    
                 # REVERSE
 	    
@@ -1101,7 +1126,7 @@ sub run {
                     $MM = $mapper+1;
                     push @reverse_record, "IH:i:$num_mappers", "HI:i:$MM";
 
-                    $sam->write_rec(\@reverse_record) if $allow->(\@reverse_record);
+                    $write_rec->(\@reverse_record);
                 }
             }
         }
@@ -1176,8 +1201,8 @@ sub run {
                 $rev[$SEQ]   = $reverse_read;
                 $rev[$QUAL]  = $reverse_qual || $DEFAULT_QUAL;
 
-                $sam->write_rec(\@fwd) if $allow->(\@fwd);
-                $sam->write_rec(\@rev) if $allow->(\@rev);
+                $write_rec->(\@fwd);
+                $write_rec->(\@rev);
             }
         }
     }
@@ -1315,4 +1340,65 @@ sub cigar2mismatches () {
     $return_array[0] = $MD;
     $return_array[1] = $NM;
     return \@return_array;
+}
+
+sub xs_a_tag_for_sam {
+    my ($rname, $pos, $cigar, $seq_for_rname) = @_;
+    my @intron_at_span;
+    $rname =~ s/:.*//;
+
+    # Examine the CIGAR string to build up a list of spans, and mark a
+    # span (in $intron_at_span) that is over an intron.
+    my @spans;
+    while($cigar =~ /^(\d+)([^\d])/) {
+        my ($num, $type) = ($1, $2);
+
+	if ($type eq 'M') {
+	    my $E = $pos + $num - 1;
+            push @spans, [$pos, $E];
+	    $pos = $E;
+	}
+	if ($type eq 'D' || $type eq 'N') {
+	    $pos = $pos + $num + 1;
+	}
+        if ($type eq 'N') {
+	    push @intron_at_span, $#spans;
+	}
+	if ($type eq 'I') {
+	    $pos++;
+	}
+	$cigar =~ s/^\d+[^\d]//;
+    }
+
+    return if ! @intron_at_span;
+    
+    my @tags;
+
+    my $plus  = 0;
+    my $minus = 0;
+
+    for my $intron_at_span (@intron_at_span) {
+        my $istart = $spans[$intron_at_span    ][1] + 1;
+        my $iend   = $spans[$intron_at_span + 1][0] - 1;
+
+        my $upstream   = substr $seq_for_rname->{$rname}, $istart - 1, 2;
+        my $downstream = substr $seq_for_rname->{$rname}, $iend   - 2, 2;
+
+        for my $sig (0 .. $#donor) {
+            if ($upstream eq $donor[$sig] && $downstream eq $acceptor[$sig]) {
+                $plus++;
+            }
+            elsif ($upstream eq $acceptor_rev[$sig] && $downstream eq $donor_rev[$sig]) {
+                $minus++;
+            }
+        }
+    }
+    
+    if ($plus && !$minus) {
+        return "XS:A:+";
+    }
+    elsif ($minus && !$plus) {
+        return "XS:A:-";
+    }
+    return;
 }

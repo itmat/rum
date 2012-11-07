@@ -331,7 +331,7 @@ sub _reformat_reads {
     my $have_quals = 0;
 
     if (@reads == 1 && $config->input_is_preformatted) {
-        link $reads[0], $reads_fa;
+        shell("ln", "-s", $reads[0], $reads_fa);
     }
     elsif (is_fasta($reads[0]) || is_fastq($reads[0])) {
         my @cmd = (
@@ -356,9 +356,6 @@ sub _reformat_reads {
         shell("perl $parse_2_fasta @reads > $reads_fa 2>> $error_log");
         shell("perl $parse_2_quals @reads > $quals_fa 2>> $error_log");
         $have_quals = _got_quals($quals_fa);
-    }
-    else {
-        shell("ln", "-s", $reads_in, $reads_fa);
     }
 
     # This should only be entered when we have one read file

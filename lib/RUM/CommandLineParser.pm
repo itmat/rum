@@ -3,7 +3,7 @@ package RUM::CommandLineParser;
 use strict;
 use warnings;
 
-use Getopt::Long;
+use Getopt::Long qw(:config pass_through);
 use Data::Dumper;
 
 use RUM::Property;
@@ -108,6 +108,12 @@ sub parse {
 
     for my $f (@{ $self->{checkers} }) {
         $f->($props);
+    }
+
+    my @unrecognized = grep { defined($_) && length($_) } @ARGV;
+
+    if (@unrecognized) {
+        $props->errors->add("There were unrecognized command line arguments: '@unrecognized'");
     }
 
     $props->errors->check;

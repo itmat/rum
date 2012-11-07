@@ -75,7 +75,7 @@ sub load_class {
 
 sub parse_command_line {
     my ($self) = @_;
-    my $action = shift @ARGV;
+    my $action = shift @ARGV || '';
 
     my $props = $self->{properties} = RUM::Properties->new([$self->accepted_options]);
     if ($ACTIONS{$action}) {

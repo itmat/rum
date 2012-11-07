@@ -3,6 +3,7 @@ package RUM::Config;
 use strict;
 use warnings;
 
+use POSIX qw(ceil);
 use Carp;
 use FindBin qw($Bin);
 use File::Spec;
@@ -24,11 +25,7 @@ FindBin->again;
 
 our $FILENAME = "rum_job_config";
 
-
-my $DEFAULT = RUM::Config->new;
-
 our %DEFAULTS = (
-
 
     # These properties are actually set by the user
 
@@ -842,8 +839,9 @@ sub preprocessed_reads {
 }
 
 sub AUTOLOAD {
+    confess "Undefined method $AUTOLOAD called on @_" unless ref $_[0];
     my ($self) = @_;
-    croak "Can't get property on $self" unless ref $self;
+
     my @parts = split /::/, $AUTOLOAD;
     my $name = $parts[-1];
     
