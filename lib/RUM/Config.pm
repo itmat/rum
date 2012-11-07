@@ -25,11 +25,7 @@ FindBin->again;
 
 our $FILENAME = "rum_job_config";
 
-
-my $DEFAULT = RUM::Config->new;
-
 our %DEFAULTS = (
-
 
     # These properties are actually set by the user
 

@@ -110,8 +110,10 @@ sub parse {
         $f->($props);
     }
 
-    if (@ARGV) {
-        $props->errors->add("There were unrecognized command line arguments: @ARGV");
+    my @unrecognized = grep { defined($_) && length($_) } @ARGV;
+
+    if (@unrecognized) {
+        $props->errors->add("There were unrecognized command line arguments: '@unrecognized'");
     }
 
     $props->errors->check;

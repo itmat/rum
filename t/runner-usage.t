@@ -338,7 +338,7 @@ add_test {
                   '--output', tmp_out(),
                   '--name',   'asdf',
                   '--chunks', 1,
-                  $bad_reads, $good_reads_same_size_as_bad, '-q'], 
+                  $bad_reads, $good_reads_same_size_as_bad], 
                  qr/you appear to have entries/i, 'Bad reads');    
     
     rum_fails_ok(['align',
@@ -346,7 +346,7 @@ add_test {
                   '--output', tmp_out(),
                   '--name',   'asdf',
                   '--chunks', 1,
-                  $good_reads_same_size_as_bad, $bad_reads, '-q'],
+                  $good_reads_same_size_as_bad, $bad_reads],
                  qr/you appear to have entries/i, 'Bad reads');    
 
 } 'bad_reads';
