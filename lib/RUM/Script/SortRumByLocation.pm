@@ -1,6 +1,7 @@
 package RUM::Script::SortRumByLocation;
 
 no warnings;
+use autodie;
 
 use FindBin qw($Bin);
 
@@ -11,6 +12,7 @@ use RUM::Usage;
 use RUM::FileIterator qw(file_iterator sort_by_location merge_iterators);
 use File::Copy qw(mv cp);
 use Data::Dumper;
+use File::Temp;
 
 our $log = RUM::Logging->get_logger();
 $|=1;
@@ -27,22 +29,13 @@ sub main {
         "help|h"    => sub { RUM::Usage->help },
         "verbose|v" => sub { $log->more_logging(1) },
         "quiet|q"   => sub { $log->less_logging(1) });
-        
+
     my $infile = $ARGV[0] or RUM::Usage->bad(
         "Please specify an input file");
 
     $outfile or RUM::Usage->bad(
         "Please specify an output file with -o or --output");
 
-    my $running_indicator_file = $outfile;
-    $running_indicator_file =~ s![^/]+$!!;
-    $running_indicator_file = $running_indicator_file . ".running";
-
-    open(OUTFILE, ">$running_indicator_file") 
-        or die "Can't open $running_indicator_file for writing: $!";
-    print OUTFILE "0";
-    close(OUTFILE);
-    
     my $maxchunksize_specified;
     my $name;
 
@@ -50,7 +43,7 @@ sub main {
         int($ram) > 0 or RUM::Usage->bad(
             "--ram must be a positive integer; you gave $ram");
     }
-        
+
     if (defined($maxchunksize)) {
         $maxchunksize_specified = 1;
         int($maxchunksize) > 0 or RUM::Usage->bad(
@@ -64,7 +57,7 @@ sub main {
     # so allow max chunk sizes smaller than 500000 if that flag is set.
     $maxchunksize >= 500000 || $allowsmallchunks or
         RUM::Usage->bad("--max-chunks-ize must be at least 500,000.");
-    
+
     my $max_count_at_once;
     if ($maxchunksize_specified) {
         $max_count_at_once = $maxchunksize;
@@ -104,7 +97,6 @@ sub main {
         if ($size_input != $size_output) {
             $log->warn("Sorting \"$infile\":  failed, trying again.");
             &doEverything(%options);
-            unlink($running_indicator_file);
             $size_output = -s $outfile;
         } else {
             $i = 2;
@@ -162,6 +154,8 @@ sub doEverything  {
     my $outfile  = $options{outfile};
     my $infile  = $options{infile};
 
+    my $tempdir = File::Temp->newdir;
+
     open(FINALOUT, ">", $outfile)
         or die "Can't open $outfile for writing: $!";
     my %chr_counts = get_chromosome_counts($infile);
@@ -197,7 +191,7 @@ sub doEverything  {
 	}
 	$chunk++;
     }
-    
+
     # DEBUG
     #foreach $chr (sort {cmpChrs($a,$b)} keys %CHUNK) {
     #    print STDERR "$chr\t$CHUNK{$chr}\n";
@@ -206,8 +200,13 @@ sub doEverything  {
     $log->info("Reading in file");
     my %F1;
     my $numchunks = $chunk;
+
+    my @sorting_tempfile_name = map {
+        File::Temp->new;
+    } (0 .. $numchunks - 1);
+
     for (my $chunk=0;$chunk<$numchunks;$chunk++) {
-	open $F1{$chunk}, ">" . $infile . "_sorting_tempfile." . $chunk;
+	open $F1{$chunk}, ">" . $sorting_tempfile_name[$chunk];
     }
     open(INFILE, $infile);
     while (my $line = <INFILE>) {
@@ -224,127 +223,92 @@ sub doEverything  {
     $log->info("Done reading it");
     $cnt=0;
     $chunk=0;
-    
+
     while ($cnt < @CHR) {
 
 	my %chrs_current;
 	my $running_count = $chr_counts{$CHR[$cnt]};
         $log->info("Running count is $running_count");
 	$chrs_current{$CHR[$cnt]} = 1;
-	if ($chr_counts{$CHR[$cnt]} > $max_count_at_once) { # it's a monster chromosome, going to do it in
-            $log->info("Monster chromosome");
+	if ($chr_counts{$CHR[$cnt]} > $max_count_at_once) {
+
+            # It's a monster chromosome, going to do it in
 	    # pieces for fear of running out of RAM.
-	    my $INFILE = $infile . "_sorting_tempfile." . $CHUNK{$CHR[$cnt]};
-	    open my $sorting_chunk_in, "<", $INFILE;
+            $log->info("Monster chromosome");
 
             # Open an iterator over the records in $sorting_chunk_in
+	    open(my $sorting_chunk_in, "<",
+                 $sorting_tempfile_name[$CHUNK{$CHR[$cnt]}]);
             my $it = file_iterator($sorting_chunk_in, separate => $separate);
-	    my $FLAG = 0;
 	    my $chunk_num = 0;
 
-	    while ($FLAG == 0) {
+            my @tempfiles = map "$tempdir/$CHR[$cnt]_temp.$_", (0,1,2);
+
+          CHUNK: while ( 1 ) {
+
 		$chunk_num++;
 
                 my $suffix = $chunk_num == 1 ? 0 : 1;
-                my $tempfilename = $CHR[$cnt] . "_temp.$suffix";
-                open my $this_chunk_out, ">", $tempfilename;
+                open my $this_chunk_out, ">", $tempfiles[$suffix];
                 $log->info("Sorting a chunk");
-                my $num_read = 
-                    sort_by_location($it, $this_chunk_out, 
-                                     max => $max_count_at_once);
+                my $num_read = sort_by_location($it, $this_chunk_out,
+                                                max => $max_count_at_once);
                 $log->info("Done sorting it");
                 close($this_chunk_out);
-                unless ($num_read) {
-                    $FLAG = 1;
-                }
-		
+
 		# merge with previous chunk (if necessary):
-                #	    print "chunk_num = $chunk_num\n";
 		if ($chunk_num > 1) {
 
-                    my @tempfiles = map "$CHR[$cnt]_temp.$_", (0,1,2);
-
-                    open my $in1, "<", $tempfiles[0]
-                        or croak "Can't open $tempfiles[0] for reading: $!";
-                    open my $in2, "<", $tempfiles[1]
-                        or croak "Can't open $tempfiles[1] for reading: $!";
-                    open my $temp_merged_out, ">", $tempfiles[2]
-                        or croak "Can't open $tempfiles[2] for writing: $!";
+                    open my $in1, "<", $tempfiles[0];
+                    open my $in2, "<", $tempfiles[1];
+                    open my $temp_merged_out, ">", $tempfiles[2];
 
                     $log->info("Merging sorted chunks");
-                    my @iters = (
+		    merge_iterators(
+                        $temp_merged_out,
                         file_iterator($in1, separate => $separate),
                         file_iterator($in2, separate => $separate));
-		    merge_iterators($temp_merged_out, @iters);
-                    $log->info("Done merging");
                     close($temp_merged_out);
-                    
+                    $log->info("Done merging");
+
                     mv $tempfiles[2], $tempfiles[0]
                         or croak "Couldn't move $tempfiles[2] to $tempfiles[0]: $!";
-                    unlink($tempfiles[1]);
 		}
+
+                if (! $num_read) {
+                    last CHUNK;
+                }
 	    }
-	    my $tempfilename = $CHR[$cnt] . "_temp.0";
-	    close(FINALOUT);
-	    `cat $tempfilename >> $outfile`;
-	    open(FINALOUT, ">>$outfile");
-	    unlink($tempfilename);
-	    $tempfilename = $CHR[$cnt] . "_temp.1";
-	    unlink($tempfilename);
-	    $tempfilename = $CHR[$cnt] . "_temp.2";
-	    unlink($tempfilename);
+            open my $temp_in, '<', $tempfiles[0];
+            while (defined (my $line = <$temp_in>)) {
+                print FINALOUT $line;
+            }
+
 	    $cnt++;
 	    $chunk++;
-	    next;
 	}
-	
-	# START NORMAL CASE (SO NOT DEALING WITH A MONSTER CHROMOSOME)
-	$log->info("In the normal case");
-        $cnt++;
-	while ($cnt < @CHR && 
+
+        else {
+
+            # Not a monster chromosome
+            $log->info("In the normal case");
+            $cnt++;
+            while ($cnt < @CHR &&
                    $running_count+$chr_counts{$CHR[$cnt]} < $max_count_at_once) {
-            $log->info("Incrementing running count; it is $running_count");
-	    $running_count = $running_count + $chr_counts{$CHR[$cnt]};
-	    $chrs_current{$CHR[$cnt]} = 1;
-	    $cnt++;
-	}
-	my $INFILE = $infile . "_sorting_tempfile." . $chunk;
-	open(my $sorting_file_in, "<", $INFILE);
-        
-        sort_by_location($sorting_file_in, *FINALOUT, 
-                         separate => $separate);
-	$chunk++;
+                $log->info("Incrementing running count; it is $running_count");
+                $running_count = $running_count + $chr_counts{$CHR[$cnt]};
+                $chrs_current{$CHR[$cnt]} = 1;
+                $cnt++;
+            }
+
+            open my $sorting_file_in, "<", $sorting_tempfile_name[$chunk];
+
+            sort_by_location($sorting_file_in, *FINALOUT,
+                             separate => $separate);
+            $chunk++;
+        }
     }
     close(FINALOUT);
-    
-    for ($chunk=0;$chunk<$numchunks;$chunk++) {
-	unlink($infile . "_sorting_tempfile." . $chunk);
-    }
-    #$timeend = time();
-    #$timelapse = $timeend - $timestart;
-    #if($timelapse < 60) {
-    #    if($timelapse == 1) {
-    #	print "\nIt took one second to sort '$infile'.\n\n";
-    #    } else {
-    #	print "\nIt took $timelapse seconds to sort '$infile'.\n\n";
-    #    }
-    #}
-    #else {
-    #    $sec = $timelapse % 60;
-    #    $min = int($timelapse / 60);
-    #    if($min > 1 && $sec > 1) {
-    #	print "\nIt took $min minutes, $sec seconds to sort '$infile'.\n\n";
-    #    }
-    #    if($min == 1 && $sec > 1) {
-    #	print "\nIt took $min minute, $sec seconds to sort '$infile'.\n\n";
-    #    }
-    #    if($min > 1 && $sec == 1) {
-    #	print "\nIt took $min minutes, $sec second to sort '$infile'.\n\n";
-    #    }
-    #    if($min == 1 && $sec == 1) {
-    #	print "\nIt took $min minute, $sec second to sort '$infile'.\n\n";
-    #    }
-    #}
 
     return \%chr_counts;
 }
