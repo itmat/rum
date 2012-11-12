@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More tests => 8;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::Script::SortRumByLocation;
@@ -16,6 +16,7 @@ for my $type (@types) {
     my $out      = temp_filename(TEMPLATE => "$type.XXXXXX");
     @ARGV = ("-o", $out, $in, '--stats-out', '/dev/null');
     RUM::Script::SortRumByLocation->main();
+    is -s $in, -s $out, "Sorted file is same size";
     is_sorted_by_location($out);
 }
 
@@ -28,5 +29,6 @@ for my $type (@types) {
              "--allow-small-chunks",
              '--stats-out', '/dev/null');
     RUM::Script::SortRumByLocation->main();
+    is -s $in, -s $out, "Sorted file is same size";
     is_sorted_by_location($out);
 }
