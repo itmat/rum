@@ -70,7 +70,7 @@ my $genome_one_line_seqs      = "$name/${genome_base}_one-line-seqs.fa";
 open INFILE, "<", $genome;
 open OUTFILE, ">", $genome_fa;
 my $flag = 0;
-
+my $chr = "";
 while(my $line = <INFILE>) {
     if($line =~ />/) {
 	if($line =~ /^>EG:([^\s]+)\s/) {
