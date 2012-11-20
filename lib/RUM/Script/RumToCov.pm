@@ -52,7 +52,7 @@ sub run {
             }
           COVERAGE: for my $rec (@{ $self->purge_spans() }) {
                 my ($start, $end, $cov) = @{ $rec };
-
+                
                 # We will end up representing gaps with no coverage as
                 # a span with zero coverage. We don't want to print
                 # anything for these lines.
@@ -109,8 +109,6 @@ sub add_spans {
 
     my $delta_for_pos = $self->{delta_for_pos} ||= {};
 
-    my @result;
-
     # Each span is an array of [ start pos, end pos, coverage ].
     # Translate the spans into an array of events, where each event
     # has a position and a coverage delta. For example the span [ 5,
@@ -123,8 +121,6 @@ sub add_spans {
         $delta_for_pos->{$start}  += $cov;
         $delta_for_pos->{$end}    -= $cov;
     }
-
-    $self->{map} = \@result;
 }
 
 sub purge_spans {
