@@ -6,6 +6,7 @@ use autodie;
 
 use RUM::UsageErrors;
 use Getopt::Long;
+use File::Temp;
 
 use base 'RUM::Script::Base';
 
@@ -67,6 +68,8 @@ sub run {
     my $footprint = 0;
     my $last_chr = '';
 
+    my $count = 0;
+
   LINE: while (1) {
 
         my @spans;
@@ -94,17 +97,27 @@ sub run {
             if ($last_chr) {
                 $self->logger->debug("Printing coverage for chromosome $last_chr\n");
             }
-          COVERAGE: for my $rec (@{ $self->purge_spans() }) {
-                my ($start, $end, $cov) = @{ $rec };
+
+            my $printer = sub {
+                my ($start, $end, $cov) = @_;
+                if ($cov) {
+                    print $out_fh join("\t", $last_chr, $start, $end, $cov), "\n";
+                    $footprint += $end - $start;
+                }
+            };
+
+            $self->purge_spans($printer);
+#          COVERAGE: for my $rec (@{ $self->purge_spans() }) {
+#                my ($start, $end, $cov) = @{ $rec };
                 
                 # We will end up representing gaps with no coverage as
                 # a span with zero coverage. We don't want to print
                 # anything for these lines.
-                next COVERAGE if ! $cov;
+#                next COVERAGE if ! $cov;
 
-                print $out_fh join("\t", $last_chr, $start, $end, $cov), "\n";
-                $footprint += $end - $start;
-            }
+#                print $out_fh join("\t", $last_chr, $start, $end, $cov), "\n";
+#                $footprint += $end - $start;
+#            }
             if ($chr) {
                 $self->logger->debug("Calculating coverage for $chr\n");
             }
@@ -114,6 +127,9 @@ sub run {
         last LINE unless @spans;
 
         $self->add_spans(\@spans);
+        if ((++$count % 100000) == 0) {
+            $self->logger->debug("Read $count lines, at $spans[0][0]");
+        }
     }
 
     if ($stats_filename) {
@@ -126,7 +142,11 @@ sub run {
 sub add_spans {
     my ($self, $spans) = @_;
 
-    my $delta_for_pos = $self->{delta_for_pos} ||= {};
+    if (!$self->{temp_fh}) {
+        $self->{temp_fh} = File::Temp->new;
+        $self->logger->debug("Writing to $self->{temp_fh}");
+    }
+    my $fh = $self->{temp_fh};
 
     # Each span is an array of [ start pos, end pos, coverage ].
     # Translate the spans into an array of events, where each event
@@ -136,29 +156,76 @@ sub add_spans {
     # decrease coverage by 2.
 
     for my $span (@{ $spans }) {
-        my ($start, $end, $cov) = @{ $span };
-        $delta_for_pos->{$start}  += $cov;
-        $delta_for_pos->{$end}    -= $cov;
+        my ($start, $end, $cov_up) = @{ $span };
+        my $cov_down = 0 - $cov_up;
+        print $fh "$start\t$cov_up\n";
+        print $fh "$end\t$cov_down\n";
     }
 }
 
-sub purge_spans {
-    my ($self, $limit) = @_;
+sub group_events {
+    my ($fh) = @_;
 
-    my ($last_pos, $last_cov);
-    my $delta_for_pos = $self->{delta_for_pos} ||= {};
-    my @result;
-    for my $pos (sort { $a <=> $b } keys %{ $delta_for_pos }) {
-        my $cov_delta = $delta_for_pos->{$pos};
-        next if ! $cov_delta;
-        if (defined($last_pos)) {
-            push @result, [ $last_pos, $pos, $last_cov ];
+    my $pos;
+    my $cov;
+
+    return sub {
+        my $result;
+        while (defined(my $line = <$fh>)) {
+            chomp $line;
+
+            my ($new_pos, $cov_change) = split /\t/, $line;
+
+            if (!defined($pos)) {
+                $pos = $new_pos;
+                $cov = $cov_change;
+            }
+            elsif ($pos == $new_pos) {
+                $cov += $cov_change;
+            }
+            else {
+                $result = [$pos, $cov];
+                $pos = $new_pos;
+                $cov = $cov_change;
+                return $result if $result->[1];
+            }
         }
-        $last_pos = $pos;
-        $last_cov += $cov_delta;
+        if (defined($pos)) {
+            my $result = [ $pos, $cov ];
+            undef $pos;
+            undef $cov;
+            return $result;
+        }
+        return;
+    };
+}
+
+sub purge_spans {
+    my ($self, $callback) = @_;
+    
+    if (my $fh = delete $self->{temp_fh}) {
+        close $fh;
+
+        my $cov = 0;
+
+        my ($p, $q);
+        my $last_cov = 0;
+
+        open my $sorted, '-|', "sort -n $fh";
+        my $iter = group_events($sorted);
+        my $last_pos;
+      EVENT: while (defined (my $rec = $iter->())) {
+            my ($pos, $cov_change) = @{ $rec };
+
+            if (defined ($last_pos)) {
+                $callback->($last_pos, $pos, $cov);
+            }
+            $cov += $cov_change;
+            $last_pos = $pos;
+        }
+
     }
-    $self->{delta_for_pos} = {};
-    return \@result;
+
 }
 
 1;
