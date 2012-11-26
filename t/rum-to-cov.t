@@ -30,7 +30,7 @@ my @tests = (
     }
 );
 
-plan tests => 5 + 2 * scalar(@tests);
+plan tests => 8 + 2 * scalar(@tests);
 
 use_ok("RUM::Script::RumToCov");
 

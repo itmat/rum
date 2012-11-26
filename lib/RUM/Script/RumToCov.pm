@@ -6,6 +6,7 @@ use autodie;
 
 use RUM::UsageErrors;
 use Getopt::Long;
+use List::Util qw(min);
 use File::Temp;
 use Data::Dumper;
 use base 'RUM::Script::Base';
@@ -39,21 +40,21 @@ sub run {
         # spans.
         if (defined(my $line = <$in_fh>)) {
             chomp($line);
-            (my $readid, $chr, my $spans, my $strand) = split /\t/, $line;    
+            (my $readid, $chr, my $spans, undef) = split /\t/, $line, 4;    
             
             # Spans look like "start-end[, start-end]...
             @a_spans = map { [split /-/] } split /, /, $spans;
 
             my $off = tell($in_fh);
 
-            if ($readid =~ /seq.(\d+)a/) {
+            if ($readid =~ /^seq.(\d+)a$/) {
                 my $a_seqnum = $1;
             
                 if (defined (my $b_line = <$in_fh>)) {
 
-                    (my $b_readid, my $b_chr, my $b_spans, my $strand) = split /\t/, $b_line;    
+                    (my $b_readid, my $b_chr, my $b_spans, undef) = split /\t/, $b_line, 4;    
                     
-                    if ($b_readid =~ /seq.${a_seqnum}b/) {
+                    if ($b_readid eq "seq.${a_seqnum}b") {
 
                         # Spans look like "start-end[, start-end]...
                         @b_spans = map { [split /-/] } split /, /, $b_spans;
@@ -71,10 +72,9 @@ sub run {
             # are just processing one read, the coverage for each span
             # is initially 1.
             @spans = map { [ $_->[0] - 1, $_->[1], 1 ] } (@a_spans, @b_spans);
-            my @events = map { $_->[0], $_->[1] } @spans;
-            @events = sort { $a <=> $b } @events;
+            my @events = map { $_->[0] } @spans;
 
-            $last_start_pos = $events[0];
+            $last_start_pos = min @events;
         }
 
 
