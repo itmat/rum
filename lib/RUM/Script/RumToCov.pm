@@ -86,8 +86,6 @@ sub run {
             }
         };
 
-        $self->purge_spans($printer, $last_start_pos);
-
 
         # If we just finished a chromosome, print out the coverage
         if (($last_chr ne '') && ($chr ne $last_chr)) {
@@ -103,7 +101,7 @@ sub run {
             }
             $self->{last_pos} = undef;
         }
-        elsif (scalar(keys(%{ $self->{covmap} })) > 10000) {
+        elsif (scalar(keys(%{ $self->{covmap} })) > 5_000_000) {
             $self->logger->info("Purging coverage info for chromosome $chr, up to position $last_start_pos");
             $self->purge_spans($printer, $last_start_pos);
         }

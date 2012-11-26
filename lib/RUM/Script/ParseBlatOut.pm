@@ -156,6 +156,10 @@ sub parse_output {
     # NOTE: insertions instead are indicated in the final output file with the "+" notation
     for ($seq_count=$self->{first_seq_num}; $seq_count<=$self->{last_seq_num}; $seq_count++) {
 
+        if (($seq_count % 10000) == 0) {
+            $self->logger->debug("At seq count $seq_count");
+        }
+
         if ($seq_count == $self->{first_seq_num}) {
 
             $line = next_non_header_line($blathits, $self->{blat_out});
