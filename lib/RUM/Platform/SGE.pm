@@ -331,7 +331,7 @@ sub _build_job_states {
     # disappeared. Remove from my jids map any jids that no longer
     # appear in qstat.
     for my $phase (@JOB_TYPES) {
-        my @jids = @{ $self->{jids}{$phase} };
+        my @jids = @{ $self->{jids}{$phase} || [] };
         my @active = grep { $states{$_} } @jids;
         $self->{jids}{$phase}  = \@active;
     }
