@@ -7,8 +7,21 @@ use autodie;
 use RUM::UsageErrors;
 use Getopt::Long;
 use File::Temp;
-
+use RUM::Heap;
+use Data::Dumper;
 use base 'RUM::Script::Base';
+
+sub new {
+    my ($class, @args) = @_;
+    my $self = $class->SUPER::new(@args);
+    $self->{heap} = RUM::Heap->new(\&compare_position);
+    return $self;
+}
+
+sub compare_position {
+    my ($x, $y) = @_;
+    return $x->[0] <=> $y->[0];
+}
 
 sub run {
     
@@ -28,6 +41,8 @@ sub run {
 
   LINE: while (1) {
 
+        my @a_spans;
+        my @b_spans;
         my @spans;
         my $chr = '';
 
@@ -36,20 +51,55 @@ sub run {
         if (defined(my $line = <$in_fh>)) {
             chomp($line);
             (my $readid, $chr, my $spans, my $strand) = split /\t/, $line;    
-
+            
             # Spans look like "start-end[, start-end]...
-            @spans = map { [split /-/] } split /, /, $spans;
+            @a_spans = map { [split /-/] } split /, /, $spans;
 
+            my $off = tell($in_fh);
+
+            if ($readid =~ /seq.(\d+)a/) {
+                my $a_seqnum = $1;
+            
+                if (defined (my $b_line = <$in_fh>)) {
+
+                    (my $b_readid, my $b_chr, my $b_spans, my $strand) = split /\t/, $b_line;    
+                    
+                    if ($b_readid =~ /seq.${a_seqnum}b/) {
+
+                        # Spans look like "start-end[, start-end]...
+                        @b_spans = map { [split /-/] } split /, /, $b_spans;
+                    }
+                    else {
+                        seek $in_fh, $off, 0;
+                    }
+                }
+                
+            }
+            
             # Create spans as a list of records of the format [ start,
             # end, coverage ], representing a span where elements from
             # start to end - 1 have the specified coverage. Since we
             # are just processing one read, the coverage for each span
             # is initially 1.
-            @spans = map { [ $_->[0] - 1, $_->[1], 1 ] } @spans;
+            @spans = map { [ $_->[0] - 1, $_->[1], 1 ] } (@a_spans, @b_spans);
+            my @events = map { $_->[0], $_->[1] } @spans;
+            @events = sort { $a <=> $b } @events;
+
+            my $printer = sub {
+                my ($start, $end, $cov) = @_;
+                if ($cov) {
+                    print $out_fh join("\t", $last_chr, $start, $end, $cov), "\n";
+                    $footprint += $end - $start;
+                }
+            };
+            $self->purge_spans($printer, $events[0]);
         }
 
+
+
         # If we just finished a chromosome, print out the coverage
-        if ($chr ne $last_chr) {
+        if (($last_chr ne '') && ($chr ne $last_chr)) {
+
             if ($last_chr) {
                 $self->logger->debug("Printing coverage for chromosome $last_chr\n");
             }
@@ -63,22 +113,15 @@ sub run {
             };
 
             $self->purge_spans($printer);
-#          COVERAGE: for my $rec (@{ $self->purge_spans() }) {
-#                my ($start, $end, $cov) = @{ $rec };
-                
-                # We will end up representing gaps with no coverage as
-                # a span with zero coverage. We don't want to print
-                # anything for these lines.
-#                next COVERAGE if ! $cov;
 
-#                print $out_fh join("\t", $last_chr, $start, $end, $cov), "\n";
-#                $footprint += $end - $start;
-#            }
             if ($chr) {
                 $self->logger->debug("Calculating coverage for $chr\n");
             }
-            $last_chr = $chr;
+            $self->{last_pos} = undef;
+
         }
+        $last_chr = $chr;
+
 
         last LINE unless @spans;
 
@@ -123,12 +166,6 @@ sub main {
 sub add_spans {
     my ($self, $spans) = @_;
 
-    if (!$self->{temp_fh}) {
-        $self->{temp_fh} = File::Temp->new;
-        $self->logger->debug("Writing to $self->{temp_fh}");
-    }
-    my $fh = $self->{temp_fh};
-
     # Each span is an array of [ start pos, end pos, coverage ].
     # Translate the spans into an array of events, where each event
     # has a position and a coverage delta. For example the span [ 5,
@@ -138,73 +175,53 @@ sub add_spans {
 
     for my $span (@{ $spans }) {
         my ($start, $end, $cov_up) = @{ $span };
-        my $cov_down = 0 - $cov_up;
-        print $fh "$start\t$cov_up\n";
-        print $fh "$end\t$cov_down\n";
+        my $start_event = [ $start, $cov_up ];
+        my $end_event   = [ $end, 0 - $cov_up ];
+        $self->{heap}->pushon($start_event);
+        $self->{heap}->pushon($end_event);
     }
 }
 
-sub group_events {
-    my ($fh) = @_;
+sub next_event {
+    my ($self, $max) = @_;
+    my $heap = $self->{heap};
+    my $event = $heap->peek;
 
-    my $pos;
-    my $cov;
-
-    return sub {
-        my $result;
-        while (defined(my $line = <$fh>)) {
-            chomp $line;
-
-            my ($new_pos, $cov_change) = split /\t/, $line;
-
-            if (!defined($pos)) {
-                $pos = $new_pos;
-                $cov = $cov_change;
-            }
-            elsif ($pos == $new_pos) {
-                $cov += $cov_change;
-            }
-            else {
-                $result = [$pos, $cov];
-                $pos = $new_pos;
-                $cov = $cov_change;
-                return $result if $result->[1];
-            }
-        }
-        if (defined($pos)) {
-            my $result = [ $pos, $cov ];
-            undef $pos;
-            undef $cov;
-            return $result;
-        }
+    return if ! defined $event;
+    my ($result_pos, $result_cov) = @{ $event };
+    if (defined($max) && $result_pos >= $max) {
         return;
-    };
+    }
+    
+    $heap->poplowest;
+    while (1) {
+        my $event = $heap->peek;
+        last if ! defined $event;
+        last if $event->[0] != $result_pos;
+        $result_cov += $event->[1];
+        $heap->poplowest;
+    }
+    return [ $result_pos, $result_cov ];
 }
 
 sub purge_spans {
-    my ($self, $callback) = @_;
-    
-    if (my $fh = delete $self->{temp_fh}) {
-        close $fh;
+    my ($self, $callback, $max) = @_;
 
-        my $cov = 0;
+  EVENT: while (defined (my $rec = $self->next_event($max))) {
+        my ($pos, $cov_change) = @{ $rec };
 
-        my ($p, $q);
-        my $last_cov = 0;
-
-        open my $sorted, '-|', "sort -n $fh";
-        my $iter = group_events($sorted);
-        my $last_pos;
-      EVENT: while (defined (my $rec = $iter->())) {
-            my ($pos, $cov_change) = @{ $rec };
-
-            if (defined ($last_pos)) {
-                $callback->($last_pos, $pos, $cov);
-            }
-            $cov += $cov_change;
-            $last_pos = $pos;
+        if (defined ($self->{last_pos}) && $pos < $self->{last_pos}) {
+            die "Position $pos is less than last position $self->{last_pos}";
+        }
+        if ( ! $cov_change ) {
+            next;
         }
 
+        if (defined ($self->{last_pos})) {
+            $callback->($self->{last_pos}, $pos, $self->{cov});
+        }
+        $self->{cov} += $cov_change;
+        $self->{last_pos} = $pos;
     }
 
 }
