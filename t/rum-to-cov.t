@@ -45,10 +45,8 @@ use_ok("RUM::Script::RumToCov");
     $rum2cov->add_spans([ [5, 10, 1], 
                          [12, 15, 3] ]);
     $rum2cov->purge_spans($accumulator);
-
     is_deeply(\@result,
               [ [ 5, 10, 1],
-                [ 10, 12, 0],
                 [ 12, 15, 3] ],
               'non-overlapping');
 

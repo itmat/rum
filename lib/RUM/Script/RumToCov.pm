@@ -7,21 +7,8 @@ use autodie;
 use RUM::UsageErrors;
 use Getopt::Long;
 use File::Temp;
-use RUM::Heap;
 use Data::Dumper;
 use base 'RUM::Script::Base';
-
-sub new {
-    my ($class, @args) = @_;
-    my $self = $class->SUPER::new(@args);
-    $self->{heap} = RUM::Heap->new(\&compare_position);
-    return $self;
-}
-
-sub compare_position {
-    my ($x, $y) = @_;
-    return $x->[0] <=> $y->[0];
-}
 
 sub run {
     
@@ -45,6 +32,8 @@ sub run {
         my @b_spans;
         my @spans;
         my $chr = '';
+
+        my $last_start_pos;
 
         # Read a line from the input and parse out the chromosome and
         # spans.
@@ -85,16 +74,19 @@ sub run {
             my @events = map { $_->[0], $_->[1] } @spans;
             @events = sort { $a <=> $b } @events;
 
-            my $printer = sub {
-                my ($start, $end, $cov) = @_;
-                if ($cov) {
-                    print $out_fh join("\t", $last_chr, $start, $end, $cov), "\n";
-                    $footprint += $end - $start;
-                }
-            };
-            $self->purge_spans($printer, $events[0]);
+            $last_start_pos = $events[0];
         }
 
+
+        my $printer = sub {
+            my ($start, $end, $cov) = @_;
+            if ($cov) {
+                print $out_fh join("\t", $last_chr, $start, $end, $cov), "\n";
+                $footprint += $end - $start;
+            }
+        };
+
+        $self->purge_spans($printer, $last_start_pos);
 
 
         # If we just finished a chromosome, print out the coverage
@@ -104,24 +96,18 @@ sub run {
                 $self->logger->debug("Printing coverage for chromosome $last_chr\n");
             }
 
-            my $printer = sub {
-                my ($start, $end, $cov) = @_;
-                if ($cov) {
-                    print $out_fh join("\t", $last_chr, $start, $end, $cov), "\n";
-                    $footprint += $end - $start;
-                }
-            };
-
             $self->purge_spans($printer);
 
             if ($chr) {
                 $self->logger->debug("Calculating coverage for $chr\n");
             }
             $self->{last_pos} = undef;
-
+        }
+        elsif (scalar(keys(%{ $self->{covmap} })) > 10000) {
+            $self->logger->info("Purging coverage info for chromosome $chr, up to position $last_start_pos");
+            $self->purge_spans($printer, $last_start_pos);
         }
         $last_chr = $chr;
-
 
         last LINE unless @spans;
 
@@ -175,49 +161,26 @@ sub add_spans {
 
     for my $span (@{ $spans }) {
         my ($start, $end, $cov_up) = @{ $span };
-        my $start_event = [ $start, $cov_up ];
-        my $end_event   = [ $end, 0 - $cov_up ];
-        $self->{heap}->pushon($start_event);
-        $self->{heap}->pushon($end_event);
+        $self->{covmap}->{$start} += $cov_up;
+        $self->{covmap}->{$end}   -= $cov_up;
     }
-}
-
-sub next_event {
-    my ($self, $max) = @_;
-    my $heap = $self->{heap};
-    my $event = $heap->peek;
-
-    return if ! defined $event;
-    my ($result_pos, $result_cov) = @{ $event };
-    if (defined($max) && $result_pos >= $max) {
-        return;
-    }
-    
-    $heap->poplowest;
-    while (1) {
-        my $event = $heap->peek;
-        last if ! defined $event;
-        last if $event->[0] != $result_pos;
-        $result_cov += $event->[1];
-        $heap->poplowest;
-    }
-    return [ $result_pos, $result_cov ];
 }
 
 sub purge_spans {
     my ($self, $callback, $max) = @_;
+    my @positions;
+    if (defined $max) {
+        @positions = grep { $_ < $max } keys %{ $self->{covmap} };
+    }
+    else {
+        @positions = keys %{ $self->{covmap} };
+    }
+    @positions = sort { $a <=> $b } @positions;
 
-  EVENT: while (defined (my $rec = $self->next_event($max))) {
-        my ($pos, $cov_change) = @{ $rec };
-
-        if (defined ($self->{last_pos}) && $pos < $self->{last_pos}) {
-            die "Position $pos is less than last position $self->{last_pos}";
-        }
-        if ( ! $cov_change ) {
-            next;
-        }
-
-        if (defined ($self->{last_pos})) {
+    for my $pos (@positions) {
+        my $cov_change = delete $self->{covmap}{$pos};
+        next if ! $cov_change;
+        if ($self->{cov}) {
             $callback->($self->{last_pos}, $pos, $self->{cov});
         }
         $self->{cov} += $cov_change;
