@@ -144,8 +144,9 @@ sub main {
     my ($blat_fh, $pid) = RUM::Blat::run_blat(%blat_opts);
 
     my $mdust_fh = RUM::Mdust::run_mdust($seqfile);
-        
+    $self->logger->info("Parsing output from blat and mdust");
     $self->parse_output($blat_fh, $seq_fh, $mdust_fh, $blat_unique, $blat_nu);
+    $self->logger->info("Done parsing output; waiting for blat process $pid");
     waitpid $pid, 0;
 }
 

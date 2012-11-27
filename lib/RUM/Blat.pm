@@ -24,9 +24,6 @@ sub run_blat {
 
     my @blat_args = @{ $params{blat_args} || [] };
 
-    my $temp_file = 'pipe';
-    
-
     my $dir = tempdir(CLEANUP => 1);
     my $fifo = "$dir/blat_output";
     $log->debug("Making fifo at $fifo");
@@ -42,10 +39,13 @@ sub run_blat {
 
     $log->info("Running blat: @cmd");    
     if (my $pid = fork) {
+        $log->info("Blat PID is $pid, opening pipe to read output");
         open my $fh, '<', $fifo;
+        $log->info("Opened blat pipe");
         return ($fh, $pid);
     }
     else {
+        $log->info("Running blat in child process");
         exec $cmd;
     }
 }
