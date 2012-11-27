@@ -9,7 +9,7 @@ use Carp;
 use RUM::BinDeps;
 use RUM::Logging;
 
-my $log = RUM::Logging->logger;
+my $log = RUM::Logging->get_logger;
 
 sub run_mdust {
     my ($filename) = @_;
