@@ -77,6 +77,17 @@ sub pushon {
     $self->_sift_up($#$self);
 }
 
+=item $heap->peek()
+
+Return the minimum item from the heap.
+
+=cut
+
+sub peek {
+    my ($self) = @_;
+    return $$self[1];
+}
+
 =item $heap->poplowest()
 
 Delete and return the minimum item from the heap.

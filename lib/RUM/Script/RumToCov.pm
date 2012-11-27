@@ -6,7 +6,9 @@ use autodie;
 
 use RUM::UsageErrors;
 use Getopt::Long;
-
+use List::Util qw(min);
+use File::Temp;
+use Data::Dumper;
 use base 'RUM::Script::Base';
 
 sub run {
@@ -23,53 +25,94 @@ sub run {
     
     my $last_chr = '';
 
+    my $count = 0;
+
   LINE: while (1) {
 
+        my @a_spans;
+        my @b_spans;
         my @spans;
         my $chr = '';
+
+        my $last_start_pos;
 
         # Read a line from the input and parse out the chromosome and
         # spans.
         if (defined(my $line = <$in_fh>)) {
             chomp($line);
-            (my $readid, $chr, my $spans, my $strand) = split /\t/, $line;    
-
+            (my $readid, $chr, my $spans, undef) = split /\t/, $line, 4;    
+            
             # Spans look like "start-end[, start-end]...
-            @spans = map { [split /-/] } split /, /, $spans;
+            @a_spans = map { [split /-/] } split /, /, $spans;
 
+            my $off = tell($in_fh);
+
+            if ($readid =~ /^seq.(\d+)a$/) {
+                my $a_seqnum = $1;
+            
+                if (defined (my $b_line = <$in_fh>)) {
+
+                    (my $b_readid, my $b_chr, my $b_spans, undef) = split /\t/, $b_line, 4;    
+                    
+                    if ($b_readid eq "seq.${a_seqnum}b") {
+
+                        # Spans look like "start-end[, start-end]...
+                        @b_spans = map { [split /-/] } split /, /, $b_spans;
+                    }
+                    else {
+                        seek $in_fh, $off, 0;
+                    }
+                }
+                
+            }
+            
             # Create spans as a list of records of the format [ start,
             # end, coverage ], representing a span where elements from
             # start to end - 1 have the specified coverage. Since we
             # are just processing one read, the coverage for each span
             # is initially 1.
-            @spans = map { [ $_->[0] - 1, $_->[1], 1 ] } @spans;
+            @spans = map { [ $_->[0] - 1, $_->[1], 1 ] } (@a_spans, @b_spans);
+            my @events = map { $_->[0] } @spans;
+
+            $last_start_pos = min @events;
         }
 
-        # If we just finished a chromosome, print out the coverage
-        if ($chr ne $last_chr) {
-            if ($last_chr) {
-                $self->logger->debug("Printing coverage for chromosome $last_chr\n");
-            }
-          COVERAGE: for my $rec (@{ $self->purge_spans() }) {
-                my ($start, $end, $cov) = @{ $rec };
 
-                # We will end up representing gaps with no coverage as
-                # a span with zero coverage. We don't want to print
-                # anything for these lines.
-                next COVERAGE if ! $cov;
-
+        my $printer = sub {
+            my ($start, $end, $cov) = @_;
+            if ($cov) {
                 print $out_fh join("\t", $last_chr, $start, $end, $cov), "\n";
                 $footprint += $end - $start;
             }
+        };
+
+
+        # If we just finished a chromosome, print out the coverage
+        if (($last_chr ne '') && ($chr ne $last_chr)) {
+
+            if ($last_chr) {
+                $self->logger->debug("Printing coverage for chromosome $last_chr\n");
+            }
+
+            $self->purge_spans($printer);
+
             if ($chr) {
                 $self->logger->debug("Calculating coverage for $chr\n");
             }
-            $last_chr = $chr;
+            $self->{last_pos} = undef;
         }
+        elsif (scalar(keys(%{ $self->{covmap} })) > 5_000_000) {
+            $self->logger->info("Purging coverage info for chromosome $chr, up to position $last_start_pos");
+            $self->purge_spans($printer, $last_start_pos);
+        }
+        $last_chr = $chr;
 
         last LINE unless @spans;
 
         $self->add_spans(\@spans);
+        if ((++$count % 100000) == 0) {
+            $self->logger->debug("Read $count lines, at $spans[0][0]");
+        }
     }
 
     if (my $statsfile = $self->{stats_filename}) {
@@ -107,10 +150,6 @@ sub main {
 sub add_spans {
     my ($self, $spans) = @_;
 
-    my $delta_for_pos = $self->{delta_for_pos} ||= {};
-
-    my @result;
-
     # Each span is an array of [ start pos, end pos, coverage ].
     # Translate the spans into an array of events, where each event
     # has a position and a coverage delta. For example the span [ 5,
@@ -119,31 +158,33 @@ sub add_spans {
     # decrease coverage by 2.
 
     for my $span (@{ $spans }) {
-        my ($start, $end, $cov) = @{ $span };
-        $delta_for_pos->{$start}  += $cov;
-        $delta_for_pos->{$end}    -= $cov;
+        my ($start, $end, $cov_up) = @{ $span };
+        $self->{covmap}->{$start} += $cov_up;
+        $self->{covmap}->{$end}   -= $cov_up;
     }
-
-    $self->{map} = \@result;
 }
 
 sub purge_spans {
-    my ($self, $limit) = @_;
-
-    my ($last_pos, $last_cov);
-    my $delta_for_pos = $self->{delta_for_pos} ||= {};
-    my @result;
-    for my $pos (sort { $a <=> $b } keys %{ $delta_for_pos }) {
-        my $cov_delta = $delta_for_pos->{$pos};
-        next if ! $cov_delta;
-        if (defined($last_pos)) {
-            push @result, [ $last_pos, $pos, $last_cov ];
-        }
-        $last_pos = $pos;
-        $last_cov += $cov_delta;
+    my ($self, $callback, $max) = @_;
+    my @positions;
+    if (defined $max) {
+        @positions = grep { $_ < $max } keys %{ $self->{covmap} };
     }
-    $self->{delta_for_pos} = {};
-    return \@result;
+    else {
+        @positions = keys %{ $self->{covmap} };
+    }
+    @positions = sort { $a <=> $b } @positions;
+
+    for my $pos (@positions) {
+        my $cov_change = delete $self->{covmap}{$pos};
+        next if ! $cov_change;
+        if ($self->{cov}) {
+            $callback->($self->{last_pos}, $pos, $self->{cov});
+        }
+        $self->{cov} += $cov_change;
+        $self->{last_pos} = $pos;
+    }
+
 }
 
 1;

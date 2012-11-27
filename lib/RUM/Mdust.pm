@@ -4,14 +4,18 @@ use strict;
 use warnings;
 use autodie;
 
-use RUM::BinDeps;
-
 use Carp;
+
+use RUM::BinDeps;
+use RUM::Logging;
+
+my $log = RUM::Logging->logger;
 
 sub run_mdust {
     my ($filename) = @_;
     my @cmd = (RUM::BinDeps->new->mdust, $filename);
     my $cmd = join ' ', @cmd;
+    $log->info("Running mdust: $cmd");
     open my $mdust_out, '-|', $cmd;
     return $mdust_out;
 }
