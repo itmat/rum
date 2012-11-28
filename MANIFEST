@@ -337,11 +337,6 @@ t/get-nu-stats.t
 t/heap.t
 t/indexing.t
 t/integration/end-to-end.t
-t/integration/get-inferred-internal-exons.t
-t/integration/make-rum-junctions-file.t
-t/integration/rum-final-cleanup.t
-t/integration/rum-to-quantifications.t
-t/integration/rum-to-sam.t
 t/junctions-to-bed.t
 t/limit-nu.t
 t/make-gu-and-gnu.t
