@@ -90,7 +90,8 @@ sub submit_proc {
 
     my @prereqs = @{ $self->_preproc_jids };
 
-    my @args = $self->_ram_args;
+    my @args;
+
     my @jids;
 
     if (@prereqs) {
@@ -214,9 +215,11 @@ sub _qsub {
     my ($self, @args) = @_;
     my $dir = $RUM::Logging::LOGGING_DIR;
     my $dir_opt = $dir ? "-o $dir -e $dir" : "";
-    my $cmd = "qsub -V -cwd -j y $dir_opt @args 2>&1";
+    my $flags = $self->config->platform_flags || "-V -pe make 2 -l " . $self->_ram_args;
+    my $cmd = "qsub -cwd $dir_opt $flags @args 2>&1";
     $log->info("Submitting job to SGE: '$cmd'");
     my $out = `$cmd`;
+
     if ($log->is_debug) {
         for my $line (split /\n/, $out) {
             $log->debug("qsub: $line");

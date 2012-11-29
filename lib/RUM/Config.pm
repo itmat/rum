@@ -389,14 +389,22 @@ _add_prop(
 
 _add_prop(
     opt  => 'qsub',
-    desc => 'Alias for \'--platform SGE\'',
-    handler => sub { shift->set('platform', 'SGE') },
+    desc => 'Alias for \'--platform SGE --platform-flags "-pe make 2"\'.',
+    handler => sub { 
+        my $self = shift;
+        $self->set('platform', 'SGE');
+      },
 );
 
 _add_prop(
     opt  => 'platform=s',
     desc => 'The platform to use. Either \'Local\' for running a job locally, or \'SGE\' for Sun Grid Engine.',
     default => 'Local'
+);
+
+_add_prop(
+    opt => 'platform-flags=s',
+    desc => 'Additional flags to give to the job submission program. Use in conjunction with the --platform option. If you are running on Sun Grid Engine and you do not specify --platform-flags, this will default to "-V -pe 2 -l mem_free=RAM,h_vmem=RAM", where RAM is calculated based on the genome size (usually 6 GB for a mammalian genome). If you specify --platform-flags, you may want to specify all of those flags. You can always see what flags are given to qsub by looking at the main rum.log file.',
 );
 
 _add_prop(
@@ -1072,7 +1080,8 @@ sub job_setting_props {
               quantify ram read_length strand_specific
               variable_length_reads blat_min_identity
               blat_tile_size blat_step_size blat_max_intron
-              blat_rep_match count_mismatches no_clean);
+              blat_rep_match count_mismatches no_clean
+              platform_flags);
 }
 
 sub changed_settings {
