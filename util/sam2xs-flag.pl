@@ -47,6 +47,7 @@ my $seq_for_chr = load_genome($genome_sequence);
 open my $infile, $ARGV[0];
 my $line = <$infile>;
 while ($line =~ /^@..\t/) {
+    print $line;
     $line = <$infile>;
 }
 
