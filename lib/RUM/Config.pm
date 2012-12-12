@@ -666,9 +666,10 @@ sub parse_command_line {
 
     my ($self, %params) = @_;
 
-    my $options = delete $params{options};
+    my $options    = delete $params{options};
     my $positional = delete $params{positional} || [];
-    
+    my $nocheck    = delete $params{nocheck};
+
     my %getopt;
 
     for my $name (@{ $options }, 'help') {
@@ -712,25 +713,28 @@ sub parse_command_line {
         }
     }
 
-    for my $name (@{ $options }, 
-                  @{ $positional }) {
-        my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
-        my @these_errors = $prop->checker->($self);
-        push @errors, grep { $_ } @these_errors;
-    }
+    if (! $nocheck ) {
 
-    if (@ARGV) {
-        push @errors, "There were extra command-line arguments: @ARGV";
-    }
+        for my $name (@{ $options }, 
+                      @{ $positional }) {
+            my $prop = $PROPERTIES{$name} or croak "No property called '$name'";
+            my @these_errors = $prop->checker->($self);
+            push @errors, grep { $_ } @these_errors;
+        }
 
-    if (@errors || !$status) {
-        die RUM::UsageErrors->new(errors => \@errors)
+        if (@ARGV) {
+            push @errors, "There were extra command-line arguments: @ARGV";
+        }
+        
+        if (@errors || !$status) {
+            die RUM::UsageErrors->new(errors => \@errors)
+        }
     }
-
+    
     if ($self->reverse_reads) {
         $self->set('paired_end', 1);
     }
-
+    
     return $self;
 }
 
