@@ -1,6 +1,8 @@
 package RUM::Script::SortRumById;
 
+use strict;
 no warnings;
+use autodie;
 
 use RUM::Usage;
 use RUM::Logging;
@@ -27,24 +29,22 @@ sub main {
     $log->info("Sorting '$infile'");
 
     $|=1;
-    open(INFILE, $infile) 
-        or die "Can't open $infile for reading: $!";
-    $seqnum_prev = 0;
-    $temp1sortedfile = $infile . "_sorted_temp1";
-    $temp1unsortedfile = $infile . "_unsorted_temp1";
-    $temp2sortedfile = $infile . "_sorted_temp2";
-    $temp2unsortedfile = $infile . "_unsorted_temp2";
-    $temp3sortedfile = $infile . "_sorted_temp3";
-    $temp3unsortedfile = $infile . "_unsorted_temp3";
+    open INFILE, '<', $infile;
+    my $seqnum_prev = 0;
+    my $temp1sortedfile   = $infile . "_sorted_temp1";
+    my $temp1unsortedfile = $infile . "_unsorted_temp1";
+    my $temp2sortedfile   = $infile . "_sorted_temp2";
+    my $temp2unsortedfile = $infile . "_unsorted_temp2";
+    my $temp3sortedfile   = $infile . "_sorted_temp3";
+    my $temp3unsortedfile = $infile . "_unsorted_temp3";
 
-    open(OUTFILE1, ">$temp1sortedfile") 
-        or die "Can't open $temp1sortedfile for writing: $!";
-    open(OUTFILE2, ">$temp1unsortedfile") 
-        or die "Can't open $temp1unsortedfile for writing: $!";
-    $still_unsorted_flag = 0;
-    while ($line = <INFILE>) {
+    open OUTFILE1, '>', $temp1sortedfile;
+    open OUTFILE2, '>', $temp1unsortedfile;
+
+    my $still_unsorted_flag = 0;
+    while (defined (my $line = <INFILE>)) {
         $line =~ /^seq.(\d+)/;
-        $seqnum = $1;
+        my $seqnum = $1;
         if ($seqnum >= $seqnum_prev) {
             print OUTFILE1 $line;
             $seqnum_prev = $seqnum;
@@ -57,21 +57,20 @@ sub main {
     close(OUTFILE2);
     close(INFILE);
 
-
-    $num_merges = 0;
+    my $num_merges = 0;
     $still_unsorted_flag = 1;
     while ($still_unsorted_flag == 1) {
         $still_unsorted_flag = 0;
-        open(INFILE, "$temp1unsortedfile") 
-            or die "Can't open $temp1unsortedfile for reading: $!";
+
         $seqnum_prev = 0;
-        open(OUTFILE1, ">$temp2sortedfile") 
-            or die "Can't open $temp2sortedfile for writing: $!";
-        open(OUTFILE2, ">$temp2unsortedfile") 
-            or die "Can't open $temp2unsortedfile for writing: $!";
-        while ($line = <INFILE>) {
+
+        open INFILE,   '<', $temp1unsortedfile;
+        open OUTFILE1, '>', $temp2sortedfile;
+        open OUTFILE2, '>', $temp2unsortedfile;
+
+        while (defined (my $line = <INFILE>)) {
             $line =~ /^seq.(\d+)/;
-            $seqnum = $1;
+            my $seqnum = $1;
             if ($seqnum >= $seqnum_prev) {
                 print OUTFILE1 $line;
                 $seqnum_prev = $seqnum;
@@ -84,7 +83,7 @@ sub main {
         close(OUTFILE2);
         close(INFILE);
         `mv $temp2unsortedfile $temp1unsortedfile`;
-        merge();
+        merge($temp1sortedfile, $temp2sortedfile, $temp3sortedfile);
         $num_merges++;
     }
 
@@ -95,22 +94,24 @@ sub main {
 
 }
 
-sub merge () {
-    open(INFILE1, "$temp1sortedfile") 
-        or die "Can't open $temp1sortedfile for reading: $!";
-    open(INFILE2, "$temp2sortedfile") 
-        or die "Can't open $temp2sortedfile for reading: $!";
-    open(OUTFILE, ">$temp3sortedfile") 
-        or die "Can't open $temp3sortedfile for writing: $!";
-    $flag = 0;
-    $line1 = <INFILE1>;
+sub merge  {
+    my ($temp1sortedfile,
+        $temp2sortedfile,
+        $temp3sortedfile) = @_;
+
+    open INFILE1, '<', $temp1sortedfile;
+    open INFILE2, '<', $temp2sortedfile;
+    open OUTFILE, '>', $temp3sortedfile;
+
+    my $flag = 0;
+    my $line1 = <INFILE1>;
     chomp($line1);
     $line1 =~ /^seq.(\d+)/;
-    $seqnum1 = $1;
-    $line2 = <INFILE2>;
+    my $seqnum1 = $1;
+    my $line2 = <INFILE2>;
     chomp($line2);
     $line2 =~ /^seq.(\d+)/;
-    $seqnum2 = $1;
+    my $seqnum2 = $1;
     if ($line2 eq '') {
 	$flag = 1;
 	unlink("$temp2sortedfile");
