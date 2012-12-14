@@ -183,6 +183,7 @@ sub main {
         $line = <RUMU>;
         close(RUMU);
         @a = split(/\t/,$line);
+
         $flag = 0;
         if (!($a[0] =~ /^seq.\d+[ab]?/)) {
             $flag = 1;
@@ -205,6 +206,7 @@ sub main {
         $line = <RUMNU>;
         close(RUMNU);
         @a = split(/\t/,$line);
+
         $flag = 0;
         if (!($a[0] =~ /^seq.\d+[ab]?/)) {
             $flag = 1;
@@ -307,6 +309,11 @@ sub main {
         while ($flag == 0) {
             $line = <RUMU>;
             chomp($line);
+
+            if ($line && split(/\t/, $line) != 5) {
+                die "Corrupt line from RUM_Unique: '$line' on line $.";
+            }
+
             $type = "";
             if ($line =~ /seq.(\d+)(.)/) {
                 $sn = $1;
@@ -346,6 +353,11 @@ sub main {
             while ($flag == 0) {
                 $line = <RUMNU>;
                 chomp($line);
+
+                if ($line && split(/\t/, $line) != 5) {
+                    die "Corrupt line from RUM_NU: '$line' on line $.";
+                }
+
                 $type = "";
                 if ($line =~ /seq.(\d+)(.)/) {
                     $sn = $1;
