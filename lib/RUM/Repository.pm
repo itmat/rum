@@ -482,7 +482,7 @@ organisms.txt file if necessary.
 sub setup {
     my ($self) = @_;
     $self->mkdirs();
-    $self->fetch_organisms_file() unless -e $self->organisms_file();
+    $self->fetch_organisms_file();
     return $self;
 }
 
