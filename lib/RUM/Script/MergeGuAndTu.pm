@@ -256,6 +256,7 @@ sub main {
             }
         }
         $line = $line_prev;
+        undef $line_prev;
         @a = split(/\t/,$line);
         $a[0] =~ /seq.(\d+)/;
         $prev_id = $id;
@@ -286,7 +287,9 @@ sub main {
         if ($FLAG2 == 1) {
             $line_prev = $line;
         }
+
         foreach $id (sort {$a <=> $b} keys %allids) {
+
             if ($ambiguous_mappers{$id}+0 > 0) {
                 next;
             }
@@ -353,6 +356,7 @@ sub main {
             }
             # ONE CASE
             if ($hash1{$id}[0] == 1 && $hash2{$id}[0] == 1) {
+
                 # genome mapper and transcriptome mapper, and both single read mapping
                 # If single-end then this is the only case where $hash1{$id}[0] > 0 and $hash2{$id}[0] > 0
                 if ((($hash1{$id}[1] =~ /seq.\d+a/) && ($hash2{$id}[1] =~ /seq.\d+a/)) || (($hash1{$id}[1] =~ /seq.\d+b/) && ($hash2{$id}[1] =~ /seq.\d+b/))) {
@@ -649,9 +653,11 @@ sub main {
             }
             # ONE CASE
             if ($hash1{$id}[0] == 2 && $hash2{$id}[0] == 2) {
+
                 undef @spansa;
                 undef @spansb;
                 @a = split(/\t/,$hash1{$id}[1]);
+
                 $chr1 = $a[1];
                 $spansa[0] = $a[2];
                 $seqa = $a[3];
