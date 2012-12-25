@@ -400,7 +400,7 @@ sub _make_master_file_of_genes_impl {
       $a[$namecol] =~ s/\(/-/g;
       $a[$namecol] =~ s/\)/-/g;
       $a[$exonStartscol] =~ /^(\d+)/ 
-        or croak "Expected a number in the exon starts col";
+        or croak "Expected a number in the exon starts col. Bad input is '$line' on line $.";
       my $txStart = $1;
       $a[$exonEndscol] =~ /(\d+),?$/
         or croak "Expected a number in the exon ends col";
