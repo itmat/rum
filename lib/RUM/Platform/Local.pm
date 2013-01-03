@@ -65,7 +65,7 @@ sub preprocess {
         return;
     }
 
-#    $self->_check_input();
+    $self->_check_input();
     $self->_reformat_reads();
     $self->_determine_read_length();
     $self->config->save;
@@ -82,9 +82,11 @@ sub _check_input {
     $self->_check_reads_for_quality;
 
     if (!$self->config->reverse_reads) {
+        $log->info("Got a single read file");
         $self->_check_single_reads_file;
     }
     else {
+        $log->info("Got two read files, so assuming paired-end");
         $self->config->set("paired_end", 1);
     }
     $self->_check_read_file_pair;
@@ -106,6 +108,7 @@ sub _check_single_reads_file {
     return if @reads == 2;
 
     my $head = join("\n", head($reads[0], 4));
+
     $head =~ /seq.(\d+)(.).*seq.(\d+)(.)/s or return;
 
     my @nums  = ($1, $3);
@@ -114,11 +117,11 @@ sub _check_single_reads_file {
     my ($paired, $needs_splitting, $preformatted) = (0, 0, 0);
 
     if($nums[0] == 1 && $nums[1] == 1 && $types[0] eq 'a' && $types[1] eq 'b') {
-        $self->logsay("Input is in a single file, but appears to be paired-end");
+        $log->info("Input is in a single file, but appears to be paired-end");
         ($paired, $needs_splitting, $preformatted) = (1, 1, 1);
     }
     if($nums[0] == 1 && $nums[1] == 2 && $types[0] eq 'a' && $types[1] eq 'a') {
-        $self->logsay("Input is in a single file and does not appear to be paired-end");
+        $log->info("Input is in a single file and does not appear to be paired-end");
         ($paired, $needs_splitting, $preformatted) = (0, 1, 1);
     }
 

@@ -9,13 +9,28 @@ use lib "$Bin/../lib";
 use RUM::Config;
 use Data::Dumper;
 
+my @props = grep { $_ ne 'forward_reads' &&
+                   $_ ne 'reverse_reads' } RUM::Config->property_names;
+@props = RUM::Config->property_names;
 my $config = eval {
     RUM::Config->new->parse_command_line(load_default => 1,
-                                         options => [RUM::Config->property_names]);
+                                         options => \@props,
+                                         nocheck => 1);
 };
 
-if ($@) {
-    print Dumper($@);
+if (my $errors = $@) {
+    my $msg;
+    if (ref($errors) && $errors->isa('RUM::UsageErrors')) {
+        $msg = "";
+        for my $error ($errors->errors) {
+            chomp $error;
+            $msg .= "* $error\n";
+        }
+    }
+    else {
+        $msg = "\n$errors\n";
+    }
+    die $msg;
 }
 
 print "[job]\n";
