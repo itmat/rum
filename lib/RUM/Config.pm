@@ -3,6 +3,8 @@ package RUM::Property;
 use strict;
 use warnings;
 
+use Data::Dumper;
+
 use RUM::Usage;
 use RUM::UsageErrors;
 use Carp;
@@ -915,7 +917,15 @@ sub load_default {
 
     ref($self->{_default}) =~ /$class/ or croak "$filename did not return a $class";
     my $output_dir = realpath($self->output_dir);
-    my $loaded_dir = realpath($self->{_default}->output_dir);
+    my $loaded_dir_orig = $self->{_default}->output_dir;
+    my $loaded_dir = realpath($loaded_dir_orig);
+    if (!$loaded_dir) {
+        croak("I loaded a config file from '$output_dir', and it " .
+              "had its output directory set to '$loaded_dir_orig', which does ".
+              "not exist. Have you moved the RUM job directory? If so, you ".
+              "can manually edit $filename and change the output_dir setting ".
+              "to the new output directory");
+    }
     if ($loaded_dir eq $output_dir) {
         delete $self->{output_dir};
     }
