@@ -114,12 +114,12 @@ sub merge  {
 
     my $line1 = <$in1>;
     chomp($line1);
-    $line1 =~ /^seq.(\d+)/ or die "Bad line $_";
+    $line1 =~ /^seq.(\d+)/ or die "Bad line '$_'. I expected the line to start with 'seq.(\\d+)'";
     my $seqnum1 = $1;
 
     my $line2 = <$in2>;
     chomp($line2);
-    $line2 =~ /^seq.(\d+)/ or die "Bad line $_";
+    $line2 =~ /^seq.(\d+)/ or die "Bad line '$_'. I expected the line to start with 'seq.(\\d+)'";
     my $seqnum2 = $1;
 
     if ( ! $line2 ) {
