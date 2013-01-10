@@ -113,19 +113,25 @@ sub merge  {
     my $flag = 0;
 
     my $line1 = <$in1>;
-    chomp($line1);
-    $line1 =~ /^seq.(\d+)/ or die "Bad line '$_'. I expected the line to start with 'seq.(\\d+)'";
-    my $seqnum1 = $1;
-
+    my $seqnum1;
+    if (defined $line1) {
+        chomp($line1);
+        $line1 =~ /^seq.(\d+)/ or die "Bad line '$_'. I expected the line to start with 'seq.(\\d+)'";
+        $seqnum1 = $1;
+    }
+    
     my $line2 = <$in2>;
-    chomp($line2);
-    $line2 =~ /^seq.(\d+)/ or die "Bad line '$_'. I expected the line to start with 'seq.(\\d+)'";
-    my $seqnum2 = $1;
+    my $seqnum2;
+    if (defined $line2) {
+        chomp($line2);
+        $line2 =~ /^seq.(\d+)/ or die "Bad line '$_'. I expected the line to start with 'seq.(\\d+)'";
+        $seqnum2 = $1;
+    }
 
     if ( ! $line2 ) {
 	$flag = 1;
-	unlink("$temp2sortedfile");
-	unlink("$temp3sortedfile");
+	unlink("$temp2sortedfile") if -e $temp2sortedfile;
+	unlink("$temp3sortedfile") if -e $temp3sortedfile;
     }
     else {
         open my $out, '>', $temp3sortedfile;
