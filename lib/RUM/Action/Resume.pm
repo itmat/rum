@@ -72,8 +72,14 @@ this will attempt to resume the job from where it stopped.
 
 If you specify B<--from-step>, I will try to resume the job from that
 step. The step numbers are found in the output of C<rum_runner
-status>. I may need to resume from an earlier step, if I've already cleaned up
-the intermediate output files required by the step you specify.
+status>.
+
+WARNING: If you use B<--from-step>, I may actually have to resume from
+a step much earlier in the pipeline than the one you requested. This
+is because I delete intermediate result files as soon as I am done
+with them, and I may have to recreate the files I need in order to
+restart from the step you requested. In general, using B<--from-step>
+should be considered dangerous.
 
 If you specify any other job settings, it will start from just after
 the preprocessing phase, so it doesn't have to split the files again.
