@@ -56,7 +56,7 @@ rum_runner resume - Resume a job
 
 =head1 SYNOPSIS
 
-  rum_runner restart
+  rum_runner resume
       --output-dir OUTPUT_DIR
       [ --from-step STEP ]
       [ OPTIONS ]
@@ -68,13 +68,12 @@ this if you have a job that crashed or that you had to stop for some
 reason.
 
 If you do not specify any job settings other than B<--output-dir>,
-this will attempt to restart the job from where it stopped.
+this will attempt to resume the job from where it stopped.
 
 If you specify B<--from-step>, I will try to resume the job from that
 step. The step numbers are found in the output of C<rum_runner
-status>. I may need to restart from an earlier step, if I've already
-cleaned up the intermediate output files required by the step you
-specify.
+status>. I may need to resume from an earlier step, if I've already cleaned up
+the intermediate output files required by the step you specify.
 
 If you specify any other job settings, it will start from just after
 the preprocessing phase, so it doesn't have to split the files again.

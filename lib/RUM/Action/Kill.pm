@@ -46,7 +46,7 @@ all the associated output files. This will allow you to start the job
 over again from the beginning, with different parameters if necessary.
 
 If you just want to stop the job, but leave all the output files so
-you can restart it from where it left off, please use C<rum_runner
+you can resume it from where it left off, please use C<rum_runner
 stop> instead.
 
 EOF
