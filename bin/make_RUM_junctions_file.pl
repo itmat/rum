@@ -23,7 +23,7 @@ signals (or those specified by -signal) are colored a shade lighter.
 
 =head1 SYNOPSIS
 
-make_RUM_junctions_file.pl [OPTIONS] --unique-in <rum_unique> --non-unique-in <rum_nu> --genome <genome seq> [--genes <gene annotations>] --all-rum-out <all junctions outfile rum-format> --all-bed-out <all junctions outfile bed-format> --high-quality-bed-out  <high quality junctions outfile bed-format>
+make_RUM_junctions_file.pl [OPTIONS] --unique-in <rum_unique> --non-unique-in <rum_nu> --genome <genome seq> [--genes <gene annotations>] --all-rum-out <all junctions outfile rum-format> --all-bed-out <all junctions outfile bed-format> --high-bed-out  <high quality junctions outfile bed-format>
 
 =over 4
 
@@ -52,7 +52,7 @@ The output file for all junctions in RUM format.
 
 The output file for all junctions in bed format.
 
-=item B<--high-quality-bed-out> I<high_quality_junctions_bed_format>
+=item B<--high-bed-out> I<high_quality_junctions_bed_format>
 
 The output file for high-quality junctions in bed format.
 
