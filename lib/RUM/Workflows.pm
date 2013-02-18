@@ -638,13 +638,13 @@ sub postprocessing_workflow {
             $w->step(
                 $name,
                 ["perl", $c->script("make_RUM_junctions_file.pl"),
-                 "--unique-in", pre($rum_unique),
-                 "--non-unique-in", pre($rum_nu), 
+                 "--sam-in", pre($sam_file),
                  "--genome", $genome_fasta,
                  "--genes", $annotations,
                  "--all-rum-out", post($all_rum),
                  "--all-bed-out", post($all_bed),
                  "--high-bed-out", post($high_bed),
+                 "--sam-out", "foobar",
                  "--faok",
                  @strand_opt]);
         };
