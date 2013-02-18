@@ -23,17 +23,13 @@ signals (or those specified by -signal) are colored a shade lighter.
 
 =head1 SYNOPSIS
 
-make_RUM_junctions_file.pl [OPTIONS] --unique-in <rum_unique> --non-unique-in <rum_nu> --genome <genome seq> [--genes <gene annotations>] --all-rum-out <all junctions outfile rum-format> --all-bed-out <all junctions outfile bed-format> --high-bed-out  <high quality junctions outfile bed-format>
+make_RUM_junctions_file.pl [OPTIONS] --sam-in <sam> --genome <genome seq> [--genes <gene annotations>] --all-rum-out <all junctions outfile rum-format> --all-bed-out <all junctions outfile bed-format> --high-quality-bed-out  <high quality junctions outfile bed-format>
 
 =over 4
 
-=item B<--unique-in> I<rum_unique>
+=item B<--sam-in> I<sam-in>
 
-The RUM_Unique file.
-
-=item B<--non-unique-in> I<rum_nu>
-
-The RUM_NU file.
+The sam file.
 
 =item B<--genome> I<genome_seq>
 
@@ -52,7 +48,7 @@ The output file for all junctions in RUM format.
 
 The output file for all junctions in bed format.
 
-=item B<--high-bed-out> I<high_quality_junctions_bed_format>
+=item B<--high-quality-bed-out> I<high_quality_junctions_bed_format>
 
 The output file for high-quality junctions in bed format.
 
@@ -67,6 +63,12 @@ The size of the smallest intron allowed. Must be > 0, default is 15 bp.
 =item B<--overlap> I<n>
 
 There must be at least this many bases spanning either side of a junction to qualify as high quality. Default is 8 bp.
+
+=item B<--sam-out> I<sam-out>
+
+If you want it to fix the sam file when it finds a junction that has an unknown (or non-canonical) splice signal and it
+also happens to be ambiguous with the last base of the intron equaling the last base of the exon, or converseley, and
+one of those alternate alignments does have a known (or canonical) splice signal.
 
 =item B<--signal> I<wxyz>
 
