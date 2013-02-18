@@ -292,7 +292,7 @@ sub chunk_workflow {
          $c->ram_opt,
          pre($rum_unique),
          "-o", post($rum_unique_sorted),
-         ">>", post($chr_counts_u)]);
+         "--chr-counts-out", post($chr_counts_u)]);
     
     $m->step(
         "Sort RUM_NU", 
@@ -300,7 +300,7 @@ sub chunk_workflow {
          $c->ram_opt,
          pre($rum_nu),
          "-o", post($rum_nu_sorted),
-         ">>", post($chr_counts_nu)]);
+         "--chr-counts-out", post($chr_counts_nu)]);
     
     my @goal = ($rum_unique_sorted,
                 $rum_nu_sorted,

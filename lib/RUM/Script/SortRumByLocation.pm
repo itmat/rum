@@ -26,6 +26,7 @@ sub main {
         "max-chunk-size=s" => \(my $maxchunksize),
         "allow-small-chunks" => \(my $allowsmallchunks = 0),
         "name=s" => \(my $name),
+        "chr-counts-out=s" => \(my $chr_counts_out_fn),
         "help|h"    => sub { RUM::Usage->help },
         "verbose|v" => sub { $log->more_logging(1) },
         "quiet|q"   => sub { $log->less_logging(1) });
@@ -35,6 +36,11 @@ sub main {
 
     $outfile or RUM::Usage->bad(
         "Please specify an output file with -o or --output");
+
+    if ( ! $chr_counts_out_fn ) {
+        RUM::Usage->bad(
+            "Please specify a file to store chromosome counts in with --chr-counts-out");
+    }
 
     my $maxchunksize_specified;
     my $name;
@@ -52,6 +58,8 @@ sub main {
     else {
         $maxchunksize = 9000000
     }
+
+    open my $chr_counts_out, ">>", $chr_counts_out_fn;
 
     # We have a test that exercises the ability to merge chunks together,
     # so allow max chunk sizes smaller than 500000 if that flag is set.
@@ -101,9 +109,9 @@ sub main {
         } else {
             $i = 2;
             $clean = "true";
-            print "\n$infile reads per chromosome:\n\nchr_name\tnum_reads\n";
+            print $chr_counts_out "\n$infile reads per chromosome:\n\nchr_name\tnum_reads\n";
             foreach my $chr (sort by_chromosome keys %$chr_counts) {
-                print "$chr\t$chr_counts->{$chr}\n";
+                print $chr_counts_out "$chr\t$chr_counts->{$chr}\n";
             }
         }
     }
