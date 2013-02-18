@@ -426,6 +426,7 @@ sub postprocessing_workflow {
     my @chr_counts_nu = map { $c->chunk_file("chr_counts_nu", $_) } @chunks;
     my @nu_stats      = map { $c->chunk_file("nu_stats", $_) } @chunks;
 
+    my $sam_file_pre = $c->in_output_dir("RUM.sam.pre");
     my $sam_file = $c->in_output_dir("RUM.sam");
     my @sam_files = map { $c->chunk_file("RUM.sam", $_) } @chunks;
 
@@ -638,13 +639,13 @@ sub postprocessing_workflow {
             $w->step(
                 $name,
                 ["perl", $c->script("make_RUM_junctions_file.pl"),
-                 "--sam-in", pre($sam_file),
+                 "--sam-in", pre($sam_file_pre),
                  "--genome", $genome_fasta,
                  "--genes", $annotations,
                  "--all-rum-out", post($all_rum),
                  "--all-bed-out", post($all_bed),
                  "--high-bed-out", post($high_bed),
-                 "--sam-out", "foobar",
+                 "--sam-out", post($sam_file),
                  "--faok",
                  @strand_opt]);
         };
@@ -797,7 +798,7 @@ sub postprocessing_workflow {
          ["cat", 
           pre($c->sam_header), 
           map(pre($_), @sam_files), 
-          ">", post($sam_file)]);
+          ">", post($sam_file_pre)]);
 
     $w->step(
         "Finish mapping stats",
