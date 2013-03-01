@@ -278,6 +278,7 @@ then gene name (I think). Reads from IN and writes to OUT.
 sub sort_gene_fa_by_chr {
   my @args = @_;
   my ($in, $out) = _open_in_and_out(@args);
+  $log->info("Sorting gene fasta by chr");
 
   my %hash;
   my %seq;
