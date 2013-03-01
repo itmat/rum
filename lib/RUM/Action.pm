@@ -36,7 +36,7 @@ sub load_config {
         };
         if (my $errors = $@) {
             my $msg;
-            if ($errors->isa('RUM::UsageErrors')) {
+            if (ref ($errors) && $errors->isa('RUM::UsageErrors')) {
                 for my $error ($errors->errors) {
                     chomp $error;
                     $msg .= "* $error\n";
