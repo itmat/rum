@@ -27,6 +27,10 @@ sub from_index {
     }
 }
 
+sub species {
+    my ($config) = @_;
+    return lc RUM::Index->load($config->index_dir)->{latin_name};
+}
 
 my %acc_by_species = (
     'homo sapiens'             =>  9606,
@@ -49,22 +53,55 @@ my %acc_by_species = (
 
 sub accession_number {
     my ($config) = @_;
-    my $species = lc RUM::Index->load($config->index_dir)->{latin_name};
-    return $acc_by_species{$species};
+    return $acc_by_species{species($config)} || '';
 }
 
 sub parse_alignment_counts {
     my ($config) = @_;
     my $mapping_stats_filename = $config->in_output_dir('mapping_stats.txt');
-    my $in = open('<', $mapping_stats);
-    
+    open(my $in, '<', $mapping_stats_filename);
+    my ($unique, $non_unique);
+
+    while (defined(my $line = <$in>)) {
+        $line =~ s/,//g;
+        if ($line =~ /^(UNIQUE MAPPERS|At least one of forward or reverse mapped):\s*(\d+)/) {
+            $unique = $2;
+        } 
+        elsif ($line =~ /^(NON-UNIQUE MAPPERS|Total number consistent ambiguous):\s*(\d+)/) {
+            $non_unique = $2;
+        } 
+    }
+    if (!defined $unique) {
+        warn "I couldn't find UNIQUE MAPPERS";
+    }
+    if (!defined $non_unique) {
+        warn "I couldn't find NON-UNIQUE MAPPERS";
+    }
+    return ($unique, $non_unique);
+}
+
+sub unique_alignments {
+    my ($config) = @_;
+    my ($unique, $non_unique) = parse_alignment_counts($config);
+    return $unique;
+}
+
+sub all_alignments {
+    my ($config) = @_;
+    my ($unique, $non_unique) = parse_alignment_counts($config);
+    return $unique + $non_unique;
+}
+
+sub derived_file {
+    my ($config, $filename) = @_;
+    return $filename;
 }
 
 my @fields = (
 
     ['Parameter Value[RUM_version]',            from_prop('version')],
     ['Parameter Value[RUM_index]',              from_prop('index_dir')],
-    ['Parameter Value[species]',                from_index('latin_name')],
+    ['Parameter Value[species]',                \&species],
     ['Term Source REF',                         sub { 'NCBITaxon' } ],
     ['Term Accession Number',                  \&accession_number],
     ['Parameter Value[alt_genes]',              from_prop('alt_genes')],
@@ -85,16 +122,18 @@ my @fields = (
     ['Parameter Value[blat_stepSize]',          from_prop('blat_step_size')],
     ['Parameter Value[blat_repMatch]',          from_prop('blat_rep_match')],
     ['Parameter Value[blat_maxIntron]',         from_prop('blat_max_intron')],
-    ['Derived Data File',                       ],
-    ['Characteristics[Aligned reads]',          ],
-    ['Characteristics[uniquely aligned reads]', ]
+    ['Derived Data File',                       \&derived_file],
+    ['Comment[Aligned reads]',                  \&all_alignments],
+    ['Comment[uniquely aligned reads]',         \&unique_alignments]
 
 );
 
 
 my @props = grep { $_ ne 'forward_reads' &&
                    $_ ne 'reverse_reads' } RUM::Config->property_names;
+
 @props = RUM::Config->property_names;
+
 my $config = eval {
     RUM::Config->new->parse_command_line(load_default => 1,
                                          options => \@props,
@@ -116,27 +155,27 @@ if (my $errors = $@) {
     die $msg;
 }
 
-#print "[job]\n";
-#for my $name ($config->property_names) {
-#    if (defined(my $value = $config->get($name))) {
-#        print $name, "=", $config->get($name), "\n";
-#    }
-#}
 
+opendir my $dir, $config->output_dir;
 
-print "\n\n[index]\n";
-my $index = RUM::Index->load($config->index_dir);
-for my $k (keys %{ $index }) {
-    if (defined (my $v = $index->{$k})) {
-        print "$k=$v\n";
+my @headers = map { $_->[0] } @fields;
+
+print join("\t", @headers), "\n";
+
+for my $filename ( readdir $dir ) {
+
+    next if -d $filename;
+
+    my @values;
+
+    for my $field (@fields) {
+        my ($header, $fn) = @{ $field };
+        $fn ||= sub { };
+        my $val = $fn->($config, $filename);
+        $val = '' unless defined $val;
+        push @values, $val;
     }
+    print join("\t", @values), "\n";
 }
 
 
-
-for my $field (@fields) {
-    my ($header, $fn) = @{ $field };
-    my $value = $fn->($config) if defined $fn;
-    $value = '' unless defined $value;
-    print "$header: $value\n";
-}
