@@ -7,8 +7,6 @@ use autodie;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use RUM::Config;
-use Data::Dumper;
-
 
 sub from_prop {
     my ($prop_name) = @_;
@@ -99,32 +97,32 @@ sub derived_file {
 
 my @fields = (
 
-    ['Parameter Value[RUM_version]',            from_prop('version')],
-    ['Parameter Value[RUM_index]',              from_prop('index_dir')],
-    ['Parameter Value[species]',                \&species],
-    ['Term Source REF',                         sub { 'NCBITaxon' } ],
-    ['Term Accession Number',                  \&accession_number],
-    ['Parameter Value[alt_genes]',              from_prop('alt_genes')],
-    ['Parameter Value[alt_quant]',              from_prop('alt_quants')],
-    ['Parameter Value[blat_only]',              from_prop('blat_only')],
-    ['Parameter Value[count_mismatches]',       from_prop('count_mismatches')],
-    ['Parameter Value[dna]',                    from_prop('dna')],
-    ['Parameter Value[genome_only]',            from_prop('genome_only')],
-    ['Parameter Value[limit_bowtie_nu]',        from_prop('bowtie_nu_limit')],
-    ['Parameter Value[limit_nu]',               from_prop('nu_limit')],
-    ['Parameter Value[max_insertions_per_read]',from_prop('max_insertions')],
-    ['Parameter Value[min_identity]',           from_prop('min_identity')],
-    ['Parameter Value[min_length]',             from_prop('min_length')],
-    ['Parameter Value[preserve_name]',          from_prop('preserve_names')],
-    ['Parameter Value[strand_specific]',        from_prop('strand_specific')],
-    ['Parameter Value[blat_minIdentity]',       from_prop('blat_min_identity')],
-    ['Parameter Value[blat_tileSize]',          from_prop('blat_tile_size')],
-    ['Parameter Value[blat_stepSize]',          from_prop('blat_step_size')],
-    ['Parameter Value[blat_repMatch]',          from_prop('blat_rep_match')],
-    ['Parameter Value[blat_maxIntron]',         from_prop('blat_max_intron')],
-    ['Derived Data File',                       \&derived_file],
-    ['Comment[Aligned reads]',                  \&all_alignments],
-    ['Comment[uniquely aligned reads]',         \&unique_alignments]
+    ['Parameter Value[RUM_version]',        from_prop('version')],
+    ['Parameter Value[index_dir]',          from_prop('index_dir')],
+    ['Parameter Value[species]',            \&species],
+    ['Term Source REF',                     sub { 'NCBITaxon' } ],
+    ['Term Accession Number',               \&accession_number],
+    ['Parameter Value[alt_genes]',          from_prop('alt_genes')],
+    ['Parameter Value[alt_quants]',         from_prop('alt_quants')],
+    ['Parameter Value[blat_only]',          from_prop('blat_only')],
+    ['Parameter Value[count_mismatches]',   from_prop('count_mismatches')],
+    ['Parameter Value[dna]',                from_prop('dna')],
+    ['Parameter Value[genome_only]',        from_prop('genome_only')],
+    ['Parameter Value[bowtie_nu_limit_nu]', from_prop('bowtie_nu_limit')],
+    ['Parameter Value[nu_limit]',           from_prop('nu_limit')],
+    ['Parameter Value[max_insertions]',     from_prop('max_insertions')],
+    ['Parameter Value[min_identity]',       from_prop('min_identity')],
+    ['Parameter Value[min_length]',         from_prop('min_length')],
+    ['Parameter Value[preserve_names]',     from_prop('preserve_names')],
+    ['Parameter Value[strand_specific]',    from_prop('strand_specific')],
+    ['Parameter Value[blat_min_identity]',  from_prop('blat_min_identity')],
+    ['Parameter Value[blat_tile_size]',     from_prop('blat_tile_size')],
+    ['Parameter Value[blat_step_size]',     from_prop('blat_step_size')],
+    ['Parameter Value[blat_rep_match]',     from_prop('blat_rep_match')],
+    ['Parameter Value[blat_max_intron]',    from_prop('blat_max_intron')],
+    ['Derived Data File',                   \&derived_file],
+    ['Comment[Aligned reads]',              \&all_alignments],
+    ['Comment[uniquely aligned reads]',     \&unique_alignments]
 
 );
 
