@@ -251,6 +251,11 @@ sub start {
     if ($c->should_postprocess) {
         $platform->postprocess;
         $self->_final_check;
+        my $isatab_script = $c->script("rum_isatab.pl");
+        my $output_dir = $c->output_dir();
+        my $isatab_file = $c->in_output_dir('ISA.tab');
+        system "$isatab_script -o $output_dir > $isatab_file";
+
     }
     RUM::Lock->release;
 }
