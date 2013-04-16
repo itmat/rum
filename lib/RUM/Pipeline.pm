@@ -253,7 +253,7 @@ sub start {
         $self->_final_check;
         my $isatab_script = $c->script("rum_isatab.pl");
         my $output_dir = $c->output_dir();
-        my $isatab_file = $c->in_output_dir('ISA.tab');
+        my $isatab_file = $c->in_output_dir('a_rum_' . $c->name . '.txt');
         system "$isatab_script -o $output_dir > $isatab_file";
 
     }

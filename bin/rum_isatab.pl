@@ -99,7 +99,10 @@ my @fields = (
 
     ['Parameter Value[RUM_version]',        from_prop('version')],
     ['Parameter Value[index_dir]',          from_prop('index_dir')],
-    ['Parameter Value[species]',            \&species],
+    ['Parameter Value[name]',               from_prop('name')],
+    ['Parameter Value[chunks]',             from_prop('chunks')],
+    ['Parameter Value[forward_reads]',      from_prop('forward_reads')],
+    ['Parameter Value[reverse_reads]',      from_prop('reverse_reads')],
     ['Term Source REF',                     sub { 'NCBITaxon' } ],
     ['Term Accession Number',               \&accession_number],
     ['Parameter Value[alt_genes]',          from_prop('alt_genes')],
