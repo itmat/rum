@@ -16,11 +16,11 @@ our $sam_in = "$INPUT_DIR/rum.sam";
 
 my @tests = (
 
-    { name => "strand-specific-p",
-      all_rum  => "$EXPECTED_DIR/junctions_ps_all.rum",
-      all_bed  => "$EXPECTED_DIR/junctions_ps_all.bed",
-      high_bed => "$EXPECTED_DIR/junctions_high-quality_ps.bed",
-      options => ["-strand", "p"] },
+    # { name => "strand-specific-p",
+    #   all_rum  => "$EXPECTED_DIR/junctions_ps_all.rum",
+    #   all_bed  => "$EXPECTED_DIR/junctions_ps_all.bed",
+    #   high_bed => "$EXPECTED_DIR/junctions_high-quality_ps.bed",
+    #   options => ["-strand", "p"] },
 
     # { name => "strand-specific-m",
     #   all_rum  => "$EXPECTED_DIR/junctions_ms_all.rum",
@@ -28,11 +28,11 @@ my @tests = (
     #   high_bed => "$EXPECTED_DIR/junctions_high-quality_ms.bed",
     #   options => ["-strand", "m"] },
 
-    # { name => "not-strand-specific",
-    #   all_rum  => "$EXPECTED_DIR/junctions_all_temp.rum",
-    #   all_bed  => "$EXPECTED_DIR/junctions_all_temp.bed",
-    #   high_bed => "$EXPECTED_DIR/junctions_high-quality_temp.bed",
-    #   options => [] } 
+    { name => "not-strand-specific",
+      all_rum  => "$EXPECTED_DIR/junctions_all_temp.rum",
+      all_bed  => "$EXPECTED_DIR/junctions_all_temp.bed",
+      high_bed => "$EXPECTED_DIR/junctions_high-quality_temp.bed",
+      options => [] } 
 
 );
 
@@ -42,7 +42,7 @@ use_ok "RUM::Script::MakeRumJunctionsFile";
 
 
 for my $test (@tests) {
-#    $test = $tests[2];
+
     my %test = %{ $test };
 
     my ($all_rum, $all_bed, $high_bed) = @test{qw(all_rum all_bed high_bed)};
