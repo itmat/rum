@@ -162,7 +162,7 @@ sub doEverything  {
     my $outfile  = $options{outfile};
     my $infile  = $options{infile};
 
-    my $tempdir = File::Temp->newdir;
+    my $tempdir = File::Temp::tempdir(CLEANUP => 1);
 
     open(FINALOUT, ">", $outfile)
         or die "Can't open $outfile for writing: $!";

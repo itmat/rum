@@ -209,13 +209,23 @@ sub bowtie {
   system(@cmd) == 0 or die "Couldn't run '@cmd': $!";
 }
 
+my $no_genes;
+
 # run bowtie on genes index
 warn "\nRunning bowtie on the gene index, please wait...\n\n";
-bowtie($genes_fa, "$organism/${NAME}_genes");
+if (-s $genes_fa) {
+    bowtie($genes_fa, "$organism/${NAME}_genes");
+}
+else {
+    $no_genes = 1;
+}
 
 # run bowtie on genome index
 warn "running bowtie on the genome index, please wait this can take some time...\n\n";
 bowtie($genome_one_line_seqs, "$organism/${organism}_genome");
 
+if ($no_genes) {
+    warn("The $genes_fa file is empty, which means this will be a genome-only index, with no gene annotations. If this is not what you intended, then something has gone wrong.\n");
+}
 warn "ok, all done...\n\n";
 

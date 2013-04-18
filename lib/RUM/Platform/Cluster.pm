@@ -67,6 +67,7 @@ sub process {
 
         # Refresh the cluster's status so that calls to proc_ok will
         # return the latest status
+        $log->info("Updating status (in Cluster)");
         $self->update_status;
 
         for my $t (@tasks) {
@@ -86,7 +87,7 @@ sub process {
             # cluster, increment $still_running so we wait for it to
             # finish.
             elsif ($self->proc_ok($chunk)) {
-                $log->debug("Looks like chunk $chunk is running or waiting");
+                $log->info("Looks like chunk $chunk is running or waiting");
             }
 
             # Otherwise the task may have died for some reason, but it may just 
