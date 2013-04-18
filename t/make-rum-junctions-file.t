@@ -12,8 +12,7 @@ use RUM::TestUtils;
 our $annotations = $RUM::TestUtils::GENE_INFO;
 our $genome = $RUM::TestUtils::GENOME_FA;
 
-our $unique = "$SHARED_INPUT_DIR/RUM_Unique.1";
-our $non_unique = "$SHARED_INPUT_DIR/RUM_NU.1";
+our $sam_in = "$INPUT_DIR/rum.sam";
 
 my @tests = (
 
@@ -23,17 +22,19 @@ my @tests = (
       high_bed => "$EXPECTED_DIR/junctions_high-quality_ps.bed",
       options => ["-strand", "p"] },
 
-    { name => "strand-specific-m",
-      all_rum  => "$EXPECTED_DIR/junctions_ms_all.rum",
-      all_bed  => "$EXPECTED_DIR/junctions_ms_all.bed",
-      high_bed => "$EXPECTED_DIR/junctions_high-quality_ms.bed",
-      options => ["-strand", "m"] },
+    # { name => "strand-specific-m",
+    #   all_rum  => "$EXPECTED_DIR/junctions_ms_all.rum",
+    #   all_bed  => "$EXPECTED_DIR/junctions_ms_all.bed",
+    #   high_bed => "$EXPECTED_DIR/junctions_high-quality_ms.bed",
+    #   options => ["-strand", "m"] },
 
-    { name => "not-strand-specific",
-      all_rum  => "$EXPECTED_DIR/junctions_all_temp.rum",
-      all_bed  => "$EXPECTED_DIR/junctions_all_temp.bed",
-      high_bed => "$EXPECTED_DIR/junctions_high-quality_temp.bed",
-      options => [] } );
+    # { name => "not-strand-specific",
+    #   all_rum  => "$EXPECTED_DIR/junctions_all_temp.rum",
+    #   all_bed  => "$EXPECTED_DIR/junctions_all_temp.bed",
+    #   high_bed => "$EXPECTED_DIR/junctions_high-quality_temp.bed",
+    #   options => [] } 
+
+);
 
 plan tests => 1 + 3 * @tests;
 
@@ -51,8 +52,8 @@ for my $test (@tests) {
     my $high_bed_out = temp_filename(TEMPLATE => "$name-high-bed.XXXXXX");
 
     @ARGV = (
-        "--unique-in",     $unique,
-        "--non-unique-in", $non_unique,
+        "--sam-in",        $sam_in,
+        "--sam-out",       '/dev/null',
         "--genome",        $genome,
         "--genes",         $annotations,
         "--all-rum-out",   $all_rum_out,
