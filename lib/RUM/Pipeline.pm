@@ -17,8 +17,8 @@ use RUM::Platform::Local;
 
 my $log = RUM::Logging->get_logger;
 
-our $VERSION = 'v2.0.5_02';
-our $RELEASE_DATE = "January 10, 2012";
+our $VERSION = 'v2.0.5_03';
+our $RELEASE_DATE = "April 18, 2012";
 
 our $LOGO = <<'EOF';
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -621,7 +621,7 @@ Print the status of the postprocessing steps of the workflow.
 
 =head1 VERSION
 
-Version 2.0.5_02
+Version 2.0.5_03
 
 =cut
 
