@@ -276,7 +276,12 @@ sub doEverything  {
                         $temp_merged_out,
                         file_iterator($in1, separate => $separate),
                         file_iterator($in2, separate => $separate));
-                    close($temp_merged_out);
+                    eval {
+                        close($temp_merged_out);
+                    };
+                    if ($@) {
+                        $log->warn($@);
+                    }
                     $log->info("Done merging");
 
                     mv $tempfiles[2], $tempfiles[0]
