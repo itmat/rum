@@ -44,6 +44,15 @@ Comparator that compares chromosome names.
 sub cmpChrs ($$) {
     my $a2_c = lc($_[1]);
     my $b2_c = lc($_[0]);
+
+    # M should always be greater than V.
+    if ($a2_c eq 'chrm' && $b2_c eq 'chrv') {
+        return -1;
+    }
+    elsif ($b2_c eq 'chrm' && $a2_c eq 'chrv') {
+        return 1;
+    }
+
     if($a2_c eq 'finished1234') {
 	return 1;
     }
@@ -78,6 +87,7 @@ sub cmpChrs ($$) {
     if ($b2_c =~ /$a2_c/) {
 	return 1;
     }
+
     # dealing with roman numerals starts here
     if ($a2_c =~ /chr([ivx]+)/ && $b2_c =~ /chr([ivx]+)/) {
 	$a2_c =~ /chr([ivx]+)/;
@@ -115,7 +125,6 @@ sub cmpChrs ($$) {
     if ($a2_c =~ /chr([ivx]+)/ && !($b2_c =~ /chr([a-z]+)/) && !($b2_c =~ /chr(\d+)/)) {
 	return 1;
     }
-
     if ($b2_c =~ /m$/ && $a2_c =~ /vi+/) {
 	return 1;
     }
@@ -136,6 +145,7 @@ sub cmpChrs ($$) {
     if ($b2_c =~ /chr([a-z])$/ && $a2_c =~ /chr.*_/) {
         return -1;
     }
+
     if ($a2_c =~ /chr(\d+)/) {
         my $numa = $1;
         if ($b2_c =~ /chr(\d+)/) {
@@ -166,6 +176,7 @@ sub cmpChrs ($$) {
             return 1;
         }
     }
+
     if ($a2_c =~ /chrx(.*)/ && ($b2_c =~ /chr(y|m)$1/)) {
 	return 1;
     }
@@ -184,6 +195,7 @@ sub cmpChrs ($$) {
     if ($b2_c =~ /chr\d/ && !($a2_c =~ /chr[^\d]/)) {
 	return -1;
     }
+
     if ($a2_c =~ /chr[^xy\d]/ && (($b2_c =~ /chrx/) || ($b2_c =~ /chry/))) {
         return -1;
     }
@@ -216,6 +228,7 @@ sub cmpChrs ($$) {
             return -1;
         }
     }
+
     my $flag_c = 0;
     while ($flag_c == 0) {
         $flag_c = 1;
@@ -239,6 +252,7 @@ sub cmpChrs ($$) {
             }
         }
     }
+
     if ($a2_c le $b2_c) {
 	return 1;
     }
