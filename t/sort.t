@@ -1,7 +1,7 @@
 #!perl
 # -*- cperl -*-
 
-use Test::More tests => 21;
+use Test::More tests => 24;
 use lib "lib";
 
 use strict;
