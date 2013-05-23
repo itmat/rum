@@ -1018,7 +1018,7 @@ sub main {
                 if (!($rum_u_forward =~ /\S/) && $rum_u_reverse =~ /\S/) { # forward unmapped, reverse mapped
                     $forward_record[$RNAME] = $rur[1];
                     $forward_record[$POS]   = $start_reverse;
-                    $forward_record[$MAPQ]  = $mapq_val;
+                    $forward_record[$MAPQ]  = $MAPQ_NONE;
                     $forward_record[$CIGAR]  = $DEFAULT_CIGAR;
                     $forward_record[$RNEXT] = $RNEXT_SAME;
                     $forward_record[$PNEXT] = $start_reverse;
@@ -1082,7 +1082,7 @@ sub main {
                     if (!($rum_u_reverse =~ /\S/) && $rum_u_forward =~ /\S/) { # reverse unmapped, forward mapped
                         $reverse_record[$RNAME] = $ruf[1];
                         $reverse_record[$POS]   = $start_reverse;
-                        $reverse_record[$MAPQ]  = $mapq_val;
+                        $reverse_record[$MAPQ]  = $MAPQ_NONE;
                         $reverse_record[$CIGAR] = $DEFAULT_CIGAR;
                         $reverse_record[$RNEXT] = $RNEXT_SAME;
                         $reverse_record[$PNEXT] = $start_forward;
@@ -1127,6 +1127,7 @@ sub main {
 
         if ($unique_mapper_found eq "false" && $non_unique_mappers_found eq "false") {
             # neither forward nor reverse map
+
             my $mapq_val = $MAPQ_NONE;
 
             if ($paired eq "false") {
