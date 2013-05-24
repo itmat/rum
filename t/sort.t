@@ -1,14 +1,14 @@
 #!perl
 # -*- cperl -*-
 
-use Test::More tests => 21;
+use Test::More tests => 24;
 use lib "lib";
 
 use strict;
 use warnings;
 
 BEGIN { 
-  use_ok('RUM::Sort', qw(by_location));
+  use_ok('RUM::Sort', qw(by_location cmpChrs));
 }
 
 
@@ -33,10 +33,7 @@ my @less_than = (
     [{},
      {chr => "chr2", start => 1, end => 3, seqnum => 1, seq => "c"}, "seqnum"],
 
-
-
 );
-
 
 
 for my $comparison (@less_than) {
@@ -46,3 +43,6 @@ for my $comparison (@less_than) {
 
 }
 
+ok(cmpChrs('chrV', 'chrX') < 0);
+ok(cmpChrs('chrX', 'chrM') < 0);
+ok(cmpChrs('chrM', 'chrV') > 0);
