@@ -66,7 +66,9 @@ information.
 Installing RUM
 --------------
 
-You can download the latest production release from
+You can download a specific version of RUM from the tags page on
+github: https://github.com/PGFI/rum/tags. The latest production
+release is always available at
 https://github.com/PGFI/rum/archive/master.tar.gz. The latest
 bleeding-edge development code (which may be unstable) is available
 here: https://github.com/PGFI/rum/archive/develop.tar.gz.
