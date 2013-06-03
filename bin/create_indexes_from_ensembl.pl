@@ -67,18 +67,21 @@ my $genome_fa                 = "${genome_base}.fa";
 my $genome_one_line_seqs_temp = "${genome_base}_one-line-seqs_temp.fa";
 my $genome_one_line_seqs      = "$name/${genome_base}_one-line-seqs.fa";
 
-open INFILE, "<", $genome;
+open my $infile, "<", $genome;
 open OUTFILE, ">", $genome_fa;
 my $flag = 0;
 my $chr = "";
-while(my $line = <INFILE>) {
+while(my $line = <$infile>) {
     if($line =~ />/) {
+
 	if($line =~ /^>EG:([^\s]+)\s/) {
 	    $chr = $1;
-	} else {
-	    $line =~ /^>([^ ]+) /;
+	} elsif ($line =~ /^>([^\s]+)\s*/) {
 	    $chr = $1;
 	}
+        else {
+            die "Couldn't parse chromosome from $line\n";
+        }
 
         if($flag == 0) {
             print OUTFILE ">$chr\n";
@@ -93,7 +96,7 @@ while(my $line = <INFILE>) {
     }
 }
 print "\n";
-close(INFILE);
+close($infile);
 close(OUTFILE);
 
 modify_fa_to_have_seq_on_one_line($genome_fa, $genome_one_line_seqs_temp);
