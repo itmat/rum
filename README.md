@@ -66,10 +66,12 @@ information.
 Installing RUM
 --------------
 
-We recommend that you download the latest release from
-https://github.com/PGFI/rum/downloads. If you need the latest
-development version, you can fork the repository from
-https://github.com/PGFI/rum. 
+You can download a specific version of RUM from the tags page on
+github: https://github.com/PGFI/rum/tags. The latest production
+release is always available at
+https://github.com/PGFI/rum/archive/master.tar.gz. The latest
+bleeding-edge development code (which may be unstable) is available
+here: https://github.com/PGFI/rum/archive/develop.tar.gz.
 
 You have a few different options for installing RUM, depending on
 whether you want it in a system location, in an arbitrary user
