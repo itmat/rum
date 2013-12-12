@@ -204,7 +204,9 @@ sub _check_read_file_pair {
     my @reads = $self->config->reads;
 
     if (@reads == 2) {
-        if ($reads[0] !~ /\.gz$/ && 
+        if ($self->config->variable_length_reads) {
+            $self->say("Working with variable length reads; skipping check to make sure files are the same size.");
+        } elsif ($reads[0] !~ /\.gz$/ && 
             $reads[1] !~ /\.gz$/) {
             $self->_check_read_files_same_size();
         }
