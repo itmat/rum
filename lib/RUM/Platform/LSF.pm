@@ -28,7 +28,7 @@ sub new {
     local $_;
 
     my $self = $class->SUPER::new($config);
-    
+
     my $dir = $config->output_dir;
 
     $self->{cmd} = {};
@@ -141,7 +141,7 @@ sub submit_postproc {
 ### Checking job status
 ###
 
-sub log_last_status_warning { 
+sub log_last_status_warning {
     my ($self) = @_;
     my @lines = @{ $self->{last_bjobs_output} || []};
     for my $line (@lines) {
@@ -175,7 +175,7 @@ sub update_status {
         }
     }
 
-    die "I tried to update my status with bjobs $tries times and it ". 
+    die "I tried to update my status with bjobs $tries times and it ".
         "failed every time. This means that I can't determine the " .
         "status of the jobs I've started. It could be that they've all ".
         "failed, but it could also just be that bjobs is returning ".
@@ -272,6 +272,11 @@ sub _parse_bjobs_out {
         my @fields = split /\s+/, $line;
 
         my $job = $fields[0];
+        # Handles cases where LSF reports the ids of arrayed jobs in the
+        # jid[\d+] format.
+        if ($job =~ /^(.+)\[\d+\]/ ) {
+            $job = $1;
+        }
         my $state = $fields[2];
         my $name = $fields[6];
         my $task;
@@ -330,11 +335,11 @@ sub _build_job_states {
 
 sub _job_state {
     my ($self, $jid, $chunk) = @_;
-    
+
     my $state = $self->{job_states}{$jid} or return undef;
-    
+
     if (defined $chunk) {
-        ref($state) =~ /^ARRAY/ or croak 
+        ref($state) =~ /^ARRAY/ or croak
             "Corrupt job state, should be array ref, was $state";
         return $state->[$chunk];
     }
@@ -347,7 +352,7 @@ sub _some_job_ok {
     my @jids = @{ $jids } or return 0;
     my @states = map { $self->_job_state($_, $task) || "" } @jids;
     my @ok = grep { $_ && /^(DONE|RUN|SSUSP|USUSP|PSUSP|PEND)/ } @states;
-    
+
     if ($log->is_debug) {
         $log->debug("Jids are " . Dumper(\@jids));
     }
@@ -355,9 +360,9 @@ sub _some_job_ok {
     my $task_label = "phase $phase " . ($task ? " task $task" : "");
 
     my $msg = (
-        "I have these jobs for phase $task_label: ". 
-        "[" . 
-        join(", ", 
+        "I have these jobs for phase $task_label: ".
+        "[" .
+        join(", ",
              map "$jids[$_]($states[$_])", grep { $states[$_] } (0 .. $#jids))
         . "] ");
 
@@ -418,7 +423,7 @@ sub _parent_jids   { $_[0]->{jids}{parent} };
 sub _preproc_jids  { $_[0]->{jids}{preproc} };
 sub _proc_jids     { $_[0]->{jids}{proc} };
 
-sub _script_filename { 
+sub _script_filename {
     my ($self, $phase) = @_;
     return $self->config->in_output_dir(
         "rum_" . $self->config->name . "_$phase" . ".sh");
@@ -493,7 +498,7 @@ sub clean {
     for my $phase (@JOB_TYPES) {
         unlink $self->_script_filename($phase);
     }
-    unlink $self->config->in_output_dir($JOB_ID_FILE);    
+    unlink $self->config->in_output_dir($JOB_ID_FILE);
 }
 
 1;
