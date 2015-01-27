@@ -17,8 +17,8 @@ use RUM::Platform::Local;
 
 my $log = RUM::Logging->get_logger;
 
-our $VERSION = 'v2.0.5_05';
-our $RELEASE_DATE = "June 3, 2012";
+our $VERSION = 'v2.0.5_06';
+our $RELEASE_DATE = "January 27, 2015";
 
 our $LOGO = <<'EOF';
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -81,12 +81,12 @@ sub initialize {
         die("It looks like there's already a job initialized in " .
             $c->output_dir);
     }
-    
+
     # Make sure we have bowtie, blat, and mdust, and that we're not
     # running on the head node of the PGFI cluster.
     RUM::SystemCheck::check_deps;
     RUM::SystemCheck::check_gamma(config => $c);
-    
+
     # Make my output dir and chunks dir.
     my @dirs = (
         $c->output_dir,
@@ -141,7 +141,7 @@ sub reset_job {
     }
 
     my $processing_steps;
-    
+
     $self->say("Resetting to step $wanted_step\n");
 
     for my $chunk (1 .. $config->chunks) {
@@ -180,11 +180,11 @@ sub _reset_workflow {
                 $keep{$file} = 1;
             }
         }
-        
+
     }
-    
+
     my @remove = grep { !$keep{$_} } $state->flags;
-    
+
     unlink @remove;
     return $step;
 }
@@ -221,7 +221,7 @@ sub start {
         $platform->start_parent;
         return;
     }
-    
+
     my $dir = $c->output_dir;
     $self->say(
         "If this is a big job, you should keep an eye on the rum_errors*.log",
@@ -236,7 +236,7 @@ sub start {
     $self->_check_read_lengths;
 
     my $chunk = $self->config->chunk;
-    
+
     # If user said --process or at least didn't say --preprocess or
     # --postprocess, then check if we still need to process, and if so
     # execute the processing phase.
@@ -267,8 +267,8 @@ sub _show_match_length {
     if ($c->min_length) {
         $self->logsay(
             "I am going to report alignments of length " .
-            $c->min_length . 
-            " or longer, based on the user providing a " . 
+            $c->min_length .
+            " or longer, based on the user providing a " .
             "--min-length option.");
     }
     elsif ($c->read_length && $c->read_length ne 'v') {
@@ -316,16 +316,16 @@ than 10 gigabytes per million reads, at which point you might want to
 consider removing the --no-bowtie-nu-limit option.
 
 EOF
-     
+
         $self->logsay($msg);
-   
+
     }
 }
 
 sub _final_check {
     my ($self) = @_;
     my $ok = 1;
-    
+
     $self->say();
     $self->logsay("Checking for errors");
     $self->logsay("-------------------");
@@ -352,7 +352,7 @@ sub _all_files_end_with_newlines {
                       RUM_Unique.cov
                       RUM_NU.cov
                       RUM.sam
-                      
+
               );
 
     if ($c->should_quantify) {
@@ -365,11 +365,11 @@ sub _all_files_end_with_newlines {
     }
 
     my $result = 1;
-    
+
     for $file (@files) {
         my $file = $self->config->in_output_dir($file);
         my $tail = `tail $file`;
-        
+
         unless ($tail =~ /\n$/) {
             $log->error("RUM_Unique does not end with a newline, that probably means it is incomplete.");
             $result = 0;
@@ -496,7 +496,7 @@ sub print_processing_status {
         my $w = $workflows->chunk_workflow($chunk);
         my $m = $w->state_machine;
         my $state = $w->state;
-        $m->recognize($plan, $state) 
+        $m->recognize($plan, $state)
             or croak "Plan doesn't work for chunk $chunk";
 
         my $skip = $m->skippable($plan, $state);
